@@ -1,5 +1,4 @@
 import os
-import os
 import json
 import pickle
 from langchain_aws import ChatBedrock
@@ -10,7 +9,7 @@ from langchain.prompts import PromptTemplate
 from langchain.output_parsers import StructuredOutputParser, ResponseSchema
 from langchain.schema import OutputParserException
 
-from controller import Controller
+from core import Controller
 
 CONVERSATION_HISTORY_FILE = "conversation_history.pkl"
 
