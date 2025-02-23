@@ -74,6 +74,28 @@ class Controller:
                 if user_input.lower() == "quit":
                     self._graceful_exit()
                     break
+
+                try:
+                    response = self.process_input(user_input)
+                    if isinstance(response, dict) and all(
+                        k in response
+                        for k in ["sensations", "thoughts", "memories", "self_reflection"]
+                    ):
+                        # Print the internal state
+                        print("\nBrain's internal state:")
+                        internal_state = {k: v for k, v in response.items() if k != "response"}
+                        print(json.dumps(internal_state, indent=2))
+                        
+                        # Print the direct response
+                        if "response" in response:
+                            print("\nBrain says:", response["response"])
+                    else:
+                        logger.error(f"Invalid response format: {response}")
+                        print("\nBrain: I apologize, but my response was not properly formatted")
+                except Exception as e:
+                    logger.error(f"Error processing input: {e}")
+                    print("\nBrain: I apologize, but I encountered an error processing your input")
+
         except KeyboardInterrupt:
             print("\n")
             self._graceful_exit()
@@ -90,28 +112,3 @@ class Controller:
         for line in farewell.split('\n'):
             print(colored(line.strip(), 'cyan', attrs=['bold']))
         sys.exit(0)
-
-            try:
-                response = self.process_input(user_input)
-                if isinstance(response, dict) and all(
-                    k in response
-                    for k in ["sensations", "thoughts", "memories", "self_reflection"]
-                ):
-                    # Print the internal state
-                    print("\nBrain's internal state:")
-                    internal_state = {k: v for k, v in response.items() if k != "response"}
-                    print(json.dumps(internal_state, indent=2))
-                    
-                    # Print the direct response
-                    if "response" in response:
-                        print("\nBrain says:", response["response"])
-                else:
-                    logger.error(f"Invalid response format: {response}")
-                    print(
-                        "\nBrain: I apologize, but my response was not properly formatted"
-                    )
-            except Exception as e:
-                logger.error(f"Error processing input: {e}")
-                print(
-                    "\nBrain: I apologize, but I encountered an error processing your input"
-                )
