@@ -101,6 +101,39 @@ def save_conversation_history(conversation_history):
         pickle.dump(conversation_history, f)
 
 
+def interactive_shell(chain, conversation_history):
+    print("Welcome to the Brain in a Cup interactive shell!")
+    print("Chat with the brain by typing your message and pressing Enter.")
+    print("Type 'quit' to exit the shell.")
+
+    while True:
+        user_input = input("\nYou: ")
+        
+        if user_input.lower() == 'quit':
+            break
+        
+        # Input to the model
+        model_input = {
+            "name": "Brain",
+            "user_input": user_input,
+        }
+
+        # Run model and handle errors gracefully
+        try:
+            response = chain.invoke(model_input)
+            print("\nBrain:", json.dumps(response, indent=2))
+
+            # Append the user input and model response to the conversation history
+            conversation_history.append(
+                {"user_input": model_input, "model_response": response}
+            )
+
+            save_conversation_history(conversation_history)
+
+        except OutputParserException as e:
+            print("⚠️ Failed to parse JSON. Raw model response below:")
+            print(e)  # Print the actual model output for debugging
+
 def main():
     chat_bedrock = setup_llm()
     prompt_template = setup_prompt_template()
@@ -108,28 +141,8 @@ def main():
     chain = setup_chain(prompt_template, chat_bedrock, parser)
 
     conversation_history = load_conversation_history()
-
-    # Input to the model
-    user_input = {
-        "name": "Brain",
-        "user_input": "Describe your existence. What sensations and thoughts are you experiencing in your current state?",
-    }
-
-    # Run model and handle errors gracefully
-    try:
-        response = chain.invoke(user_input)
-        print("Model's response (parsed JSON):", json.dumps(response, indent=2))
-
-        # Append the user input and model response to the conversation history
-        conversation_history.append(
-            {"user_input": user_input, "model_response": response}
-        )
-
-        save_conversation_history(conversation_history)
-
-    except OutputParserException as e:
-        print("⚠️ Failed to parse JSON. Raw model response below:")
-        print(e)  # Print the actual model output for debugging
+    
+    interactive_shell(chain, conversation_history)
 
 
 if __name__ == "__main__":
