@@ -12,6 +12,7 @@ from langchain.schema import OutputParserException
 
 CONVERSATION_HISTORY_FILE = "conversation_history.pkl"
 
+
 def setup_llm():
     # Ensure AWS credentials are set
     os.environ["AWS_REGION"] = "us-east-1"
@@ -21,6 +22,7 @@ def setup_llm():
         model="amazon.nova-pro-v1:0",
     )
     return chat_bedrock
+
 
 def setup_prompt_template():
     # Define a better prompt template that asks for JSON explicitly
@@ -44,10 +46,13 @@ Assistant:
     )
     return prompt_template
 
+
 def setup_parser():
     # Define the expected JSON schema
     response_schemas = [
-        ResponseSchema(name="foo", description="a list of strings", type="List[string]"),
+        ResponseSchema(
+            name="foooooo", description="a list of strings", type="List[string]"
+        ),
         ResponseSchema(name="bar", description="a string", type="string"),
     ]
 
@@ -55,10 +60,12 @@ def setup_parser():
     parser = StructuredOutputParser.from_response_schemas(response_schemas)
     return parser
 
+
 def setup_chain(prompt_template, chat_bedrock, parser):
     # Chain components together
     chain = prompt_template | chat_bedrock | parser
     return chain
+
 
 def load_conversation_history():
     # Load conversation history from pkl file if it exists, otherwise create a new one
@@ -69,16 +76,19 @@ def load_conversation_history():
         conversation_history = []
     return conversation_history
 
+
 def save_conversation_history(conversation_history):
     # Save the updated conversation history to the pkl file
     with open(CONVERSATION_HISTORY_FILE, "wb") as f:
         pickle.dump(conversation_history, f)
+
 
 # Input to the model
 user_input = {
     "name": "Brain",
     "user_input": "Describe your existence. What sensations and thoughts are you experiencing in your current state?",
 }
+
 
 def main():
     chat_bedrock = setup_llm()
@@ -100,13 +110,16 @@ def main():
         print("Model's response (parsed JSON):", response)
 
         # Append the user input and model response to the conversation history
-        conversation_history.append({"user_input": user_input, "model_response": response})
+        conversation_history.append(
+            {"user_input": user_input, "model_response": response}
+        )
 
         save_conversation_history(conversation_history)
 
     except OutputParserException as e:
         print("⚠️ Failed to parse JSON. Raw model response below:")
         print(e)  # Print the actual model output for debugging
+
 
 if __name__ == "__main__":
     main()
