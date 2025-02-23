@@ -1,6 +1,8 @@
 import os
 import json
 from langchain_aws import ChatBedrock
+
+CONVERSATION_HISTORY_FILE = "conversation_history.pkl"
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.output_parsers import StructuredOutputParser, ResponseSchema
