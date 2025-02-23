@@ -105,6 +105,18 @@ def save_conversation_history(conversation_history):
         pickle.dump(conversation_history, f)
 
 
+def get_context(conversation_history, n=5):
+    # Get the last n interactions from the conversation history
+    recent_interactions = conversation_history[-n:]
+    
+    # Format the interactions into a string to use as context
+    context = ""
+    for interaction in recent_interactions:
+        context += f"User: {interaction['user_input']['user_input']}\n"
+        context += f"Brain: {interaction['model_response']}\n\n"
+    
+    return context
+
 def interactive_shell(chain, conversation_history):
     print("Welcome to the Brain in a Cup interactive shell!")
     print("Chat with the brain by typing your message and pressing Enter.")
@@ -155,14 +167,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-def get_context(conversation_history, n=5):
-    # Get the last n interactions from the conversation history
-    recent_interactions = conversation_history[-n:]
-    
-    # Format the interactions into a string to use as context
-    context = ""
-    for interaction in recent_interactions:
-        context += f"User: {interaction['user_input']['user_input']}\n"
-        context += f"Brain: {interaction['model_response']}\n\n"
-    
-    return context
