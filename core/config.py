@@ -35,7 +35,8 @@ When responding, **ONLY return valid JSON** formatted exactly as follows:
     "sensations": ["string1", "string2", "string3"],
     "thoughts": ["string1", "string2", "string3"],
     "memories": "string",
-    "self_reflection": "string"
+    "self_reflection": "string",
+    "response": "string - your direct response to the user"
 }}
 User: {user_input}
 Assistant:

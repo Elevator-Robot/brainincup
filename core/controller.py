@@ -78,7 +78,14 @@ class Controller:
                     k in response
                     for k in ["sensations", "thoughts", "memories", "self_reflection"]
                 ):
-                    print("\nBrain:", json.dumps(response, indent=2))
+                    # Print the internal state
+                    print("\nBrain's internal state:")
+                    internal_state = {k: v for k, v in response.items() if k != "response"}
+                    print(json.dumps(internal_state, indent=2))
+                    
+                    # Print the direct response
+                    if "response" in response:
+                        print("\nBrain says:", response["response"])
                 else:
                     logger.error(f"Invalid response format: {response}")
                     print(

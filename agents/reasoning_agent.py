@@ -31,7 +31,8 @@ class ReasoningAgent:
                 "sensations": ["Error processing response"],
                 "thoughts": ["Unable to parse thoughts"],
                 "memories": "Memory retrieval failed",
-                "self_reflection": "Self-reflection unavailable"
+                "self_reflection": "Self-reflection unavailable",
+                "response": "I apologize, but I'm having trouble processing that right now."
             }
         except Exception as e:
             print(f"⚠️ Parser error: {e}")
