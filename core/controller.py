@@ -1,9 +1,6 @@
 import json
 import logging
 
-# Set up logging
-logging.basicConfig(level=logging.ERROR)
-logger = logging.getLogger(__name__)
 from agents import (
     PerceptionAgent,
     MemoryAgent,
@@ -14,6 +11,10 @@ from agents import (
 )
 from core.config import setup_llm, setup_prompt_template, setup_parser
 
+# Set up logging
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
+
 
 class Controller:
     def __init__(self):
@@ -21,7 +22,7 @@ class Controller:
         llm = setup_llm()
         prompt_template = setup_prompt_template()
         parser = setup_parser()
-        
+
         # Initialize agents with their required components
         self.perception_agent = PerceptionAgent(prompt_template)
         self.memory_agent = MemoryAgent()
@@ -29,27 +30,26 @@ class Controller:
         self.emotional_agent = EmotionalAgent()
         self.language_agent = LanguageAgent(llm)
         self.self_agent = SelfAgent()
-        
+
         # Load initial conversation history
         self.conversation_history = self.memory_agent.load_conversation_history()
-
 
     def process_input(self, user_input):
         # Get context from Memory Agent
         context = self.memory_agent.retrieve_context(self.conversation_history)
-        
+
         # Perception Agent formats the prompt
         formatted_prompt = self.perception_agent.process_input(user_input, context)
-        
+
         # Language Agent generates raw response
         raw_response = self.language_agent.generate_response(formatted_prompt)
-        
+
         # Reasoning Agent parses the response
         parsed_response = self.reasoning_agent.analyze_input(raw_response, context)
-        
+
         # Emotional Agent modifies the response
         modified_response = self.emotional_agent.apply_emotions(parsed_response)
-        
+
         # Self Agent reviews final response
         final_response = self.self_agent.review_response(modified_response)
 
@@ -74,11 +74,18 @@ class Controller:
 
             try:
                 response = self.process_input(user_input)
-                if isinstance(response, dict) and all(k in response for k in ["sensations", "thoughts", "memories", "self_reflection"]):
+                if isinstance(response, dict) and all(
+                    k in response
+                    for k in ["sensations", "thoughts", "memories", "self_reflection"]
+                ):
                     print("\nBrain:", json.dumps(response, indent=2))
                 else:
                     logger.error(f"Invalid response format: {response}")
-                    print("\nBrain: I apologize, but my response was not properly formatted")
+                    print(
+                        "\nBrain: I apologize, but my response was not properly formatted"
+                    )
             except Exception as e:
                 logger.error(f"Error processing input: {e}")
-                print("\nBrain: I apologize, but I encountered an error processing your input")
+                print(
+                    "\nBrain: I apologize, but I encountered an error processing your input"
+                )
