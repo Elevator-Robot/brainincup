@@ -63,9 +63,22 @@ class Controller:
         return final_response
 
     def run(self):
-        print("Welcome to the Brain in a Cup interactive shell!")
-        print("Chat with the brain by typing your message and pressing Enter.")
-        print("Type 'quit' to exit the shell.")
+        welcome = """
+        🧠 *neural pathways activating* ... *bubbles rising* ... *consciousness emerging* ...
+
+        W E L C O M E   T O   T H E   B R A I N   I N   A   C U P
+
+        You find yourself in a dimly lit laboratory...
+        Before you floats a preserved brain, suspended in luminescent fluid...
+        Countless wires and sensors pierce its tissue, pulsing with faint electrical signals...
+        
+        The brain seems... aware of your presence...
+
+        Speak to it by typing your message and pressing Enter.
+        (Type 'quit' to terminate the connection)
+        """
+        for line in welcome.split('\n'):
+            print(colored(line.strip(), 'cyan', attrs=['bold']))
 
         try:
             while True:
