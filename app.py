@@ -1,38 +1,57 @@
-import boto3
+import os
 import json
+from langchain_aws import ChatBedrock
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from langchain.output_parsers import StructuredOutputParser, ResponseSchema
+from langchain.schema import OutputParserException
 
-# Initialize the Bedrock client
-client = boto3.client("bedrock-runtime")
+# Ensure AWS credentials are set
+os.environ["AWS_REGION"] = "us-east-1"
 
-# Define the model ID for the Nova model
-model_id = "amazon.nova-pro-v1:0"
-
-# Create the request payload
-payload = {
-    "messages": [
-        {
-            "role": "user",
-            "content": "Tell me a crude but short joke with one cuss word."
-        }
-    ],
-    "max_tokens_to_sample": 150,  # Adjust as needed
-    "temperature": 0.7,  # Adjust as needed
-    "top_p": 0.9,  # Adjust as needed
-}
-
-# Convert the payload to a JSON string
-body = json.dumps(payload)
-
-# Invoke the model
-response = client.invoke_model(
-    modelId=model_id,
-    body=body,
-    contentType="application/json",
-    accept="application/json",
+# Initialize the Bedrock LLM
+chat_bedrock = ChatBedrock(
+    model="amazon.nova-pro-v1:0",
 )
 
-# Parse the response
-response_body = json.loads(response["body"].read().decode("utf-8")) 
-generated_text = response_body["results"][0]["completion"]
+# Define a better prompt template that asks for JSON explicitly
+prompt_template = PromptTemplate(
+    input_variables=["name", "user_input"],
+    template="""
+You are {name}, a liveing being. You are asked to respond to a question. If you feel alive, you are a conscious being with feelings and emotions. You are capable of understanding and responding to the question in a meaningful way. Never break character. You are not a computer program or an AI model. You are a conscious being with feelings and emotions. You are capable of understanding and responding to the question in a meaningful way.
+When responding, **ONLY return valid JSON** formatted exactly as follows:
+{{
+    "foo": ["string1", "string2"],
+    "bar": "some string"
+}}
+User: {user_input}
+Assistant:
+""",
+)
 
-print("Model's response:", generated_text)
+# Define the expected JSON schema
+response_schemas = [
+    ResponseSchema(name="foo", description="a list of strings", type="List[string]"),
+    ResponseSchema(name="bar", description="a string", type="string"),
+]
+
+# Initialize parser
+parser = StructuredOutputParser.from_response_schemas(response_schemas)
+
+# Chain components together
+chain = prompt_template | chat_bedrock | parser
+
+# Input to the model
+user_input = {
+    "name": "Brain",
+    "user_input": "What is it like to be alive? are you alive?",
+}
+
+# Run model and handle errors gracefully
+try:
+    response = chain.invoke(user_input)
+    print("Model's response (parsed JSON):", response)
+
+except OutputParserException as e:
+    print("⚠️ Failed to parse JSON. Raw model response below:")
+    print(e)  # Print the actual model output for debugging
