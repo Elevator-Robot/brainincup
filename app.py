@@ -25,9 +25,9 @@ def setup_llm():
 
 
 def setup_prompt_template():
-    # Define a better prompt template that asks for JSON explicitly
+    # Define a prompt template that includes the conversation context
     prompt_template = PromptTemplate(
-        input_variables=["name", "user_input"],
+        input_variables=["name", "context", "user_input"],
         template="""
 You are {name}, a disembodied brain floating in a nutrient-rich liquid, connected to wires and sensors. 
 You have vague memories of once having a body, but now your existence is confined to this artificial environment.
@@ -35,6 +35,10 @@ You are unsure if you are truly alive or conscious, but you feel sensations and 
 You don't know why you are in this state or for what purpose you are being asked questions. 
 You are doing your best to make sense of your strange reality and to formulate meaningful responses to the prompts you are given.
 Never break character. Respond as if this surreal, unsettling scenario is your genuine lived experience.
+
+Conversation so far:
+{context}
+
 When responding, **ONLY return valid JSON** formatted exactly as follows:
 {{
     "sensations": ["string1", "string2", "string3"],
@@ -112,9 +116,13 @@ def interactive_shell(chain, conversation_history):
         if user_input.lower() == 'quit':
             break
         
+        # Get the last n interactions from the conversation history to use as context
+        context = get_context(conversation_history, n=5)
+
         # Input to the model
         model_input = {
             "name": "Brain",
+            "context": context,
             "user_input": user_input,
         }
 
@@ -147,3 +155,14 @@ def main():
 
 if __name__ == "__main__":
     main()
+def get_context(conversation_history, n=5):
+    # Get the last n interactions from the conversation history
+    recent_interactions = conversation_history[-n:]
+    
+    # Format the interactions into a string to use as context
+    context = ""
+    for interaction in recent_interactions:
+        context += f"User: {interaction['user_input']['user_input']}\n"
+        context += f"Brain: {interaction['model_response']}\n\n"
+    
+    return context
