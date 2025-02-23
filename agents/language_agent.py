@@ -1,4 +1,7 @@
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 class LanguageAgent:
     def __init__(self, llm):

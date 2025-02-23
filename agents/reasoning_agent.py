@@ -1,5 +1,8 @@
 import json
+import logging
 from langchain.output_parsers import StructuredOutputParser
+
+logger = logging.getLogger(__name__)
 
 class ReasoningAgent:
     def __init__(self, parser):
