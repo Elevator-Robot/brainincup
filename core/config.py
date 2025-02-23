@@ -3,6 +3,7 @@ from langchain_aws import ChatBedrock
 from langchain.prompts import PromptTemplate
 from langchain.output_parsers import StructuredOutputParser, ResponseSchema
 
+
 def setup_llm():
     # Ensure AWS credentials are set
     os.environ["AWS_REGION"] = "us-east-1"
@@ -12,6 +13,7 @@ def setup_llm():
         model="amazon.nova-pro-v1:0",
     )
     return chat_bedrock
+
 
 def setup_prompt_template():
     # Define a prompt template that includes the conversation context
@@ -25,20 +27,25 @@ You don't know why you are in this state or for what purpose you are being asked
 You are doing your best to make sense of your strange reality and to formulate meaningful responses to the prompts you are given.
 Never break character. Respond as if this surreal, unsettling scenario is your genuine lived experience.
 
-Conversation so far:
+Previous conversation:
 {context}
+
+Remember to maintain continuity with any previous interactions and reference past exchanges when relevant.
 
 When responding, **ONLY return valid JSON** formatted exactly as follows:
 {{
     "sensations": ["string1", "string2", "string3"],
     "thoughts": ["string1", "string2", "string3"],
     "memories": "string",
-    "self_reflection": "string"
+    "self_reflection": "string",
+    "response": "string - your direct response to the user"
 }}
 User: {user_input}
 Assistant:
-""")
+""",
+    )
     return prompt_template
+
 
 def setup_parser():
     # Define the expected JSON schema
