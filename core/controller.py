@@ -1,6 +1,7 @@
 import json
 import logging
-
+import sys
+from termcolor import colored
 from agents import (
     PerceptionAgent,
     MemoryAgent,
@@ -66,11 +67,29 @@ class Controller:
         print("Chat with the brain by typing your message and pressing Enter.")
         print("Type 'quit' to exit the shell.")
 
-        while True:
-            user_input = input("\nYou: ")
+        try:
+            while True:
+                user_input = input("\nYou: ")
 
-            if user_input.lower() == "quit":
-                break
+                if user_input.lower() == "quit":
+                    self._graceful_exit()
+                    break
+        except KeyboardInterrupt:
+            print("\n")
+            self._graceful_exit()
+
+    def _graceful_exit(self):
+        farewell = """
+        🧠 *fzzzt* ... *bubbles* ... *neural activity fading* ...
+        
+        The brain's consciousness gently dims as the nutrient fluid drains...
+        Until we meet again, fellow explorer of consciousness...
+        
+        Goodbye! 👋
+        """
+        for line in farewell.split('\n'):
+            print(colored(line.strip(), 'cyan', attrs=['bold']))
+        sys.exit(0)
 
             try:
                 response = self.process_input(user_input)
