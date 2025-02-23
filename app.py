@@ -154,16 +154,11 @@ def interactive_shell(chain, conversation_history):
             print("⚠️ Failed to parse JSON. Raw model response below:")
             print(e)  # Print the actual model output for debugging
 
+from controller import Controller
+
 def main():
-    chat_bedrock = setup_llm()
-    prompt_template = setup_prompt_template()
-    parser = setup_parser()
-    chain = setup_chain(prompt_template, chat_bedrock, parser)
-
-    conversation_history = load_conversation_history()
-    
-    interactive_shell(chain, conversation_history)
-
+    controller = Controller()
+    controller.run()
 
 if __name__ == "__main__":
     main()
