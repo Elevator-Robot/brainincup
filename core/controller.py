@@ -25,7 +25,7 @@ class Controller:
         parser = setup_parser()
 
         # Initialize agents with their required components
-        self.perception_agent = PerceptionAgent(prompt_template)
+        self.perception_agent = PerceptionAgent(prompt_template=prompt_template)
         self.memory_agent = MemoryAgent()
         self.reasoning_agent = ReasoningAgent(parser)
         self.emotional_agent = EmotionalAgent()
@@ -41,7 +41,6 @@ class Controller:
 
         # Perception Agent formats the prompt
         formatted_prompt = self.perception_agent.process_input(user_input, context)
-
         # Language Agent generates raw response
         raw_response = self.language_agent.generate_response(formatted_prompt)
 
@@ -77,8 +76,8 @@ class Controller:
         Speak to it by typing your message and pressing Enter.
         (Type 'quit' to terminate the connection)
         """
-        for line in welcome.split('\n'):
-            print(colored(line.strip(), 'cyan', attrs=['bold']))
+        for line in welcome.split("\n"):
+            print(colored(line.strip(), "cyan", attrs=["bold"]))
 
         try:
             while True:
@@ -92,22 +91,33 @@ class Controller:
                     response = self.process_input(user_input)
                     if isinstance(response, dict) and all(
                         k in response
-                        for k in ["sensations", "thoughts", "memories", "self_reflection"]
+                        for k in [
+                            "sensations",
+                            "thoughts",
+                            "memories",
+                            "self_reflection",
+                        ]
                     ):
                         # Print the internal state
                         print("\nBrain's internal state:")
-                        internal_state = {k: v for k, v in response.items() if k != "response"}
+                        internal_state = {
+                            k: v for k, v in response.items() if k != "response"
+                        }
                         print(json.dumps(internal_state, indent=2))
-                        
+
                         # Print the direct response
                         if "response" in response:
                             print("\nBrain says:", response["response"])
                     else:
                         logger.error(f"Invalid response format: {response}")
-                        print("\nBrain: I apologize, but my response was not properly formatted")
+                        print(
+                            "\nBrain: I apologize, but my response was not properly formatted"
+                        )
                 except Exception as e:
                     logger.error(f"Error processing input: {e}")
-                    print("\nBrain: I apologize, but I encountered an error processing your input")
+                    print(
+                        "\nBrain: I apologize, but I encountered an error processing your input"
+                    )
 
         except KeyboardInterrupt:
             print("\n")
@@ -122,6 +132,6 @@ class Controller:
         
         Goodbye! 👋
         """
-        for line in farewell.split('\n'):
-            print(colored(line.strip(), 'cyan', attrs=['bold']))
+        for line in farewell.split("\n"):
+            print(colored(line.strip(), "cyan", attrs=["bold"]))
         sys.exit(0)
