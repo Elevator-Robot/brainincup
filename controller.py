@@ -69,4 +69,4 @@ class Controller:
                 break
             
             response = self.process_input(user_input)
-            print("\nBrain:", response)
+            print("\nBrain:", json.dumps(response, indent=2))

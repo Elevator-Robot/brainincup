@@ -10,6 +10,8 @@ from langchain.prompts import PromptTemplate
 from langchain.output_parsers import StructuredOutputParser, ResponseSchema
 from langchain.schema import OutputParserException
 
+from controller import Controller
+
 CONVERSATION_HISTORY_FILE = "conversation_history.pkl"
 
 
@@ -108,14 +110,15 @@ def save_conversation_history(conversation_history):
 def get_context(conversation_history, n=5):
     # Get the last n interactions from the conversation history
     recent_interactions = conversation_history[-n:]
-    
+
     # Format the interactions into a string to use as context
     context = ""
     for interaction in recent_interactions:
         context += f"User: {interaction['user_input']['user_input']}\n"
         context += f"Brain: {interaction['model_response']}\n\n"
-    
+
     return context
+
 
 def interactive_shell(chain, conversation_history):
     print("Welcome to the Brain in a Cup interactive shell!")
@@ -124,10 +127,10 @@ def interactive_shell(chain, conversation_history):
 
     while True:
         user_input = input("\nYou: ")
-        
-        if user_input.lower() == 'quit':
+
+        if user_input.lower() == "quit":
             break
-        
+
         # Get the last n interactions from the conversation history to use as context
         context = get_context(conversation_history, n=5)
 
@@ -154,11 +157,11 @@ def interactive_shell(chain, conversation_history):
             print("⚠️ Failed to parse JSON. Raw model response below:")
             print(e)  # Print the actual model output for debugging
 
-from controller import Controller
 
 def main():
     controller = Controller()
     controller.run()
+
 
 if __name__ == "__main__":
     main()
