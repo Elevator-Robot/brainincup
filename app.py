@@ -1,6 +1,10 @@
 import os
+import os
 import json
+import pickle
 from langchain_aws import ChatBedrock
+
+CONVERSATION_HISTORY_FILE = "conversation_history.pkl"
 
 CONVERSATION_HISTORY_FILE = "conversation_history.pkl"
 from langchain.chains import LLMChain
@@ -48,6 +52,13 @@ parser = StructuredOutputParser.from_response_schemas(response_schemas)
 # Chain components together
 chain = prompt_template | chat_bedrock | parser
 
+# Load conversation history from pkl file if it exists, otherwise create a new one
+if os.path.exists(CONVERSATION_HISTORY_FILE):
+    with open(CONVERSATION_HISTORY_FILE, "rb") as f:
+        conversation_history = pickle.load(f)
+else:
+    conversation_history = []
+
 # Input to the model
 user_input = {
     "name": "Brain",
@@ -58,6 +69,13 @@ user_input = {
 try:
     response = chain.invoke(user_input)
     print("Model's response (parsed JSON):", response)
+
+    # Append the user input and model response to the conversation history
+    conversation_history.append({"user_input": user_input, "model_response": response})
+
+    # Save the updated conversation history to the pkl file
+    with open(CONVERSATION_HISTORY_FILE, "wb") as f:
+        pickle.dump(conversation_history, f)
 
 except OutputParserException as e:
     print("⚠️ Failed to parse JSON. Raw model response below:")
