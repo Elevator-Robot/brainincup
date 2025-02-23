@@ -3,6 +3,10 @@ class SelfAgent:
         pass
 
     def review_response(self, response):
-        # Placeholder for self-review logic
-        # This could involve checking for consistency, relevance, etc.
+        """Review and potentially modify the final response"""
+        if not isinstance(response, dict):
+            return response
+            
+        # For now, just pass through the response
+        # TODO: Implement self-review logic
         return response

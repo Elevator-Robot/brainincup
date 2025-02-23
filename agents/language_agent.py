@@ -1,24 +1,34 @@
+import json
+
 class LanguageAgent:
-    def __init__(self, name=None, description=None):
-        self.name = name
-        self.description = description
+    def __init__(self, llm):
+        self.llm = llm
         self.memory = []
-        self.tools = []
 
-    def add_tool(self, tool):
-        self.tools.append(tool)
-
-    def use_tool(self, tool_name, input_data):
-        for tool in self.tools:
-            if tool.name == tool_name:
-                return tool.execute(input_data)
-        return None
-
-    def remember(self, data):
-        self.memory.append(data)
-
-    def recall(self):
-        return self.memory
-
-    def generate_response(self, modified_decision):
-        pass
+    def generate_response(self, formatted_prompt):
+        """Generate response using the LLM"""
+        try:
+            response = self.llm.invoke(formatted_prompt)
+            
+            # Extract content from response
+            if hasattr(response, 'content'):
+                content = response.content
+            elif hasattr(response, 'text'):
+                content = response.text
+            elif isinstance(response, (dict, list)):
+                content = json.dumps(response)
+            else:
+                content = str(response)
+                
+            # Clean up any extra escaping
+            content = content.strip()
+            return content
+        except Exception as e:
+            logger.error(f"LLM error: {e}")
+            return '''
+            {
+                "sensations": ["Error processing input"],
+                "thoughts": ["System malfunction"],
+                "memories": "Unable to access memory banks",
+                "self_reflection": "Experiencing technical difficulties"
+            }'''

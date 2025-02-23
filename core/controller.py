@@ -1,6 +1,9 @@
-import os
 import json
-import pickle
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
 from agents import (
     PerceptionAgent,
     MemoryAgent,
@@ -9,56 +12,52 @@ from agents import (
     LanguageAgent,
     SelfAgent,
 )
-
-CONVERSATION_HISTORY_FILE = "data/conversation_history.pkl"
+from core.config import setup_llm, setup_prompt_template, setup_parser
 
 
 class Controller:
     def __init__(self):
-        self.perception_agent = PerceptionAgent()
+        # Set up LangChain components
+        llm = setup_llm()
+        prompt_template = setup_prompt_template()
+        parser = setup_parser()
+        
+        # Initialize agents with their required components
+        self.perception_agent = PerceptionAgent(prompt_template)
         self.memory_agent = MemoryAgent()
-        self.reasoning_agent = ReasoningAgent()
+        self.reasoning_agent = ReasoningAgent(parser)
         self.emotional_agent = EmotionalAgent()
-        self.language_agent = LanguageAgent()
+        self.language_agent = LanguageAgent(llm)
         self.self_agent = SelfAgent()
-        self.conversation_history = self.load_conversation_history()
+        
+        # Load initial conversation history
+        self.conversation_history = self.memory_agent.load_conversation_history()
 
-    def load_conversation_history(self):
-        if os.path.exists(CONVERSATION_HISTORY_FILE):
-            with open(CONVERSATION_HISTORY_FILE, "rb") as f:
-                conversation_history = pickle.load(f)
-        else:
-            conversation_history = []
-        return conversation_history
-
-    def save_conversation_history(self):
-        with open(CONVERSATION_HISTORY_FILE, "wb") as f:
-            pickle.dump(self.conversation_history, f)
 
     def process_input(self, user_input):
-        # Perception Agent
-        processed_input = self.perception_agent.process_input(user_input)
-
-        # Memory Agent
+        # Get context from Memory Agent
         context = self.memory_agent.retrieve_context(self.conversation_history)
-
-        # Reasoning Agent
-        decision = self.reasoning_agent.analyze_input(processed_input, context)
-
-        # Emotional Agent
-        modified_decision = self.emotional_agent.apply_emotions(decision)
-
-        # Language Agent
-        response = self.language_agent.generate_response(modified_decision)
-
-        # Self Agent
-        final_response = self.self_agent.review_response(response)
+        
+        # Perception Agent formats the prompt
+        formatted_prompt = self.perception_agent.process_input(user_input, context)
+        
+        # Language Agent generates raw response
+        raw_response = self.language_agent.generate_response(formatted_prompt)
+        
+        # Reasoning Agent parses the response
+        parsed_response = self.reasoning_agent.analyze_input(raw_response, context)
+        
+        # Emotional Agent modifies the response
+        modified_response = self.emotional_agent.apply_emotions(parsed_response)
+        
+        # Self Agent reviews final response
+        final_response = self.self_agent.review_response(modified_response)
 
         # Update conversation history
         self.conversation_history.append(
             {"user_input": user_input, "response": final_response}
         )
-        self.save_conversation_history()
+        self.memory_agent.save_conversation_history(self.conversation_history)
 
         return final_response
 
@@ -73,5 +72,13 @@ class Controller:
             if user_input.lower() == "quit":
                 break
 
-            response = self.process_input(user_input)
-            print("\nBrain:", json.dumps(response, indent=2))
+            try:
+                response = self.process_input(user_input)
+                if isinstance(response, dict) and all(k in response for k in ["sensations", "thoughts", "memories", "self_reflection"]):
+                    print("\nBrain:", json.dumps(response, indent=2))
+                else:
+                    logger.error(f"Invalid response format: {response}")
+                    print("\nBrain: I apologize, but my response was not properly formatted")
+            except Exception as e:
+                logger.error(f"Error processing input: {e}")
+                print("\nBrain: I apologize, but I encountered an error processing your input")
