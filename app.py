@@ -27,7 +27,7 @@ response = client.invoke_model(
 )
 
 # Parse the response
-response_body = json.loads(response["body"].read())
-generated_text = response_body.get("completion", "")
+response_body = json.loads(response["body"].read().decode("utf-8")) 
+generated_text = response_body["results"][0]["completion"]
 
 print("Model's response:", generated_text)
