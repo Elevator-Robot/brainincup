@@ -53,25 +53,25 @@ def setup_parser():
     # Define the expected JSON schema
     response_schemas = [
         ResponseSchema(
-            name="sensations", 
+            name="sensations",
             description="A list of strings describing the physical sensations experienced by the brain",
-            type="List[string]"
+            type="List[string]",
         ),
         ResponseSchema(
             name="thoughts",
             description="A list of strings representing the brain's current thoughts and mental state",
-            type="List[string]"  
+            type="List[string]",
         ),
         ResponseSchema(
             name="memories",
             description="A string describing any memories the brain is accessing, even if vague or uncertain",
-            type="string"
+            type="string",
         ),
         ResponseSchema(
             name="self_reflection",
             description="A string of the brain's reflection on its own existence and consciousness",
-            type="string"
-        )
+            type="string",
+        ),
     ]
 
     # Initialize parser
@@ -101,13 +101,6 @@ def save_conversation_history(conversation_history):
         pickle.dump(conversation_history, f)
 
 
-# Input to the model
-user_input = {
-    "name": "Brain",
-    "user_input": "Describe your existence. What sensations and thoughts are you experiencing in your current state?",
-}
-
-
 def main():
     chat_bedrock = setup_llm()
     prompt_template = setup_prompt_template()
@@ -125,7 +118,7 @@ def main():
     # Run model and handle errors gracefully
     try:
         response = chain.invoke(user_input)
-        print("Model's response (parsed JSON):", response)
+        print("Model's response (parsed JSON):", json.dumps(response, indent=2))
 
         # Append the user input and model response to the conversation history
         conversation_history.append(
