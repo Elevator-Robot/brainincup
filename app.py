@@ -4,13 +4,13 @@ import json
 import pickle
 from langchain_aws import ChatBedrock
 
-CONVERSATION_HISTORY_FILE = "conversation_history.pkl"
 
-CONVERSATION_HISTORY_FILE = "conversation_history.pkl"
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.output_parsers import StructuredOutputParser, ResponseSchema
 from langchain.schema import OutputParserException
+
+CONVERSATION_HISTORY_FILE = "conversation_history.pkl"
 
 # Ensure AWS credentials are set
 os.environ["AWS_REGION"] = "us-east-1"
