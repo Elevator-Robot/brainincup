@@ -9,6 +9,7 @@ from agents import (
     EmotionalAgent,
     LanguageAgent,
     SelfAgent,
+    DepthAgent,
 )
 from core.config import setup_llm, setup_prompt_template, setup_parser
 
@@ -30,6 +31,7 @@ class Controller:
         self.reasoning_agent = ReasoningAgent(parser)
         self.emotional_agent = EmotionalAgent()
         self.language_agent = LanguageAgent(llm)
+        self.depth_agent = DepthAgent()
         self.self_agent = SelfAgent()
 
         # Load initial conversation history
@@ -48,10 +50,13 @@ class Controller:
         parsed_response = self.reasoning_agent.analyze_input(raw_response, context)
 
         # Emotional Agent modifies the response
-        modified_response = self.emotional_agent.apply_emotions(parsed_response)
+        emotional_response = self.emotional_agent.apply_emotions(parsed_response)
+        
+        # Depth Agent enhances the response with deeper content
+        enhanced_response = self.depth_agent.enhance_response(emotional_response)
 
         # Self Agent reviews final response
-        final_response = self.self_agent.review_response(modified_response)
+        final_response = self.self_agent.review_response(enhanced_response)
 
         # Update conversation history
         self.conversation_history.append(
