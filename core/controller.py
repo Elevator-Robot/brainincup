@@ -37,7 +37,7 @@ class Controller:
 
     def process_input(self, user_input):
         # Get context from Memory Agent
-        context = self.memory_agent.retrieve_context(self.conversation_history)
+        context = self.memory_agent.retrieve_context(self.conversation_history, n=100)
 
         # Perception Agent formats the prompt
         formatted_prompt = self.perception_agent.process_input(user_input, context)
