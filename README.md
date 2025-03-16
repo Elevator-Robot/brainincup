@@ -59,3 +59,11 @@ graph TD
 -	Stores intermediate data like user input, retrieved context, decisions, and final output.
 	
 -	Ensures agents have access to a consistent state.
+
+## License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+
+## Contribution Guidelines
+
+View the [CONTRIBUTING.md](CONTRIBUTING.md) file for more information.

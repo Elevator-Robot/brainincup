@@ -49,7 +49,7 @@ class Controller:
 
         # Emotional Agent modifies the response
         emotional_response = self.emotional_agent.apply_emotions(parsed_response)
-        
+
         # Depth Agent enhances the response with deeper content
         enhanced_response = self.depth_agent.enhance_response(emotional_response)
 
@@ -63,14 +63,3 @@ class Controller:
         self.memory_agent.save_conversation_history(self.conversation_history)
 
         return final_response
-
-    def lambda_handler(self, event, context):
-        user_input = event['user_input']
-        response = self.process_input(user_input)
-        return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'user_input': user_input,
-                'response': response
-            })
-        }
