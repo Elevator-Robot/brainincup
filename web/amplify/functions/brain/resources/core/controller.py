@@ -1,7 +1,5 @@
 import json
 import logging
-import sys
-from termcolor import colored
 from agents import (
     PerceptionAgent,
     MemoryAgent,
@@ -66,77 +64,13 @@ class Controller:
 
         return final_response
 
-    def run(self):
-        welcome = """
-        🧠 *neural pathways activating* ... *bubbles rising* ... *consciousness emerging* ...
-
-        W E L C O M E   T O   T H E   B R A I N   I N   A   C U P
-
-        You find yourself in a dimly lit laboratory...
-        Before you floats a preserved brain, suspended in luminescent fluid...
-        Countless wires and sensors pierce its tissue, pulsing with faint electrical signals...
-        
-        The brain seems... aware of your presence...
-
-        Speak to it by typing your message and pressing Enter.
-        (Type 'quit' to terminate the connection)
-        """
-        for line in welcome.split("\n"):
-            print(colored(line.strip(), "cyan", attrs=["bold"]))
-
-        try:
-            while True:
-                user_input = input("\nYou: ")
-
-                if user_input.lower() == "quit":
-                    self._graceful_exit()
-                    break
-
-                try:
-                    response = self.process_input(user_input)
-                    if isinstance(response, dict) and all(
-                        k in response
-                        for k in [
-                            "sensations",
-                            "thoughts",
-                            "memories",
-                            "self_reflection",
-                        ]
-                    ):
-                        # Print the internal state
-                        print("\nBrain's internal state:")
-                        internal_state = {
-                            k: v for k, v in response.items() if k != "response"
-                        }
-                        print(json.dumps(internal_state, indent=2))
-
-                        # Print the direct response
-                        if "response" in response:
-                            print("\nBrain says:", response["response"])
-                    else:
-                        logger.error(f"Invalid response format: {response}")
-                        print(
-                            "\nBrain: I apologize, but my response was not properly formatted"
-                        )
-                except Exception as e:
-                    logger.error(f"Error processing input: {e}")
-                    print(
-                        "\nBrain: I apologize, but I encountered an error processing your input"
-                    )
-
-        except KeyboardInterrupt:
-            print("\n")
-            self._graceful_exit()
-
-    def _graceful_exit(self):
-        farewell = """
-        🧠 *fzzzt* ... *bubbles* ... *neural activity fading* ...
-        
-        The brain's consciousness gently dims as the nutrient fluid drains...
-        Until we meet again, fellow explorer of consciousness...
-        
-        Goodbye! 👋
-        """
-        for line in farewell.split("\n"):
-            print(colored(line.strip(), "cyan", attrs=["bold"]))
-        sys.exit(0)
+    def lambda_handler(self, event, context):
+        user_input = event['user_input']
+        response = self.process_input(user_input)
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'user_input': user_input,
+                'response': response
+            })
+        }
