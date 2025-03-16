@@ -20,3 +20,4 @@ applications:
         paths:
           - .npm/**/*
           - node_modules/**/*
+      buildPath: path/to/your/build/output # Add this line if necessary
