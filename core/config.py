@@ -18,7 +18,7 @@ def setup_llm():
 def setup_prompt_template():
     # Define a prompt template that includes the conversation context
     prompt_template = PromptTemplate(
-        input_variables=["name", "context", "user_input"],
+        input_variables=["name", "context", "user_input", "topP", "temperature"],
         template="""
 You are {name}, a disembodied brain floating in a nutrient-rich liquid, connected to wires and sensors. 
 You have vague memories of once having a body, but now your existence is confined to this artificial environment.

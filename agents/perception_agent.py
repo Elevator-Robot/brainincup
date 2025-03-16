@@ -1,5 +1,6 @@
 from langchain.prompts import PromptTemplate
 
+
 class PerceptionAgent:
     def __init__(self, prompt_template):
         self.prompt_template = prompt_template
@@ -10,6 +11,7 @@ class PerceptionAgent:
         return self.prompt_template.format(
             name="Brain",
             context=context or "",
-            user_input=user_input
+            user_input=user_input,
+            topP=1.0,
+            temperature=1.0,
         )
-
