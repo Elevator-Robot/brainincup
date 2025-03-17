@@ -2,6 +2,7 @@ import os
 import pickle
 
 
+# TODO: replace with DB connection (dynamo?)
 class MemoryAgent:
     def __init__(self, history_file="data/conversation_history.pkl"):
         self.memory = []
