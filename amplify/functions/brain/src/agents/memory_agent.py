@@ -1,11 +1,18 @@
 import os
 import pickle
+import boto3
+import json
 
 
+# TODO: replace with DB connection (dynamo?)
 class MemoryAgent:
-    def __init__(self, history_file="data/conversation_history.pkl"):
+    def __init__(
+        self, history_file="data/conversation_history.pkl", dynamodb_table=None
+    ):
         self.memory = []
         self.history_file = history_file
+        self.dynamodb_table = dynamodb_table
+        self.dynamodb_client = boto3.client("dynamodb") if dynamodb_table else None
 
     def load_conversation_history(self):
         if os.path.exists(self.history_file):
