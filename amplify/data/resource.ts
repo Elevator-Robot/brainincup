@@ -1,20 +1,28 @@
-import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
+import { defineData, a } from "@aws-amplify/backend";
 
-/*== STEP 1 ===============================================================
-The section below creates a Todo database table with a "content" field. Try
-adding a new "isDone" field as a boolean. The authorization rule below
-specifies that any user authenticated via an API key can "create", "read",
-"update", and "delete" any "Todo" records.
-=========================================================================*/
 const schema = a.schema({
-  conversation: a
-    .model({
-      content: a.string(),
-    })
-    .authorization((allow) => [allow.owner()]),
-});
+  Conversation: a.model({
+    id: a.id(),
+    participants: a.string().array(),
+    messages: a.hasMany("Message", "conversationId"), // Corrected with explicit reference key
+    createdAt: a.date(),
+    updatedAt: a.date(),
+    sensations: a.string().array(),
+    thoughts: a.string().array(),
+    memories: a.string(),
+    selfReflection: a.string(),
+    response: a.string(),
+  }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
 
-export type Schema = ClientSchema<typeof schema>;
+  Message: a.model({
+    id: a.id(),
+    conversationId: a.id(), // Explicit foreign key reference for one-to-many relationship
+    conversation: a.belongsTo("Conversation", "conversationId"), // Corrected to explicitly reference the parent
+    senderId: a.string(),
+    content: a.string(),
+    timestamp: a.date(),
+  }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
+});
 
 export const data = defineData({
   schema,
@@ -51,3 +59,4 @@ Fetch records from the database and use them in your frontend component.
 // const { data: todos } = await client.models.Todo.list()
 
 // return <ul>{todos.map(todo => <li key={todo.id}>{todo.content}</li>)}</ul>
+//
