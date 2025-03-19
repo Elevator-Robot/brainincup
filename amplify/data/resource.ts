@@ -1,4 +1,5 @@
 import { defineData, a } from "@aws-amplify/backend";
+import { ClientSchema } from "@aws-amplify/backend";
 
 const schema = a.schema({
   Conversation: a.model({
@@ -31,6 +32,8 @@ export const data = defineData({
   },
 });
 
+// export type Schema = typeof schema;
+export type Schema = ClientSchema<typeof schema>;
 /*== STEP 2 ===============================================================
 Go to your frontend source code. From your client-side code, generate a
 Data client to make CRUDL requests to your table. (THIS SNIPPET WILL ONLY
