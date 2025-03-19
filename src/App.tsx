@@ -23,8 +23,9 @@ function App() {
   const [userAttributes, setUserAttributes] = useState<Record<string, string | undefined> | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
+  const [conversationId, setConversationId] = useState<string | null>(null); // State for conversation ID
   const { signOut } = useAuthenticator();
-  const conversationId = "12345"; // Hardcoded conversation ID for now
+  const hardcodedConversationId = "hardcoded-conversation-id"; // Hardcoded conversation ID for now // TODO: Remove this and replace with lookup based on user sellection of which convo they are trying to interact with
 
   console.log(userAttributes);
   useEffect(() => {
@@ -38,9 +39,18 @@ function App() {
 
   const handleSendMessage = async (content: string) => {
     try {
+      let convId = conversationId || hardcodedConversationId
+      if (!conversationId) {
+        const { data: newConversation } = await dataClient.models.Conversation.create({
+          id: hardcodedConversationId // Use the hardcoded ID for the new conversation
+        });
+        convId = newConversation?.id || hardcodedConversationId;
+        setConversationId(convId);
+      }
+
       const { data: savedMessage } = await dataClient.models.Message.create({
         content,
-        conversationId // Link the message to the hardcoded conversation
+        conversationId: convId // Link the message to the conversation
       });
       console.log('Message saved to backend:', savedMessage);
     } catch (error) {
