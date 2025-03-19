@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchUserAttributes } from "aws-amplify/auth";
+import { generateClient } from "aws-amplify/data";
+import type { Schema } from "../amplify/data/resource";
+
+const dataClient = generateClient<Schema>();
 
 interface Message {
   role: 'user' | 'assistant';
@@ -9,7 +13,7 @@ interface Message {
 
 // Add these color utility functions
 const generateGradient = (role: 'user' | 'assistant') => {
-  return role === 'user' 
+  return role === 'user'
     ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary'
     : 'bg-gradient-to-r from-purple-900/30 to-slate-800/30'; // Subtle purple tint
 };
@@ -31,14 +35,24 @@ function App() {
     getUserAttributes();
   }, []);
 
+  const handleSendMessage = async (content: string) => {
+    try {
+      console.log("Available models:", Object.keys(dataClient.models));
+      const { data: savedMessage } = await dataClient.models.Message.create({ content });
+      console.log('Message saved to backend:', savedMessage);
+    } catch (error) {
+      console.error('Error sending message to backend:', error);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
 
-    // Add user message
     setMessages(prev => [...prev, { role: 'user', content: inputMessage }]);
 
-    // Simulate assistant response (replace with actual API call later)
+    handleSendMessage(inputMessage);
+
     setTimeout(() => {
       setMessages(prev => [...prev, {
         role: 'assistant',
