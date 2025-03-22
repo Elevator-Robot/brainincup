@@ -4,7 +4,4 @@
 
 input, input:-webkit-autofill {
   color: #ffffff !important;
-  -webkit-text-fill-color: #ffffff !important;
-  transition: background-color 9999s ease-in-out 0s;
-  caret-color: #ffffff !important;
 }
