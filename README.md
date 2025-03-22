@@ -60,6 +60,31 @@ graph TD
 	
 -	Ensures agents have access to a consistent state.
 
+## Database Architecture
+
+```mermaid
+erDiagram
+    Conversation {
+        id ID
+        participants STRING[]
+        createdAt DATE
+        updatedAt DATE
+        sensations STRING[]
+        thoughts STRING[]
+        memories STRING
+        selfReflection STRING
+        response STRING
+    }
+    Message {
+        id ID
+        conversationId ID
+        senderId STRING
+        content STRING
+        timestamp DATE
+    }
+    Conversation ||--o{ Message : "has many"
+```
+
 ## License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.

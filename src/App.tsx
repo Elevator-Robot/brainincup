@@ -23,7 +23,9 @@ function App() {
   const [userAttributes, setUserAttributes] = useState<Record<string, string | undefined> | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
+  const [conversationId, setConversationId] = useState<string | null>(null); // State for conversation ID
   const { signOut } = useAuthenticator();
+  const hardcodedConversationId = "hardcoded-conversation-id"; // Hardcoded conversation ID for now // TODO: Remove this and replace with lookup based on user sellection of which convo they are trying to interact with
 
   console.log(userAttributes);
   useEffect(() => {
@@ -37,32 +39,20 @@ function App() {
 
   const handleSendMessage = async (content: string) => {
     try {
-      const assistantResponse = {
-        sensations: [], // Replace with actual data
-        thoughts: [], // Replace with actual data
-        memories: '', // Replace with actual data
-        selfReflection: '', // Replace with actual data
-        response: '' // Replace with actual data
-      };
-
-      console.log("Creating Conversation...");
-      const { data: conversation } = await dataClient.models.Conversation.create({
-        sensations: assistantResponse.sensations || [],
-        thoughts: assistantResponse.thoughts || [],
-        memories: assistantResponse.memories || '',
-        selfReflection: assistantResponse.selfReflection || '',
-        response: assistantResponse.response || ''
-      });
-
-      if (conversation && conversation.id) {
-        const { data: savedMessage } = await dataClient.models.Message.create({
-          content,
-          conversationId: conversation.id // Link the message to the conversation
+      let convId = conversationId || hardcodedConversationId
+      if (!conversationId) {
+        const { data: newConversation } = await dataClient.models.Conversation.create({
+          id: hardcodedConversationId // Use the hardcoded ID for the new conversation
         });
-        console.log('Message saved to backend:', savedMessage);
-      } else {
-        console.error('Failed to create conversation');
+        convId = newConversation?.id || hardcodedConversationId;
+        setConversationId(convId);
       }
+
+      const { data: savedMessage } = await dataClient.models.Message.create({
+        content,
+        conversationId: convId // Link the message to the conversation
+      });
+      console.log('Message saved to backend:', savedMessage);
     } catch (error) {
       console.error('Error sending message to backend:', error);
     }
