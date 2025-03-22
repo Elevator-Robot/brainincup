@@ -1,22 +1,24 @@
 import { defineData, a } from "@aws-amplify/backend";
-import { ClientSchema } from "@aws-amplify/backend";
+import { ClientSchema, defineFunction } from "@aws-amplify/backend";
 
 const schema = a.schema({
   Conversation: a.model({
     id: a.id(),
     participants: a.string().array(),
-    messages: a.hasMany("Message", "conversationId"), // Corrected with explicit reference key
+    messages: a.hasMany("Message", "conversationId"),
+    brainResponses: a.hasMany("BrainResponse", "conversationId"), // Add this line
     createdAt: a.date(),
     updatedAt: a.date(),
   }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
 
   Message: a.model({
     id: a.id(),
-    conversationId: a.id(), // Explicit foreign key reference for one-to-many relationship
-    conversation: a.belongsTo("Conversation", "conversationId"), // Corrected to explicitly reference the parent
+    conversationId: a.id(),
+    conversation: a.belongsTo("Conversation", "conversationId"),
     senderId: a.string(),
     content: a.string(),
     timestamp: a.date(),
+    brainResponses: a.hasMany("BrainResponse", "messageId") // Add this line
   }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
 
   BrainResponse: a.model({
