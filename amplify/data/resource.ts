@@ -8,11 +8,6 @@ const schema = a.schema({
     messages: a.hasMany("Message", "conversationId"), // Corrected with explicit reference key
     createdAt: a.date(),
     updatedAt: a.date(),
-    sensations: a.string().array(),
-    thoughts: a.string().array(),
-    memories: a.string(),
-    selfReflection: a.string(),
-    response: a.string(),
   }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
 
   Message: a.model({
@@ -22,6 +17,24 @@ const schema = a.schema({
     senderId: a.string(),
     content: a.string(),
     timestamp: a.date(),
+  }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
+
+  BrainResponse: a.model({
+    id: a.id(),
+    conversationId: a.id(),
+    conversation: a.belongsTo("Conversation", "conversationId"),
+
+    messageId: a.id(), // the user message this is responding to
+    message: a.belongsTo("Message", "messageId"),
+
+    response: a.string(), // the actual AI response (text)
+
+    sensations: a.string().array(),
+    thoughts: a.string().array(),
+    memories: a.string(), // could later link to a Memory model
+    selfReflection: a.string(),
+
+    createdAt: a.date(),
   }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
 });
 
