@@ -6,7 +6,7 @@ const schema = a.schema({
     id: a.id(),
     participants: a.string().array(),
     messages: a.hasMany("Message", "conversationId"),
-    brainResponses: a.hasMany("BrainResponse", "conversationId"), // Add this line
+    brainResponses: a.hasMany("BrainResponse", "conversationId"),
     createdAt: a.date(),
     updatedAt: a.date(),
   }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
@@ -18,7 +18,7 @@ const schema = a.schema({
     senderId: a.string(),
     content: a.string(),
     timestamp: a.date(),
-    brainResponses: a.hasMany("BrainResponse", "messageId") // Add this line
+    brainResponses: a.hasOne("BrainResponse", "messageId")
   }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
 
   BrainResponse: a.model({
@@ -29,7 +29,7 @@ const schema = a.schema({
     messageId: a.id(), // the user message this is responding to
     message: a.belongsTo("Message", "messageId"),
 
-    response: a.string(), // the actual AI response (text)
+    response: a.string(),
 
     sensations: a.string().array(),
     thoughts: a.string().array(),
