@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 
 export const brain = defineFunction((scope) => {
   return new Function(scope, 'BrainFunction', {
-    runtime: Runtime.PYTHON_3_13,
+    runtime: Runtime.PYTHON_3_12,
     handler: 'handler.main',
     code: Code.fromAsset(path.join(__dirname, 'src'), {
     }),

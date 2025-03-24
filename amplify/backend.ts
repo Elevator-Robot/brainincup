@@ -26,15 +26,15 @@ const brainLambda = backend.brain.resources.lambda as lambda.Function;
 const layer = new LayerVersion(stack, 'BrainDepsLayer', {
   code: Code.fromAsset('amplify/functions/brain/layer', {
     bundling: {
-      image: Runtime.PYTHON_3_13.bundlingImage,
+      image: Runtime.PYTHON_3_12.bundlingImage,
       command: [
         'bash',
         '-c',
-        'pip install -r requirements.txt -t /asset-output'
+        'pip install --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --only-binary=:all: -r requirements.txt -t /asset-output/python'
       ],
     },
   }),
-  compatibleRuntimes: [Runtime.PYTHON_3_13],
+  compatibleRuntimes: [Runtime.PYTHON_3_12],
 });
 
 brainLambda.addLayers(layer);
@@ -42,7 +42,7 @@ brainLambda.addLayers(layer);
 new EventSourceMapping(stack, 'BrainMessageMapping', {
   target: brainLambda,
   eventSourceArn: messageTable.tableStreamArn,
-  startingPosition: StartingPosition.LATEST,
+  startingPosition: StartingPosition.TRIM_HORIZON,
 });
 
 brainLambda.addToRolePolicy(new PolicyStatement({
