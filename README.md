@@ -60,29 +60,37 @@ graph TD
 	
 -	Ensures agents have access to a consistent state.
 
-## Database Architecture
+## Data Architecture
 
 ```mermaid
 erDiagram
     Conversation {
-        id ID
-        participants STRING[]
-        createdAt DATE
-        updatedAt DATE
-        sensations STRING[]
-        thoughts STRING[]
-        memories STRING
-        selfReflection STRING
-        response STRING
+        ID id
+        STRING[] participants
+        DATE createdAt
+        DATE updatedAt
     }
     Message {
-        id ID
-        conversationId ID
-        senderId STRING
-        content STRING
-        timestamp DATE
+        ID id
+        ID conversationId
+        STRING senderId
+        STRING content
+        DATE timestamp
+    }
+    BrainResponse {
+        ID id
+        ID conversationId
+        ID messageId
+        STRING response
+        STRING[] sensations
+        STRING[] thoughts
+        STRING memories
+        STRING selfReflection
+        DATE createdAt
     }
     Conversation ||--o{ Message : "has many"
+    Conversation ||--o{ BrainResponse : "has many"
+    Message ||--|| BrainResponse : "has one"
 ```
 
 ## License
