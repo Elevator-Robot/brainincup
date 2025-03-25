@@ -62,4 +62,5 @@ class Controller:
         )
         self.memory_agent.save_conversation_history(self.conversation_history)
 
+        print(final_response)
         return final_response
