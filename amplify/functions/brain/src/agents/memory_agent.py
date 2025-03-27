@@ -1,42 +1,45 @@
-import os
-import pickle
 import boto3
 import json
+from boto3.dynamodb.conditions import Key
 
 
-# TODO: replace with DB connection (dynamo?)
 class MemoryAgent:
-    def __init__(
-        self, history_file="data/conversation_history.pkl", dynamodb_table=None
-    ):
-        self.memory = []
-        self.history_file = history_file
+    def __init__(self, dynamodb_table):
+        if not dynamodb_table:
+            raise ValueError("dynamodb_table must be provided")
+
         self.dynamodb_table = dynamodb_table
-        self.dynamodb_client = boto3.client("dynamodb") if dynamodb_table else None
+        self.dynamodb_client = boto3.resource("dynamodb")
+        self.table = self.dynamodb_client.Table(self.dynamodb_table)
 
-    def load_conversation_history(self):
-        if os.path.exists(self.history_file):
-            with open(self.history_file, "rb") as f:
-                return pickle.load(f)
-        return []
+    def load_conversation_history(self, conversation_id):
+        """Load conversation history by conversation_id (sorted by timestamp ascending)."""
+        response = self.table.query(
+            KeyConditionExpression=Key("id").eq(conversation_id),
+            ScanIndexForward=True,  # Oldest to newest
+        )
+        return response.get("Items", [])
 
-    def save_conversation_history(self, history):
-        os.makedirs(os.path.dirname(self.history_file), exist_ok=True)
-        with open(self.history_file, "wb") as f:
-            pickle.dump(history, f)
+    def save_conversation_history(
+        self, conversation_id, user_input, response, timestamp
+    ):
+        """Append a single interaction to the conversation history."""
+        item = {
+            "id": conversation_id,  # Ensure the id is set
+            "conversation_id": conversation_id,
+            "timestamp": timestamp,
+            "user_input": user_input,
+            "response": response,
+        }
+        self.table.put_item(Item=item)
 
     def retrieve_context(self, conversation_history, n=5):
         """Get the last n interactions from history"""
         recent = conversation_history[-n:] if conversation_history else []
         context = ""
         for interaction in recent:
-            if isinstance(interaction, dict):
-                user_input = interaction.get("user_input", "")
-                response = interaction.get("response", {})
-                if isinstance(user_input, dict):
-                    user_input = user_input.get("user_input", "")
-                context += f"User: {user_input}\n"
-                if isinstance(response, dict) and "response" in response:
-                    context += f"Brain: {response['response']}\n"
-                context += "\n"
+            user_input = interaction.get("user_input", "")
+            response = interaction.get("response", "")
+            context += f"User: {user_input}\n"
+            context += f"Brain: {response}\n\n"
         return context
