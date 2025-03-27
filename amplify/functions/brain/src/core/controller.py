@@ -25,7 +25,7 @@ class Controller:
 
         # Initialize agents with their required components
         self.perception_agent = PerceptionAgent(prompt_template=prompt_template)
-        self.memory_agent = MemoryAgent()
+        self.memory_agent = MemoryAgent("Message-slviy7vsfjg6tbvcwadgqo6yvu-NONE")
         self.reasoning_agent = ReasoningAgent(parser)
         self.emotional_agent = EmotionalAgent()
         self.language_agent = LanguageAgent(llm)
@@ -33,7 +33,9 @@ class Controller:
         self.self_agent = SelfAgent()
 
         # Load initial conversation history
-        self.conversation_history = self.memory_agent.load_conversation_history()
+        self.conversation_history = self.memory_agent.load_conversation_history(
+            "hardcoded-conversation-id"
+        )
 
     def process_input(self, user_input):
         # Get context from Memory Agent
@@ -60,6 +62,12 @@ class Controller:
         self.conversation_history.append(
             {"user_input": user_input, "response": final_response}
         )
-        self.memory_agent.save_conversation_history(self.conversation_history)
+        self.memory_agent.save_conversation_history(
+            "hardcoded-conversation-id",
+            user_input=user_input,
+            response=final_response,
+            timestamp="2021-01-01T00:00:00Z",
+        )
 
+        print(final_response)
         return final_response
