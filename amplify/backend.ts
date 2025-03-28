@@ -42,7 +42,7 @@ brainLambda.addLayers(layer);
 new EventSourceMapping(stack, 'BrainMessageMapping', {
   target: brainLambda,
   eventSourceArn: messageTable.tableStreamArn,
-  startingPosition: StartingPosition.TRIM_HORIZON,
+  startingPosition: StartingPosition.LATEST,
 });
 
 brainLambda.addToRolePolicy(new PolicyStatement({

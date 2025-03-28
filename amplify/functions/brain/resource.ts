@@ -13,7 +13,12 @@ export const brain = defineFunction((scope) => {
     handler: 'handler.main',
     code: Code.fromAsset(path.join(__dirname, 'src'), {
     }),
-    timeout: Duration.seconds(30)
+    timeout: Duration.seconds(30),
+    environment: {
+      CONVERSATION_TABLE: 'Conversation-26hop7kmfng6hi2e2cm2hwkwna-NONE',
+      MESSAGE_TABLE: 'Message-26hop7kmfng6hi2e2cm2hwkwna-NONE',
+      RESPONSE_TABLE: 'BrainResponse-26hop7kmfng6hi2e2cm2hwkwna-NONE'
+    },
   });
 });
 

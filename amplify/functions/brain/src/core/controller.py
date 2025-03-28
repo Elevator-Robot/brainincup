@@ -1,4 +1,3 @@
-import json
 import logging
 from agents import (
     PerceptionAgent,
@@ -10,6 +9,7 @@ from agents import (
     DepthAgent,
 )
 from core.config import setup_llm, setup_prompt_template, setup_parser
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.ERROR)
@@ -23,9 +23,10 @@ class Controller:
         prompt_template = setup_prompt_template()
         parser = setup_parser()
 
-        # Initialize agents with their required components
+        # Initialize agents
         self.perception_agent = PerceptionAgent(prompt_template=prompt_template)
-        self.memory_agent = MemoryAgent("Message-slviy7vsfjg6tbvcwadgqo6yvu-NONE")
+        self.conversation_id = "hardcoded-conversation-id"
+        self.memory_agent = MemoryAgent(self.conversation_id)
         self.reasoning_agent = ReasoningAgent(parser)
         self.emotional_agent = EmotionalAgent()
         self.language_agent = LanguageAgent(llm)
@@ -33,11 +34,17 @@ class Controller:
         self.self_agent = SelfAgent()
 
         # Load initial conversation history
-        self.conversation_history = self.memory_agent.load_conversation_history(
-            "hardcoded-conversation-id"
-        )
+        self.conversation_history = self.memory_agent.load_conversation_history()
 
     def process_input(self, user_input):
+        timestamp = datetime.now().isoformat()
+
+        # Save user input to conversation history
+        message_id = self.memory_agent.save_conversation_history(
+            user_input=user_input,
+            timestamp=timestamp,
+        )
+
         # Get context from Memory Agent
         context = self.memory_agent.retrieve_context(self.conversation_history, n=100)
 
@@ -58,16 +65,19 @@ class Controller:
         # Self Agent reviews final response
         final_response = self.self_agent.review_response(enhanced_response)
 
-        # Update conversation history
+        # Save the AI response to the response table
+        self.memory_agent.save_response(
+            message_id=message_id,
+            response=final_response,
+            timestamp=timestamp,
+        )
+
+        # Update conversation history locally
         self.conversation_history.append(
             {"user_input": user_input, "response": final_response}
         )
-        self.memory_agent.save_conversation_history(
-            "hardcoded-conversation-id",
-            user_input=user_input,
-            response=final_response,
-            timestamp="2021-01-01T00:00:00Z",
-        )
 
-        print(final_response)
+        logger.info(f"User input: {user_input}")
+        logger.info(f"AI Response: {final_response}")
+
         return final_response
