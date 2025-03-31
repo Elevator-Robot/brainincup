@@ -19,9 +19,14 @@ cfnResources.amplifyDynamoDbTables['Message'].streamSpecification = {
   streamViewType: 'NEW_AND_OLD_IMAGES' as any,
 }
 
+const conversationTable = backend.data.resources.tables['Conversation'];
 const messageTable = backend.data.resources.tables['Message'];
+const responseTable = backend.data.resources.tables['BrainResponse'];
 
 const brainLambda = backend.brain.resources.lambda as lambda.Function;
+brainLambda.addEnvironment('CONVERSATION_TABLE_NAME', conversationTable.tableName);
+brainLambda.addEnvironment('MESSAGE_TABLE_NAME', messageTable.tableName);
+brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
 
 const layer = new LayerVersion(stack, 'BrainDepsLayer', {
   code: Code.fromAsset('amplify/functions/brain/layer', {
@@ -42,7 +47,7 @@ brainLambda.addLayers(layer);
 new EventSourceMapping(stack, 'BrainMessageMapping', {
   target: brainLambda,
   eventSourceArn: messageTable.tableStreamArn,
-  startingPosition: StartingPosition.TRIM_HORIZON,
+  startingPosition: StartingPosition.LATEST,
 });
 
 brainLambda.addToRolePolicy(new PolicyStatement({
@@ -60,8 +65,16 @@ brainLambda.addToRolePolicy(new PolicyStatement({
     'dynamodb:ListTables',
     'dynamodb:DescribeTable',
     'dynamodb:Query',
+    'dynamodb:PutItem',
   ],
-  resources: [messageTable.tableStreamArn as string],
+  resources: [
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${conversationTable.tableName}`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${conversationTable.tableName}/*`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${messageTable.tableName}`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${messageTable.tableName}/*`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${responseTable.tableName}`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${responseTable.tableName}/*`
+  ],
   effect: Effect.ALLOW,
 }));
 

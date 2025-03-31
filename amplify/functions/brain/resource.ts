@@ -13,7 +13,7 @@ export const brain = defineFunction((scope) => {
     handler: 'handler.main',
     code: Code.fromAsset(path.join(__dirname, 'src'), {
     }),
-    timeout: Duration.seconds(30)
+    timeout: Duration.seconds(60),
   });
 });
 
