@@ -34,7 +34,9 @@ class Controller:
         self.self_agent = SelfAgent()
 
         # Load initial conversation history
-        self.conversation_history = self.memory_agent.load_conversation_history()
+        self.conversation_history = self.memory_agent.load_conversation_history(
+            "hardcoded-conversation-id"
+        )
 
     def process_input(self, user_input):
         context = self.memory_agent.retrieve_context(self.conversation_history, n=100)
@@ -69,4 +71,5 @@ class Controller:
         logger.info(f"User input: {user_input}")
         logger.info(f"AI Response: {final_response}")
 
+        print(final_response)
         return final_response
