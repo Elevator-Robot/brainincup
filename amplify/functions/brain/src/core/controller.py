@@ -37,15 +37,6 @@ class Controller:
         self.conversation_history = self.memory_agent.load_conversation_history()
 
     def process_input(self, user_input):
-        timestamp = datetime.now().isoformat()
-
-        # Save user input to conversation history
-        message_id = self.memory_agent.save_conversation_history(
-            user_input=user_input,
-            timestamp=timestamp,
-        )
-
-        # Get context from Memory Agent
         context = self.memory_agent.retrieve_context(self.conversation_history, n=100)
 
         # Perception Agent formats the prompt
@@ -67,9 +58,7 @@ class Controller:
 
         # Save the AI response to the response table
         self.memory_agent.save_response(
-            message_id=message_id,
             response=final_response,
-            timestamp=timestamp,
         )
 
         # Update conversation history locally

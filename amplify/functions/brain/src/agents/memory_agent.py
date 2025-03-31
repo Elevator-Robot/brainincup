@@ -15,12 +15,19 @@ class MemoryAgent:
         self.message_table_name = getenv("MESSAGE_TABLE_NAME")
         if not self.message_table_name:
             raise ValueError("MESSAGE_TABLE_NAME environment variable must be set")
-        self.message_table = self.dynamodb_client.Table(self.message_table_name)
+        self.message_table = self.dynamodb_client.Table(self.message_table_name)  # type: ignore
 
         self.response_table_name = getenv("RESPONSE_TABLE_NAME")
         if not self.response_table_name:
             raise ValueError("RESPONSE_TABLE_NAME environment variable must be set")
-        self.response_table = self.dynamodb_client.Table(self.response_table_name)
+        self.response_table = self.dynamodb_client.Table(self.response_table_name)  # type: ignore
+
+    def get_last_message_id(self):
+        """Retrieve the message ID of the last message in the conversation."""
+        conversation_history = self.load_conversation_history()
+        if conversation_history:
+            return conversation_history[-1].get("id")
+        return None
 
     def load_conversation_history(self):
         """Load conversation history by conversation_id (sorted by timestamp ascending)."""
@@ -31,26 +38,13 @@ class MemoryAgent:
         )
         return response.get("Items", [])
 
-    def save_conversation_history(self, user_input, timestamp):
-        """Save user input to the conversation history."""
-        message_id = str(uuid.uuid4())  # Generate unique messageId
-        item = {
-            "id": message_id,
-            "conversationId": self.conversation_id,
-            "timestamp": timestamp,
-            "user_input": user_input,
-        }
-        self.message_table.put_item(Item=item)
-        return message_id
-
-    def save_response(self, message_id, response, timestamp):
+    def save_response(self, response):
         """Save the AI-generated response to the response table."""
         response_item = {
             "id": str(uuid.uuid4()),  # Separate ID for the response
             "conversationId": self.conversation_id,
-            "messageId": message_id,
+            "messageId": self.get_last_message_id() or None,
             "response": response,
-            "timestamp": timestamp,
         }
         self.response_table.put_item(Item=response_item)
 
