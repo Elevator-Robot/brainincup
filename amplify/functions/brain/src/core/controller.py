@@ -9,7 +9,6 @@ from agents import (
     DepthAgent,
 )
 from core.config import setup_llm, setup_prompt_template, setup_parser
-from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.ERROR)
@@ -18,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 class Controller:
     def __init__(self):
-        # Set up LangChain components
         llm = setup_llm()
         prompt_template = setup_prompt_template()
         parser = setup_parser()

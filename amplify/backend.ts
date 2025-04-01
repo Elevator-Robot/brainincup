@@ -3,8 +3,7 @@ import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { brain } from './functions/brain/resource';
 import { PolicyStatement, Effect } from "aws-cdk-lib/aws-iam"
-import { EventSourceMapping, StartingPosition, LayerVersion, Code, Runtime } from 'aws-cdk-lib/aws-lambda';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { EventSourceMapping, StartingPosition, LayerVersion, Code, Runtime, Function } from 'aws-cdk-lib/aws-lambda';
 
 const backend = defineBackend({
   auth,
@@ -23,7 +22,7 @@ const conversationTable = backend.data.resources.tables['Conversation'];
 const messageTable = backend.data.resources.tables['Message'];
 const responseTable = backend.data.resources.tables['BrainResponse'];
 
-const brainLambda = backend.brain.resources.lambda as lambda.Function;
+const brainLambda = backend.brain.resources.lambda as Function;
 brainLambda.addEnvironment('CONVERSATION_TABLE_NAME', conversationTable.tableName);
 brainLambda.addEnvironment('MESSAGE_TABLE_NAME', messageTable.tableName);
 brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
