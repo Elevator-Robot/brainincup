@@ -41,10 +41,14 @@ class MemoryAgent:
     def save_response(self, response):
         """Save the AI-generated response to the response table."""
         response_item = {
-            "id": str(uuid.uuid4()),  # Separate ID for the response
+            "id": str(uuid.uuid4()),
             "conversationId": self.conversation_id,
             "messageId": self.get_last_message_id() or None,
-            "response": response,
+            "response": response.get("response", ""),
+            "memories": response.get("memories", ""),
+            "sensations": response.get("sensations", []),
+            "thoughts": response.get("thoughts", []),
+            "selfReflection": response.get("self_reflection", ""),
         }
         self.response_table.put_item(Item=response_item)
 
