@@ -37,7 +37,9 @@ const schema = a.schema({
     selfReflection: a.string(),
 
     createdAt: a.date(),
-  }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
+    owner: a.string(),
+    // }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
+  }).authorization(allow => [allow.owner()]),
 });
 
 export const data = defineData({

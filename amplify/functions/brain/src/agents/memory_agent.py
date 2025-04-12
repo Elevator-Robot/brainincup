@@ -1,7 +1,35 @@
 from os import getenv
 import uuid
 import boto3
+import requests
 from boto3.dynamodb.conditions import Key
+from requests.auth import AuthBase
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
+from boto3.session import Session
+
+
+class AWSV4Auth(AuthBase):
+    def __init__(self, service, region):
+        session = Session()
+        credentials = session.get_credentials()
+        self.credentials = credentials.get_frozen_credentials()
+        self.region = region
+        self.service = service
+
+    def __call__(self, r):
+        # Make a copy of headers without the 'connection' key
+        cleaned_headers = {
+            k: v for k, v in r.headers.items() if k.lower() != "connection"
+        }
+
+        aws_request = AWSRequest(
+            method=r.method, url=r.url, data=r.body, headers=cleaned_headers
+        )
+        SigV4Auth(self.credentials, self.service, self.region).add_auth(aws_request)
+
+        r.headers.update(dict(aws_request.headers))
+        return r
 
 
 class MemoryAgent:
@@ -17,10 +45,9 @@ class MemoryAgent:
             raise ValueError("MESSAGE_TABLE_NAME environment variable must be set")
         self.message_table = self.dynamodb_client.Table(self.message_table_name)  # type: ignore
 
-        self.response_table_name = getenv("RESPONSE_TABLE_NAME")
-        if not self.response_table_name:
-            raise ValueError("RESPONSE_TABLE_NAME environment variable must be set")
-        self.response_table = self.dynamodb_client.Table(self.response_table_name)  # type: ignore
+        self.appsync_api_url: str = getenv("APPSYNC_API_URL") or ""
+        if not self.appsync_api_url:
+            raise ValueError("APPSYNC_API_URL environment variable must be set")
 
     def get_last_message_id(self):
         """Retrieve the message ID of the last message in the conversation."""
@@ -39,18 +66,48 @@ class MemoryAgent:
         return response.get("Items", [])
 
     def save_response(self, response):
-        """Save the AI-generated response to the response table."""
-        response_item = {
-            "id": str(uuid.uuid4()),
-            "conversationId": self.conversation_id,
-            "messageId": self.get_last_message_id() or None,
-            "response": response.get("response", ""),
-            "memories": response.get("memories", ""),
-            "sensations": response.get("sensations", []),
-            "thoughts": response.get("thoughts", []),
-            "selfReflection": response.get("self_reflection", ""),
+        """Save the AI-generated response to the BrainResponse table via AppSync GraphQL mutation."""
+        mutation = """
+        mutation CreateBrainResponse($input: CreateBrainResponseInput!) {
+          createBrainResponse(input: $input) {
+            id
+            response
+            conversationId
+            messageId
+            owner
+          }
         }
-        self.response_table.put_item(Item=response_item)
+        """
+
+        variables = {
+            "input": {
+                "id": str(uuid.uuid4()),
+                "conversationId": self.conversation_id,
+                "messageId": self.get_last_message_id() or None,
+                "response": response.get("response", ""),
+                "memories": response.get("memories", ""),
+                "sensations": response.get("sensations", []),
+                "thoughts": response.get("thoughts", []),
+                "selfReflection": response.get("self_reflection", ""),
+                # "owner": "f4e87478-d071-709a-9f5d-115e1e1562df",  # TODO: pull from caller identity
+            }
+        }
+
+        headers = {"Content-Type": "application/json"}
+
+        auth = AWSV4Auth(
+            service="appsync", region="us-east-1"
+        )  # Change region if needed
+
+        response = requests.post(
+            self.appsync_api_url,
+            json={"query": mutation, "variables": variables},
+            headers=headers,
+            auth=auth,
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"GraphQL mutation failed: {response.text}")
 
     def retrieve_context(self, conversation_history, n=5):
         """Get the last n interactions from history."""

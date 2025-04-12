@@ -26,6 +26,7 @@ const brainLambda = backend.brain.resources.lambda as Function;
 brainLambda.addEnvironment('CONVERSATION_TABLE_NAME', conversationTable.tableName);
 brainLambda.addEnvironment('MESSAGE_TABLE_NAME', messageTable.tableName);
 brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
+brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 
 const layer = new LayerVersion(stack, 'BrainDepsLayer', {
   code: Code.fromAsset('amplify/functions/brain/layer', {
@@ -73,6 +74,13 @@ brainLambda.addToRolePolicy(new PolicyStatement({
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${messageTable.tableName}/*`,
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${responseTable.tableName}`,
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${responseTable.tableName}/*`
+  ],
+  effect: Effect.ALLOW,
+}));
+brainLambda.addToRolePolicy(new PolicyStatement({
+  actions: ['appsync:GraphQL'],
+  resources: [
+    `arn:aws:appsync:${stack.region}:${stack.account}:apis/${backend.data.resources.cfnResources.cfnGraphqlApi.attrApiId}/types/*`,
   ],
   effect: Effect.ALLOW,
 }));

@@ -30,6 +30,7 @@ function App() {
     async function getUserAttributes() {
       const attributes = await fetchUserAttributes();
       setUserAttributes(attributes);
+      console.log("👤 Logged-in user:", attributes); // 👈 Add this
       setIsLoading(false);
     }
     getUserAttributes();
