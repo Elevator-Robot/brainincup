@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchUserAttributes } from "aws-amplify/auth";
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "../amplify/data/resource";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
 
 const dataClient = generateClient<Schema>();
 
@@ -23,7 +24,6 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const { signOut } = useAuthenticator();
   const hardcodedConversationId = "hardcoded-conversation-id";
 
   useEffect(() => {
@@ -93,18 +93,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-bg-dark via-brand-bg-light to-brand-bg-dark">
-      <header className="bg-brand-surface-dark backdrop-blur-md border-b border-brand-surface-border fixed top-0 w-full z-10">
-        <div className="max-w-6xl mx-auto flex justify-between items-center p-4">
-          <h1 className="text-2xl font-light text-brand-text-primary">Brain in Cup</h1>
-          <button
-            onClick={signOut}
-            className="px-4 py-2 text-sm text-brand-text-secondary hover:text-brand-text-primary transition-colors duration-200"
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
 
+      <Header />
       <div className="flex flex-col pt-20 pb-24 min-h-screen w-full">
         <main className="flex-1 overflow-auto space-y-6 max-w-6xl mx-auto w-full px-4">
           {messages.map((message, index) => (
@@ -147,6 +137,7 @@ function App() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

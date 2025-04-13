@@ -89,7 +89,7 @@ class MemoryAgent:
                 "sensations": response.get("sensations", []),
                 "thoughts": response.get("thoughts", []),
                 "selfReflection": response.get("self_reflection", ""),
-                # "owner": "f4e87478-d071-709a-9f5d-115e1e1562df",  # TODO: pull from caller identity
+                "owner": "f4e87478-d071-709a-9f5d-115e1e1562df",  # TODO: pull from caller identity
             }
         }
 
