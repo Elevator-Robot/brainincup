@@ -38,8 +38,10 @@ const schema = a.schema({
 
     createdAt: a.date(),
     owner: a.string(),
-    // }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
-  }).authorization(allow => [allow.owner()]),
+  }).authorization(allow => [
+    allow.owner(),
+    allow.authenticated().to(['read']),
+  ]),
 });
 
 export const data = defineData({

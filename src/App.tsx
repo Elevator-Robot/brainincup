@@ -48,32 +48,65 @@ function App() {
   useEffect(() => {
     if (!conversationId) return;
 
-    console.log('Subscribing to conversation:', conversationId);
+    console.log('Setting up subscription for conversation:', conversationId);
     
-    // Subscribe to ALL BrainResponse creations, not just for this conversation
-    const sub = dataClient.models.BrainResponse.onCreate().subscribe({
-      next: (brainResponse) => {
-        console.log('Received brain response:', brainResponse);
-        
-        // Check if this response is for our conversation
-        if (brainResponse?.conversationId === conversationId) {
-          console.log('Adding response to messages:', brainResponse.response);
-          setMessages(prev => [...prev, { role: 'assistant', content: brainResponse.response ?? '' }]);
+    try {
+      console.log('Setting up raw subscription without filters');
+      
+      // Use the raw GraphQL subscription without filters
+      const rawSubscription = dataClient.graphql({
+        query: `
+          subscription OnCreateBrainResponse {
+            onCreateBrainResponse {
+              id
+              conversationId
+              response
+              owner
+              messageId
+              createdAt
+            }
+          }
+        `
+      }).subscribe({
+        next: (result) => {
+          console.log('RAW SUBSCRIPTION RECEIVED:', result);
+          
+          // Try to extract the data
+          const brainResponse = result.data?.onCreateBrainResponse;
+          if (brainResponse) {
+            console.log('Extracted brain response:', brainResponse);
+            console.log('Current conversation ID:', conversationId);
+            console.log('Response conversation ID:', brainResponse.conversationId);
+            console.log('Response owner:', brainResponse.owner);
+            
+            // Check if this response is for our conversation
+            if (brainResponse.conversationId === conversationId && 
+                brainResponse.owner === "f4e87478-d071-709a-9f5d-115e1e1562df") {
+              console.log('✅ MATCH: Adding response to messages:', brainResponse.response);
+              setMessages(prev => [...prev, { 
+                role: 'assistant', 
+                content: brainResponse.response ?? '' 
+              }]);
+              setIsWaitingForResponse(false);
+            } else {
+              console.log('❌ NO MATCH: Response does not match criteria');
+            }
+          }
+        },
+        error: (err) => {
+          console.error('Raw subscription error:', err);
           setIsWaitingForResponse(false);
-        } else {
-          console.log('Ignoring response for different conversation:', brainResponse.conversationId);
         }
-      },
-      error: (err) => {
-        console.error('Subscription error:', err);
-        setIsWaitingForResponse(false);
-      }
-    });
-
-    return () => {
-      console.log('Unsubscribing from BrainResponse');
-      sub.unsubscribe();
-    };
+      });
+      
+      return () => {
+        console.log('Cleaning up raw subscription');
+        rawSubscription.unsubscribe();
+      };
+    } catch (error) {
+      console.error('Error setting up raw subscription:', error);
+      return () => {}; // Empty cleanup function
+    }
   }, [conversationId]);
 
   const handleSendMessage = async (content: string): Promise<void> => {
@@ -120,6 +153,20 @@ function App() {
 
       {/* Scrollable content with bottom padding for input + footer */}
       <main className="flex-1 overflow-y-auto max-w-6xl mx-auto w-full px-4 pt-20 pb-40 space-y-6">
+        {messages.length === 0 && !isLoading && (
+          <div className="flex justify-center items-center h-full">
+            <p className="text-brand-text-muted text-center">
+              Start a conversation with the Brain in Cup...
+            </p>
+          </div>
+        )}
+        
+        {isLoading && (
+          <div className="flex justify-center items-center h-full">
+            <p className="text-brand-text-muted">Loading...</p>
+          </div>
+        )}
+        
         {messages.map((message, index) => (
           <div
             key={index}
