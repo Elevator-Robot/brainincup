@@ -4,6 +4,9 @@ import { data } from './data/resource';
 import { brain } from './functions/brain/resource';
 import { PolicyStatement, Effect } from "aws-cdk-lib/aws-iam"
 import { EventSourceMapping, StartingPosition, LayerVersion, Code, Runtime, Function } from 'aws-cdk-lib/aws-lambda';
+import fs from 'fs-extra';
+import { execSync } from 'child_process';
+import { DockerImage } from 'aws-cdk-lib';
 
 const backend = defineBackend({
   auth,
@@ -31,13 +34,35 @@ brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResource
 const layer = new LayerVersion(stack, 'BrainDepsLayer', {
   code: Code.fromAsset('amplify/functions/brain/layer', {
     bundling: {
-      image: Runtime.PYTHON_3_12.bundlingImage,
+      // Try local bundling first (no Docker)
+      local: {
+        tryBundle(outputDir: string) {
+          try {
+            // Copy all source files into the asset output dir
+            fs.copySync('amplify/functions/brain/layer', outputDir);
+
+            // Install Python dependencies directly into the layer folder
+            // (creates a "python" subfolder per Lambda layer conventions)
+            execSync(
+              'pip install --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --only-binary=:all: -r requirements.txt -t python',
+              { cwd: outputDir }
+            );
+
+            return true;
+          } catch (error) {
+            console.error('Local bundling failed:', error);
+            return false;
+          }
+        }
+      },
+      // Use a default Docker image if local bundling fails
+      image: DockerImage.fromRegistry('public.ecr.aws/sam/build-python3.12:latest'),
       command: [
         'bash',
         '-c',
         'pip install --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --only-binary=:all: -r requirements.txt -t /asset-output/python'
       ],
-    },
+    }
   }),
   compatibleRuntimes: [Runtime.PYTHON_3_12],
 });
@@ -86,4 +111,3 @@ brainLambda.addToRolePolicy(new PolicyStatement({
 }));
 
 export default backend;
-
