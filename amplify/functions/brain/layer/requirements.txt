@@ -17,7 +17,7 @@ langchain-aws==0.2.17
 langchain-core==0.3.47
 langchain-text-splitters==0.3.7
 langsmith==0.3.18
-numpy==2.2.4
+numpy>=1.0.0,<2.0.0
 orjson==3.10.15
 packaging==24.2
 pydantic==2.10.6

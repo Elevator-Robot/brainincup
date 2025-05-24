@@ -67,8 +67,10 @@ function App() {
             }
           }
         `
-      }).subscribe({
-        next: (result) => {
+      }) as { subscribe: (options: { next: (result: any) => void, error: (err: Error) => void }) => { unsubscribe: () => void } };
+      
+      const subscription = rawSubscription.subscribe({
+        next: (result: any) => {
           console.log('RAW SUBSCRIPTION RECEIVED:', result);
           
           // Try to extract the data
@@ -93,7 +95,7 @@ function App() {
             }
           }
         },
-        error: (err) => {
+        error: (err: Error) => {
           console.error('Raw subscription error:', err);
           setIsWaitingForResponse(false);
         }
@@ -101,7 +103,7 @@ function App() {
       
       return () => {
         console.log('Cleaning up raw subscription');
-        rawSubscription.unsubscribe();
+        subscription.unsubscribe();
       };
     } catch (error) {
       console.error('Error setting up raw subscription:', error);

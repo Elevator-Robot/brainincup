@@ -1,5 +1,5 @@
 import { defineData, a } from "@aws-amplify/backend";
-import { ClientSchema, defineFunction } from "@aws-amplify/backend";
+import { ClientSchema } from "@aws-amplify/backend";
 
 const schema = a.schema({
   Conversation: a.model({
