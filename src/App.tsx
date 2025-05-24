@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { fetchUserAttributes } from "aws-amplify/auth";
 import { generateClient } from "aws-amplify/data";
 import type { Schema } from "../amplify/data/resource";
@@ -24,7 +24,9 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const hardcodedConversationId = "hardcoded-conversation-id";
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function getUserAttributes() {
@@ -36,29 +38,48 @@ function App() {
     getUserAttributes();
   }, []);
 
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
   useEffect(() => {
     if (!conversationId) return;
 
     console.log('Subscribing to conversation:', conversationId);
+    
+    // Subscribe to ALL BrainResponse creations, not just for this conversation
     const sub = dataClient.models.BrainResponse.onCreate().subscribe({
       next: (brainResponse) => {
-        console.log('User attributes:', brainResponse);
-        console.log('WE ARE HERE');
-
+        console.log('Received brain response:', brainResponse);
+        
+        // Check if this response is for our conversation
         if (brainResponse?.conversationId === conversationId) {
+          console.log('Adding response to messages:', brainResponse.response);
           setMessages(prev => [...prev, { role: 'assistant', content: brainResponse.response ?? '' }]);
+          setIsWaitingForResponse(false);
+        } else {
+          console.log('Ignoring response for different conversation:', brainResponse.conversationId);
         }
       },
       error: (err) => {
         console.error('Subscription error:', err);
+        setIsWaitingForResponse(false);
       }
     });
 
-    return () => sub.unsubscribe();
+    return () => {
+      console.log('Unsubscribing from BrainResponse');
+      sub.unsubscribe();
+    };
   }, [conversationId]);
 
   const handleSendMessage = async (content: string): Promise<void> => {
     try {
+      setIsWaitingForResponse(true);
+      
       let convId = conversationId || hardcodedConversationId;
       if (!conversationId) {
         const { data: newConversation } = await dataClient.models.Conversation.create({
@@ -66,6 +87,7 @@ function App() {
         });
         convId = newConversation?.id || hardcodedConversationId;
         setConversationId(convId);
+        console.log('Created/using conversation ID:', convId);
       }
 
       const { data: savedMessage } = await dataClient.models.Message.create({
@@ -76,12 +98,13 @@ function App() {
       console.log('Message saved to backend:', savedMessage);
     } catch (error) {
       console.error('Error sending message to backend:', error);
+      setIsWaitingForResponse(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || isWaitingForResponse) return;
 
     const userMessage = inputMessage;
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
@@ -110,6 +133,28 @@ function App() {
             </div>
           </div>
         ))}
+        
+        {isWaitingForResponse && (
+          <div className="flex justify-start">
+            <div className="max-w-[80%] rounded-2xl p-4 shadow-sm bg-gradient-to-r from-purple-900/30 to-slate-800/30 text-brand-text-secondary">
+              <div className="flex space-x-2">
+                <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
+                <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
+                <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Debug info */}
+        <div className="mt-4 p-2 bg-gray-800/50 rounded text-xs text-gray-400">
+          <p>Conversation ID: {conversationId || 'None'}</p>
+          <p>User: {userAttributes?.sub || 'Unknown'}</p>
+          <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
+        </div>
+        
+        {/* Invisible element to scroll to */}
+        <div ref={messagesEndRef} />
       </main>
 
       {/* ✅ Bottom stack: input bar on top, footer below it */}
@@ -127,12 +172,17 @@ function App() {
                 text-brand-text-primary placeholder-brand-text-muted
                 focus:outline-none focus:border-brand-accent-primary focus:ring-2 focus:ring-brand-accent-primary/20 
                 transition-all duration-200"
+                disabled={isWaitingForResponse}
               />
               <button
                 type="submit"
-                className="px-8 py-3 rounded-full bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary 
-                text-brand-text-primary shadow-sm hover:opacity-90 transition-all duration-200 
-                focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/20"
+                className={`px-8 py-3 rounded-full bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary 
+                text-brand-text-primary shadow-sm transition-all duration-200 
+                focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/20
+                ${isWaitingForResponse 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:opacity-90'}`}
+                disabled={isWaitingForResponse}
               >
                 Send
               </button>
