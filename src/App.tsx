@@ -54,7 +54,7 @@ function App() {
       console.log('Setting up raw subscription without filters');
       
       // Use the raw GraphQL subscription without filters
-      const rawSubscription = dataClient.graphql({
+      const subscription = dataClient.graphql({
         query: `
           subscription OnCreateBrainResponse {
             onCreateBrainResponse {
@@ -67,8 +67,25 @@ function App() {
             }
           }
         `
-      }).subscribe({
-        next: (result) => {
+      });
+      
+      // Add proper type for the subscription
+      type GraphQLSubscriptionResult = {
+        data?: {
+          onCreateBrainResponse?: {
+            id: string;
+            conversationId: string;
+            response: string;
+            owner: string;
+            messageId: string;
+            createdAt: string;
+          };
+        };
+        errors?: Array<{ message: string }>;
+      };
+      
+      const rawSubscription = (subscription as any).subscribe({
+        next: (result: GraphQLSubscriptionResult) => {
           console.log('RAW SUBSCRIPTION RECEIVED:', result);
           
           // Try to extract the data
@@ -93,7 +110,7 @@ function App() {
             }
           }
         },
-        error: (err) => {
+        error: (err: Error) => {
           console.error('Raw subscription error:', err);
           setIsWaitingForResponse(false);
         }
