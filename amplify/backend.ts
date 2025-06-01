@@ -29,17 +29,9 @@ brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 
 const layer = new LayerVersion(stack, 'BrainDepsLayer', {
-  code: Code.fromAsset('amplify/functions/brain/layer', {
-    bundling: {
-      image: Runtime.PYTHON_3_12.bundlingImage,
-      command: [
-        'bash',
-        '-c',
-        'pip install --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --only-binary=:all: -r requirements.txt -t /asset-output/python'
-      ],
-    },
-  }),
+  code: Code.fromAsset('amplify/functions/brain/layer'),
   compatibleRuntimes: [Runtime.PYTHON_3_12],
+  description: 'Layer containing dependencies for the Brain Lambda function',
 });
 
 brainLambda.addLayers(layer);

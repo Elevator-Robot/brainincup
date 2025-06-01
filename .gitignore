@@ -192,3 +192,6 @@ amplify_outputs.json
 
 # Conversation history
 conversation_history.pkl
+
+# Python libs (lambda layers)
+**/layer/python/*

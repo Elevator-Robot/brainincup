@@ -1,22 +1,27 @@
 version: 1
-
 backend:
   phases:
+    preBuild:
+      commands:
+        - npm ci
+        - "echo Installing Python dependencies for Lambda layer"
+        - "mkdir -p amplify/functions/brain/layer/python"
+        - "pip install --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --only-binary=:all: -t amplify/functions/brain/layer/python -r amplify/functions/brain/layer/requirements.txt"
     build:
       commands:
-        - npm install
-        - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
-
+        - "npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID"
 frontend:
   phases:
+    preBuild:
+      commands:
+        - npm ci
     build:
       commands:
         - npm run build
   artifacts:
-    baseDirectory: dist  # Ensure this is the correct output directory
+    baseDirectory: dist
     files:
       - '**/*'
   cache:
     paths:
-      - .npm/**/*
       - node_modules/**/*
