@@ -10,6 +10,8 @@ const dataClient = generateClient<Schema>();
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  timestamp?: string;
+  id?: string;
 }
 
 const generateGradient = (role: 'user' | 'assistant') => {
@@ -28,6 +30,7 @@ function App() {
   const hardcodedConversationId = "hardcoded-conversation-id";
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Fetch user attributes
   useEffect(() => {
     async function getUserAttributes() {
       const attributes = await fetchUserAttributes();
@@ -37,6 +40,75 @@ function App() {
     }
     getUserAttributes();
   }, []);
+
+  // Fetch conversation history when component mounts or conversationId changes
+  useEffect(() => {
+    async function fetchConversationHistory() {
+      if (!conversationId) return;
+      
+      try {
+        console.log('Fetching conversation history for:', conversationId);
+        
+        // Fetch user messages
+        const { data: userMessages } = await dataClient.models.Message.list({
+          filter: { conversationId: { eq: conversationId } }
+        });
+        
+        console.log('Fetched user messages:', userMessages);
+        
+        // Fetch brain responses
+        const { data: brainResponses } = await dataClient.models.BrainResponse.list({
+          filter: { conversationId: { eq: conversationId } }
+        });
+        
+        console.log('Fetched brain responses:', brainResponses);
+        
+        // Combine and sort messages by timestamp
+        const combinedMessages: Message[] = [];
+        
+        // Add user messages
+        if (userMessages) {
+          userMessages.forEach(msg => {
+            combinedMessages.push({
+              id: msg.id || '',
+              role: 'user',
+              content: msg.content || '',
+              timestamp: msg.timestamp || new Date().toISOString()
+            });
+          });
+        }
+        
+        // Add brain responses
+        if (brainResponses) {
+          brainResponses.forEach(resp => {
+            combinedMessages.push({
+              id: resp.id || '',
+              role: 'assistant',
+              content: resp.response || '',
+              timestamp: resp.createdAt || new Date().toISOString()
+            });
+          });
+        }
+        
+        // Sort by timestamp
+        combinedMessages.sort((a, b) => {
+          if (!a.timestamp || !b.timestamp) return 0;
+          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+        });
+        
+        console.log('Combined and sorted messages:', combinedMessages);
+        
+        // Update state with fetched messages
+        if (combinedMessages.length > 0) {
+          setMessages(combinedMessages);
+        }
+      } catch (error) {
+        console.error('Error fetching conversation history:', error);
+      }
+    }
+    
+    fetchConversationHistory();
+  }, [conversationId]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -102,7 +174,9 @@ function App() {
               console.log('✅ MATCH: Adding response to messages:', brainResponse.response);
               setMessages(prev => [...prev, { 
                 role: 'assistant', 
-                content: brainResponse.response ?? '' 
+                content: brainResponse.response || '',
+                id: brainResponse.id,
+                timestamp: brainResponse.createdAt
               }]);
               setIsWaitingForResponse(false);
             } else {
@@ -132,17 +206,31 @@ function App() {
       
       let convId = conversationId || hardcodedConversationId;
       if (!conversationId) {
-        const { data: newConversation } = await dataClient.models.Conversation.create({
-          id: hardcodedConversationId
+        // Check if conversation already exists
+        const { data: existingConversations } = await dataClient.models.Conversation.list({
+          filter: { id: { eq: hardcodedConversationId } }
         });
-        convId = newConversation?.id || hardcodedConversationId;
+        
+        if (existingConversations && existingConversations.length > 0) {
+          // Use existing conversation
+          convId = existingConversations[0].id || hardcodedConversationId;
+          console.log('Using existing conversation ID:', convId);
+        } else {
+          // Create new conversation
+          const { data: newConversation } = await dataClient.models.Conversation.create({
+            id: hardcodedConversationId
+          });
+          convId = newConversation?.id || hardcodedConversationId;
+          console.log('Created new conversation ID:', convId);
+        }
+        
         setConversationId(convId);
-        console.log('Created/using conversation ID:', convId);
       }
 
       const { data: savedMessage } = await dataClient.models.Message.create({
         content,
-        conversationId: convId
+        conversationId: convId,
+        timestamp: new Date().toISOString()
       });
 
       console.log('Message saved to backend:', savedMessage);
@@ -157,7 +245,11 @@ function App() {
     if (!inputMessage.trim() || isWaitingForResponse) return;
 
     const userMessage = inputMessage;
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setMessages(prev => [...prev, { 
+      role: 'user', 
+      content: userMessage,
+      timestamp: new Date().toISOString()
+    }]);
     setInputMessage('');
 
     await handleSendMessage(userMessage);
@@ -180,13 +272,13 @@ function App() {
         
         {isLoading && (
           <div className="flex justify-center items-center h-full">
-            <p className="text-brand-text-muted">Loading...</p>
+            <p className="text-brand-text-muted">Loading conversation history...</p>
           </div>
         )}
         
         {messages.map((message, index) => (
           <div
-            key={index}
+            key={message.id || index}
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
@@ -194,6 +286,11 @@ function App() {
               ${message.role === 'user' ? 'text-brand-text-primary' : 'text-brand-text-secondary'}`}
             >
               <p className="leading-relaxed">{message.content}</p>
+              {message.timestamp && (
+                <p className="text-xs opacity-50 mt-2">
+                  {new Date(message.timestamp).toLocaleTimeString()}
+                </p>
+              )}
             </div>
           </div>
         ))}
@@ -215,6 +312,7 @@ function App() {
           <p>Conversation ID: {conversationId || 'None'}</p>
           <p>User: {userAttributes?.sub || 'Unknown'}</p>
           <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
+          <p>Messages in memory: {messages.length}</p>
         </div>
         
         {/* Invisible element to scroll to */}
