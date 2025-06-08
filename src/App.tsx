@@ -38,6 +38,7 @@ function App() {
   const [showConversations, setShowConversations] = useState(false);
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const [newConversationName, setNewConversationName] = useState('');
+  const [currentSubscription, setCurrentSubscription] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch user attributes
@@ -139,6 +140,76 @@ function App() {
     }
   };
 
+  // Set up subscription for a specific conversation
+  const setupSubscription = (convId: string) => {
+    try {
+      console.log('Setting up subscription for conversation:', convId);
+      
+      const subscription = dataClient.graphql({
+        query: `
+          subscription OnCreateBrainResponse($conversationId: ID!) {
+            onCreateBrainResponse(filter: {conversationId: {eq: $conversationId}}) {
+              id
+              conversationId
+              response
+              owner
+              messageId
+              createdAt
+            }
+          }
+        `,
+        variables: {
+          conversationId: convId
+        }
+      });
+      
+      // Add proper type for the subscription
+      type GraphQLSubscriptionResult = {
+        data?: {
+          onCreateBrainResponse?: {
+            id: string;
+            conversationId: string;
+            response: string;
+            owner: string;
+            messageId: string;
+            createdAt: string;
+          };
+        };
+        errors?: Array<{ message: string }>;
+      };
+      
+      const rawSubscription = (subscription as any).subscribe({
+        next: (result: GraphQLSubscriptionResult) => {
+          console.log('SUBSCRIPTION RECEIVED:', result);
+          
+          const brainResponse = result.data?.onCreateBrainResponse;
+          if (brainResponse) {
+            console.log('Adding response to messages:', brainResponse.response);
+            setMessages(prev => [...prev, { 
+              role: 'assistant', 
+              content: brainResponse.response || '',
+              id: brainResponse.id,
+              timestamp: brainResponse.createdAt
+            }]);
+            setIsWaitingForResponse(false);
+          }
+        },
+        error: (err: Error) => {
+          console.error('Subscription error:', err);
+          setIsWaitingForResponse(false);
+        }
+      });
+      
+      // Store the subscription reference
+      setCurrentSubscription(rawSubscription);
+      
+      return rawSubscription;
+    } catch (error) {
+      console.error('Error setting up subscription:', error);
+      return null;
+    }
+  };
+
   // Switch to a different conversation
   const switchConversation = async (convId: string) => {
     if (convId === conversationId) {
@@ -147,9 +218,71 @@ function App() {
     }
     
     setIsLoading(true);
+    
+    // Clear the current subscription if any
+    if (currentSubscription) {
+      console.log('Cleaning up previous subscription');
+      currentSubscription.unsubscribe();
+      setCurrentSubscription(null);
+    }
+    
+    // Set the new conversation ID
     setConversationId(convId);
     setMessages([]);
     setShowConversations(false);
+    
+    // Fetch messages for this conversation
+    try {
+      // Fetch conversation history for the new conversation
+      const { data: userMessages } = await dataClient.models.Message.list({
+        filter: { conversationId: { eq: convId } }
+      });
+      
+      const { data: brainResponses } = await dataClient.models.BrainResponse.list({
+        filter: { conversationId: { eq: convId } }
+      });
+      
+      // Process and display messages
+      const combinedMessages: Message[] = [];
+      
+      if (userMessages) {
+        userMessages.forEach(msg => {
+          combinedMessages.push({
+            id: msg.id || '',
+            role: 'user',
+            content: msg.content || '',
+            timestamp: msg.timestamp || new Date().toISOString()
+          });
+        });
+      }
+      
+      if (brainResponses) {
+        brainResponses.forEach(resp => {
+          combinedMessages.push({
+            id: resp.id || '',
+            role: 'assistant',
+            content: resp.response || '',
+            timestamp: resp.createdAt || new Date().toISOString()
+          });
+        });
+      }
+      
+      // Sort by timestamp
+      combinedMessages.sort((a, b) => {
+        if (!a.timestamp || !b.timestamp) return 0;
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      });
+      
+      if (combinedMessages.length > 0) {
+        setMessages(combinedMessages);
+      }
+    } catch (error) {
+      console.error('Error fetching conversation history:', error);
+    }
+    
+    // Set up a new subscription for this conversation
+    setupSubscription(convId);
+    
     setIsLoading(false);
   };
 
@@ -214,12 +347,24 @@ function App() {
         if (combinedMessages.length > 0) {
           setMessages(combinedMessages);
         }
+        
+        // Set up subscription for this conversation
+        setupSubscription(conversationId);
       } catch (error) {
         console.error('Error fetching conversation history:', error);
       }
     }
     
     fetchConversationHistory();
+    
+    // Clean up subscription when component unmounts or conversationId changes
+    return () => {
+      if (currentSubscription) {
+        console.log('Cleaning up subscription on unmount/change');
+        currentSubscription.unsubscribe();
+        setCurrentSubscription(null);
+      }
+    };
   }, [conversationId]);
 
   // Auto-scroll to bottom when messages change
@@ -229,88 +374,8 @@ function App() {
     }
   }, [messages]);
 
-  useEffect(() => {
-    if (!conversationId) return;
-
-    console.log('Setting up subscription for conversation:', conversationId);
-    
-    try {
-      console.log('Setting up raw subscription without filters');
-      
-      // Use the raw GraphQL subscription without filters
-      const subscription = dataClient.graphql({
-        query: `
-          subscription OnCreateBrainResponse {
-            onCreateBrainResponse {
-              id
-              conversationId
-              response
-              owner
-              messageId
-              createdAt
-            }
-          }
-        `
-      });
-      
-      // Add proper type for the subscription
-      type GraphQLSubscriptionResult = {
-        data?: {
-          onCreateBrainResponse?: {
-            id: string;
-            conversationId: string;
-            response: string;
-            owner: string;
-            messageId: string;
-            createdAt: string;
-          };
-        };
-        errors?: Array<{ message: string }>;
-      };
-      
-      const rawSubscription = (subscription as any).subscribe({
-        next: (result: GraphQLSubscriptionResult) => {
-          console.log('RAW SUBSCRIPTION RECEIVED:', result);
-          
-          // Try to extract the data
-          const brainResponse = result.data?.onCreateBrainResponse;
-          if (brainResponse) {
-            console.log('Extracted brain response:', brainResponse);
-            console.log('Current conversation ID:', conversationId);
-            console.log('Response conversation ID:', brainResponse.conversationId);
-            console.log('Response owner:', brainResponse.owner);
-            
-            // Check if this response is for our conversation
-            if (brainResponse.conversationId === conversationId && 
-                brainResponse.owner === "f4e87478-d071-709a-9f5d-115e1e1562df") {
-              console.log('✅ MATCH: Adding response to messages:', brainResponse.response);
-              setMessages(prev => [...prev, { 
-                role: 'assistant', 
-                content: brainResponse.response || '',
-                id: brainResponse.id,
-                timestamp: brainResponse.createdAt
-              }]);
-              setIsWaitingForResponse(false);
-            } else {
-              console.log('❌ NO MATCH: Response does not match criteria');
-            }
-          }
-        },
-        error: (err: Error) => {
-          console.error('Raw subscription error:', err);
-          setIsWaitingForResponse(false);
-        }
-      });
-      
-      return () => {
-        console.log('Cleaning up raw subscription');
-        rawSubscription.unsubscribe();
-      };
-    } catch (error) {
-      console.error('Error setting up raw subscription:', error);
-      return () => {}; // Empty cleanup function
-    }
-  }, [conversationId]);
+  // We no longer need this effect as we're handling subscriptions in fetchConversationHistory
+  // and switchConversation functions
 
   const handleSendMessage = async (content: string): Promise<void> => {
     try {
