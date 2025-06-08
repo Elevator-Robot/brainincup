@@ -17,6 +17,7 @@ interface Message {
 // Our internal interface for conversations
 interface Conversation {
   id: string;
+  name?: string;
   createdAt?: string;
 }
 
@@ -35,6 +36,8 @@ function App() {
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showConversations, setShowConversations] = useState(false);
+  const [showNewConversationModal, setShowNewConversationModal] = useState(false);
+  const [newConversationName, setNewConversationName] = useState('');
   const hardcodedConversationId = "hardcoded-conversation-id";
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -60,10 +63,20 @@ function App() {
         // Map API conversations to our internal Conversation type
         const validConversations = conversationsList
           .filter(conv => conv.id !== null) // Filter out any with null IDs
-          .map(conv => ({
-            id: conv.id as string, // We've filtered out nulls, so this is safe
-            createdAt: conv.createdAt || undefined
-          }));
+          .map(conv => {
+            // Extract name from participants, handling null values
+            let name: string | undefined = undefined;
+            if (conv.participants && conv.participants.length > 0) {
+              // Convert null to undefined if needed
+              name = conv.participants[0] || undefined;
+            }
+            
+            return {
+              id: conv.id as string, // We've filtered out nulls, so this is safe
+              name: name,
+              createdAt: conv.createdAt || undefined
+            };
+          });
         
         // Sort conversations by createdAt date (newest first)
         const sortedConversations = [...validConversations].sort((a, b) => {
@@ -83,6 +96,10 @@ function App() {
   // Create a new conversation
   const createNewConversation = async () => {
     try {
+      if (!newConversationName.trim()) {
+        return; // Don't create conversation if name is empty
+      }
+      
       setIsLoading(true);
       
       // Generate a unique ID for the new conversation
@@ -91,7 +108,8 @@ function App() {
       // Create the conversation in the database
       const { data: newConversation } = await dataClient.models.Conversation.create({
         id: newConvId,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        participants: [newConversationName] // Store the name in participants array for now
       });
       
       console.log('Created new conversation:', newConversation);
@@ -105,6 +123,9 @@ function App() {
         setMessages([]);
       }
       
+      // Reset and close modal
+      setNewConversationName('');
+      setShowNewConversationModal(false);
       setIsLoading(false);
       setShowConversations(false);
     } catch (error) {
@@ -359,7 +380,7 @@ function App() {
         
         <div className="p-4">
           <button 
-            onClick={createNewConversation}
+            onClick={() => setShowNewConversationModal(true)}
             className="w-full py-2 px-4 mb-4 rounded-lg bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-brand-text-primary flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -384,9 +405,9 @@ function App() {
                     <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
                   </svg>
                   <span className="truncate">
-                    {conv.createdAt 
+                    {conv.name || (conv.createdAt 
                       ? new Date(conv.createdAt).toLocaleDateString() 
-                      : 'Conversation ' + conv.id.substring(0, 8)}
+                      : 'Conversation ' + conv.id.substring(0, 8))}
                   </span>
                 </div>
               </button>
@@ -411,6 +432,64 @@ function App() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
       </button>
+
+      {/* New Conversation Modal */}
+      {showNewConversationModal && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowNewConversationModal(false)}
+          >
+            <div 
+              className="bg-brand-surface-dark border border-brand-surface-border rounded-xl shadow-xl w-full max-w-md p-6 animate-fade-in"
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-medium text-brand-text-primary mb-4">Create New Conversation</h3>
+              
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                createNewConversation();
+              }}>
+                <div className="mb-4">
+                  <label htmlFor="conversation-name" className="block text-sm font-medium text-brand-text-secondary mb-2">
+                    Conversation Name
+                  </label>
+                  <input
+                    id="conversation-name"
+                    type="text"
+                    value={newConversationName}
+                    onChange={(e) => setNewConversationName(e.target.value)}
+                    placeholder="Enter a name for this conversation"
+                    className="w-full px-4 py-3 rounded-lg bg-brand-surface-dark border border-brand-surface-border 
+                    text-brand-text-primary placeholder-brand-text-muted
+                    focus:outline-none focus:border-brand-accent-primary focus:ring-2 focus:ring-brand-accent-primary/20"
+                    autoFocus
+                  />
+                </div>
+                
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewConversationModal(false)}
+                    className="px-4 py-2 rounded-lg border border-brand-surface-border text-brand-text-secondary 
+                    hover:bg-brand-surface-border transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!newConversationName.trim()}
+                    className={`px-4 py-2 rounded-lg bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary 
+                    text-brand-text-primary transition-opacity ${!newConversationName.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`}
+                  >
+                    Create
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Overlay when sidebar is open */}
       {showConversations && (
