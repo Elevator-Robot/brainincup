@@ -38,7 +38,6 @@ function App() {
   const [showConversations, setShowConversations] = useState(false);
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const [newConversationName, setNewConversationName] = useState('');
-  const hardcodedConversationId = "hardcoded-conversation-id";
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch user attributes
@@ -64,16 +63,9 @@ function App() {
         const validConversations = conversationsList
           .filter(conv => conv.id !== null) // Filter out any with null IDs
           .map(conv => {
-            // Extract name from participants, handling null values
-            let name: string | undefined = undefined;
-            if (conv.participants && conv.participants.length > 0) {
-              // Convert null to undefined if needed
-              name = conv.participants[0] || undefined;
-            }
-            
             return {
               id: conv.id as string, // We've filtered out nulls, so this is safe
-              name: name,
+              name: conv.name || undefined,
               createdAt: conv.createdAt || undefined
             };
           });
@@ -101,16 +93,29 @@ function App() {
       }
       
       setIsLoading(true);
+      console.log('Creating new conversation with name:', newConversationName);
       
-      // Generate a unique ID for the new conversation
-      const newConvId = `conversation-${Date.now()}`;
-      
-      // Create the conversation in the database
-      const { data: newConversation } = await dataClient.models.Conversation.create({
-        id: newConvId,
-        createdAt: new Date().toISOString(),
-        participants: [newConversationName] // Store the name in participants array for now
+      // Use GraphQL mutation directly, similar to the manual example
+      // Removed createdAt from the query to avoid date serialization issues
+      const result = await dataClient.graphql({
+        query: `
+          mutation CreateNewConversation($input: CreateConversationInput!) {
+            createConversation(input: $input) {
+              id
+              name
+            }
+          }
+        `,
+        variables: {
+          input: {
+            name: newConversationName.trim()
+          }
+        }
       });
+      
+      // Type assertion to handle the GraphQL result
+      const graphqlResult = result as { data?: { createConversation?: { id: string, name: string } } };
+      const newConversation = graphqlResult.data?.createConversation;
       
       console.log('Created new conversation:', newConversation);
       
@@ -118,8 +123,8 @@ function App() {
       await fetchConversations();
       
       // Switch to the new conversation
-      if (newConversation) {
-        setConversationId(newConversation.id || newConvId);
+      if (newConversation?.id) {
+        setConversationId(newConversation.id);
         setMessages([]);
       }
       
@@ -311,33 +316,52 @@ function App() {
     try {
       setIsWaitingForResponse(true);
       
-      let convId = conversationId || hardcodedConversationId;
+      let convId = conversationId;
       if (!conversationId) {
-        // Check if conversation already exists
-        const { data: existingConversations } = await dataClient.models.Conversation.list({
-          filter: { id: { eq: hardcodedConversationId } }
-        });
-        
-        if (existingConversations && existingConversations.length > 0) {
-          // Use existing conversation
-          convId = existingConversations[0].id || hardcodedConversationId;
-          console.log('Using existing conversation ID:', convId);
-        } else {
-          // Create new conversation
-          const { data: newConversation } = await dataClient.models.Conversation.create({
-            id: hardcodedConversationId
+        // Create a new conversation if none exists
+        try {
+          // Removed createdAt from the query to avoid date serialization issues
+          const result = await dataClient.graphql({
+            query: `
+              mutation CreateNewConversation($input: CreateConversationInput!) {
+                createConversation(input: $input) {
+                  id
+                  name
+                }
+              }
+            `,
+            variables: {
+              input: {
+                name: "Untitled Conversation"
+              }
+            }
           });
-          convId = newConversation?.id || hardcodedConversationId;
-          console.log('Created new conversation ID:', convId);
+          
+          // Type assertion to handle the GraphQL result
+          const graphqlResult = result as { data?: { createConversation?: { id: string, name: string } } };
+          const newConversation = graphqlResult.data?.createConversation;
+          
+          console.log('Created new conversation:', newConversation);
+          
+          if (newConversation?.id) {
+            convId = newConversation.id;
+            setConversationId(convId);
+            
+            // Update conversations list
+            await fetchConversations();
+          } else {
+            throw new Error("Failed to create new conversation");
+          }
+        } catch (error) {
+          console.error('Error creating conversation:', error);
+          throw error;
         }
-        
-        setConversationId(convId);
       }
 
+      // For message creation, use the models API but don't specify timestamp
       const { data: savedMessage } = await dataClient.models.Message.create({
         content,
-        conversationId: convId,
-        timestamp: new Date().toISOString()
+        conversationId: convId as string
       });
 
       console.log('Message saved to backend:', savedMessage);
@@ -405,9 +429,7 @@ function App() {
                     <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
                   </svg>
                   <span className="truncate">
-                    {conv.name || (conv.createdAt 
-                      ? new Date(conv.createdAt).toLocaleDateString() 
-                      : 'Conversation ' + conv.id.substring(0, 8))}
+                    {conv.name || 'Untitled Conversation'}
                   </span>
                 </div>
               </button>
@@ -548,7 +570,7 @@ function App() {
         
         {/* Debug info */}
         <div className="mt-4 p-2 bg-gray-800/50 rounded text-xs text-gray-400">
-          <p>Conversation ID: {conversationId || 'None'}</p>
+          <p>Conversation: {conversations.find(c => c.id === conversationId)?.name || 'Untitled'}</p>
           <p>User: {userAttributes?.sub || 'Unknown'}</p>
           <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
           <p>Messages in memory: {messages.length}</p>
