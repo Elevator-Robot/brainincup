@@ -10,6 +10,14 @@ const dataClient = generateClient<Schema>();
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  timestamp?: string;
+  id?: string;
+}
+
+// Our internal interface for conversations
+interface Conversation {
+  id: string;
+  createdAt?: string;
 }
 
 const generateGradient = (role: 'user' | 'assistant') => {
@@ -25,18 +33,168 @@ function App() {
   const [inputMessage, setInputMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [showConversations, setShowConversations] = useState(false);
   const hardcodedConversationId = "hardcoded-conversation-id";
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Fetch user attributes
   useEffect(() => {
     async function getUserAttributes() {
       const attributes = await fetchUserAttributes();
       setUserAttributes(attributes);
       console.log("👤 Logged-in user:", attributes);
       setIsLoading(false);
+      
+      // Fetch conversations after getting user attributes
+      fetchConversations();
     }
     getUserAttributes();
   }, []);
+  
+  // Fetch all conversations
+  const fetchConversations = async () => {
+    try {
+      const { data: conversationsList } = await dataClient.models.Conversation.list();
+      if (conversationsList) {
+        // Map API conversations to our internal Conversation type
+        const validConversations = conversationsList
+          .filter(conv => conv.id !== null) // Filter out any with null IDs
+          .map(conv => ({
+            id: conv.id as string, // We've filtered out nulls, so this is safe
+            createdAt: conv.createdAt || undefined
+          }));
+        
+        // Sort conversations by createdAt date (newest first)
+        const sortedConversations = [...validConversations].sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        
+        setConversations(sortedConversations);
+        console.log('Fetched conversations:', sortedConversations);
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    }
+  };
+
+  // Create a new conversation
+  const createNewConversation = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Generate a unique ID for the new conversation
+      const newConvId = `conversation-${Date.now()}`;
+      
+      // Create the conversation in the database
+      const { data: newConversation } = await dataClient.models.Conversation.create({
+        id: newConvId,
+        createdAt: new Date().toISOString()
+      });
+      
+      console.log('Created new conversation:', newConversation);
+      
+      // Update the conversations list
+      await fetchConversations();
+      
+      // Switch to the new conversation
+      if (newConversation) {
+        setConversationId(newConversation.id || newConvId);
+        setMessages([]);
+      }
+      
+      setIsLoading(false);
+      setShowConversations(false);
+    } catch (error) {
+      console.error('Error creating new conversation:', error);
+      setIsLoading(false);
+    }
+  };
+
+  // Switch to a different conversation
+  const switchConversation = async (convId: string) => {
+    if (convId === conversationId) {
+      setShowConversations(false);
+      return;
+    }
+    
+    setIsLoading(true);
+    setConversationId(convId);
+    setMessages([]);
+    setShowConversations(false);
+    setIsLoading(false);
+  };
+
+  // Fetch conversation history when component mounts or conversationId changes
+  useEffect(() => {
+    async function fetchConversationHistory() {
+      if (!conversationId) return;
+      
+      try {
+        console.log('Fetching conversation history for:', conversationId);
+        
+        // Fetch user messages
+        const { data: userMessages } = await dataClient.models.Message.list({
+          filter: { conversationId: { eq: conversationId } }
+        });
+        
+        console.log('Fetched user messages:', userMessages);
+        
+        // Fetch brain responses
+        const { data: brainResponses } = await dataClient.models.BrainResponse.list({
+          filter: { conversationId: { eq: conversationId } }
+        });
+        
+        console.log('Fetched brain responses:', brainResponses);
+        
+        // Combine and sort messages by timestamp
+        const combinedMessages: Message[] = [];
+        
+        // Add user messages
+        if (userMessages) {
+          userMessages.forEach(msg => {
+            combinedMessages.push({
+              id: msg.id || '',
+              role: 'user',
+              content: msg.content || '',
+              timestamp: msg.timestamp || new Date().toISOString()
+            });
+          });
+        }
+        
+        // Add brain responses
+        if (brainResponses) {
+          brainResponses.forEach(resp => {
+            combinedMessages.push({
+              id: resp.id || '',
+              role: 'assistant',
+              content: resp.response || '',
+              timestamp: resp.createdAt || new Date().toISOString()
+            });
+          });
+        }
+        
+        // Sort by timestamp
+        combinedMessages.sort((a, b) => {
+          if (!a.timestamp || !b.timestamp) return 0;
+          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+        });
+        
+        console.log('Combined and sorted messages:', combinedMessages);
+        
+        // Update state with fetched messages
+        if (combinedMessages.length > 0) {
+          setMessages(combinedMessages);
+        }
+      } catch (error) {
+        console.error('Error fetching conversation history:', error);
+      }
+    }
+    
+    fetchConversationHistory();
+  }, [conversationId]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -102,7 +260,9 @@ function App() {
               console.log('✅ MATCH: Adding response to messages:', brainResponse.response);
               setMessages(prev => [...prev, { 
                 role: 'assistant', 
-                content: brainResponse.response ?? '' 
+                content: brainResponse.response || '',
+                id: brainResponse.id,
+                timestamp: brainResponse.createdAt
               }]);
               setIsWaitingForResponse(false);
             } else {
@@ -132,17 +292,31 @@ function App() {
       
       let convId = conversationId || hardcodedConversationId;
       if (!conversationId) {
-        const { data: newConversation } = await dataClient.models.Conversation.create({
-          id: hardcodedConversationId
+        // Check if conversation already exists
+        const { data: existingConversations } = await dataClient.models.Conversation.list({
+          filter: { id: { eq: hardcodedConversationId } }
         });
-        convId = newConversation?.id || hardcodedConversationId;
+        
+        if (existingConversations && existingConversations.length > 0) {
+          // Use existing conversation
+          convId = existingConversations[0].id || hardcodedConversationId;
+          console.log('Using existing conversation ID:', convId);
+        } else {
+          // Create new conversation
+          const { data: newConversation } = await dataClient.models.Conversation.create({
+            id: hardcodedConversationId
+          });
+          convId = newConversation?.id || hardcodedConversationId;
+          console.log('Created new conversation ID:', convId);
+        }
+        
         setConversationId(convId);
-        console.log('Created/using conversation ID:', convId);
       }
 
       const { data: savedMessage } = await dataClient.models.Message.create({
         content,
-        conversationId: convId
+        conversationId: convId,
+        timestamp: new Date().toISOString()
       });
 
       console.log('Message saved to backend:', savedMessage);
@@ -157,16 +331,94 @@ function App() {
     if (!inputMessage.trim() || isWaitingForResponse) return;
 
     const userMessage = inputMessage;
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setMessages(prev => [...prev, { 
+      role: 'user', 
+      content: userMessage,
+      timestamp: new Date().toISOString()
+    }]);
     setInputMessage('');
 
     await handleSendMessage(userMessage);
     // Assistant reply will come via subscription
   };
 
+  // Toggle conversations sidebar
+  const toggleConversations = () => {
+    setShowConversations(!showConversations);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-brand-bg-dark via-brand-bg-light to-brand-bg-dark relative">
       <Header />
+
+      {/* Conversations Sidebar */}
+      <div className={`fixed left-0 top-0 bottom-0 w-64 bg-brand-surface-dark border-r border-brand-surface-border z-40 transform transition-transform duration-300 ease-in-out ${showConversations ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-4 border-b border-brand-surface-border">
+          <h2 className="text-brand-text-primary text-lg font-medium">Conversations</h2>
+        </div>
+        
+        <div className="p-4">
+          <button 
+            onClick={createNewConversation}
+            className="w-full py-2 px-4 mb-4 rounded-lg bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-brand-text-primary flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+            New Conversation
+          </button>
+          
+          <div className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
+            {conversations.map((conv) => (
+              <button
+                key={conv.id}
+                onClick={() => switchConversation(conv.id)}
+                className={`w-full text-left py-2 px-3 rounded-lg transition-colors ${
+                  conv.id === conversationId
+                    ? 'bg-brand-accent-primary/20 text-brand-accent-primary'
+                    : 'text-brand-text-secondary hover:bg-brand-surface-border'
+                }`}
+              >
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
+                  </svg>
+                  <span className="truncate">
+                    {conv.createdAt 
+                      ? new Date(conv.createdAt).toLocaleDateString() 
+                      : 'Conversation ' + conv.id.substring(0, 8)}
+                  </span>
+                </div>
+              </button>
+            ))}
+            
+            {conversations.length === 0 && (
+              <p className="text-sm text-brand-text-muted text-center py-4">
+                No conversations yet
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Toggle Button for Conversations */}
+      <button 
+        onClick={toggleConversations}
+        className="fixed left-4 top-20 z-30 p-2 rounded-full bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-brand-text-primary shadow-lg hover:opacity-90 transition-opacity"
+        aria-label="Toggle conversations"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+      </button>
+
+      {/* Overlay when sidebar is open */}
+      {showConversations && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30"
+          onClick={toggleConversations}
+        ></div>
+      )}
 
       {/* Scrollable content with bottom padding for input + footer */}
       <main className="flex-1 overflow-y-auto max-w-6xl mx-auto w-full px-4 pt-20 pb-40 space-y-6">
@@ -180,13 +432,13 @@ function App() {
         
         {isLoading && (
           <div className="flex justify-center items-center h-full">
-            <p className="text-brand-text-muted">Loading...</p>
+            <p className="text-brand-text-muted">Loading conversation history...</p>
           </div>
         )}
         
         {messages.map((message, index) => (
           <div
-            key={index}
+            key={message.id || index}
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
@@ -194,6 +446,11 @@ function App() {
               ${message.role === 'user' ? 'text-brand-text-primary' : 'text-brand-text-secondary'}`}
             >
               <p className="leading-relaxed">{message.content}</p>
+              {message.timestamp && (
+                <p className="text-xs opacity-50 mt-2">
+                  {new Date(message.timestamp).toLocaleTimeString()}
+                </p>
+              )}
             </div>
           </div>
         ))}
@@ -215,6 +472,7 @@ function App() {
           <p>Conversation ID: {conversationId || 'None'}</p>
           <p>User: {userAttributes?.sub || 'Unknown'}</p>
           <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
+          <p>Messages in memory: {messages.length}</p>
         </div>
         
         {/* Invisible element to scroll to */}
