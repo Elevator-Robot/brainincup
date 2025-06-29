@@ -40,6 +40,10 @@ class DepthAgent:
         Returns:
             Enhanced response with deeper, more varied content
         """
+        # Check if this is a fallback error response - if so, don't enhance it
+        if self._is_error_response(response):
+            return response
+        
         # Make a copy to avoid modifying the original
         enhanced = response.copy()
         
@@ -66,6 +70,52 @@ class DepthAgent:
                 enhanced["self_reflection"] += f"\n\nI've approached this from a {perspective} perspective, exploring the dimension of {dimension} with a {tone} tone."
         
         return enhanced
+    
+    def _is_error_response(self, response: Dict[str, Any]) -> bool:
+        """
+        Check if this is a fallback error response that shouldn't be enhanced
+        """
+        # Check for error indicators in the response (case insensitive)
+        error_indicators = [
+            "error processing input",
+            "system malfunction", 
+            "unable to access memory banks",
+            "experiencing technical difficulties",
+            "cannot process your request at the moment",
+            "technical difficulties",
+            "malfunction",
+            "error",
+            "unable to access"
+        ]
+        
+        # Convert response to string for comprehensive checking
+        response_str = str(response).lower()
+        
+        # If any error indicator is found anywhere in the response, it's an error
+        for indicator in error_indicators:
+            if indicator in response_str:
+                return True
+        
+        # Additional specific checks for common error patterns
+        if "sensations" in response and isinstance(response["sensations"], list):
+            for sensation in response["sensations"]:
+                sensation_str = str(sensation).lower()
+                if any(indicator in sensation_str for indicator in error_indicators):
+                    return True
+        
+        if "thoughts" in response and isinstance(response["thoughts"], list):
+            for thought in response["thoughts"]:
+                thought_str = str(thought).lower()
+                if any(indicator in thought_str for indicator in error_indicators):
+                    return True
+        
+        # Check response text specifically
+        if "response" in response:
+            response_text = str(response["response"]).lower()
+            if any(indicator in response_text for indicator in error_indicators):
+                return True
+        
+        return False
     
     def _generate_depth_layer(self, original: str, perspective: str, dimension: str, tone: str) -> str:
         """Generate a depth layer based on selected elements"""

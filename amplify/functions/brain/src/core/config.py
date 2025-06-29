@@ -10,7 +10,8 @@ def setup_llm():
 
     # Initialize the Bedrock LLM
     chat_bedrock = ChatBedrock(
-        model="amazon.nova-pro-v1:0",
+        model_id="amazon.nova-pro-v1:0",
+        region_name="us-east-1"
     )
     return chat_bedrock
 
