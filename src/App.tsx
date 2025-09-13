@@ -84,7 +84,7 @@ function App() {
         errors?: Array<{ message: string }>;
       };
       
-      const rawSubscription = subscription.subscribe({
+      const rawSubscription = (subscription as any).subscribe({
         next: (result: GraphQLSubscriptionResult) => {
           console.log('RAW SUBSCRIPTION RECEIVED:', result);
           
