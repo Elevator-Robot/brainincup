@@ -7,10 +7,21 @@ import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
 import '@aws-amplify/ui-react/styles.css';
 
+console.log('Amplify outputs:', outputs);
 Amplify.configure(outputs);
 
+// Add auth event listeners
+import { Hub } from 'aws-amplify/utils';
+
+Hub.listen('auth', (data) => {
+  console.log('Auth event:', data);
+  if (data.payload.event === 'signInWithRedirect_failure') {
+    console.error('🚨 OAuth failure details:', data.payload.data);
+  }
+});
+
 // Register service worker for PWA
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
@@ -120,8 +131,21 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider theme={customTheme}>
       <div className="bg-gradient-to-br from-brand-bg-dark via-brand-bg-light to-brand-bg-dark min-h-screen">
-        <Authenticator className="flex items-center justify-center caret-white min-h-screen">
-          <App />
+        <Authenticator 
+          className="flex items-center justify-center caret-white min-h-screen"
+          socialProviders={['google']}
+        >
+          {({ signOut, user }) => {
+            console.log('🔐 Authenticator render - User authenticated:', !!user);
+            console.log('👤 User object:', user);
+            if (user) {
+              console.log('✅ User is authenticated, rendering App');
+              return <App />;
+            } else {
+              console.log('❌ No user found, should show login');
+              return null;
+            }
+          }}
         </Authenticator>
       </div>
     </ThemeProvider>
