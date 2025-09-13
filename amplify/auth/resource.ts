@@ -19,11 +19,11 @@ export const auth = defineAuth({
       },
       callbackUrls: [
         'http://localhost:5173/',
-        'https://main.d2x8xqk8qk8qk8.amplifyapp.com/' // Replace with your actual domain
+        'https://brainincup.com/'
       ],
       logoutUrls: [
         'http://localhost:5173/',
-        'https://main.d2x8xqk8qk8qk8.amplifyapp.com/' // Replace with your actual domain
+        'https://brainincup.com/'
       ]
     }
   },

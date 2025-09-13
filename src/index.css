@@ -77,6 +77,36 @@ button[data-amplify-federated-sign-in-button] *,
   color: #ffffff !important;
 }
 
+/* Reset Password link visibility - nuclear option */
+[data-amplify-authenticator] * {
+  color: #e2e8f0 !important;
+}
+
+/* Override specific elements that should stay white */
+[data-amplify-authenticator] input,
+[data-amplify-authenticator] button[type="submit"] {
+  color: #ffffff !important;
+}
+
+/* Specific targeting for links */
+[data-amplify-authenticator] a,
+[data-amplify-authenticator] button[data-variation="link"],
+.amplify-button--link,
+.amplify-button[data-variation="link"],
+[data-amplify-authenticator] .amplify-text,
+[data-amplify-authenticator] span {
+  color: #e2e8f0 !important;
+  font-weight: 400 !important;
+}
+
+[data-amplify-authenticator] a:hover,
+[data-amplify-authenticator] button[data-variation="link"]:hover,
+.amplify-button--link:hover,
+.amplify-button[data-variation="link"]:hover {
+  color: #ffffff !important;
+  text-decoration: underline !important;
+}
+
 /* Hover effects for all Google buttons */
 .amplify-button[data-variation="default"]:hover,
 .amplify-button--default:hover,
