@@ -2,6 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* PWA specific styles */
+@media (display-mode: standalone) {
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Prevent zoom on input focus on iOS */
+input[type="text"], input[type="email"], input[type="password"], textarea {
+  font-size: 16px;
+}
+
+@media (max-width: 640px) {
+  input[type="text"], input[type="email"], input[type="password"], textarea {
+    font-size: 16px;
+  }
+}
+
 input, input:-webkit-autofill {
   color: #ffffff !important;
 }
