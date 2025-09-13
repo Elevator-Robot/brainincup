@@ -1,7 +1,12 @@
 # Brain In Cup - Amazon Q Development Rules
 
 ## Project Overview
-Brain In Cup is an AI consciousness simulation system built with AWS Amplify Gen2, featuring a multi-agent architecture that processes user input through specialized agents (Perception, Memory, Reasoning, Emotional, Language, and Self-Agent).
+Brain In Cup is an AI consciousness simulation system built as a Progressive Web App (PWA) with AWS Amplify Gen2, featuring a multi-agent architecture that processes user input through specialized agents (Perception, Memory, Reasoning, Emotional, Language, and Self-Agent).
+
+## AWS Configuration
+- **AWS Profile**: Always use the `brain` profile for all AWS operations
+- All AWS CLI commands must include `--profile brain`
+- Amplify deployments should use the brain profile configuration
 
 ## Technology Stack Requirements
 
@@ -60,6 +65,15 @@ Brain In Cup is an AI consciousness simulation system built with AWS Amplify Gen
 - Follow the established build process with TypeScript compilation
 - Use proper Git workflows with meaningful commit messages
 - Implement proper testing strategies for both frontend and backend
+
+## PWA Requirements
+- **Maintain PWA Standards**: Always ensure the app remains a proper Progressive Web App
+- **Service Worker**: Keep service worker registration and updates functional
+- **Manifest**: Maintain proper web app manifest with correct icons and metadata
+- **Mobile-First**: Prioritize mobile responsiveness in all UI changes
+- **Offline Capability**: Ensure core functionality works offline where possible
+- **Install Prompts**: Support add-to-homescreen functionality
+- **Performance**: Maintain fast loading times and smooth interactions on mobile devices
 
 ## Security Considerations
 - Never expose sensitive data in client-side code

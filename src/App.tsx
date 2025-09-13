@@ -169,10 +169,10 @@ function App() {
       <Header />
 
       {/* Scrollable content with bottom padding for input + footer */}
-      <main className="flex-1 overflow-y-auto max-w-6xl mx-auto w-full px-4 pt-20 pb-40 space-y-6">
+      <main className="flex-1 overflow-y-auto max-w-4xl mx-auto w-full px-3 sm:px-4 pt-20 pb-40 space-y-4 sm:space-y-6">
         {messages.length === 0 && !isLoading && (
           <div className="flex justify-center items-center h-full">
-            <p className="text-brand-text-muted text-center">
+            <p className="text-brand-text-muted text-center px-4">
               Start a conversation with the Brain in Cup...
             </p>
           </div>
@@ -190,17 +190,17 @@ function App() {
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[80%] rounded-2xl p-4 shadow-sm ${generateGradient(message.role)} 
+              className={`max-w-[85%] sm:max-w-[80%] rounded-2xl p-3 sm:p-4 shadow-sm ${generateGradient(message.role)} 
               ${message.role === 'user' ? 'text-brand-text-primary' : 'text-brand-text-secondary'}`}
             >
-              <p className="leading-relaxed">{message.content}</p>
+              <p className="leading-relaxed text-sm sm:text-base break-words">{message.content}</p>
             </div>
           </div>
         ))}
         
         {isWaitingForResponse && (
           <div className="flex justify-start">
-            <div className="max-w-[80%] rounded-2xl p-4 shadow-sm bg-gradient-to-r from-purple-900/30 to-slate-800/30 text-brand-text-secondary">
+            <div className="max-w-[85%] sm:max-w-[80%] rounded-2xl p-3 sm:p-4 shadow-sm bg-gradient-to-r from-purple-900/30 to-slate-800/30 text-brand-text-secondary">
               <div className="flex space-x-2">
                 <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
                 <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
@@ -210,8 +210,8 @@ function App() {
           </div>
         )}
         
-        {/* Debug info */}
-        <div className="mt-4 p-2 bg-gray-800/50 rounded text-xs text-gray-400">
+        {/* Debug info - hidden on mobile */}
+        <div className="mt-4 p-2 bg-gray-800/50 rounded text-xs text-gray-400 hidden sm:block">
           <p>Conversation ID: {conversationId || 'None'}</p>
           <p>User: {userAttributes?.sub || 'Unknown'}</p>
           <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
@@ -221,27 +221,27 @@ function App() {
         <div ref={messagesEndRef} />
       </main>
 
-      {/* ✅ Bottom stack: input bar on top, footer below it */}
+      {/* Bottom stack: input bar on top, footer below it */}
       <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
         {/* Input Bar */}
         <div className="bg-brand-surface-dark border-t border-brand-surface-border pointer-events-auto">
-          <div className="max-w-6xl mx-auto p-4">
-            <form onSubmit={handleSubmit} className="flex gap-3">
+          <div className="max-w-4xl mx-auto p-3 sm:p-4">
+            <form onSubmit={handleSubmit} className="flex gap-2 sm:gap-3">
               <input
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 placeholder="Type your message..."
-                className="flex-1 rounded-full px-6 py-3 bg-brand-surface-dark border border-brand-surface-border 
-                text-brand-text-primary placeholder-brand-text-muted
+                className="flex-1 rounded-full px-4 sm:px-6 py-2 sm:py-3 bg-brand-surface-dark border border-brand-surface-border 
+                text-brand-text-primary placeholder-brand-text-muted text-sm sm:text-base
                 focus:outline-none focus:border-brand-accent-primary focus:ring-2 focus:ring-brand-accent-primary/20 
                 transition-all duration-200"
                 disabled={isWaitingForResponse}
               />
               <button
                 type="submit"
-                className={`px-8 py-3 rounded-full bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary 
-                text-brand-text-primary shadow-sm transition-all duration-200 
+                className={`px-4 sm:px-8 py-2 sm:py-3 rounded-full bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary 
+                text-brand-text-primary shadow-sm transition-all duration-200 text-sm sm:text-base
                 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/20
                 ${isWaitingForResponse 
                   ? 'opacity-50 cursor-not-allowed' 
@@ -255,7 +255,7 @@ function App() {
         </div>
 
         {/* Footer stays stuck to the very bottom */}
-        <div className="bg-brand-surface-dark border-brand-surface-border text-center text-sm text-brand-text-muted py-2 pointer-events-auto">
+        <div className="bg-brand-surface-dark border-brand-surface-border text-center text-xs sm:text-sm text-brand-text-muted py-2 pointer-events-auto">
           <Footer />
         </div>
       </div>
