@@ -211,7 +211,7 @@ function App() {
         )}
         
         {/* Debug info - hidden on mobile */}
-        <div className="mt-4 p-2 bg-gray-800/50 rounded text-xs text-gray-400 hidden sm:block">
+        <div className="mt-4 p-2 bg-brand-surface-dark rounded text-xs text-brand-text-secondary hidden sm:block">
           <p>Conversation ID: {conversationId || 'None'}</p>
           <p>User: {userAttributes?.sub || 'Unknown'}</p>
           <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>

@@ -29,6 +29,62 @@ input[type="text"], input[type="email"], input[type="password"], textarea {
   }
 }
 
+/* Improved text contrast and readability */
 input, input:-webkit-autofill {
   color: #ffffff !important;
+}
+
+/* Ensure minimum font sizes for readability */
+body {
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* Better contrast for small text */
+.text-xs {
+  font-size: 14px !important;
+  font-weight: 500;
+}
+
+/* Improve readability on dark backgrounds */
+.bg-gradient-to-r {
+  backdrop-filter: blur(8px);
+}
+
+/* WCAG compliant focus indicators */
+*:focus {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+
+/* Google OAuth button visibility fixes - aggressive overrides */
+.amplify-button[data-variation="default"],
+.amplify-button--default,
+button[data-amplify-federated-sign-in-button],
+[data-amplify-authenticator] button[type="button"] {
+  background: rgba(55, 65, 81, 0.9) !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
+  font-weight: 300 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Force all text inside social buttons to be white */
+.amplify-button[data-variation="default"] *,
+.amplify-button--default *,
+button[data-amplify-federated-sign-in-button] *,
+[data-amplify-authenticator] button[type="button"] * {
+  color: #ffffff !important;
+}
+
+/* Hover effects for all Google buttons */
+.amplify-button[data-variation="default"]:hover,
+.amplify-button--default:hover,
+button[data-amplify-federated-sign-in-button]:hover,
+[data-amplify-authenticator] button[type="button"]:hover {
+  background: rgba(75, 85, 99, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+  transform: translateY(-2px) !important;
+  transition: all 0.2s ease !important;
 }
