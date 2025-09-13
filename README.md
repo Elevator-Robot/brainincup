@@ -91,7 +91,7 @@ erDiagram
 ### Prerequisites
 
 - Node.js 18+ and npm
-- AWS CLI configured with `brain` profile
+- AWS CLI configured
 - AWS Amplify CLI
 
 ### Installation
@@ -107,14 +107,14 @@ erDiagram
    npm install
    ```
 
-3. **Configure AWS Profile**
+3. **Configure AWS credentials**
    ```bash
-   aws configure --profile brain
+   aws configure
    ```
 
 4. **Deploy backend (first time)**
    ```bash
-   npx amplify sandbox --profile brain
+   npx amplify sandbox
    ```
 
 5. **Start development server**
@@ -145,9 +145,9 @@ The app can be installed on mobile devices:
 
 ### AWS Configuration
 
-All AWS operations use the `brain` profile:
-- Amplify deployments: `--profile brain`
-- CLI commands: `aws <command> --profile brain`
+Standard AWS Amplify deployment process:
+- Configure AWS credentials for your account
+- Deploy using Amplify CLI commands
 
 ### Project Structure
 
