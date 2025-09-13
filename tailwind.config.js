@@ -18,14 +18,14 @@ export default {
             secondary: '#d946ef', // fuchsia-500
           },
           surface: {
-            dark: 'rgba(15, 23, 42, 0.5)',    // slate-900/50
-            light: 'rgba(30, 27, 75, 0.5)',   // indigo-950/50
-            border: 'rgba(51, 65, 85, 0.5)',  // slate-700/50
+            dark: 'rgba(15, 23, 42, 0.8)',    // slate-900/80 - More opaque
+            light: 'rgba(30, 27, 75, 0.8)',   // indigo-950/80 - More opaque  
+            border: 'rgba(148, 163, 184, 0.3)',  // slate-400/30 - Lighter border
           },
           text: {
-            primary: '#ffffff',    // white
-            secondary: '#cbd5e1',  // slate-300
-            muted: '#94a3b8',      // slate-400
+            primary: '#ffffff',    // white - WCAG AAA compliant
+            secondary: '#e2e8f0',  // slate-200 - Better contrast
+            muted: '#cbd5e1',      // slate-300 - Improved readability
           }
         }
       },
