@@ -1,9 +1,9 @@
-import { useEffect, useState, useRef } from "react";
-import { fetchUserAttributes } from "aws-amplify/auth";
-import { generateClient } from "aws-amplify/data";
-import type { Schema } from "../amplify/data/resource";
-import Header from "./components/Header";
-import Footer from "./components/Footer";
+import { useEffect, useState, useRef } from 'react';
+import { fetchUserAttributes } from 'aws-amplify/auth';
+import { generateClient } from 'aws-amplify/data';
+import type { Schema } from '../amplify/data/resource';
+import Header from './components/Header';
+import Footer from './components/Footer';
 
 const dataClient = generateClient<Schema>();
 
@@ -25,14 +25,14 @@ function App() {
   const [inputMessage, setInputMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
-  const hardcodedConversationId = "hardcoded-conversation-id";
+  const hardcodedConversationId = 'hardcoded-conversation-id';
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function getUserAttributes() {
       const attributes = await fetchUserAttributes();
       setUserAttributes(attributes);
-      console.log("👤 Logged-in user:", attributes);
+      console.log('👤 Logged-in user:', attributes);
       setIsLoading(false);
     }
     getUserAttributes();
@@ -84,7 +84,7 @@ function App() {
         errors?: Array<{ message: string }>;
       };
       
-      const rawSubscription = (subscription as any).subscribe({
+      const rawSubscription = subscription.subscribe({
         next: (result: GraphQLSubscriptionResult) => {
           console.log('RAW SUBSCRIPTION RECEIVED:', result);
           
@@ -98,7 +98,7 @@ function App() {
             
             // Check if this response is for our conversation
             if (brainResponse.conversationId === conversationId && 
-                brainResponse.owner === "f4e87478-d071-709a-9f5d-115e1e1562df") {
+                brainResponse.owner === 'f4e87478-d071-709a-9f5d-115e1e1562df') {
               console.log('✅ MATCH: Adding response to messages:', brainResponse.response);
               setMessages(prev => [...prev, { 
                 role: 'assistant', 
@@ -244,8 +244,8 @@ function App() {
                 text-brand-text-primary shadow-sm transition-all duration-200 text-sm sm:text-base
                 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/20
                 ${isWaitingForResponse 
-                  ? 'opacity-50 cursor-not-allowed' 
-                  : 'hover:opacity-90'}`}
+      ? 'opacity-50 cursor-not-allowed' 
+      : 'hover:opacity-90'}`}
                 disabled={isWaitingForResponse}
               >
                 Send

@@ -1,10 +1,10 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 import { Authenticator, ThemeProvider, defaultTheme } from '@aws-amplify/ui-react';
-import App from "./App.tsx";
-import "./index.css";
-import { Amplify } from "aws-amplify";
-import outputs from "../amplify_outputs.json";
+import App from './App.tsx';
+import './index.css';
+import { Amplify } from 'aws-amplify';
+import outputs from '../amplify_outputs.json';
 import '@aws-amplify/ui-react/styles.css';
 
 Amplify.configure(outputs);
@@ -118,7 +118,7 @@ const customTheme = {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider theme={customTheme as any}>
+    <ThemeProvider theme={customTheme}>
       <div className="bg-gradient-to-br from-brand-bg-dark via-brand-bg-light to-brand-bg-dark min-h-screen">
         <Authenticator className="flex items-center justify-center caret-white min-h-screen">
           <App />

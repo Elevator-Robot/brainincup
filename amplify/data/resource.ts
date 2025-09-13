@@ -1,33 +1,33 @@
-import { defineData, a } from "@aws-amplify/backend";
-import { ClientSchema } from "@aws-amplify/backend";
+import { defineData, a } from '@aws-amplify/backend';
+import { ClientSchema } from '@aws-amplify/backend';
 
 const schema = a.schema({
   Conversation: a.model({
     id: a.id(),
     participants: a.string().array(),
-    messages: a.hasMany("Message", "conversationId"),
-    brainResponses: a.hasMany("BrainResponse", "conversationId"),
+    messages: a.hasMany('Message', 'conversationId'),
+    brainResponses: a.hasMany('BrainResponse', 'conversationId'),
     createdAt: a.date(),
     updatedAt: a.date(),
-  }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
+  }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 
   Message: a.model({
     id: a.id(),
     conversationId: a.id(),
-    conversation: a.belongsTo("Conversation", "conversationId"),
+    conversation: a.belongsTo('Conversation', 'conversationId'),
     senderId: a.string(),
     content: a.string(),
     timestamp: a.date(),
-    brainResponses: a.hasOne("BrainResponse", "messageId")
-  }).authorization(allow => [allow.owner(), allow.groups(["Admins"])]),
+    brainResponses: a.hasOne('BrainResponse', 'messageId')
+  }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 
   BrainResponse: a.model({
     id: a.id(),
     conversationId: a.id(),
-    conversation: a.belongsTo("Conversation", "conversationId"),
+    conversation: a.belongsTo('Conversation', 'conversationId'),
 
     messageId: a.id(), // the user message this is responding to
-    message: a.belongsTo("Message", "messageId"),
+    message: a.belongsTo('Message', 'messageId'),
 
     response: a.string(),
 
@@ -47,7 +47,7 @@ const schema = a.schema({
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: "userPool",
+    defaultAuthorizationMode: 'userPool',
   },
 });
 
