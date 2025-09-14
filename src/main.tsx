@@ -5,9 +5,21 @@ import App from './App.tsx';
 import CustomAuth from './components/CustomAuth.tsx';
 import './index.css';
 import { Amplify } from 'aws-amplify';
-import outputs from '../amplify_outputs.json';
 
-console.log('Amplify outputs:', outputs);
+// Mock configuration for development
+const outputs = {
+  auth: {
+    user_pool_id: 'us-east-1_MOCK',
+    user_pool_client_id: 'mock-client-id',
+    identity_pool_id: 'us-east-1:mock-identity-pool'
+  },
+  data: {
+    url: 'https://mock-graphql-endpoint.com/graphql',
+    default_authorization_type: 'AMAZON_COGNITO_USER_POOLS'
+  }
+};
+
+console.log('Amplify outputs (mock):', outputs);
 Amplify.configure(outputs);
 
 // Add auth event listeners

@@ -269,7 +269,7 @@ function App() {
       {/* Mobile overlay for sidebar */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
           onClick={() => setIsSidebarOpen(false)}
           role="button"
           tabIndex={0}
@@ -281,10 +281,9 @@ function App() {
       {/* Hamburger/Drawer Sidebar */}
       <aside
         className={`
-          fixed lg:relative inset-y-0 left-0 z-50 w-80 
+          fixed inset-y-0 left-0 z-50 w-80 
           transform transition-transform duration-300 ease-in-out
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          lg:${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
         aria-label="Conversation list sidebar"
         role="complementary"
@@ -334,7 +333,7 @@ function App() {
             <button
               onClick={() => setIsSidebarOpen(true)}
               className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 
-              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50 lg:block"
+              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
               aria-label="Open sidebar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
