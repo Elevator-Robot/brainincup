@@ -26,6 +26,7 @@ function App() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [conversationListKey, setConversationListKey] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -212,15 +213,21 @@ function App() {
         return;
       }
 
+      // Get current user for participants
+      const currentUserId = userAttributes?.sub || userAttributes?.email || 'anonymous';
+      
       const { data: newConversation } = await dataClient.models.Conversation.create({
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        participants: [currentUserId] // Add current user to participants
+        // createdAt and updatedAt are handled automatically by Amplify
       });
       
       if (newConversation) {
         setConversationId(newConversation.id);
         setMessages([]);
         console.log('Created new conversation:', newConversation.id);
+        
+        // Trigger a refresh of the conversation list
+        setConversationListKey(prev => prev + 1);
       }
     } catch (error) {
       console.error('Error creating new conversation:', error);
@@ -267,6 +274,7 @@ function App() {
               onSelectConversation={handleSelectConversation}
               onNewConversation={handleNewConversation}
               selectedConversationId={conversationId}
+              refreshKey={conversationListKey}
             />
           </div>
         </div>

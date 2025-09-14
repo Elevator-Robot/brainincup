@@ -10,15 +10,22 @@ interface ConversationListProps {
   onSelectConversation: (conversationId: string) => void;
   onNewConversation: () => void;
   selectedConversationId: string | null;
+  refreshKey?: number;
 }
 
-export default function ConversationList({ onSelectConversation, onNewConversation, selectedConversationId }: ConversationListProps) {
+export default function ConversationList({ onSelectConversation, onNewConversation, selectedConversationId, refreshKey }: ConversationListProps) {
   const [conversations, setConversations] = useState<ConversationType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadConversations();
   }, []);
+
+  useEffect(() => {
+    if (refreshKey !== undefined) {
+      loadConversations();
+    }
+  }, [refreshKey]);
 
   const loadConversations = async () => {
     try {
