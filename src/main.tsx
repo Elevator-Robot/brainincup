@@ -7,7 +7,7 @@ import './index.css';
 import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
 
-console.log('Amplify outputs:', outputs);
+console.log('Amplify outputs (mock):', outputs);
 Amplify.configure(outputs);
 
 // Add auth event listeners
@@ -65,6 +65,15 @@ function AuthWrapper() {
   const checkAuthState = async () => {
     console.log('Checking auth state...');
     try {
+      // For development testing, allow bypass with URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('testmode') === 'true') {
+        console.log('✅ Test mode enabled, bypassing auth');
+        setIsAuthenticated(true);
+        setIsLoading(false);
+        return;
+      }
+
       const user = await getCurrentUser();
       console.log('✅ User found:', user);
       setIsAuthenticated(true);
@@ -100,4 +109,4 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AuthWrapper />
   </React.StrictMode>,
-)
+);

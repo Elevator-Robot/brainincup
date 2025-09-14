@@ -2,8 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { fetchUserAttributes } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
-import Header from './components/Header';
 import Footer from './components/Footer';
+import ConversationList from './components/ConversationList';
 
 const dataClient = generateClient<Schema>();
 
@@ -12,12 +12,6 @@ interface Message {
   content: string;
 }
 
-const generateGradient = (role: 'user' | 'assistant') => {
-  return role === 'user'
-    ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary'
-    : 'bg-gradient-to-r from-purple-900/30 to-slate-800/30';
-};
-
 function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [userAttributes, setUserAttributes] = useState<Record<string, string | undefined> | undefined>();
@@ -25,8 +19,11 @@ function App() {
   const [inputMessage, setInputMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
-  const hardcodedConversationId = 'hardcoded-conversation-id';
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default to closed on mobile, will be controlled by responsive logic
+  const [conversationListKey, setConversationListKey] = useState(0);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     async function getUserAttributes() {
@@ -44,6 +41,24 @@ function App() {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ESC closes sidebar
+      if (e.key === 'Escape' && isSidebarOpen) {
+        setIsSidebarOpen(false);
+      }
+      // Ctrl/Cmd + K focuses composer
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSidebarOpen]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -97,8 +112,7 @@ function App() {
             console.log('Response owner:', brainResponse.owner);
             
             // Check if this response is for our conversation
-            if (brainResponse.conversationId === conversationId && 
-                brainResponse.owner === 'f4e87478-d071-709a-9f5d-115e1e1562df') {
+            if (brainResponse.conversationId === conversationId) {
               console.log('✅ MATCH: Adding response to messages:', brainResponse.response);
               setMessages(prev => [...prev, { 
                 role: 'assistant', 
@@ -130,19 +144,15 @@ function App() {
     try {
       setIsWaitingForResponse(true);
       
-      let convId = conversationId || hardcodedConversationId;
       if (!conversationId) {
-        const { data: newConversation } = await dataClient.models.Conversation.create({
-          id: hardcodedConversationId
-        });
-        convId = newConversation?.id || hardcodedConversationId;
-        setConversationId(convId);
-        console.log('Created/using conversation ID:', convId);
+        console.error('No conversation ID available');
+        setIsWaitingForResponse(false);
+        return;
       }
 
       const { data: savedMessage } = await dataClient.models.Message.create({
         content,
-        conversationId: convId
+        conversationId: conversationId
       });
 
       console.log('Message saved to backend:', savedMessage);
@@ -164,101 +174,422 @@ function App() {
     // Assistant reply will come via subscription
   };
 
-  return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-brand-bg-dark via-brand-bg-light to-brand-bg-dark relative">
-      <Header />
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (inputMessage.trim() && !isWaitingForResponse) {
+        handleSubmit(e as any);
+      }
+    }
+  };
 
-      {/* Scrollable content with bottom padding for input + footer */}
-      <main className="flex-1 overflow-y-auto max-w-4xl mx-auto w-full px-3 sm:px-4 pt-20 pb-40 space-y-4 sm:space-y-6">
-        {messages.length === 0 && !isLoading && (
-          <div className="flex justify-center items-center h-full">
-            <p className="text-brand-text-muted text-center px-4">
-              Start a conversation with the Brain in Cup...
-            </p>
-          </div>
-        )}
+  const handleSelectConversation = async (selectedConversationId: string) => {
+    setConversationId(selectedConversationId);
+    setMessages([]); // Clear current messages
+    
+    // Load messages for this conversation
+    try {
+      const { data: conversationMessages } = await dataClient.models.Message.list({
+        filter: { conversationId: { eq: selectedConversationId } }
+      });
+      
+      const { data: brainResponses } = await dataClient.models.BrainResponse.list({
+        filter: { conversationId: { eq: selectedConversationId } }
+      });
+      
+      // Create a timeline of messages and responses
+      const timeline: Message[] = [];
+      
+      // Sort messages by timestamp
+      const sortedMessages = (conversationMessages || []).sort((a, b) => {
+        const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
+        const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
+        return aTime - bTime;
+      });
+      
+      // For each message, add it and its corresponding response
+      sortedMessages.forEach(msg => {
+        timeline.push({ role: 'user', content: msg.content || '' });
         
-        {isLoading && (
-          <div className="flex justify-center items-center h-full">
-            <p className="text-brand-text-muted">Loading...</p>
-          </div>
-        )}
+        // Find corresponding brain response
+        const response = brainResponses?.find(br => br.messageId === msg.id);
+        if (response?.response) {
+          timeline.push({ role: 'assistant', content: response.response });
+        }
+      });
+      
+      setMessages(timeline);
+    } catch (error) {
+      console.error('Error loading conversation messages:', error);
+    }
+  };
+
+  const handleNewConversation = async () => {
+    try {
+      // For development testing, create a mock conversation
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('testmode') === 'true') {
+        const mockConversationId = 'test-conversation-' + Date.now();
+        console.log('✅ Test mode: Creating mock conversation:', mockConversationId);
+        setConversationId(mockConversationId);
+        setMessages([]);
+        return;
+      }
+
+      // Get current user for participants
+      const currentUserId = userAttributes?.sub || userAttributes?.email || 'anonymous';
+      
+      console.log('Creating new conversation with user:', currentUserId);
+      
+      const { data: newConversation } = await dataClient.models.Conversation.create({
+        participants: [currentUserId] // Add current user to participants
+        // createdAt and updatedAt are handled automatically by Amplify
+      });
+      
+      if (newConversation) {
+        setConversationId(newConversation.id);
+        setMessages([]);
+        console.log('✅ Created new conversation:', newConversation.id);
         
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[85%] sm:max-w-[80%] rounded-2xl p-3 sm:p-4 shadow-sm ${generateGradient(message.role)} 
-              ${message.role === 'user' ? 'text-brand-text-primary' : 'text-brand-text-secondary'}`}
+        // Trigger a refresh of the conversation list
+        setConversationListKey(prev => prev + 1);
+      } else {
+        console.error('❌ Failed to create conversation: No data returned');
+      }
+    } catch (error) {
+      console.error('❌ Error creating new conversation:', error);
+      // Don't throw the error to prevent breaking the UI
+    }
+  };
+
+
+
+  return (
+    <div className="flex h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
+      {/* Mobile overlay for sidebar */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          onClick={() => setIsSidebarOpen(false)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setIsSidebarOpen(false)}
+          aria-label="Close sidebar"
+        />
+      )}
+
+      {/* Hamburger/Drawer Sidebar */}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-50 w-80 
+          transform transition-transform duration-300 ease-in-out
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+        aria-label="Conversation list sidebar"
+        role="complementary"
+      >
+        <div className="flex flex-col h-full bg-slate-900/90 backdrop-blur-xl border-r border-slate-700/50 shadow-2xl">
+          {/* Sidebar Header with improved spacing */}
+          <div className="flex items-center justify-between p-6 border-b border-slate-700/50">
+            <h1 className="text-xl font-semibold text-white">Brain in Cup</h1>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 
+              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+              aria-label="Close sidebar"
             >
-              <p className="leading-relaxed text-sm sm:text-base break-words">{message.content}</p>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Conversation List with improved styling */}
+          <nav className="flex-1 overflow-y-auto" aria-label="Conversations">
+            <ConversationList 
+              onSelectConversation={handleSelectConversation}
+              onNewConversation={handleNewConversation}
+              selectedConversationId={conversationId}
+              refreshKey={conversationListKey}
+            />
+          </nav>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0">
+        {/* Screen reader live region for message updates */}
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+        >
+          {isWaitingForResponse && "AI is thinking..."}
+          {messages.length > 0 && `Conversation has ${messages.length} messages`}
+        </div>
+        {/* Improved Header */}
+        <div className="flex items-center justify-between px-6 py-4 bg-slate-900/50 backdrop-blur-xl border-b border-slate-700/50">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 
+              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+              aria-label="Open sidebar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            {conversationId && (
+              <h2 className="text-lg font-medium text-white truncate">
+                Conversation
+              </h2>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Debug toggle button */}
+            <button
+              onClick={() => setShowDebugInfo(!showDebugInfo)}
+              className="px-3 py-1.5 text-xs rounded-md bg-slate-800/50 text-slate-300 hover:text-white 
+              hover:bg-slate-700/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+              title="Toggle debug information"
+            >
+              Debug
+            </button>
+            
+            <button
+              onClick={async () => {
+                try {
+                  const { signOut } = await import('aws-amplify/auth');
+                  await signOut();
+                  window.location.reload();
+                } catch (error) {
+                  console.error('Error signing out:', error);
+                }
+              }}
+              className="px-4 py-2 text-sm text-slate-300 hover:text-white 
+              transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50 rounded-lg"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+
+        {/* Chat Area */}
+        {conversationId ? (
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Messages with improved spacing and alignment */}
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <div className="max-w-4xl mx-auto space-y-6">
+                {messages.length === 0 && !isLoading && (
+                  <div className="flex justify-center items-center h-full min-h-[200px]">
+                    <div className="text-center">
+                      <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full 
+                      flex items-center justify-center shadow-lg">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                      </div>
+                      <p className="text-slate-300 text-lg">
+                        Start your conversation with Brain in Cup
+                      </p>
+                      <p className="text-slate-500 text-sm mt-2">
+                        Ask anything - I'm here to help!
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {isLoading && (
+                  <div className="flex justify-center items-center h-full min-h-[200px]">
+                    <div className="text-slate-400 flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+                      Loading...
+                    </div>
+                  </div>
+                )}
+                
+                {messages.map((message, index) => (
+                  <div
+                    key={index}
+                    className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {message.role === 'assistant' && (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 
+                      flex items-center justify-center flex-shrink-0 mt-1">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
+                    
+                    <div
+                      className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm
+                      ${message.role === 'user' 
+                        ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' 
+                        : 'bg-slate-800/60 text-slate-100 border border-slate-700/50'
+                      }`}
+                    >
+                      <p className="leading-relaxed whitespace-pre-wrap break-words">
+                        {message.content}
+                      </p>
+                    </div>
+                    
+                    {message.role === 'user' && (
+                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 mt-1">
+                        <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                {isWaitingForResponse && (
+                  <div className="flex gap-4 justify-start">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 
+                    flex items-center justify-center flex-shrink-0 mt-1">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div className="bg-slate-800/60 text-slate-100 border border-slate-700/50 rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse"></div>
+                          <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-150"></div>
+                          <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-300"></div>
+                        </div>
+                        <span className="text-sm text-slate-400">Brain is thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Debug info - now toggleable */}
+                {showDebugInfo && (
+                  <div className="mt-6 p-4 bg-slate-900/50 backdrop-blur-sm rounded-xl border border-slate-700/50">
+                    <h3 className="text-sm font-medium text-slate-300 mb-2">Debug Information</h3>
+                    <div className="text-xs text-slate-400 space-y-1">
+                      <p>Conversation ID: {conversationId || 'None'}</p>
+                      <p>User: {userAttributes?.sub || 'Unknown'}</p>
+                      <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
+                      <p>Messages count: {messages.length}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Invisible element to scroll to */}
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+
+            {/* Improved Input Area */}
+            <div className="border-t border-slate-700/50 bg-slate-900/50 backdrop-blur-xl p-6">
+              <div className="max-w-4xl mx-auto">
+                <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+                  <div className="flex-1 relative">
+                    <textarea
+                      ref={inputRef}
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Message Brain in Cup..."
+                      className="w-full min-h-[44px] max-h-32 py-3 px-4 rounded-xl resize-none
+                      bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400
+                      focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50
+                      transition-all duration-200 backdrop-blur-sm"
+                      disabled={isWaitingForResponse}
+                      rows={1}
+                      style={{
+                        height: 'auto',
+                        minHeight: '44px'
+                      }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+                      }}
+                    />
+                    <div className="absolute bottom-3 right-4 text-xs text-slate-500">
+                      Enter to send • Shift+Enter for new line
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    className={`p-3 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50
+                    ${!inputMessage.trim() || isWaitingForResponse
+                      ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg hover:shadow-violet-500/25'
+                    }`}
+                    disabled={!inputMessage.trim() || isWaitingForResponse}
+                  >
+                    {isWaitingForResponse ? (
+                      <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    )}
+                  </button>
+                </form>
+                <div className="mt-2 text-xs text-slate-500 text-center">
+                  Press Ctrl+K to focus • ESC to close sidebar
+                </div>
+              </div>
             </div>
           </div>
-        ))}
-        
-        {isWaitingForResponse && (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] sm:max-w-[80%] rounded-2xl p-3 sm:p-4 shadow-sm bg-gradient-to-r from-purple-900/30 to-slate-800/30 text-brand-text-secondary">
-              <div className="flex space-x-2">
-                <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
-                <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
-                <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
+        ) : (
+          // Improved Welcome/Empty State
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="max-w-md mx-auto text-center">
+              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl 
+              flex items-center justify-center shadow-2xl shadow-violet-500/25">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              
+              <h2 className="text-2xl font-semibold text-white mb-3">
+                Welcome to Brain in Cup
+              </h2>
+              <p className="text-slate-300 mb-8 leading-relaxed">
+                Your intelligent AI companion is ready to help. Start a conversation to explore ideas, 
+                get answers, or just have a friendly chat.
+              </p>
+              
+              <div className="space-y-4">
+                <button
+                  onClick={handleNewConversation}
+                  className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 
+                  text-white font-medium shadow-lg hover:from-violet-500 hover:to-fuchsia-500 
+                  hover:shadow-violet-500/25 transition-all duration-200 
+                  focus:outline-none focus:ring-2 focus:ring-violet-500/50 transform hover:scale-105"
+                >
+                  Start New Conversation
+                </button>
+                
+                <div className="text-xs text-slate-500">
+                  Or use the sidebar to view your conversation history
+                </div>
               </div>
             </div>
           </div>
         )}
-        
-        {/* Debug info - hidden on mobile */}
-        <div className="mt-4 p-2 bg-brand-surface-dark rounded text-xs text-brand-text-secondary hidden sm:block">
-          <p>Conversation ID: {conversationId || 'None'}</p>
-          <p>User: {userAttributes?.sub || 'Unknown'}</p>
-          <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
-        </div>
-        
-        {/* Invisible element to scroll to */}
-        <div ref={messagesEndRef} />
-      </main>
 
-      {/* Bottom stack: input bar on top, footer below it */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
-        {/* Input Bar */}
-        <div className="bg-brand-surface-dark border-t border-brand-surface-border pointer-events-auto">
-          <div className="max-w-4xl mx-auto p-3 sm:p-4">
-            <form onSubmit={handleSubmit} className="flex gap-2 sm:gap-3">
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1 rounded-full px-4 sm:px-6 py-2 sm:py-3 bg-brand-surface-dark border border-brand-surface-border 
-                text-brand-text-primary placeholder-brand-text-muted text-sm sm:text-base
-                focus:outline-none focus:border-brand-accent-primary focus:ring-2 focus:ring-brand-accent-primary/20 
-                transition-all duration-200"
-                disabled={isWaitingForResponse}
-              />
-              <button
-                type="submit"
-                className={`px-4 sm:px-8 py-2 sm:py-3 rounded-full bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary 
-                text-brand-text-primary shadow-sm transition-all duration-200 text-sm sm:text-base
-                focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/20
-                ${isWaitingForResponse 
-      ? 'opacity-50 cursor-not-allowed' 
-      : 'hover:opacity-90'}`}
-                disabled={isWaitingForResponse}
-              >
-                Send
-              </button>
-            </form>
+        {/* Improved Footer */}
+        <div className="bg-slate-900/30 backdrop-blur-xl border-t border-slate-700/50 px-6 py-3">
+          <div className="max-w-4xl mx-auto text-center text-xs text-slate-500">
+            <Footer />
           </div>
         </div>
-
-        {/* Footer stays stuck to the very bottom */}
-        <div className="bg-brand-surface-dark border-brand-surface-border text-center text-xs sm:text-sm text-brand-text-muted py-2 pointer-events-auto">
-          <Footer />
-        </div>
-      </div>
+      </main>
     </div>
   );
 }
