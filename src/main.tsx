@@ -65,6 +65,15 @@ function AuthWrapper() {
   const checkAuthState = async () => {
     console.log('Checking auth state...');
     try {
+      // For development testing, allow bypass with URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('testmode') === 'true') {
+        console.log('✅ Test mode enabled, bypassing auth');
+        setIsAuthenticated(true);
+        setIsLoading(false);
+        return;
+      }
+
       const user = await getCurrentUser();
       console.log('✅ User found:', user);
       setIsAuthenticated(true);
@@ -100,4 +109,4 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AuthWrapper />
   </React.StrictMode>,
-)
+);
