@@ -1,4 +1,5 @@
 import logging
+import logging
 from agents import (
     PerceptionAgent,
     MemoryAgent,
@@ -16,14 +17,14 @@ logger = logging.getLogger(__name__)
 
 
 class Controller:
-    def __init__(self):
+    def __init__(self, conversation_id):
         llm = setup_llm()
         prompt_template = setup_prompt_template()
         parser = setup_parser()
 
         # Initialize agents
         self.perception_agent = PerceptionAgent(prompt_template=prompt_template)
-        self.conversation_id = "hardcoded-conversation-id"
+        self.conversation_id = conversation_id
         self.memory_agent = MemoryAgent(self.conversation_id)
         self.reasoning_agent = ReasoningAgent(parser)
         self.emotional_agent = EmotionalAgent()
