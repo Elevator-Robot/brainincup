@@ -516,7 +516,7 @@ function App() {
                         target.style.height = Math.min(target.scrollHeight, 128) + 'px';
                       }}
                     />
-                    <div className="absolute bottom-2 right-3 text-xs text-slate-500">
+                    <div className="absolute bottom-3 right-4 text-xs text-slate-500">
                       Enter to send • Shift+Enter for new line
                     </div>
                   </div>
