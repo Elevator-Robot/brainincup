@@ -37,7 +37,15 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
       await signIn({ username: email, password });
       onAuthSuccess();
     } catch (signInError: any) {
-      if (signInError.name === 'UserNotFoundException') {
+      console.log('Sign in error:', signInError);
+      console.log('Error name:', signInError.name);
+      console.log('Error message:', signInError.message);
+      
+      // Try to create account for any authentication failure that might be "user not found"
+      if (signInError.name === 'UserNotFoundException' || 
+          signInError.name === 'NotAuthorizedException' ||
+          signInError.message?.includes('User does not exist') ||
+          signInError.message?.includes('Incorrect username or password')) {
         // User doesn't exist, try sign up
         try {
           const result = await signUp({

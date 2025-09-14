@@ -216,6 +216,8 @@ function App() {
       // Get current user for participants
       const currentUserId = userAttributes?.sub || userAttributes?.email || 'anonymous';
       
+      console.log('Creating new conversation with user:', currentUserId);
+      
       const { data: newConversation } = await dataClient.models.Conversation.create({
         participants: [currentUserId] // Add current user to participants
         // createdAt and updatedAt are handled automatically by Amplify
@@ -224,13 +226,16 @@ function App() {
       if (newConversation) {
         setConversationId(newConversation.id);
         setMessages([]);
-        console.log('Created new conversation:', newConversation.id);
+        console.log('✅ Created new conversation:', newConversation.id);
         
         // Trigger a refresh of the conversation list
         setConversationListKey(prev => prev + 1);
+      } else {
+        console.error('❌ Failed to create conversation: No data returned');
       }
     } catch (error) {
-      console.error('Error creating new conversation:', error);
+      console.error('❌ Error creating new conversation:', error);
+      // Don't throw the error to prevent breaking the UI
     }
   };
 
