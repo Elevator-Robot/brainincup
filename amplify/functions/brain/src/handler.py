@@ -9,11 +9,11 @@ logger = Logger()
 def main(event, context):
     responses = []
 
-    for record in event.get("Records", []):
-        if record["eventName"] in ["INSERT", "MODIFY"]:
-            new_image = record["dynamodb"].get("NewImage", {})
-            user_input = new_image.get("content", {}).get(
-                "S"
+    for record in event.get(\"Records\", []):
+        if record[\"eventName\"] in [\"INSERT\", \"MODIFY\"]:
+            new_image = record[\"dynamodb\"].get(\"NewImage\", {})
+            user_input = new_image.get(\"content\", {}).get(
+                \"S\"
             )  # Adjust if it's a nested map or string
             conversation_id = new_image.get("conversationId", {}).get("S")
 
@@ -23,7 +23,7 @@ def main(event, context):
             if user_input and conversation_id:
                 controller = Controller(conversation_id)
                 response = controller.process_input(user_input)
-                responses.append({"user_input": user_input, "response": response})
+                responses.append({\"user_input\": user_input, \"response\": response})
 
     logger.info(f"Processed {len(responses)} records")
     logger.debug(f"Responses: {responses}")
