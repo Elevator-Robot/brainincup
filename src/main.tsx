@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
-import { Authenticator, ThemeProvider, defaultTheme } from '@aws-amplify/ui-react';
+import { getCurrentUser } from 'aws-amplify/auth';
 import App from './App.tsx';
+import CustomAuth from './components/CustomAuth.tsx';
 import './index.css';
 import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
-import '@aws-amplify/ui-react/styles.css';
 
 console.log('Amplify outputs:', outputs);
 Amplify.configure(outputs);
@@ -13,10 +13,15 @@ Amplify.configure(outputs);
 // Add auth event listeners
 import { Hub } from 'aws-amplify/utils';
 
+let authStateCallback: (() => void) | null = null;
+
 Hub.listen('auth', (data) => {
   console.log('Auth event:', data);
   if (data.payload.event === 'signInWithRedirect_failure') {
     console.error('🚨 OAuth failure details:', data.payload.data);
+  }
+  if (data.payload.event === 'signedIn' && authStateCallback) {
+    authStateCallback();
   }
 });
 
@@ -33,121 +38,66 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   });
 }
 
-const customTheme = {
-  ...defaultTheme,
-  name: 'brain-in-cup-theme',
-  tokens: {
-    ...defaultTheme.tokens,
-    colors: {
-      ...defaultTheme.tokens.colors,
-      background: {
-        primary: '#0f172a',
-        secondary: '#1e1b4b',
-      },
-      brand: {
-        primary: {
-          10: '#f5f3ff',
-          20: '#ede9fe',
-          40: '#ddd6fe',
-          60: '#c4b5fd',
-          80: '#a78bfa',
-          100: '#8b5cf6',
-        },
-      },
-      border: {
-        primary: 'rgba(51, 65, 85, 0.5)',
-        secondary: 'rgba(30, 27, 75, 0.5)',
-      },
-      font: {
-        interactive: '#ffffff',
-        secondary: '#cbd5e1',
-        tertiary: '#94a3b8',
-      },
-    },
-    components: {
-      ...defaultTheme.tokens.components,
-      authenticator: {
-        container: {
-          backgroundColor: 'transparent',
-          color: 'font.interactive',
-        },
-        tabs: {
-          item: {
-            color: 'font.interactive',
-            _hover: {
-              color: 'brand.primary.80',
-            },
-            _active: {
-              color: 'brand.primary.100',
-              borderColor: 'brand.primary.100',
-            },
-          },
-        },
-      },
-      field: {
-        input: {
-          color: 'font.interactive',
-          borderColor: 'border.primary',
-          backgroundColor: 'rgba(15, 23, 42, 0.5)',
-          _placeholder: {
-            color: '#ffffff',
-            opacity: 1,
-          },
-          _focus: {
-            borderColor: 'brand.primary.100',
-            boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.2)',
-          },
-          _autofill: {
-            backgroundColor: 'rgba(15, 23, 42, 0.8) !important',
-            color: '#ffffff !important',
-          },
-        },
-        label: {
-          color: '#ffffff',
-        },
-      },
-      button: {
-        primary: {
-          backgroundColor: 'brand.primary.100',
-          _hover: {
-            backgroundColor: 'brand.primary.80',
-          },
-          _focus: {
-            backgroundColor: 'brand.primary.80',
-          },
-        },
-      },
-      link: {
-        color: 'font.interactive',
-        _hover: {
-          color: 'brand.primary.80',
-        },
-      },
-    },
-  },
-};
+function AuthWrapper() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuthState();
+    authStateCallback = checkAuthState;
+    
+    // Handle OAuth redirects
+    const handleOAuthCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('code') || urlParams.get('state')) {
+        console.log('OAuth callback detected, checking auth state...');
+        setTimeout(() => checkAuthState(), 1000); // Give OAuth time to complete
+      }
+    };
+    
+    handleOAuthCallback();
+    
+    return () => {
+      authStateCallback = null;
+    };
+  }, []);
+
+  const checkAuthState = async () => {
+    console.log('Checking auth state...');
+    try {
+      const user = await getCurrentUser();
+      console.log('✅ User found:', user);
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.log('❌ No user found:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    console.log('Auth success callback triggered');
+    checkAuthState();
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-bg-dark via-brand-bg-light to-brand-bg-dark">
+        <div className="text-brand-text-primary">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <CustomAuth onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  return <App />;
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider theme={customTheme as any}>
-      <div className="bg-gradient-to-br from-brand-bg-dark via-brand-bg-light to-brand-bg-dark min-h-screen">
-        <Authenticator 
-          className="flex items-center justify-center caret-white min-h-screen"
-          socialProviders={['google']}
-        >
-          {({ user }) => {
-            console.log('🔐 Authenticator render - User authenticated:', !!user);
-            console.log('👤 User object:', user);
-            if (user) {
-              console.log('✅ User is authenticated, rendering App');
-              return <App />;
-            } else {
-              console.log('❌ No user found, should show login');
-              return <div></div>;
-            }
-          }}
-        </Authenticator>
-      </div>
-    </ThemeProvider>
-  </React.StrictMode>
-);
+    <AuthWrapper />
+  </React.StrictMode>,
+)
