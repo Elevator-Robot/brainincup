@@ -7,7 +7,6 @@ logger = Logger()
 
 @logger.inject_lambda_context
 def main(event, context):
-    controller = Controller()
     responses = []
 
     for record in event.get("Records", []):
@@ -16,10 +15,13 @@ def main(event, context):
             user_input = new_image.get("content", {}).get(
                 "S"
             )  # Adjust if it's a nested map or string
+            conversation_id = new_image.get("conversationId", {}).get("S")
 
             logger.debug(f"User input: {user_input}")
+            logger.debug(f"Conversation ID: {conversation_id}")
 
-            if user_input:
+            if user_input and conversation_id:
+                controller = Controller(conversation_id)
                 response = controller.process_input(user_input)
                 responses.append({"user_input": user_input, "response": response})
 
