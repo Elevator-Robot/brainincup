@@ -24,10 +24,19 @@ def main(event, context):
             logger.debug(f"Message ID: {message_id}")
             logger.debug(f"Owner: {owner}")
 
-            if user_input and conversation_id and message_id and owner:
+            if user_input and conversation_id:
+                # Use provided values or None as fallback
+                final_message_id = message_id
+                final_owner = owner
+                
+                # Log what we have
+                logger.info(f"Processing message - ConversationId: {conversation_id}, MessageId: {final_message_id}, Owner: {final_owner}")
+                
                 controller = Controller(conversation_id)
-                response = controller.process_input(user_input, message_id, owner)
+                response = controller.process_input(user_input, final_message_id, final_owner)
                 responses.append({"user_input": user_input, "response": response})
+            else:
+                logger.warning(f"Missing required fields - user_input: {bool(user_input)}, conversation_id: {bool(conversation_id)}")
 
     logger.info(f"Processed {len(responses)} records")
     logger.debug(f"Responses: {responses}")

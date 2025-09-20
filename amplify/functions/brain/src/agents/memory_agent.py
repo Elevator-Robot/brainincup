@@ -102,8 +102,8 @@ class MemoryAgent:
         headers = {"Content-Type": "application/json"}
 
         auth = AWSV4Auth(
-            service="appsync", region="us-east-1"
-        )  # Change region if needed
+            service="appsync", region=getenv("AWS_REGION_NAME", "us-east-1")
+        )
 
         response = requests.post(
             self.appsync_api_url,

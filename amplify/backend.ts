@@ -28,6 +28,7 @@ brainLambda.addEnvironment('CONVERSATION_TABLE_NAME', conversationTable.tableNam
 brainLambda.addEnvironment('MESSAGE_TABLE_NAME', messageTable.tableName);
 brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
+brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
 const layer = new LayerVersion(stack, 'BrainDepsLayer', {
   code: Code.fromAsset('amplify/functions/brain/layer'),
