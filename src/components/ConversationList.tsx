@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 
@@ -15,19 +15,76 @@ interface ConversationListProps {
 
 export default function ConversationList({ onSelectConversation, onNewConversation, selectedConversationId, refreshKey }: ConversationListProps) {
   const [conversations, setConversations] = useState<ConversationType[]>([]);
+  const [conversationSummaries, setConversationSummaries] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadConversations();
+  const generateSummary = useCallback((messageContent: string): string => {
+    if (!messageContent || messageContent.trim() === '') {
+      return 'New Conversation';
+    }
+    
+    // Clean the message content and create a summary
+    const cleanContent = messageContent.trim();
+    const maxLength = 40;
+    
+    if (cleanContent.length <= maxLength) {
+      return cleanContent;
+    }
+    
+    // Find a good breaking point (word boundary)
+    const truncated = cleanContent.substring(0, maxLength);
+    const lastSpaceIndex = truncated.lastIndexOf(' ');
+    
+    if (lastSpaceIndex > maxLength * 0.7) {
+      return truncated.substring(0, lastSpaceIndex) + '...';
+    }
+    
+    return truncated + '...';
   }, []);
 
-  useEffect(() => {
-    if (refreshKey !== undefined) {
-      loadConversations();
+  const loadConversationSummaries = useCallback(async (conversations: ConversationType[]) => {
+    const summaries: Record<string, string> = {};
+    
+    for (const conversation of conversations) {
+      if (!conversation.id) continue;
+      
+      try {
+        // For test mode, create mock summaries
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('testmode') === 'true') {
+          summaries[conversation.id] = conversation.id === 'test-conversation-1' 
+            ? 'What is artificial intelligence?' 
+            : 'How does machine learning work?';
+          continue;
+        }
+        
+        // Fetch the first message for this conversation
+        const { data: messages } = await dataClient.models.Message.list({
+          filter: { conversationId: { eq: conversation.id } },
+          limit: 1
+        });
+        
+        if (messages && messages.length > 0) {
+          const firstMessage = messages.sort((a, b) => {
+            const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
+            const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
+            return aTime - bTime;
+          })[0];
+          
+          summaries[conversation.id] = generateSummary(firstMessage.content || '');
+        } else {
+          summaries[conversation.id] = 'New Conversation';
+        }
+      } catch (error) {
+        console.error(`Error loading summary for conversation ${conversation.id}:`, error);
+        summaries[conversation.id] = 'Conversation';
+      }
     }
-  }, [refreshKey]);
+    
+    setConversationSummaries(summaries);
+  }, [generateSummary]);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -48,6 +105,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
           }
         ] as unknown as ConversationType[];
         setConversations(mockConversations);
+        await loadConversationSummaries(mockConversations);
         setIsLoading(false);
         return;
       }
@@ -60,12 +118,23 @@ export default function ConversationList({ onSelectConversation, onNewConversati
         return bDate.getTime() - aDate.getTime();
       });
       setConversations(sortedConversations);
+      await loadConversationSummaries(sortedConversations);
     } catch (error) {
       console.error('Error loading conversations:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loadConversationSummaries]);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  useEffect(() => {
+    if (refreshKey !== undefined) {
+      loadConversations();
+    }
+  }, [refreshKey, loadConversations]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return null; // Return null instead of 'Unknown date'
@@ -127,6 +196,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
           </h3>
           {conversations.map((conversation) => {
             const dateText = formatDate((conversation.updatedAt || conversation.createdAt) || undefined);
+            const conversationSummary = conversation.id ? conversationSummaries[conversation.id] || 'Conversation' : 'Conversation';
             return (
               <button
                 key={conversation.id}
@@ -145,7 +215,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                         ? 'text-white' 
                         : 'text-slate-200 group-hover:text-white'
                     }`}>
-                      Conversation
+                      {conversationSummary}
                     </div>
                     {dateText && (
                       <div className="text-xs text-slate-400 group-hover:text-slate-300">
