@@ -351,24 +351,11 @@ function App() {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
-      {/* Mobile overlay for sidebar */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-40"
-          onClick={() => setIsSidebarOpen(false)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && setIsSidebarOpen(false)}
-          aria-label="Close sidebar"
-        />
-      )}
-
-      {/* Hamburger/Drawer Sidebar */}
+      {/* Push-Content Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50 w-80 
-          transform transition-transform duration-300 ease-in-out
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden
+          ${isSidebarOpen ? 'w-80' : 'w-0'}
         `}
         aria-label="Conversation list sidebar"
         role="complementary"
@@ -402,7 +389,7 @@ function App() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Screen reader live region for message updates */}
         <div
           aria-live="polite"
