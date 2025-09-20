@@ -261,6 +261,13 @@ function App() {
   };
 
   const handleSelectConversation = async (selectedConversationId: string) => {
+    // If empty string, clear the conversation
+    if (!selectedConversationId) {
+      setConversationId(null);
+      setMessages([]);
+      return;
+    }
+    
     setConversationId(selectedConversationId);
     setMessages([]); // Clear current messages
     
