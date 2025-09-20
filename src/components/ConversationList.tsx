@@ -15,74 +15,9 @@ interface ConversationListProps {
 
 export default function ConversationList({ onSelectConversation, onNewConversation, selectedConversationId, refreshKey }: ConversationListProps) {
   const [conversations, setConversations] = useState<ConversationType[]>([]);
-  const [conversationSummaries, setConversationSummaries] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
-
-  const generateSummary = useCallback((messageContent: string): string => {
-    if (!messageContent || messageContent.trim() === '') {
-      return 'New Conversation';
-    }
-    
-    // Clean the message content and create a summary
-    const cleanContent = messageContent.trim();
-    const maxLength = 40;
-    
-    if (cleanContent.length <= maxLength) {
-      return cleanContent;
-    }
-    
-    // Find a good breaking point (word boundary)
-    const truncated = cleanContent.substring(0, maxLength);
-    const lastSpaceIndex = truncated.lastIndexOf(' ');
-    
-    if (lastSpaceIndex > maxLength * 0.7) {
-      return truncated.substring(0, lastSpaceIndex) + '...';
-    }
-    
-    return truncated + '...';
-  }, []);
-
-  const loadConversationSummaries = useCallback(async (conversations: ConversationType[]) => {
-    const summaries: Record<string, string> = {};
-    
-    for (const conversation of conversations) {
-      if (!conversation.id) continue;
-      
-      try {
-        // For test mode, create mock summaries
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('testmode') === 'true') {
-          summaries[conversation.id] = conversation.id === 'test-conversation-1' 
-            ? 'What is artificial intelligence?' 
-            : 'How does machine learning work?';
-          continue;
-        }
-        
-        // Fetch the first message for this conversation
-        const { data: messages } = await dataClient.models.Message.list({
-          filter: { conversationId: { eq: conversation.id } },
-          limit: 1
-        });
-        
-        if (messages && messages.length > 0) {
-          const firstMessage = messages.sort((a, b) => {
-            const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
-            const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
-            return aTime - bTime;
-          })[0];
-          
-          summaries[conversation.id] = generateSummary(firstMessage.content || '');
-        } else {
-          summaries[conversation.id] = 'New Conversation';
-        }
-      } catch (error) {
-        console.error(`Error loading summary for conversation ${conversation.id}:`, error);
-        summaries[conversation.id] = 'Conversation';
-      }
-    }
-    
-    setConversationSummaries(summaries);
-  }, [generateSummary]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
 
   const loadConversations = useCallback(async () => {
     try {
@@ -95,17 +30,18 @@ export default function ConversationList({ onSelectConversation, onNewConversati
         const mockConversations = [
           {
             id: 'test-conversation-1',
+            title: 'My AI Discussion',
             createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
             updatedAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
           },
           {
             id: 'test-conversation-2', 
+            title: 'Learning Session',
             createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
             updatedAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
           }
         ] as unknown as ConversationType[];
         setConversations(mockConversations);
-        await loadConversationSummaries(mockConversations);
         setIsLoading(false);
         return;
       }
@@ -118,13 +54,75 @@ export default function ConversationList({ onSelectConversation, onNewConversati
         return bDate.getTime() - aDate.getTime();
       });
       setConversations(sortedConversations);
-      await loadConversationSummaries(sortedConversations);
     } catch (error) {
       console.error('Error loading conversations:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [loadConversationSummaries]);
+  }, []);
+
+  const handleTitleEdit = (conversationId: string, currentTitle: string) => {
+    setEditingId(conversationId);
+    setEditingTitle(currentTitle || 'New Conversation');
+  };
+
+  const handleTitleSave = async (conversationId: string) => {
+    if (!editingTitle.trim()) {
+      setEditingTitle('New Conversation');
+      return;
+    }
+
+    try {
+      // For test mode, just update local state
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('testmode') === 'true') {
+        setConversations(prevConversations =>
+          prevConversations.map(conv =>
+            conv.id === conversationId
+              ? { ...conv, title: editingTitle.trim() }
+              : conv
+          )
+        );
+        setEditingId(null);
+        setEditingTitle('');
+        return;
+      }
+
+      // Update the conversation title in the database
+      await dataClient.models.Conversation.update({
+        id: conversationId,
+        title: editingTitle.trim()
+      });
+
+      // Update local state
+      setConversations(prevConversations =>
+        prevConversations.map(conv =>
+          conv.id === conversationId
+            ? { ...conv, title: editingTitle.trim() }
+            : conv
+        )
+      );
+
+      setEditingId(null);
+      setEditingTitle('');
+    } catch (error) {
+      console.error('Error updating conversation title:', error);
+    }
+  };
+
+  const handleTitleCancel = () => {
+    setEditingId(null);
+    setEditingTitle('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, conversationId: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleTitleSave(conversationId);
+    } else if (e.key === 'Escape') {
+      handleTitleCancel();
+    }
+  };
 
   useEffect(() => {
     loadConversations();
@@ -196,37 +194,84 @@ export default function ConversationList({ onSelectConversation, onNewConversati
           </h3>
           {conversations.map((conversation) => {
             const dateText = formatDate((conversation.updatedAt || conversation.createdAt) || undefined);
-            const conversationSummary = conversation.id ? conversationSummaries[conversation.id] || 'Conversation' : 'Conversation';
+            const conversationTitle = conversation.title || 'New Conversation';
+            const isEditing = editingId === conversation.id;
+            
             return (
-              <button
+              <div
                 key={conversation.id}
-                onClick={() => conversation.id && onSelectConversation(conversation.id)}
-                className={`w-full text-left p-4 rounded-xl transition-all duration-200 group
-                focus:outline-none focus:ring-2 focus:ring-violet-500/50 relative overflow-hidden
+                className={`w-full rounded-xl transition-all duration-200 group relative overflow-hidden
                 ${selectedConversationId === conversation.id 
                 ? 'bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 border border-violet-500/50 shadow-lg shadow-violet-500/10' 
                 : 'bg-slate-800/30 border border-slate-700/50 hover:border-violet-500/30 hover:bg-slate-800/50'
               }`}
               >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <div className={`font-medium text-sm truncate mb-1 ${
-                      selectedConversationId === conversation.id 
-                        ? 'text-white' 
-                        : 'text-slate-200 group-hover:text-white'
-                    }`}>
-                      {conversationSummary}
-                    </div>
-                    {dateText && (
-                      <div className="text-xs text-slate-400 group-hover:text-slate-300">
-                        {dateText}
+                <div className="flex items-center p-4">
+                  <button
+                    onClick={() => conversation.id && onSelectConversation(conversation.id)}
+                    className="flex-1 text-left min-w-0 focus:outline-none"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onBlur={() => handleTitleSave(conversation.id!)}
+                            onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
+                            className="w-full bg-slate-700/50 text-white text-sm font-medium rounded px-2 py-1 
+                            border border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <div
+                            className={`font-medium text-sm truncate mb-1 cursor-pointer group-hover:bg-slate-700/30 
+                            rounded px-2 py-1 transition-colors ${
+                              selectedConversationId === conversation.id 
+                                ? 'text-white' 
+                                : 'text-slate-200 group-hover:text-white'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTitleEdit(conversation.id!, conversationTitle);
+                            }}
+                            title="Click to edit conversation name"
+                          >
+                            {conversationTitle}
+                          </div>
+                        )}
+                        {dateText && (
+                          <div className="text-xs text-slate-400 group-hover:text-slate-300 px-2">
+                            {dateText}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  {selectedConversationId === conversation.id && (
-                    <div className="text-violet-400 text-sm ml-3 flex-shrink-0">
-                      <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse"></div>
+                      {selectedConversationId === conversation.id && (
+                        <div className="text-violet-400 text-sm ml-3 flex-shrink-0">
+                          <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse"></div>
+                        </div>
+                      )}
                     </div>
+                  </button>
+                  
+                  {/* Edit button - shown on hover for better UX */}
+                  {!isEditing && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTitleEdit(conversation.id!, conversationTitle);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 ml-2 rounded transition-opacity
+                      text-slate-400 hover:text-white hover:bg-slate-700/50"
+                      title="Edit conversation name"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
                   )}
                 </div>
                 
@@ -234,7 +279,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                 {selectedConversationId === conversation.id && (
                   <div className="absolute inset-0 bg-gradient-to-r from-violet-600/5 to-fuchsia-600/5 pointer-events-none"></div>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
