@@ -30,13 +30,81 @@ function App() {
 
   useEffect(() => {
     async function getUserAttributes() {
-      const attributes = await fetchUserAttributes();
-      setUserAttributes(attributes);
-      console.log('👤 Logged-in user:', attributes);
-      setIsLoading(false);
+      try {
+        // For test mode, set mock user attributes
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('testmode') === 'true') {
+          console.log('✅ Test mode: Setting mock user attributes');
+          setUserAttributes({ sub: 'test-user-123', email: 'test@example.com' });
+          setIsLoading(false);
+          return;
+        }
+
+        const attributes = await fetchUserAttributes();
+        setUserAttributes(attributes);
+        console.log('👤 Logged-in user:', attributes);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('❌ Error fetching user attributes:', error);
+        setIsLoading(false);
+      }
     }
     getUserAttributes();
   }, []);
+
+  // Auto-load most recent conversation or create new one on app start
+  useEffect(() => {
+    async function autoLoadConversation() {
+      if (!userAttributes || conversationId) return; // Don't run if already have conversation or no user
+      
+      try {
+        console.log('🔄 Auto-loading conversation...');
+        
+        // For test mode, auto-select test conversation or create new one
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('testmode') === 'true') {
+          if (urlParams.get('noconversations') === 'true') {
+            console.log('✅ Test mode: No conversations, creating new one');
+            await handleNewConversation();
+          } else {
+            console.log('✅ Test mode: Auto-selecting test conversation');
+            setConversationId('test-conversation-1');
+          }
+          return;
+        }
+
+        // Load existing conversations
+        const { data: conversations } = await dataClient.models.Conversation.list();
+        
+        if (conversations && conversations.length > 0) {
+          // Sort by most recent and select the first one
+          const sortedConversations = conversations.sort((a, b) => {
+            const aDate = new Date(a.updatedAt || a.createdAt || 0);
+            const bDate = new Date(b.updatedAt || b.createdAt || 0);
+            return bDate.getTime() - aDate.getTime();
+          });
+          
+          const mostRecentConversation = sortedConversations[0];
+          console.log('✅ Auto-loaded most recent conversation:', mostRecentConversation.id);
+          await handleSelectConversation(mostRecentConversation.id!);
+        } else {
+          // No conversations exist, create a new one
+          console.log('📝 No conversations found, creating new one...');
+          await handleNewConversation();
+        }
+      } catch (error) {
+        console.error('❌ Error auto-loading conversation:', error);
+        // Fallback: create new conversation
+        try {
+          await handleNewConversation();
+        } catch (fallbackError) {
+          console.error('❌ Fallback new conversation failed:', fallbackError);
+        }
+      }
+    }
+
+    autoLoadConversation();
+  }, [userAttributes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -243,6 +311,14 @@ function App() {
     e.preventDefault();
     if (!inputMessage.trim() || isWaitingForResponse) return;
 
+    // If no conversation exists, create one first
+    if (!conversationId) {
+      console.log('🔄 No conversation exists, creating one...');
+      await handleNewConversation();
+      // Wait a bit for the conversation to be created
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
     const userMessage = inputMessage;
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setInputMessage('');
@@ -412,9 +488,13 @@ function App() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            {conversationId && (
+            {conversationId ? (
               <h2 className="text-lg font-medium text-white truncate">
                 Conversation
+              </h2>
+            ) : (
+              <h2 className="text-lg font-medium text-white truncate">
+                Brain in Cup
               </h2>
             )}
           </div>
@@ -448,84 +528,46 @@ function App() {
           </div>
         </div>
 
-        {/* Chat Area */}
-        {conversationId ? (
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* Messages with improved spacing and alignment */}
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              <div className="max-w-4xl mx-auto space-y-6">
-                {messages.length === 0 && !isLoading && (
-                  <div className="flex justify-center items-center h-full min-h-[200px]">
-                    <div className="text-center">
-                      <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full 
-                      flex items-center justify-center shadow-lg">
-                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                      </div>
-                      <p className="text-slate-300 text-lg">
-                        Start your conversation with Brain in Cup
-                      </p>
-                      <p className="text-slate-500 text-sm mt-2">
-                        Ask anything - I'm here to help!
-                      </p>
+        {/* Chat Area - Always show chat interface */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Messages with improved spacing and alignment */}
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="max-w-4xl mx-auto space-y-6">
+              {messages.length === 0 && !isLoading && conversationId && (
+                <div className="flex justify-center items-center h-full min-h-[200px]">
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full 
+                    flex items-center justify-center shadow-lg">
+                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
                     </div>
+                    <p className="text-slate-300 text-lg">
+                      Start your conversation with Brain in Cup
+                    </p>
+                    <p className="text-slate-500 text-sm mt-2">
+                      Ask anything - I'm here to help!
+                    </p>
                   </div>
-                )}
-                
-                {isLoading && (
-                  <div className="flex justify-center items-center h-full min-h-[200px]">
-                    <div className="text-slate-400 flex items-center gap-2">
-                      <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                      Loading...
-                    </div>
+                </div>
+              )}
+              
+              {isLoading && (
+                <div className="flex justify-center items-center h-full min-h-[200px]">
+                  <div className="text-slate-400 flex items-center gap-2">
+                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+                    Loading...
                   </div>
-                )}
-                
-                {messages.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    {message.role === 'assistant' && (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 
-                      flex items-center justify-center flex-shrink-0 mt-1">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    )}
-                    
-                    <div
-                      className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm
-                      ${message.role === 'user' 
-                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' 
-                    : 'bg-slate-800/60 text-slate-100 border border-slate-700/50'
-                  }`}
-                    >
-                      <p className="leading-relaxed whitespace-pre-wrap break-words">
-                        {message.content}
-                        {message.isTyping && (
-                          <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
-                        )}
-                      </p>
-                    </div>
-                    
-                    {message.role === 'user' && (
-                      <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 mt-1">
-                        <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                
-                {isWaitingForResponse && (
-                  <div className="flex gap-4 justify-start">
+                </div>
+              )}
+              
+              {messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {message.role === 'assistant' && (
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 
                     flex items-center justify-center flex-shrink-0 mt-1">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -533,130 +575,129 @@ function App() {
                           d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    <div className="bg-slate-800/60 text-slate-100 border border-slate-700/50 rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse"></div>
-                          <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-150"></div>
-                          <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-300"></div>
-                        </div>
-                        <span className="text-sm text-slate-400">Brain is thinking...</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Debug info - now toggleable */}
-                {showDebugInfo && (
-                  <div className="mt-6 p-4 bg-slate-900/50 backdrop-blur-sm rounded-xl border border-slate-700/50">
-                    <h3 className="text-sm font-medium text-slate-300 mb-2">Debug Information</h3>
-                    <div className="text-xs text-slate-400 space-y-1">
-                      <p>Conversation ID: {conversationId || 'None'}</p>
-                      <p>User: {userAttributes?.sub || 'Unknown'}</p>
-                      <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
-                      <p>Messages count: {messages.length}</p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Invisible element to scroll to */}
-                <div ref={messagesEndRef} />
-              </div>
-            </div>
-
-            {/* Improved Input Area */}
-            <div className="border-t border-slate-700/50 bg-slate-900/50 backdrop-blur-xl p-6">
-              <div className="max-w-4xl mx-auto">
-                <form onSubmit={handleSubmit} className="flex gap-3 items-end">
-                  <div className="flex-1 relative">
-                    <textarea
-                      ref={inputRef}
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Message Brain in Cup..."
-                      className="w-full min-h-[44px] max-h-32 py-3 px-4 rounded-xl resize-none
-                      bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400
-                      focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50
-                      transition-all duration-200 backdrop-blur-sm"
-                      disabled={isWaitingForResponse}
-                      rows={1}
-                      style={{
-                        height: 'auto',
-                        minHeight: '44px'
-                      }}
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement;
-                        target.style.height = 'auto';
-                        target.style.height = Math.min(target.scrollHeight, 128) + 'px';
-                      }}
-                    />
-                    <div className="absolute bottom-3 right-4 text-xs text-slate-500">
-                      Enter to send • Shift+Enter for new line
-                    </div>
-                  </div>
-                  <button
-                    type="submit"
-                    className={`p-3 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50
-                    ${!inputMessage.trim() || isWaitingForResponse
-            ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' 
-            : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg hover:shadow-violet-500/25'
-          }`}
-                    disabled={!inputMessage.trim() || isWaitingForResponse}
+                  )}
+                  
+                  <div
+                    className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm
+                    ${message.role === 'user' 
+                  ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' 
+                  : 'bg-slate-800/60 text-slate-100 border border-slate-700/50'
+                }`}
                   >
-                    {isWaitingForResponse ? (
-                      <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    <p className="leading-relaxed whitespace-pre-wrap break-words">
+                      {message.content}
+                      {message.isTyping && (
+                        <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
+                      )}
+                    </p>
+                  </div>
+                  
+                  {message.role === 'user' && (
+                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 mt-1">
+                      <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
-                    )}
-                  </button>
-                </form>
-                <div className="mt-2 text-xs text-slate-500 text-center">
-                  Press Ctrl+K to focus • ESC to close sidebar
+                    </div>
+                  )}
                 </div>
-              </div>
+              ))}
+              
+              {isWaitingForResponse && (
+                <div className="flex gap-4 justify-start">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 
+                  flex items-center justify-center flex-shrink-0 mt-1">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="bg-slate-800/60 text-slate-100 border border-slate-700/50 rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse"></div>
+                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-150"></div>
+                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-300"></div>
+                      </div>
+                      <span className="text-sm text-slate-400">Brain is thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Debug info - now toggleable */}
+              {showDebugInfo && (
+                <div className="mt-6 p-4 bg-slate-900/50 backdrop-blur-sm rounded-xl border border-slate-700/50">
+                  <h3 className="text-sm font-medium text-slate-300 mb-2">Debug Information</h3>
+                  <div className="text-xs text-slate-400 space-y-1">
+                    <p>Conversation ID: {conversationId || 'None'}</p>
+                    <p>User: {userAttributes?.sub || 'Unknown'}</p>
+                    <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
+                    <p>Messages count: {messages.length}</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Invisible element to scroll to */}
+              <div ref={messagesEndRef} />
             </div>
           </div>
-        ) : (
-          // Improved Welcome/Empty State
-          <div className="flex-1 flex items-center justify-center p-6">
-            <div className="max-w-md mx-auto text-center">
-              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl 
-              flex items-center justify-center shadow-2xl shadow-violet-500/25">
-                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              
-              <h2 className="text-2xl font-semibold text-white mb-3">
-                Welcome to Brain in Cup
-              </h2>
-              <p className="text-slate-300 mb-8 leading-relaxed">
-                Your intelligent AI companion is ready to help. Start a conversation to explore ideas, 
-                get answers, or just have a friendly chat.
-              </p>
-              
-              <div className="space-y-4">
+
+          {/* Input Area - Always show input */}
+          <div className="border-t border-slate-700/50 bg-slate-900/50 backdrop-blur-xl p-6">
+            <div className="max-w-4xl mx-auto">
+              <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+                <div className="flex-1 relative">
+                  <textarea
+                    ref={inputRef}
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={conversationId ? 'Message Brain in Cup...' : 'Start typing to begin your conversation...'}
+                    className="w-full min-h-[44px] max-h-32 py-3 px-4 rounded-xl resize-none
+                    bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400
+                    focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50
+                    transition-all duration-200 backdrop-blur-sm"
+                    disabled={isWaitingForResponse}
+                    rows={1}
+                    style={{
+                      height: 'auto',
+                      minHeight: '44px'
+                    }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = 'auto';
+                      target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+                    }}
+                  />
+                  <div className="absolute bottom-3 right-4 text-xs text-slate-500">
+                    Enter to send • Shift+Enter for new line
+                  </div>
+                </div>
                 <button
-                  onClick={handleNewConversation}
-                  className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 
-                  text-white font-medium shadow-lg hover:from-violet-500 hover:to-fuchsia-500 
-                  hover:shadow-violet-500/25 transition-all duration-200 
-                  focus:outline-none focus:ring-2 focus:ring-violet-500/50 transform hover:scale-105"
+                  type="submit"
+                  className={`p-3 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50
+                  ${!inputMessage.trim() || isWaitingForResponse
+                    ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg hover:shadow-violet-500/25'
+                  }`}
+                  disabled={!inputMessage.trim() || isWaitingForResponse}
                 >
-                  Start New Conversation
+                  {isWaitingForResponse ? (
+                    <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  )}
                 </button>
-                
-                <div className="text-xs text-slate-500">
-                  Or use the sidebar to view your conversation history
-                </div>
+              </form>
+              <div className="mt-2 text-xs text-slate-500 text-center">
+                Press Ctrl+K to focus • ESC to close sidebar
               </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Improved Footer */}
         <div className="bg-slate-900/30 backdrop-blur-xl border-t border-slate-700/50 px-6 py-3">
