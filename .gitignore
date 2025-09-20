@@ -196,3 +196,4 @@ conversation_history.pkl
 # Python libs (lambda layers)
 **/layer/python/*
 .serena/
+amplify_outputs.json
