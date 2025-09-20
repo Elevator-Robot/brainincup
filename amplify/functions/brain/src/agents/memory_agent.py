@@ -65,7 +65,7 @@ class MemoryAgent:
         )
         return response.get("Items", [])
 
-    def save_response(self, response):
+    def save_response(self, response, message_id=None, owner=None):
         """Save the AI-generated response to the BrainResponse table via AppSync GraphQL mutation."""
         mutation = """
         mutation CreateBrainResponse($input: CreateBrainResponseInput!) {
@@ -79,17 +79,23 @@ class MemoryAgent:
         }
         """
 
+        # Use provided message_id or get the last message ID as fallback
+        final_message_id = message_id or self.get_last_message_id()
+        
+        # Use provided owner or fallback to hardcoded value
+        final_owner = owner or "f4e87478-d071-709a-9f5d-115e1e1562df"
+
         variables = {
             "input": {
                 "id": str(uuid.uuid4()),
                 "conversationId": self.conversation_id,
-                "messageId": self.get_last_message_id() or None,
+                "messageId": final_message_id,
                 "response": response.get("response", ""),
                 "memories": response.get("memories", ""),
                 "sensations": response.get("sensations", []),
                 "thoughts": response.get("thoughts", []),
                 "selfReflection": response.get("self_reflection", ""),
-                "owner": "f4e87478-d071-709a-9f5d-115e1e1562df",  # TODO: pull from caller identity
+                "owner": final_owner,
             }
         }
 

@@ -35,7 +35,7 @@ class Controller:
         # Load initial conversation history
         self.conversation_history = self.memory_agent.load_conversation_history()
 
-    def process_input(self, user_input):
+    def process_input(self, user_input, message_id=None, owner=None):
         context = self.memory_agent.retrieve_context(self.conversation_history, n=100)
 
         # Perception Agent formats the prompt
@@ -58,6 +58,8 @@ class Controller:
         # Save the AI response to the response table
         self.memory_agent.save_response(
             response=final_response,
+            message_id=message_id,
+            owner=owner
         )
 
         # Update conversation history locally
