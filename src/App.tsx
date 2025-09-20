@@ -10,6 +10,8 @@ const dataClient = generateClient<Schema>();
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  isTyping?: boolean;
+  fullContent?: string; // Store the complete content when typing
 }
 
 function App() {
@@ -24,6 +26,7 @@ function App() {
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     async function getUserAttributes() {
@@ -59,6 +62,16 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSidebarOpen]);
+
+  // Cleanup typing animation when conversation changes or component unmounts
+  useEffect(() => {
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
+    };
+  }, [conversationId]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -99,7 +112,7 @@ function App() {
         errors?: Array<{ message: string }>;
       };
       
-      const rawSubscription = (subscription as any).subscribe({
+      const rawSubscription = (subscription as unknown as { subscribe: (handlers: { next: (result: GraphQLSubscriptionResult) => void; error: (err: Error) => void; }) => { unsubscribe: () => void; }; }).subscribe({
         next: (result: GraphQLSubscriptionResult) => {
           console.log('RAW SUBSCRIPTION RECEIVED:', result);
           
@@ -113,11 +126,26 @@ function App() {
             
             // Check if this response is for our conversation
             if (brainResponse.conversationId === conversationId) {
-              console.log('✅ MATCH: Adding response to messages:', brainResponse.response);
-              setMessages(prev => [...prev, { 
-                role: 'assistant', 
-                content: brainResponse.response ?? '' 
-              }]);
+              console.log('✅ MATCH: Starting typing animation for response:', brainResponse.response);
+              
+              // Add empty assistant message to start typing animation
+              setMessages(prev => {
+                const newMessages: Message[] = [...prev, { 
+                  role: 'assistant' as const, 
+                  content: '',
+                  isTyping: true,
+                  fullContent: brainResponse.response ?? ''
+                }];
+                
+                // Start typing animation for the newly added message
+                const messageIndex = newMessages.length - 1;
+                setTimeout(() => {
+                  startTypingAnimation(messageIndex, brainResponse.response ?? '');
+                }, 100); // Small delay to ensure state is updated
+                
+                return newMessages;
+              });
+              
               setIsWaitingForResponse(false);
             } else {
               console.log('❌ NO MATCH: Response does not match criteria');
@@ -139,6 +167,55 @@ function App() {
       return () => {}; // Empty cleanup function
     }
   }, [conversationId]);
+
+  // Typing animation function
+  const startTypingAnimation = (messageIndex: number, fullText: string) => {
+    // Clear any existing typing animation
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+    }
+
+    let currentIndex = 0;
+    const typingSpeed = 30; // Characters per second
+
+    const typeNextCharacter = () => {
+      if (currentIndex < fullText.length) {
+        setMessages(prev => {
+          const updatedMessages = [...prev];
+          if (updatedMessages[messageIndex]) {
+            updatedMessages[messageIndex] = {
+              ...updatedMessages[messageIndex],
+              content: fullText.substring(0, currentIndex + 1),
+              isTyping: true,
+              fullContent: fullText
+            };
+          }
+          return updatedMessages;
+        });
+        currentIndex++;
+      } else {
+        // Typing complete
+        setMessages(prev => {
+          const updatedMessages = [...prev];
+          if (updatedMessages[messageIndex]) {
+            updatedMessages[messageIndex] = {
+              ...updatedMessages[messageIndex],
+              content: fullText,
+              isTyping: false,
+              fullContent: fullText
+            };
+          }
+          return updatedMessages;
+        });
+        if (typingIntervalRef.current) {
+          clearInterval(typingIntervalRef.current);
+          typingIntervalRef.current = null;
+        }
+      }
+    };
+
+    typingIntervalRef.current = setInterval(typeNextCharacter, 1000 / typingSpeed);
+  };
 
   const handleSendMessage = async (content: string): Promise<void> => {
     try {
@@ -178,7 +255,7 @@ function App() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (inputMessage.trim() && !isWaitingForResponse) {
-        handleSubmit(e as any);
+        handleSubmit(e as React.FormEvent);
       }
     }
   };
@@ -324,7 +401,7 @@ function App() {
           aria-atomic="true"
           className="sr-only"
         >
-          {isWaitingForResponse && "AI is thinking..."}
+          {isWaitingForResponse && 'AI is thinking...'}
           {messages.length > 0 && `Conversation has ${messages.length} messages`}
         </div>
         {/* Improved Header */}
@@ -389,7 +466,7 @@ function App() {
                       flex items-center justify-center shadow-lg">
                         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
                       </div>
                       <p className="text-slate-300 text-lg">
@@ -421,7 +498,7 @@ function App() {
                       flex items-center justify-center flex-shrink-0 mt-1">
                         <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                       </div>
                     )}
@@ -429,12 +506,15 @@ function App() {
                     <div
                       className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm
                       ${message.role === 'user' 
-                        ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' 
-                        : 'bg-slate-800/60 text-slate-100 border border-slate-700/50'
-                      }`}
+                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' 
+                    : 'bg-slate-800/60 text-slate-100 border border-slate-700/50'
+                  }`}
                     >
                       <p className="leading-relaxed whitespace-pre-wrap break-words">
                         {message.content}
+                        {message.isTyping && (
+                          <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
+                        )}
                       </p>
                     </div>
                     
@@ -442,7 +522,7 @@ function App() {
                       <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 mt-1">
                         <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                       </div>
                     )}
@@ -455,7 +535,7 @@ function App() {
                     flex items-center justify-center flex-shrink-0 mt-1">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </div>
                     <div className="bg-slate-800/60 text-slate-100 border border-slate-700/50 rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm">
@@ -524,9 +604,9 @@ function App() {
                     type="submit"
                     className={`p-3 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50
                     ${!inputMessage.trim() || isWaitingForResponse
-                      ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg hover:shadow-violet-500/25'
-                    }`}
+            ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' 
+            : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg hover:shadow-violet-500/25'
+          }`}
                     disabled={!inputMessage.trim() || isWaitingForResponse}
                   >
                     {isWaitingForResponse ? (
@@ -552,7 +632,7 @@ function App() {
               flex items-center justify-center shadow-2xl shadow-violet-500/25">
                 <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
               
