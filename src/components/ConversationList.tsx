@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 
@@ -16,18 +16,11 @@ interface ConversationListProps {
 export default function ConversationList({ onSelectConversation, onNewConversation, selectedConversationId, refreshKey }: ConversationListProps) {
   const [conversations, setConversations] = useState<ConversationType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadConversations();
-  }, []);
-
-  useEffect(() => {
-    if (refreshKey !== undefined) {
-      loadConversations();
-    }
-  }, [refreshKey]);
-
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -38,11 +31,13 @@ export default function ConversationList({ onSelectConversation, onNewConversati
         const mockConversations = [
           {
             id: 'test-conversation-1',
+            title: 'My AI Discussion',
             createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
             updatedAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
           },
           {
             id: 'test-conversation-2', 
+            title: 'Learning Session',
             createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
             updatedAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
           }
@@ -65,7 +60,127 @@ export default function ConversationList({ onSelectConversation, onNewConversati
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  const handleTitleEdit = (conversationId: string, currentTitle: string) => {
+    setEditingId(conversationId);
+    setEditingTitle(currentTitle || 'New Conversation');
   };
+
+  const handleTitleSave = async (conversationId: string) => {
+    if (!editingTitle.trim()) {
+      setEditingTitle('New Conversation');
+      return;
+    }
+
+    try {
+      // For test mode, just update local state
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('testmode') === 'true') {
+        setConversations(prevConversations =>
+          prevConversations.map(conv =>
+            conv.id === conversationId
+              ? { ...conv, title: editingTitle.trim() }
+              : conv
+          )
+        );
+        setEditingId(null);
+        setEditingTitle('');
+        return;
+      }
+
+      // Update the conversation title in the database
+      await dataClient.models.Conversation.update({
+        id: conversationId,
+        title: editingTitle.trim()
+      });
+
+      // Update local state
+      setConversations(prevConversations =>
+        prevConversations.map(conv =>
+          conv.id === conversationId
+            ? { ...conv, title: editingTitle.trim() }
+            : conv
+        )
+      );
+
+      setEditingId(null);
+      setEditingTitle('');
+    } catch (error) {
+      console.error('Error updating conversation title:', error);
+    }
+  };
+
+  const handleTitleCancel = () => {
+    setEditingId(null);
+    setEditingTitle('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, conversationId: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleTitleSave(conversationId);
+    } else if (e.key === 'Escape') {
+      handleTitleCancel();
+    }
+  };
+
+  const handleDeleteConfirm = (conversationId: string) => {
+    setDeleteConfirmId(conversationId);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmId(null);
+  };
+
+  const handleDeleteExecute = async (conversationId: string) => {
+    try {
+      // For test mode, just update local state
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('testmode') === 'true') {
+        setConversations(prevConversations =>
+          prevConversations.filter(conv => conv.id !== conversationId)
+        );
+        setDeleteConfirmId(null);
+        
+        // If we're deleting the currently selected conversation, clear selection
+        if (selectedConversationId === conversationId) {
+          onSelectConversation(''); // Clear selection
+        }
+        return;
+      }
+
+      // Delete the conversation from the database
+      await dataClient.models.Conversation.delete({
+        id: conversationId
+      });
+
+      // Update local state
+      setConversations(prevConversations =>
+        prevConversations.filter(conv => conv.id !== conversationId)
+      );
+
+      setDeleteConfirmId(null);
+      
+      // If we're deleting the currently selected conversation, clear selection
+      if (selectedConversationId === conversationId) {
+        onSelectConversation(''); // Clear selection
+      }
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      setDeleteConfirmId(null);
+    }
+  };
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  useEffect(() => {
+    if (refreshKey !== undefined) {
+      loadConversations();
+    }
+  }, [refreshKey, loadConversations]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return null; // Return null instead of 'Unknown date'
@@ -127,35 +242,99 @@ export default function ConversationList({ onSelectConversation, onNewConversati
           </h3>
           {conversations.map((conversation) => {
             const dateText = formatDate((conversation.updatedAt || conversation.createdAt) || undefined);
+            const conversationTitle = conversation.title || 'New Conversation';
+            const isEditing = editingId === conversation.id;
+            
             return (
-              <button
+              <div
                 key={conversation.id}
-                onClick={() => conversation.id && onSelectConversation(conversation.id)}
-                className={`w-full text-left p-4 rounded-xl transition-all duration-200 group
-                focus:outline-none focus:ring-2 focus:ring-violet-500/50 relative overflow-hidden
+                className={`w-full rounded-xl transition-all duration-200 group relative overflow-hidden
                 ${selectedConversationId === conversation.id 
                 ? 'bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 border border-violet-500/50 shadow-lg shadow-violet-500/10' 
                 : 'bg-slate-800/30 border border-slate-700/50 hover:border-violet-500/30 hover:bg-slate-800/50'
               }`}
               >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <div className={`font-medium text-sm truncate mb-1 ${
-                      selectedConversationId === conversation.id 
-                        ? 'text-white' 
-                        : 'text-slate-200 group-hover:text-white'
-                    }`}>
-                      Conversation
-                    </div>
-                    {dateText && (
-                      <div className="text-xs text-slate-400 group-hover:text-slate-300">
-                        {dateText}
+                <div className="flex items-center p-4">
+                  <button
+                    onClick={() => conversation.id && onSelectConversation(conversation.id)}
+                    className="flex-1 text-left min-w-0 focus:outline-none"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onBlur={() => handleTitleSave(conversation.id!)}
+                            onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
+                            className="w-full bg-slate-700/50 text-white text-sm font-medium rounded px-2 py-1 
+                            border border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <div
+                            className={`font-medium text-sm truncate mb-1 cursor-pointer group-hover:bg-slate-700/30 
+                            rounded px-2 py-1 transition-colors ${
+                              selectedConversationId === conversation.id 
+                                ? 'text-white' 
+                                : 'text-slate-200 group-hover:text-white'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTitleEdit(conversation.id!, conversationTitle);
+                            }}
+                            title="Click to edit conversation name"
+                          >
+                            {conversationTitle}
+                          </div>
+                        )}
+                        {dateText && (
+                          <div className="text-xs text-slate-400 group-hover:text-slate-300 px-2">
+                            {dateText}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  {selectedConversationId === conversation.id && (
-                    <div className="text-violet-400 text-sm ml-3 flex-shrink-0">
-                      <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse"></div>
+                      {selectedConversationId === conversation.id && (
+                        <div className="text-violet-400 text-sm ml-3 flex-shrink-0">
+                          <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse"></div>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                  
+                  {/* Edit and Delete buttons - shown on hover for better UX */}
+                  {!isEditing && (
+                    <div className="flex items-center gap-1 ml-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTitleEdit(conversation.id!, conversationTitle);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded transition-opacity
+                        text-slate-400 hover:text-white hover:bg-slate-700/50"
+                        title="Edit conversation name"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteConfirm(conversation.id!);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded transition-opacity
+                        text-slate-400 hover:text-red-400 hover:bg-slate-700/50"
+                        title="Delete conversation"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -164,9 +343,48 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                 {selectedConversationId === conversation.id && (
                   <div className="absolute inset-0 bg-gradient-to-r from-violet-600/5 to-fuchsia-600/5 pointer-events-none"></div>
                 )}
-              </button>
+              </div>
             );
           })}
+        </div>
+      )}
+      
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-2xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Delete conversation?</h3>
+                  <p className="text-sm text-slate-400">This action cannot be undone.</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white
+                  bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteExecute(deleteConfirmId)}
+                  className="px-4 py-2 text-sm font-medium text-white
+                  bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
