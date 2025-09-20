@@ -28,6 +28,15 @@ export default function ConversationList({ onSelectConversation, onNewConversati
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('testmode') === 'true') {
         console.log('✅ Test mode: Loading mock conversations');
+        
+        // If noconversations=true, return empty array to test auto-creation
+        if (urlParams.get('noconversations') === 'true') {
+          console.log('✅ Test mode: No conversations (testing auto-creation)');
+          setConversations([]);
+          setIsLoading(false);
+          return;
+        }
+        
         const mockConversations = [
           {
             id: 'test-conversation-1',
