@@ -678,9 +678,9 @@ function App() {
                   type="submit"
                   className={`p-3 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50
                   ${!inputMessage.trim() || isWaitingForResponse
-                    ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg hover:shadow-violet-500/25'
-                  }`}
+      ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' 
+      : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg hover:shadow-violet-500/25'
+    }`}
                   disabled={!inputMessage.trim() || isWaitingForResponse}
                 >
                   {isWaitingForResponse ? (
