@@ -17,6 +17,17 @@ export const auth = defineAuth({
         },
         scopes: ['email', 'profile', 'openid']
       },
+      signInWithApple: {
+        clientId: secret('APPLE_CLIENT_ID'),
+        keyId: secret('APPLE_KEY_ID'),
+        privateKey: secret('APPLE_PRIVATE_KEY'),
+        teamId: secret('APPLE_TEAM_ID'),
+        attributeMapping: {
+          email: 'email',
+          nickname: 'name'
+        },
+        scopes: ['email', 'name']
+      },
       callbackUrls: [
         'http://localhost:5173/',
         'https://brainincup.com/'
