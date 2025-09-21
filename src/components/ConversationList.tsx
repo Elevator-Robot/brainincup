@@ -284,17 +284,12 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                           />
                         ) : (
                           <div
-                            className={`font-medium text-sm truncate mb-1 cursor-pointer group-hover:bg-slate-700/30 
+                            className={`font-medium text-sm truncate mb-1  
                             rounded px-2 py-1 transition-colors ${
                               selectedConversationId === conversation.id 
                                 ? 'text-white' 
                                 : 'text-slate-200 group-hover:text-white'
                             }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTitleEdit(conversation.id!, conversationTitle);
-                            }}
-                            title="Click to edit conversation name"
                           >
                             {conversationTitle}
                           </div>
