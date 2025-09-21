@@ -130,6 +130,8 @@ export default function ConversationList({ onSelectConversation, onNewConversati
       e.preventDefault();
       handleTitleSave(conversationId);
     } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
       handleTitleCancel();
     }
   };
