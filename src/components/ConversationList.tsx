@@ -293,6 +293,12 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                             ? 'text-white' 
                             : 'text-slate-200 group-hover:text-white'
                           }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTitleEdit(conversation.id!, conversationTitle);
+                            }}
+                            title="Click to edit conversation name"
+
                           >
                             {conversationTitle}
                           </div>
