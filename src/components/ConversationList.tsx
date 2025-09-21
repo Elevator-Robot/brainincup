@@ -130,6 +130,8 @@ export default function ConversationList({ onSelectConversation, onNewConversati
       e.preventDefault();
       handleTitleSave(conversationId);
     } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
       handleTitleCancel();
     }
   };
@@ -277,6 +279,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                             onChange={(e) => setEditingTitle(e.target.value)}
                             onBlur={() => handleTitleSave(conversation.id!)}
                             onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
+                            onFocus={(e) => e.target.select()}
                             className="w-full bg-slate-700/50 text-white text-sm font-medium rounded px-2 py-1 
                             border border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                             autoFocus
@@ -284,7 +287,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                           />
                         ) : (
                           <div
-                            className={`font-medium text-sm truncate mb-1 cursor-pointer group-hover:bg-slate-700/30 
+                            className={`font-medium text-sm truncate mb-1  
                             rounded px-2 py-1 transition-colors ${
                           selectedConversationId === conversation.id 
                             ? 'text-white' 
@@ -295,6 +298,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                               handleTitleEdit(conversation.id!, conversationTitle);
                             }}
                             title="Click to edit conversation name"
+
                           >
                             {conversationTitle}
                           </div>
