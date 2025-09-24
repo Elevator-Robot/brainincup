@@ -426,8 +426,8 @@ function App() {
 
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
-      {/* Push-Content Sidebar */}
+    <div className="flex h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden">
+      {/* Enhanced Sidebar with glass morphism */}
       <aside
         className={`
           flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden
@@ -436,14 +436,24 @@ function App() {
         aria-label="Conversation list sidebar"
         role="complementary"
       >
-        <div className="flex flex-col h-full bg-slate-900/90 backdrop-blur-xl border-r border-slate-700/50 shadow-2xl">
-          {/* Sidebar Header with improved spacing */}
-          <div className="flex items-center justify-between p-6 border-b border-slate-700/50">
-            <h1 className="text-xl font-semibold text-white">Brain in Cup</h1>
+        <div className="flex flex-col h-full glass backdrop-blur-xl border-r border-brand-surface-border shadow-glass-lg">
+          {/* Sidebar Header with enhanced styling */}
+          <div className="flex items-center justify-between p-6 border-b border-brand-surface-border">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm animate-float">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
+                Brain in Cup
+              </h1>
+            </div>
             <button
               onClick={() => setIsSidebarOpen(false)}
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 
-              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+              className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
+              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50"
               aria-label="Close sidebar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -452,8 +462,8 @@ function App() {
             </button>
           </div>
 
-          {/* Conversation List with improved styling */}
-          <nav className="flex-1 overflow-y-auto" aria-label="Conversations">
+          {/* Conversation List with enhanced styling */}
+          <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-surface-tertiary" aria-label="Conversations">
             <ConversationList 
               onSelectConversation={handleSelectConversation}
               onNewConversation={handleNewConversation}
@@ -464,7 +474,7 @@ function App() {
         </div>
       </aside>
 
-      {/* Main Content Area */}
+      {/* Main Content Area with improved layout */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Screen reader live region for message updates */}
         <div
@@ -475,63 +485,51 @@ function App() {
           {isWaitingForResponse && 'AI is thinking...'}
           {messages.length > 0 && `Conversation has ${messages.length} messages`}
         </div>
-        {/* Improved Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-slate-900/50 backdrop-blur-xl border-b border-slate-700/50">
+
+        {/* Enhanced Header */}
+        <div className="flex items-center justify-between px-6 py-4 glass backdrop-blur-xl border-b border-brand-surface-border">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 
-              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+              className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
+              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50"
               aria-label="Open sidebar"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            {conversationId ? (
-              <h2 className="text-lg font-medium text-white truncate">
-                Conversation
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-brand-text-primary">
+                {conversationId ? 'Active Conversation' : 'Start New Chat'}
               </h2>
-            ) : (
-              <h2 className="text-lg font-medium text-white truncate">
-                Brain in Cup
-              </h2>
-            )}
+            </div>
           </div>
-          
           <div className="flex items-center gap-3">
-            {/* Debug toggle button */}
             <button
               onClick={() => setShowDebugInfo(!showDebugInfo)}
-              className="px-3 py-1.5 text-xs rounded-md bg-slate-800/50 text-slate-300 hover:text-white 
-              hover:bg-slate-700/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-              title="Toggle debug information"
+              className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
+              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50"
+              aria-label="Toggle debug info"
             >
-              Debug
-            </button>
-            
-            <button
-              onClick={async () => {
-                try {
-                  const { signOut } = await import('aws-amplify/auth');
-                  await signOut();
-                  window.location.reload();
-                } catch (error) {
-                  console.error('Error signing out:', error);
-                }
-              }}
-              className="px-4 py-2 text-sm text-slate-300 hover:text-white 
-              transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50 rounded-lg"
-            >
-              Sign out
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </button>
           </div>
         </div>
 
-        {/* Chat Area - Always show chat interface */}
+        {/* Enhanced Chat Area with glass morphism design */}
         <div className="flex-1 flex flex-col min-h-0">
-          {/* Messages with improved spacing and alignment */}
-          <div className="flex-1 overflow-y-auto px-6 py-6">
+          {/* Messages with improved styling and animations */}
+          <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary">
             <div className="max-w-4xl mx-auto space-y-6">
               {messages.length === 0 && !isLoading && conversationId && (
                 <div className="flex justify-center items-center h-full min-h-[200px]">
@@ -568,11 +566,10 @@ function App() {
                   className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   {message.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 
-                    flex items-center justify-center flex-shrink-0 mt-1">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm animate-float">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                       </svg>
                     </div>
                   )}
@@ -580,8 +577,8 @@ function App() {
                   <div
                     className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm
                     ${message.role === 'user' 
-                  ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' 
-                  : 'bg-slate-800/60 text-slate-100 border border-slate-700/50'
+                  ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-sm' 
+                  : 'glass text-brand-text-primary border border-brand-surface-border'
                 }`}
                   >
                     <p className="leading-relaxed whitespace-pre-wrap break-words">
@@ -593,8 +590,8 @@ function App() {
                   </div>
                   
                   {message.role === 'user' && (
-                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 mt-1">
-                      <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-8 h-8 rounded-xl glass flex items-center justify-center flex-shrink-0 mt-1 border border-brand-surface-border">
+                      <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                           d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
@@ -605,31 +602,30 @@ function App() {
               
               {isWaitingForResponse && (
                 <div className="flex gap-4 justify-start">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 
-                  flex items-center justify-center flex-shrink-0 mt-1">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm animate-pulse-glow">
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="bg-slate-800/60 text-slate-100 border border-slate-700/50 rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm">
+                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                    </div>
+                  <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-glass backdrop-blur-lg">
                     <div className="flex items-center gap-2">
                       <div className="flex space-x-1">
-                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse"></div>
-                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-150"></div>
-                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-300"></div>
+                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
+                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
+                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
                       </div>
-                      <span className="text-sm text-slate-400">Brain is thinking...</span>
+                      <span className="text-sm text-brand-text-muted">Brain is thinking...</span>
                     </div>
                   </div>
                 </div>
               )}
               
-              {/* Debug info - now toggleable */}
+              {/* Enhanced Debug info - now toggleable */}
               {showDebugInfo && (
-                <div className="mt-6 p-4 bg-slate-900/50 backdrop-blur-sm rounded-xl border border-slate-700/50">
-                  <h3 className="text-sm font-medium text-slate-300 mb-2">Debug Information</h3>
-                  <div className="text-xs text-slate-400 space-y-1">
+                <div className="mt-6 glass rounded-2xl p-4 animate-fade-in">
+                  <h3 className="text-sm font-medium text-brand-text-primary mb-2">Debug Information</h3>
+                  <div className="text-xs text-brand-text-muted space-y-1">
                     <p>Conversation ID: {conversationId || 'None'}</p>
                     <p>User: {userAttributes?.sub || 'Unknown'}</p>
                     <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
@@ -643,10 +639,10 @@ function App() {
             </div>
           </div>
 
-          {/* Input Area - Always show input */}
-          <div className="border-t border-slate-700/50 bg-slate-900/50 backdrop-blur-xl p-6">
+          {/* Enhanced Input Area with glass morphism */}
+          <div className="border-t border-brand-surface-border glass backdrop-blur-xl p-6">
             <div className="max-w-4xl mx-auto">
-              <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+              <form onSubmit={handleSubmit} className="flex gap-4 items-end">
                 <div className="flex-1 relative">
                   <textarea
                     ref={inputRef}
@@ -654,15 +650,16 @@ function App() {
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={conversationId ? 'Message Brain in Cup...' : 'Start typing to begin your conversation...'}
-                    className="w-full min-h-[44px] max-h-32 py-3 px-4 rounded-xl resize-none
-                    bg-slate-800/50 border border-slate-700/50 text-white placeholder-slate-400
-                    focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50
-                    transition-all duration-200 backdrop-blur-sm"
+                    className="w-full min-h-[52px] max-h-32 py-4 px-5 rounded-2xl resize-none
+                    glass border border-brand-surface-border text-brand-text-primary placeholder-brand-text-muted
+                    focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 focus:border-brand-accent-primary/50
+                    transition-all duration-200 backdrop-blur-lg text-base
+                    hover:border-brand-surface-hover"
                     disabled={isWaitingForResponse}
                     rows={1}
                     style={{
                       height: 'auto',
-                      minHeight: '44px'
+                      minHeight: '52px'
                     }}
                     onInput={(e) => {
                       const target = e.target as HTMLTextAreaElement;
@@ -670,38 +667,38 @@ function App() {
                       target.style.height = Math.min(target.scrollHeight, 128) + 'px';
                     }}
                   />
-                  <div className="absolute bottom-3 right-4 text-xs text-slate-500">
+                  <div className="absolute bottom-4 right-5 text-xs text-brand-text-muted">
                     Enter to send • Shift+Enter for new line
                   </div>
                 </div>
                 <button
                   type="submit"
-                  className={`p-3 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50
+                  className={`p-4 rounded-2xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 transform
                   ${!inputMessage.trim() || isWaitingForResponse
-      ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' 
-      : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg hover:shadow-violet-500/25'
-    }`}
+                    ? 'glass text-brand-text-muted cursor-not-allowed opacity-50' 
+                    : 'bg-gradient-mesh text-white shadow-glow hover:shadow-glow-sm hover:scale-105 active:scale-95 floating-action'
+                  }`}
                   disabled={!inputMessage.trim() || isWaitingForResponse}
                 >
                   {isWaitingForResponse ? (
-                    <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                     </svg>
                   )}
                 </button>
               </form>
-              <div className="mt-2 text-xs text-slate-500 text-center">
+              <div className="mt-3 text-xs text-brand-text-muted text-center">
                 Press Ctrl+K to focus • ESC to close sidebar
               </div>
             </div>
           </div>
         </div>
 
-        {/* Improved Footer */}
-        <div className="bg-slate-900/30 backdrop-blur-xl border-t border-slate-700/50 px-6 py-3">
-          <div className="max-w-4xl mx-auto text-center text-xs text-slate-500">
+        {/* Enhanced Footer with glass morphism */}
+        <div className="glass backdrop-blur-xl border-t border-brand-surface-border px-6 py-3">
+          <div className="max-w-4xl mx-auto text-center text-xs text-brand-text-muted">
             <Footer />
           </div>
         </div>

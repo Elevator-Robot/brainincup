@@ -36,16 +36,18 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
       // Try sign in first
       await signIn({ username: email, password });
       onAuthSuccess();
-    } catch (signInError: any) {
+    } catch (signInError: unknown) {
       console.log('Sign in error:', signInError);
-      console.log('Error name:', signInError.name);
-      console.log('Error message:', signInError.message);
+      const errorName = signInError && typeof signInError === 'object' && 'name' in signInError ? (signInError as { name: string }).name : '';
+      const errorMessage = signInError && typeof signInError === 'object' && 'message' in signInError ? (signInError as { message: string }).message : '';
+      console.log('Error name:', errorName);
+      console.log('Error message:', errorMessage);
       
       // Try to create account for any authentication failure that might be "user not found"
-      if (signInError.name === 'UserNotFoundException' || 
-          signInError.name === 'NotAuthorizedException' ||
-          signInError.message?.includes('User does not exist') ||
-          signInError.message?.includes('Incorrect username or password')) {
+      if (errorName === 'UserNotFoundException' || 
+          errorName === 'NotAuthorizedException' ||
+          errorMessage?.includes('User does not exist') ||
+          errorMessage?.includes('Incorrect username or password')) {
         // User doesn't exist, try sign up
         try {
           const result = await signUp({
@@ -64,11 +66,12 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
           } else {
             onAuthSuccess();
           }
-        } catch (signUpError: any) {
-          setError(signUpError.message || 'Failed to create account');
+        } catch (signUpError: unknown) {
+          const signUpErrorMessage = signUpError && typeof signUpError === 'object' && 'message' in signUpError ? (signUpError as { message: string }).message : '';
+          setError(signUpErrorMessage || 'Failed to create account');
         }
       } else {
-        setError(signInError.message || 'Failed to sign in');
+        setError(errorMessage || 'Failed to sign in');
       }
     } finally {
       setIsLoading(false);
@@ -86,8 +89,9 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
       await confirmSignUp({ username: email, confirmationCode });
       await signIn({ username: email, password });
       onAuthSuccess();
-    } catch (error: any) {
-      setError(error.message || 'Failed to confirm account');
+    } catch (error: unknown) {
+      const errorMessage = error && typeof error === 'object' && 'message' in error ? (error as { message: string }).message : '';
+      setError(errorMessage || 'Failed to confirm account');
     } finally {
       setIsLoading(false);
     }
