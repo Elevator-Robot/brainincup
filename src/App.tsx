@@ -426,19 +426,39 @@ function App() {
 
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden">
-      {/* Enhanced Sidebar with glass morphism */}
+    <div className="flex h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden relative">
+      {/* Fixed Hamburger Menu Button - stays in corner */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="fixed top-4 left-4 z-50 p-3 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
+        transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 shadow-glass"
+        aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+      >
+        <div className="w-6 h-6 flex flex-col justify-center items-center">
+          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+            isSidebarOpen ? 'rotate-45 translate-y-1' : '-translate-y-0.5'
+          }`}></span>
+          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+            isSidebarOpen ? 'opacity-0' : 'opacity-100'
+          }`}></span>
+          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+            isSidebarOpen ? '-rotate-45 -translate-y-1' : 'translate-y-0.5'
+          }`}></span>
+        </div>
+      </button>
+
+      {/* Enhanced Sidebar with glass morphism - now overlay */}
       <aside
         className={`
-          flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden
-          ${isSidebarOpen ? 'w-80' : 'w-0'}
+          fixed inset-y-0 left-0 z-40 w-80 transform transition-transform duration-300 ease-in-out
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
         aria-label="Conversation list sidebar"
         role="complementary"
       >
         <div className="flex flex-col h-full glass backdrop-blur-xl border-r border-brand-surface-border shadow-glass-lg">
           {/* Sidebar Header with enhanced styling */}
-          <div className="flex items-center justify-between p-6 border-b border-brand-surface-border">
+          <div className="flex items-center p-6 pt-20 border-b border-brand-surface-border">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm animate-float">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -450,16 +470,6 @@ function App() {
                 Brain in Cup
               </h1>
             </div>
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
-              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50"
-              aria-label="Close sidebar"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
 
           {/* Conversation List with enhanced styling */}
@@ -474,6 +484,15 @@ function App() {
         </div>
       </aside>
 
+      {/* Backdrop for sidebar */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 transition-opacity duration-300"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Main Content Area with improved layout */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Screen reader live region for message updates */}
@@ -487,19 +506,8 @@ function App() {
         </div>
 
         {/* Enhanced Header */}
-        <div className="flex items-center justify-between px-6 py-4 glass backdrop-blur-xl border-b border-brand-surface-border">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
-              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50"
-              aria-label="Open sidebar"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-6 py-4 pl-20 glass backdrop-blur-xl border-b border-brand-surface-border">
+          <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -510,7 +518,6 @@ function App() {
                 {conversationId ? 'Active Conversation' : 'Start New Chat'}
               </h2>
             </div>
-          </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowDebugInfo(!showDebugInfo)}
