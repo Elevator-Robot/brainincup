@@ -20,6 +20,8 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [currentConversation, setCurrentConversation] = useState<any>(null); // Current conversation data for header editing
+  const [isEditingTitle, setIsEditingTitle] = useState(false); // Track if user is editing conversation title
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default to closed on mobile, will be controlled by responsive logic
   const [conversationListKey, setConversationListKey] = useState(0);
@@ -70,6 +72,13 @@ function App() {
           } else {
             console.log('✅ Test mode: Auto-selecting test conversation');
             setConversationId('test-conversation-1');
+            // Set mock conversation data for header
+            setCurrentConversation({
+              id: 'test-conversation-1',
+              title: 'My AI Discussion',
+              createdAt: new Date(Date.now() - 86400000).toISOString(),
+              updatedAt: new Date(Date.now() - 3600000).toISOString(),
+            });
           }
           return;
         }
@@ -341,6 +350,7 @@ function App() {
     // If empty string, clear the conversation
     if (!selectedConversationId) {
       setConversationId(null);
+      setCurrentConversation(null);
       setMessages([]);
       return;
     }
@@ -348,8 +358,12 @@ function App() {
     setConversationId(selectedConversationId);
     setMessages([]); // Clear current messages
     
-    // Load messages for this conversation
+    // Load conversation data and messages
     try {
+      // Load conversation data for header
+      const { data: conversationData } = await dataClient.models.Conversation.get({ id: selectedConversationId });
+      setCurrentConversation(conversationData);
+      
       const { data: conversationMessages } = await dataClient.models.Message.list({
         filter: { conversationId: { eq: selectedConversationId } }
       });
@@ -485,6 +499,47 @@ function App() {
     }
   };
 
+  const handleUpdateConversationTitle = async (newTitle: string) => {
+    if (!conversationId || !currentConversation) return;
+    
+    const trimmedTitle = newTitle.trim();
+    if (!trimmedTitle) {
+      setIsEditingTitle(false);
+      return;
+    }
+    
+    try {
+      // For test mode, just update local state
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('testmode') === 'true') {
+        console.log('✅ Test mode: Updating conversation title to:', trimmedTitle);
+        setCurrentConversation(prev => prev ? { ...prev, title: trimmedTitle } : null);
+        setIsEditingTitle(false);
+        // Trigger conversation list refresh
+        setConversationListKey(prev => prev + 1);
+        return;
+      }
+      
+      // Update in database
+      const { data: updatedConversation } = await dataClient.models.Conversation.update({
+        id: conversationId,
+        title: trimmedTitle
+      });
+      
+      if (updatedConversation) {
+        setCurrentConversation(updatedConversation);
+        console.log('✅ Updated conversation title:', trimmedTitle);
+        // Trigger conversation list refresh
+        setConversationListKey(prev => prev + 1);
+      }
+      
+      setIsEditingTitle(false);
+    } catch (error) {
+      console.error('❌ Error updating conversation title:', error);
+      setIsEditingTitle(false);
+    }
+  };
+
   // Clear newConversationId when a conversation is successfully named
   useEffect(() => {
     if (newConversationId && conversationId === newConversationId) {
@@ -587,7 +642,34 @@ function App() {
                 </svg>
               </div>
               <h2 className="text-lg font-semibold text-brand-text-primary">
-                {conversationId ? 'Active Conversation' : 'Start New Chat'}
+                {conversationId ? (
+                  isEditingTitle ? (
+                    <input
+                      type="text"
+                      defaultValue={currentConversation?.title || ''}
+                      autoFocus
+                      className="bg-transparent border-none outline-none focus:ring-2 focus:ring-brand-accent-primary/50 rounded px-2 py-1 min-w-0 max-w-md"
+                      onBlur={(e) => handleUpdateConversationTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleUpdateConversationTitle(e.currentTarget.value);
+                        } else if (e.key === 'Escape') {
+                          setIsEditingTitle(false);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span 
+                      onDoubleClick={() => setIsEditingTitle(true)}
+                      className="cursor-pointer hover:bg-brand-surface-hover/20 rounded px-2 py-1 transition-colors duration-200"
+                      title="Double-click to edit conversation name"
+                    >
+                      {currentConversation?.title || 'Untitled Conversation'}
+                    </span>
+                  )
+                ) : (
+                  'Start New Chat'
+                )}
               </h2>
             </div>
           <div className="flex items-center gap-3">
