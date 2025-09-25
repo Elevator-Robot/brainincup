@@ -23,6 +23,7 @@ function App() {
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default to closed on mobile, will be controlled by responsive logic
   const [conversationListKey, setConversationListKey] = useState(0);
+  const [newConversationId, setNewConversationId] = useState<string | null>(null); // Track newly created conversation needing name
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -390,9 +391,13 @@ function App() {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('testmode') === 'true') {
         const mockConversationId = 'test-conversation-' + Date.now();
-        console.log('✅ Test mode: Creating mock conversation:', mockConversationId);
+        console.log('✅ Test mode: Creating mock conversation that needs naming:', mockConversationId);
         setConversationId(mockConversationId);
+        setNewConversationId(mockConversationId); // Mark as needing a name
         setMessages([]);
+        
+        // Trigger a refresh of the conversation list
+        setConversationListKey(prev => prev + 1);
         return;
       }
 
@@ -402,15 +407,16 @@ function App() {
       console.log('Creating new conversation with user:', currentUserId);
       
       const { data: newConversation } = await dataClient.models.Conversation.create({
-        title: 'New Conversation',
+        title: '', // Start with empty title to force naming
         participants: [currentUserId] // Add current user to participants
         // createdAt and updatedAt are handled automatically by Amplify
       });
       
       if (newConversation) {
         setConversationId(newConversation.id);
+        setNewConversationId(newConversation.id); // Mark as needing a name
         setMessages([]);
-        console.log('✅ Created new conversation:', newConversation.id);
+        console.log('✅ Created new conversation that needs naming:', newConversation.id);
         
         // Trigger a refresh of the conversation list
         setConversationListKey(prev => prev + 1);
@@ -423,6 +429,69 @@ function App() {
     }
   };
 
+  const handleDeleteConversation = async (conversationIdToDelete: string) => {
+    try {
+      console.log('🗑️ Deleting conversation:', conversationIdToDelete);
+      
+      // For development testing, just clear from local state
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('testmode') === 'true') {
+        console.log('✅ Test mode: Removing conversation from local state');
+        
+        // If this was the current conversation, clear it
+        if (conversationIdToDelete === conversationId) {
+          setConversationId(null);
+          setMessages([]);
+        }
+        
+        // Clear new conversation state
+        if (conversationIdToDelete === newConversationId) {
+          setNewConversationId(null);
+        }
+        
+        // Trigger a refresh of the conversation list
+        setConversationListKey(prev => prev + 1);
+        return;
+      }
+
+      // Delete from database
+      await dataClient.models.Conversation.delete({ id: conversationIdToDelete });
+      
+      // If this was the current conversation, clear it
+      if (conversationIdToDelete === conversationId) {
+        setConversationId(null);
+        setMessages([]);
+      }
+      
+      // Clear new conversation state
+      if (conversationIdToDelete === newConversationId) {
+        setNewConversationId(null);
+      }
+      
+      // Trigger a refresh of the conversation list
+      setConversationListKey(prev => prev + 1);
+      
+      console.log('✅ Deleted conversation:', conversationIdToDelete);
+    } catch (error) {
+      console.error('❌ Error deleting conversation:', error);
+    }
+  };
+
+  const handleConversationNamed = (conversationId: string) => {
+    console.log('✅ Conversation successfully named:', conversationId);
+    // Clear the new conversation state since it's now properly named
+    if (conversationId === newConversationId) {
+      setNewConversationId(null);
+    }
+  };
+
+  // Clear newConversationId when a conversation is successfully named
+  useEffect(() => {
+    if (newConversationId && conversationId === newConversationId) {
+      // This effect can be used to clear the newConversationId state
+      // when we detect the conversation has been properly named
+    }
+  }, [newConversationId, conversationId]);
 
 
   return (
@@ -477,8 +546,11 @@ function App() {
             <ConversationList 
               onSelectConversation={handleSelectConversation}
               onNewConversation={handleNewConversation}
+              onDeleteConversation={handleDeleteConversation}
+              onConversationNamed={handleConversationNamed}
               selectedConversationId={conversationId}
               refreshKey={conversationListKey}
+              newConversationId={newConversationId}
             />
           </nav>
         </div>

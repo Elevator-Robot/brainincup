@@ -9,16 +9,20 @@ type ConversationType = Schema['Conversation']['type'];
 interface ConversationListProps {
   onSelectConversation: (conversationId: string) => void;
   onNewConversation: () => void;
+  onDeleteConversation?: (conversationId: string) => void;
+  onConversationNamed?: (conversationId: string) => void; // Called when a conversation is successfully named
   selectedConversationId: string | null;
   refreshKey?: number;
+  newConversationId?: string | null; // ID of newly created conversation that needs naming
 }
 
-export default function ConversationList({ onSelectConversation, onNewConversation, selectedConversationId, refreshKey }: ConversationListProps) {
+export default function ConversationList({ onSelectConversation, onNewConversation, onDeleteConversation, onConversationNamed, selectedConversationId, refreshKey, newConversationId }: ConversationListProps) {
   const [conversations, setConversations] = useState<ConversationType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isNewConversation, setIsNewConversation] = useState(false); // Track if we're naming a new conversation
 
   const loadConversations = useCallback(async () => {
     try {
@@ -37,7 +41,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
           return;
         }
         
-        const mockConversations = [
+        let mockConversations = [
           {
             id: 'test-conversation-1',
             title: 'My AI Discussion',
@@ -51,6 +55,18 @@ export default function ConversationList({ onSelectConversation, onNewConversati
             updatedAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
           }
         ] as unknown as ConversationType[];
+
+        // If there's a new conversation that needs to be shown, add it to the list
+        if (newConversationId && !mockConversations.find(c => c.id === newConversationId)) {
+          const newConversation = {
+            id: newConversationId,
+            title: '', // Empty title for new conversations
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          } as unknown as ConversationType;
+          mockConversations = [newConversation, ...mockConversations]; // Add at the beginning
+        }
+
         setConversations(mockConversations);
         setIsLoading(false);
         return;
@@ -69,7 +85,22 @@ export default function ConversationList({ onSelectConversation, onNewConversati
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [newConversationId]); // Reload when newConversationId changes
+
+  // Reload conversations when key changes or when a new conversation is created
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations, refreshKey]);
+
+  // Auto-start editing when a new conversation is created
+  useEffect(() => {
+    if (newConversationId && !editingId) {
+      console.log('🆕 Auto-starting edit for new conversation:', newConversationId);
+      setEditingId(newConversationId);
+      setEditingTitle(''); // Start with empty title to force user to name it
+      setIsNewConversation(true);
+    }
+  }, [newConversationId, editingId]);
 
   const handleTitleEdit = (conversationId: string, currentTitle: string) => {
     setEditingId(conversationId);
@@ -77,52 +108,78 @@ export default function ConversationList({ onSelectConversation, onNewConversati
   };
 
   const handleTitleSave = async (conversationId: string) => {
-    if (!editingTitle.trim()) {
+    const trimmedTitle = editingTitle.trim();
+    
+    // For new conversations, require a non-empty name
+    if (isNewConversation && !trimmedTitle) {
+      console.log('⚠️ New conversation requires a name, not saving');
+      return; // Don't save, stay in edit mode
+    }
+    
+    // For existing conversations, fallback to default if empty
+    if (!isNewConversation && !trimmedTitle) {
       setEditingTitle('New Conversation');
       return;
     }
 
     try {
+      const finalTitle = trimmedTitle || 'New Conversation';
+      
       // For test mode, just update local state
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('testmode') === 'true') {
         setConversations(prevConversations =>
           prevConversations.map(conv =>
             conv.id === conversationId
-              ? { ...conv, title: editingTitle.trim() }
+              ? { ...conv, title: finalTitle }
               : conv
           )
         );
         setEditingId(null);
         setEditingTitle('');
+        setIsNewConversation(false);
         return;
       }
 
       // Update the conversation title in the database
       await dataClient.models.Conversation.update({
         id: conversationId,
-        title: editingTitle.trim()
+        title: finalTitle
       });
 
       // Update local state
       setConversations(prevConversations =>
         prevConversations.map(conv =>
           conv.id === conversationId
-            ? { ...conv, title: editingTitle.trim() }
+            ? { ...conv, title: finalTitle }
             : conv
         )
       );
 
       setEditingId(null);
       setEditingTitle('');
+      
+      // If this was a new conversation that was just named, notify parent
+      if (isNewConversation && onConversationNamed) {
+        onConversationNamed(conversationId);
+      }
+      
+      setIsNewConversation(false);
     } catch (error) {
       console.error('Error updating conversation title:', error);
     }
   };
 
-  const handleTitleCancel = () => {
+  const handleTitleCancel = (conversationId?: string) => {
+    // If this is a new conversation that's being cancelled, delete it
+    if (isNewConversation && conversationId && onDeleteConversation) {
+      console.log('🗑️ Cancelling new conversation, deleting:', conversationId);
+      onDeleteConversation(conversationId);
+    }
+    
     setEditingId(null);
     setEditingTitle('');
+    setIsNewConversation(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, conversationId: string) => {
@@ -132,7 +189,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
     } else if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
-      handleTitleCancel();
+      handleTitleCancel(conversationId);
     }
   };
 
@@ -255,7 +312,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
           </h3>
           {conversations.map((conversation) => {
             const dateText = formatDate((conversation.updatedAt || conversation.createdAt) || undefined);
-            const conversationTitle = conversation.title || 'New Conversation';
+            const conversationTitle = conversation.title || (conversation.id === newConversationId ? '' : 'Untitled Conversation');
             const isEditing = editingId === conversation.id;
             
             return (
@@ -279,7 +336,12 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                             type="text"
                             value={editingTitle}
                             onChange={(e) => setEditingTitle(e.target.value)}
-                            onBlur={() => handleTitleSave(conversation.id!)}
+                            onBlur={() => {
+                              // For new conversations, don't auto-save on blur - require explicit save
+                              if (!isNewConversation) {
+                                handleTitleSave(conversation.id!);
+                              }
+                            }}
                             onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
                             onFocus={(e) => e.target.select()}
                             className="w-full glass text-brand-text-primary text-sm font-medium rounded-xl px-3 py-2 
