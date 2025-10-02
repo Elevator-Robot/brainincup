@@ -427,6 +427,16 @@ function App() {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
+      {/* Skip to content link for screen readers */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 
+        focus:z-50 focus:px-4 focus:py-2 focus:bg-violet-600 focus:text-white 
+        focus:rounded-lg focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+      >
+        Skip to main content
+      </a>
+      
       {/* Push-Content Sidebar */}
       <aside
         className={`
@@ -434,7 +444,6 @@ function App() {
           ${isSidebarOpen ? 'w-80' : 'w-0'}
         `}
         aria-label="Conversation list sidebar"
-        role="complementary"
       >
         <div className="flex flex-col h-full bg-slate-900/90 backdrop-blur-xl border-r border-slate-700/50 shadow-2xl">
           {/* Sidebar Header with improved spacing */}
@@ -465,7 +474,7 @@ function App() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main id="main-content" className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Screen reader live region for message updates */}
         <div
           aria-live="polite"
@@ -484,7 +493,7 @@ function App() {
               transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
               aria-label="Open sidebar"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
@@ -506,6 +515,8 @@ function App() {
               className="px-3 py-1.5 text-xs rounded-md bg-slate-800/50 text-slate-300 hover:text-white 
               hover:bg-slate-700/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
               title="Toggle debug information"
+              aria-label="Toggle debug information"
+              aria-pressed={showDebugInfo}
             >
               Debug
             </button>
@@ -522,6 +533,7 @@ function App() {
               }}
               className="px-4 py-2 text-sm text-slate-300 hover:text-white 
               transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50 rounded-lg"
+              aria-label="Sign out of account"
             >
               Sign out
             </button>
@@ -538,7 +550,7 @@ function App() {
                   <div className="text-center">
                     <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full 
                     flex items-center justify-center shadow-lg">
-                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                           d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
@@ -556,7 +568,7 @@ function App() {
               {isLoading && (
                 <div className="flex justify-center items-center h-full min-h-[200px]">
                   <div className="text-slate-400 flex items-center gap-2">
-                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
                     Loading...
                   </div>
                 </div>
@@ -569,8 +581,8 @@ function App() {
                 >
                   {message.role === 'assistant' && (
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 
-                    flex items-center justify-center flex-shrink-0 mt-1">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    flex items-center justify-center flex-shrink-0 mt-1" aria-label="AI Assistant">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                           d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
@@ -593,8 +605,8 @@ function App() {
                   </div>
                   
                   {message.role === 'user' && (
-                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 mt-1">
-                      <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 mt-1" aria-label="User">
+                      <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                           d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
@@ -606,18 +618,18 @@ function App() {
               {isWaitingForResponse && (
                 <div className="flex gap-4 justify-start">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 
-                  flex items-center justify-center flex-shrink-0 mt-1">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  flex items-center justify-center flex-shrink-0 mt-1" aria-label="AI Assistant">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
                   <div className="bg-slate-800/60 text-slate-100 border border-slate-700/50 rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm">
                     <div className="flex items-center gap-2">
                       <div className="flex space-x-1">
-                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse"></div>
-                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-150"></div>
-                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-300"></div>
+                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" aria-hidden="true"></div>
+                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-150" aria-hidden="true"></div>
+                        <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse delay-300" aria-hidden="true"></div>
                       </div>
                       <span className="text-sm text-slate-400">Brain is thinking...</span>
                     </div>
@@ -648,8 +660,12 @@ function App() {
             <div className="max-w-4xl mx-auto">
               <form onSubmit={handleSubmit} className="flex gap-3 items-end">
                 <div className="flex-1 relative">
+                  <label htmlFor="message-input" className="sr-only">
+                    {conversationId ? 'Message Brain in Cup' : 'Start your conversation'}
+                  </label>
                   <textarea
                     ref={inputRef}
+                    id="message-input"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
@@ -660,6 +676,7 @@ function App() {
                     transition-all duration-200 backdrop-blur-sm"
                     disabled={isWaitingForResponse}
                     rows={1}
+                    aria-describedby="message-instructions"
                     style={{
                       height: 'auto',
                       minHeight: '44px'
@@ -670,7 +687,7 @@ function App() {
                       target.style.height = Math.min(target.scrollHeight, 128) + 'px';
                     }}
                   />
-                  <div className="absolute bottom-3 right-4 text-xs text-slate-500">
+                  <div id="message-instructions" className="absolute bottom-3 right-4 text-xs text-slate-500">
                     Enter to send • Shift+Enter for new line
                   </div>
                 </div>
@@ -682,11 +699,12 @@ function App() {
       : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg hover:shadow-violet-500/25'
     }`}
                   disabled={!inputMessage.trim() || isWaitingForResponse}
+                  aria-label={isWaitingForResponse ? 'Sending message...' : 'Send message'}
                 >
                   {isWaitingForResponse ? (
-                    <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
                   ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                     </svg>
                   )}

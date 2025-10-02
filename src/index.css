@@ -59,6 +59,15 @@ body {
   font-weight: 500;
 }
 
+/* Improve contrast for muted text */
+.text-slate-500 {
+  color: #9ca3af !important; /* slate-400 for better contrast */
+}
+
+.text-slate-400 {
+  color: #9ca3af !important; /* Ensure consistency */
+}
+
 /* Improve readability on dark backgrounds */
 .bg-gradient-to-r {
   backdrop-filter: blur(8px);
@@ -68,6 +77,33 @@ body {
 *:focus {
   outline: 2px solid #8b5cf6;
   outline-offset: 2px;
+}
+
+/* Enhanced focus styles for interactive elements */
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .text-slate-300,
+  .text-slate-400,
+  .text-slate-500 {
+    color: #ffffff !important;
+  }
+  
+  .bg-slate-800 {
+    background-color: #000000 !important;
+  }
+  
+  .border-slate-700 {
+    border-color: #ffffff !important;
+  }
 }
 
 /* Google OAuth button visibility fixes - aggressive overrides */

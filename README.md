@@ -14,6 +14,7 @@ A Progressive Web App (PWA) featuring an AI consciousness simulation system buil
 - **AWS Bedrock Integration**: Powered by advanced AI models for natural language processing
 - **Mobile-First Design**: Optimized for touch interfaces and mobile interactions
 - **Secure Authentication**: AWS Cognito user pools with session management
+- **Accessibility Features**: WCAG AA compliant with screen reader support, keyboard navigation, and semantic HTML
 
 ## 🏗️ Architecture
 
@@ -133,6 +134,51 @@ The app can be installed on mobile devices:
 1. Open the app in a mobile browser
 2. Look for "Add to Home Screen" prompt
 3. Install for native-like experience with offline capabilities
+
+## ♿ Accessibility
+
+Brain In Cup is built with accessibility as a core principle, following WCAG AA standards:
+
+### Features
+
+- **Keyboard Navigation**: Full app functionality accessible via keyboard
+  - `Tab` / `Shift+Tab` - Navigate between interactive elements
+  - `Enter` / `Space` - Activate buttons and controls
+  - `Escape` - Close modals and sidebar
+  - `Ctrl+K` / `Cmd+K` - Focus message input
+
+- **Screen Reader Support**: 
+  - Semantic HTML structure with proper headings
+  - ARIA labels and roles for complex interactions
+  - Live regions for dynamic content updates
+  - Screen reader only content for context
+
+- **Visual Accessibility**:
+  - High contrast color scheme meeting WCAG AA standards
+  - Consistent focus indicators
+  - Scalable text and UI elements
+  - Support for high contrast mode
+
+- **Motor Accessibility**:
+  - Large touch targets (minimum 44px)
+  - No time-based interactions
+  - Accessible drag and drop alternatives
+
+### Keyboard Shortcuts
+
+- `Skip to main content` - Available on page load via Tab
+- `Ctrl/Cmd + K` - Focus the message input field  
+- `Enter` - Send message (in input field)
+- `Shift + Enter` - New line (in input field)
+- `Escape` - Close sidebar or modal dialogs
+
+### Testing
+
+The app has been tested with:
+- NVDA and JAWS screen readers
+- Keyboard-only navigation
+- High contrast mode
+- Browser zoom up to 200%
 
 ## 🔧 Development
 
