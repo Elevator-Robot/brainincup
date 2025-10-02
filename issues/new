@@ -1,0 +1,11 @@
+### Issue Details
+
+**Title**: Getting Error: `AWS credentials not configured. Make sure amplify_outputs.json is properly configured.` when trying to send email from the contact form
+
+**Body**: The error message indicates that the AWS credentials are not properly configured, which prevents the email from being sent from the contact form. This issue needs to be investigated to ensure that the `amplify_outputs.json` file is correctly set up and that the AWS credentials are valid.
+
+### Labels
+- bug
+
+### Assignees
+- username_of_assignee
