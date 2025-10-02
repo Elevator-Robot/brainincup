@@ -2,6 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Enhanced base styles for modern design */
+@layer base {
+  html {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary;
+    @apply text-brand-text-primary leading-relaxed;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* Animated background mesh */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(118, 75, 162, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 40% 40%, rgba(240, 147, 251, 0.08) 0%, transparent 50%);
+    z-index: -1;
+    animation: float 20s ease-in-out infinite;
+  }
+
+  /* Input focus styles */
+  input:focus,
+  textarea:focus,
+  button:focus {
+    @apply outline-none ring-2 ring-brand-accent-primary/50 ring-offset-2 ring-offset-transparent;
+  }
+}
+
 /* Screen reader only class for accessibility */
 .sr-only {
   position: absolute;
@@ -15,12 +55,80 @@
   border: 0;
 }
 
+/* Glass morphism components */
+@layer components {
+  .glass {
+    @apply bg-brand-surface-primary border border-brand-surface-border backdrop-blur-lg;
+    @apply shadow-glass;
+  }
+
+  .glass-hover {
+    @apply transition-all duration-300;
+  }
+
+  .glass-hover:hover {
+    @apply bg-brand-surface-hover border-brand-surface-border shadow-glass-lg;
+    transform: translateY(-1px);
+  }
+
+  .glass-button {
+    @apply glass glass-hover px-4 py-2 rounded-xl;
+    @apply text-brand-text-primary font-medium;
+    @apply active:scale-95 transition-transform;
+  }
+
+  .glass-card {
+    @apply glass rounded-2xl p-6;
+  }
+
+  .chat-bubble {
+    @apply glass rounded-2xl p-4 max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg;
+    @apply animate-slide-up;
+  }
+
+  .chat-bubble-user {
+    @apply bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary;
+    @apply text-white shadow-glow-sm ml-auto;
+  }
+
+  .chat-bubble-assistant {
+    @apply glass mr-auto;
+  }
+
+  .typing-indicator {
+    @apply animate-pulse-glow;
+  }
+
+  .floating-action {
+    @apply glass-button shadow-glow;
+    @apply hover:shadow-glow-sm hover:scale-105;
+    @apply transform transition-all duration-200;
+  }
+}
+
 /* PWA specific styles */
 @media (display-mode: standalone) {
   body {
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
+  }
+  
+  /* Hide browser UI elements in standalone mode */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-brand-surface-tertiary rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-brand-surface-hover;
   }
 }
 
@@ -29,28 +137,40 @@
   html {
     font-size: 14px;
   }
-}
-
-/* Prevent zoom on input focus on iOS */
-input[type="text"], input[type="email"], input[type="password"], textarea {
-  font-size: 16px;
-}
-
-@media (max-width: 640px) {
-  input[type="text"], input[type="email"], input[type="password"], textarea {
-    font-size: 16px;
+  
+  .glass-card {
+    @apply p-4;
+  }
+  
+  .chat-bubble {
+    @apply p-3 max-w-[85%];
   }
 }
 
-/* Improved text contrast and readability */
-input, input:-webkit-autofill {
-  color: #ffffff !important;
+/* Prevent zoom on input focus on iOS */
+input[type="text"], 
+input[type="email"], 
+input[type="password"], 
+textarea {
+  font-size: 16px;
+  @apply bg-brand-surface-secondary border-brand-surface-border;
+  @apply text-brand-text-primary placeholder-brand-text-muted;
+  @apply transition-all duration-200;
 }
 
-/* Ensure minimum font sizes for readability */
-body {
-  font-size: 16px;
-  line-height: 1.6;
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+textarea:focus {
+  @apply bg-brand-surface-tertiary border-brand-accent-primary/50;
+  @apply shadow-glow-sm;
+}
+
+/* Improve text contrast and readability */
+input, input:-webkit-autofill {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  -webkit-box-shadow: inset 0 0 0px 1000px rgba(255, 255, 255, 0.05) !important;
 }
 
 /* Better contrast for small text */
@@ -59,75 +179,76 @@ body {
   font-weight: 500;
 }
 
-/* Improve readability on dark backgrounds */
-.bg-gradient-to-r {
-  backdrop-filter: blur(8px);
+/* Loading states */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
 }
 
-/* WCAG compliant focus indicators */
-*:focus {
-  outline: 2px solid #8b5cf6;
-  outline-offset: 2px;
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0px,
+    rgba(255, 255, 255, 0.1) 40px,
+    rgba(255, 255, 255, 0.05) 80px
+  );
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
 }
 
-/* Google OAuth button visibility fixes - aggressive overrides */
-.amplify-button[data-variation="default"],
-.amplify-button--default,
-button[data-amplify-federated-sign-in-button],
-[data-amplify-authenticator] button[type="button"] {
-  background: rgba(55, 65, 81, 0.9) !important;
-  border: 2px solid rgba(255, 255, 255, 0.3) !important;
-  color: #ffffff !important;
-  font-weight: 300 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+/* Enhanced button styles for auth components */
+.auth-button {
+  @apply glass-button w-full;
+  @apply hover:bg-brand-surface-hover;
+  @apply flex items-center justify-center gap-3;
+  @apply py-3 text-sm font-medium;
 }
 
-/* Force all text inside social buttons to be white */
-.amplify-button[data-variation="default"] *,
-.amplify-button--default *,
-button[data-amplify-federated-sign-in-button] *,
-[data-amplify-authenticator] button[type="button"] * {
-  color: #ffffff !important;
+.auth-button-primary {
+  @apply bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary;
+  @apply text-white shadow-glow-sm border-0;
+  @apply hover:shadow-glow hover:scale-[1.02];
 }
 
-/* Reset Password link visibility - nuclear option */
-[data-amplify-authenticator] * {
-  color: #e2e8f0 !important;
+/* Message animation improvements */
+.message-enter {
+  @apply animate-slide-up;
 }
 
-/* Override specific elements that should stay white */
-[data-amplify-authenticator] input,
-[data-amplify-authenticator] button[type="submit"] {
-  color: #ffffff !important;
+.message-typing {
+  @apply animate-pulse-glow;
 }
 
-/* Specific targeting for links */
-[data-amplify-authenticator] a,
-[data-amplify-authenticator] button[data-variation="link"],
-.amplify-button--link,
-.amplify-button[data-variation="link"],
-[data-amplify-authenticator] .amplify-text,
-[data-amplify-authenticator] span {
-  color: #e2e8f0 !important;
-  font-weight: 400 !important;
+/* Responsive typography */
+@media (min-width: 768px) {
+  .text-responsive-lg {
+    @apply text-lg;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl;
+  }
+  
+  .text-responsive-2xl {
+    @apply text-2xl;
+  }
 }
 
-[data-amplify-authenticator] a:hover,
-[data-amplify-authenticator] button[data-variation="link"]:hover,
-.amplify-button--link:hover,
-.amplify-button[data-variation="link"]:hover {
-  color: #ffffff !important;
-  text-decoration: underline !important;
+/* Enhanced focus indicators for accessibility */
+*:focus-visible {
+  @apply outline-none ring-2 ring-brand-accent-primary/60 ring-offset-2 ring-offset-brand-bg-primary;
 }
 
-/* Hover effects for all Google buttons */
-.amplify-button[data-variation="default"]:hover,
-.amplify-button--default:hover,
-button[data-amplify-federated-sign-in-button]:hover,
-[data-amplify-authenticator] button[type="button"]:hover {
-  background: rgba(75, 85, 99, 0.9) !important;
-  border-color: rgba(255, 255, 255, 0.6) !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
-  transform: translateY(-2px) !important;
-  transition: all 0.2s ease !important;
+/* Smooth transitions for all interactive elements */
+button, input, textarea, select, a {
+  @apply transition-all duration-200;
+}
+
+/* Custom selection styling */
+::selection {
+  @apply bg-brand-accent-primary/30 text-brand-text-primary;
 }

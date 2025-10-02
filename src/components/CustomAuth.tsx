@@ -36,16 +36,18 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
       // Try sign in first
       await signIn({ username: email, password });
       onAuthSuccess();
-    } catch (signInError: any) {
+    } catch (signInError: unknown) {
       console.log('Sign in error:', signInError);
-      console.log('Error name:', signInError.name);
-      console.log('Error message:', signInError.message);
+      const errorName = signInError && typeof signInError === 'object' && 'name' in signInError ? (signInError as { name: string }).name : '';
+      const errorMessage = signInError && typeof signInError === 'object' && 'message' in signInError ? (signInError as { message: string }).message : '';
+      console.log('Error name:', errorName);
+      console.log('Error message:', errorMessage);
       
       // Try to create account for any authentication failure that might be "user not found"
-      if (signInError.name === 'UserNotFoundException' || 
-          signInError.name === 'NotAuthorizedException' ||
-          signInError.message?.includes('User does not exist') ||
-          signInError.message?.includes('Incorrect username or password')) {
+      if (errorName === 'UserNotFoundException' || 
+          errorName === 'NotAuthorizedException' ||
+          errorMessage?.includes('User does not exist') ||
+          errorMessage?.includes('Incorrect username or password')) {
         // User doesn't exist, try sign up
         try {
           const result = await signUp({
@@ -64,11 +66,12 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
           } else {
             onAuthSuccess();
           }
-        } catch (signUpError: any) {
-          setError(signUpError.message || 'Failed to create account');
+        } catch (signUpError: unknown) {
+          const signUpErrorMessage = signUpError && typeof signUpError === 'object' && 'message' in signUpError ? (signUpError as { message: string }).message : '';
+          setError(signUpErrorMessage || 'Failed to create account');
         }
       } else {
-        setError(signInError.message || 'Failed to sign in');
+        setError(errorMessage || 'Failed to sign in');
       }
     } finally {
       setIsLoading(false);
@@ -86,8 +89,9 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
       await confirmSignUp({ username: email, confirmationCode });
       await signIn({ username: email, password });
       onAuthSuccess();
-    } catch (error: any) {
-      setError(error.message || 'Failed to confirm account');
+    } catch (error: unknown) {
+      const errorMessage = error && typeof error === 'object' && 'message' in error ? (error as { message: string }).message : '';
+      setError(errorMessage || 'Failed to confirm account');
     } finally {
       setIsLoading(false);
     }
@@ -103,39 +107,54 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
 
   if (needsConfirmation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-bg-dark via-brand-bg-light to-brand-bg-dark">
-        <div className="w-full max-w-md p-8 bg-brand-surface-dark rounded-2xl border border-brand-surface-border">
-          <h1 className="text-2xl font-light text-brand-text-primary text-center mb-8">
-            Check your email
-          </h1>
-          
-          <p className="text-brand-text-secondary text-center mb-6">
-            We sent a confirmation code to {email}
-          </p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary p-4">
+        <div className="w-full max-w-md p-8 glass rounded-3xl border border-brand-surface-border shadow-glass-lg backdrop-blur-xl animate-scale-in">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary rounded-2xl flex items-center justify-center shadow-glow-sm animate-pulse-glow">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-brand-text-primary mb-2">
+              Check your email
+            </h1>
+            <p className="text-brand-text-secondary text-sm">
+              We sent a confirmation code to <span className="font-medium text-brand-text-primary">{email}</span>
+            </p>
+          </div>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             <input
               type="text"
               value={confirmationCode}
               onChange={(e) => setConfirmationCode(e.target.value)}
               placeholder="Enter confirmation code"
-              className="w-full px-4 py-3 bg-brand-surface-dark border border-brand-surface-border rounded-lg
-                text-brand-text-primary placeholder-brand-text-muted
-                focus:outline-none focus:border-brand-accent-primary focus:ring-2 focus:ring-brand-accent-primary/20"
+              className="w-full px-5 py-4 glass border border-brand-surface-border rounded-2xl
+                text-brand-text-primary placeholder-brand-text-muted text-base text-center tracking-wider
+                focus:outline-none focus:border-brand-accent-primary/50 focus:ring-2 focus:ring-brand-accent-primary/20
+                transition-all duration-200 backdrop-blur-sm hover:border-brand-surface-hover"
             />
 
             {error && (
-              <p className="text-red-400 text-sm text-center">{error}</p>
+              <div className="p-4 glass rounded-2xl border border-brand-status-error/20 bg-brand-status-error/5 animate-fade-in">
+                <p className="text-brand-status-error text-sm text-center">{error}</p>
+              </div>
             )}
 
             <button
               onClick={handleConfirmation}
               disabled={isLoading}
-              className="w-full py-3 bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary
-                text-white font-medium rounded-lg transition-all duration-200
-                hover:opacity-90 disabled:opacity-50"
+              className="auth-button-primary w-full py-4 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Confirming...' : 'Confirm'}
+              {isLoading ? (
+                <div className="flex items-center justify-center gap-3">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Confirming...</span>
+                </div>
+              ) : (
+                'Confirm'
+              )}
             </button>
           </div>
         </div>
@@ -144,29 +163,40 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-bg-dark via-brand-bg-light to-brand-bg-dark">
-      <div className="w-full max-w-md p-8 bg-brand-surface-dark rounded-2xl border border-brand-surface-border">
-        <h1 className="text-2xl font-light text-brand-text-primary text-center mb-8">
-          Log in or sign up
-        </h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary p-4">
+      <div className="w-full max-w-md p-8 glass rounded-3xl border border-brand-surface-border shadow-glass-lg backdrop-blur-xl animate-scale-in">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-mesh rounded-2xl flex items-center justify-center shadow-glow-sm animate-float">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-brand-text-primary mb-2">
+            Welcome to Brain in Cup
+          </h1>
+          <p className="text-brand-text-secondary text-sm">
+            Log in or sign up to start your AI conversation
+          </p>
+        </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email address"
-            className="w-full px-4 py-3 bg-brand-surface-dark border border-brand-surface-border rounded-lg
-              text-brand-text-primary placeholder-brand-text-muted
-              focus:outline-none focus:border-brand-accent-primary focus:ring-2 focus:ring-brand-accent-primary/20"
+            className="w-full px-5 py-4 glass border border-brand-surface-border rounded-2xl
+              text-brand-text-primary placeholder-brand-text-muted text-base
+              focus:outline-none focus:border-brand-accent-primary/50 focus:ring-2 focus:ring-brand-accent-primary/20
+              transition-all duration-200 backdrop-blur-sm hover:border-brand-surface-hover"
             onKeyPress={(e) => e.key === 'Enter' && !showPassword && handleEmailContinue()}
           />
 
           {!showPassword ? (
             <button
               onClick={handleEmailContinue}
-              className="w-full py-3 bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary
-                text-white font-medium rounded-lg transition-all duration-200 hover:opacity-90"
+              className="auth-button-primary w-full py-4 text-base font-semibold"
             >
               Continue
             </button>
@@ -177,9 +207,10 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
-                className="w-full px-4 py-3 bg-brand-surface-dark border border-brand-surface-border rounded-lg
-                  text-brand-text-primary placeholder-brand-text-muted
-                  focus:outline-none focus:border-brand-accent-primary focus:ring-2 focus:ring-brand-accent-primary/20"
+                className="w-full px-5 py-4 glass border border-brand-surface-border rounded-2xl
+                  text-brand-text-primary placeholder-brand-text-muted text-base
+                  focus:outline-none focus:border-brand-accent-primary/50 focus:ring-2 focus:ring-brand-accent-primary/20
+                  transition-all duration-200 backdrop-blur-sm hover:border-brand-surface-hover"
                 onKeyPress={(e) => e.key === 'Enter' && handleAuth()}
                 autoFocus
               />
@@ -187,32 +218,38 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
               <button
                 onClick={handleAuth}
                 disabled={isLoading}
-                className="w-full py-3 bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary
-                  text-white font-medium rounded-lg transition-all duration-200
-                  hover:opacity-90 disabled:opacity-50"
+                className="auth-button-primary w-full py-4 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Signing in...' : 'Continue'}
+                {isLoading ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Signing in...</span>
+                  </div>
+                ) : (
+                  'Continue'
+                )}
               </button>
             </>
           )}
 
           {error && (
-            <p className="text-red-400 text-sm text-center">{error}</p>
+            <div className="p-4 glass rounded-2xl border border-brand-status-error/20 bg-brand-status-error/5 animate-fade-in">
+              <p className="text-brand-status-error text-sm text-center">{error}</p>
+            </div>
           )}
 
-          <div className="relative my-6">
+          <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-brand-surface-border"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-brand-surface-dark text-brand-text-muted">OR</span>
+              <span className="px-4 glass text-brand-text-muted backdrop-blur-sm rounded-lg">OR</span>
             </div>
           </div>
 
           <button
             onClick={handleGoogleSignIn}
-            className="w-full py-3 bg-white text-gray-700 font-medium rounded-lg border border-gray-300
-              hover:bg-gray-50 transition-all duration-200 flex items-center justify-center gap-3"
+            className="auth-button w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -220,13 +257,12 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Continue with Google
+            <span>Continue with Google</span>
           </button>
 
           <button
             onClick={handleFacebookSignIn}
-            className="w-full py-3 bg-[#1877F2] text-white font-medium rounded-lg border border-[#1877F2]
-              hover:bg-[#166FE5] transition-all duration-200 flex items-center justify-center gap-3"
+            className="auth-button w-full bg-[#1877F2] text-white border border-[#1877F2] hover:bg-[#166FE5]"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
