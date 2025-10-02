@@ -239,8 +239,8 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
 
           <button
             onClick={handleFacebookSignIn}
-            className="w-full py-3 bg-[#1877F2] text-white font-medium rounded-lg border border-[#1877F2]
-              hover:bg-[#166FE5] transition-all duration-200 flex items-center justify-center gap-3"
+            className="w-full py-3 bg-[#0f172a] text-white font-medium rounded-lg border border-[#1877F2]
+              hover:bg-[#1e293b] transition-all duration-200 flex items-center justify-center gap-3"
             aria-label="Continue with Facebook"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

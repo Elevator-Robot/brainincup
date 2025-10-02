@@ -59,13 +59,17 @@ body {
   font-weight: 500;
 }
 
-/* Improve contrast for muted text */
+/* Improve contrast for muted text - WCAG AA compliant */
 .text-slate-500 {
-  color: #9ca3af !important; /* slate-400 for better contrast */
+  color: #d1d5db !important; /* slate-300 for better contrast */
 }
 
 .text-slate-400 {
-  color: #9ca3af !important; /* Ensure consistency */
+  color: #d1d5db !important; /* slate-300 for better contrast */
+}
+
+.text-slate-300 {
+  color: #f1f5f9 !important; /* slate-100 for even better contrast */
 }
 
 /* Improve readability on dark backgrounds */

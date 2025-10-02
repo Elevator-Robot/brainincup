@@ -24,8 +24,8 @@ export default {
           },
           text: {
             primary: '#ffffff',    // white - WCAG AAA compliant
-            secondary: '#e2e8f0',  // slate-200 - Better contrast
-            muted: '#cbd5e1',      // slate-300 - Improved readability
+            secondary: '#f1f5f9',  // slate-100 - Better contrast
+            muted: '#e2e8f0',      // slate-200 - Better readability
           }
         }
       },
