@@ -513,7 +513,7 @@ function App() {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('testmode') === 'true') {
         console.log('✅ Test mode: Updating conversation title to:', trimmedTitle);
-        setCurrentConversation(prev => prev ? { ...prev, title: trimmedTitle } : null);
+        setCurrentConversation((prev: any) => prev ? { ...prev, title: trimmedTitle } : null);
         setIsEditingTitle(false);
         // Trigger conversation list refresh
         setConversationListKey(prev => prev + 1);
@@ -571,16 +571,18 @@ function App() {
         </div>
       </button>
 
-      {/* Enhanced Sidebar with glass morphism - now overlay */}
+      {/* Enhanced Sidebar with glass morphism - now push style */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-40 w-80 transform transition-transform duration-300 ease-in-out
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          h-full flex-shrink-0 transform transition-all duration-300 ease-in-out z-40
+          ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full'}
         `}
         aria-label="Conversation list sidebar"
         role="complementary"
       >
-        <div className="flex flex-col h-full glass backdrop-blur-xl border-r border-brand-surface-border shadow-glass-lg">
+        <div className={`flex flex-col h-full glass backdrop-blur-xl border-r border-brand-surface-border shadow-glass-lg w-80 transition-opacity duration-300 ${
+          isSidebarOpen ? 'opacity-100' : 'opacity-0'
+        }`}>
           {/* Sidebar Header with enhanced styling */}
           <div className="flex items-center p-6 pt-20 border-b border-brand-surface-border">
             <div className="flex items-center gap-3">
@@ -610,15 +612,6 @@ function App() {
           </nav>
         </div>
       </aside>
-
-      {/* Backdrop for sidebar */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 transition-opacity duration-300"
-          onClick={() => setIsSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
 
       {/* Main Content Area with improved layout */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
