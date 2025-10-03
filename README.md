@@ -113,8 +113,24 @@ erDiagram
    ```
 
 4. **Deploy backend (first time)**
+   
+   **Option A: Deploy without external providers (recommended for development)**
    ```bash
-   npx amplify sandbox
+   npm run sandbox:no-external
+   ```
+   
+   **Option B: Deploy with external providers (requires secrets)**
+   ```bash
+   npm run sandbox
+   ```
+   
+   **Option C: Use the deployment script**
+   ```bash
+   # Deploy without external providers
+   ./scripts/sandbox-deploy.sh --no-external-providers
+   
+   # Deploy with external providers
+   ./scripts/sandbox-deploy.sh
    ```
 
 5. **Start development server**
@@ -126,6 +142,33 @@ erDiagram
    ```bash
    npm run build
    ```
+
+### External Authentication Providers
+
+The app supports Google and Facebook login, but these are **optional** for development:
+
+**For Development/Testing:**
+- Use `npm run sandbox:no-external` to deploy without external providers
+- The app will work with email authentication only
+- No need to configure Google/Facebook secrets
+
+**For Production:**
+1. Configure the required secrets using Amplify CLI:
+   ```bash
+   npx ampx sandbox secret set GOOGLE_CLIENT_ID
+   npx ampx sandbox secret set GOOGLE_CLIENT_SECRET
+   npx ampx sandbox secret set FACEBOOK_CLIENT_ID
+   npx ampx sandbox secret set FACEBOOK_CLIENT_SECRET
+   ```
+
+2. Deploy with external providers:
+   ```bash
+   npm run sandbox
+   ```
+
+**Environment Variable Control:**
+- Set `AMPLIFY_EXTERNAL_PROVIDERS=false` to disable external providers
+- Set `AMPLIFY_EXTERNAL_PROVIDERS=true` to enable external providers (default)
 
 ### PWA Installation
 
@@ -142,6 +185,38 @@ The app can be installed on mobile devices:
 - `npm run build` - Build for production with PWA optimization
 - `npm run preview` - Preview production build locally
 - `npm run lint` - Run ESLint for code quality
+- `npm run sandbox` - Deploy sandbox with external providers
+- `npm run sandbox:no-external` - Deploy sandbox without external providers
+- `npm run sandbox:deploy` - Use interactive deployment script
+
+### Troubleshooting
+
+**Issue: CloudFormation rollback due to missing secrets**
+```
+AmplifySecretFetcherResource | Received response status [FAILED] from custom resource. 
+Message returned: Failed to retrieve backend secret 'FACEBOOK_CLIENT_ID' for 'brain-in-cup'
+```
+
+**Solution:**
+1. Use the no-external-providers deployment:
+   ```bash
+   npm run sandbox:no-external
+   ```
+   
+2. Or configure the required secrets:
+   ```bash
+   npx ampx sandbox secret set GOOGLE_CLIENT_ID
+   npx ampx sandbox secret set GOOGLE_CLIENT_SECRET
+   npx ampx sandbox secret set FACEBOOK_CLIENT_ID
+   npx ampx sandbox secret set FACEBOOK_CLIENT_SECRET
+   ```
+
+**Issue: Deployment fails in CI/CD**
+
+**Solution:** Set environment variable in your CI/CD pipeline:
+```bash
+AMPLIFY_EXTERNAL_PROVIDERS=false npx ampx sandbox
+```
 
 ### AWS Configuration
 
