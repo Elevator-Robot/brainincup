@@ -113,8 +113,15 @@ erDiagram
    ```
 
 4. **Deploy backend (first time)**
+   
+   **Option A: Local development (uses default values for external providers)**
    ```bash
-   npx amplify sandbox
+   npm run sandbox:local
+   ```
+   
+   **Option B: Production deployment (requires configured secrets)**
+   ```bash
+   npm run sandbox
    ```
 
 5. **Start development server**
@@ -126,6 +133,34 @@ erDiagram
    ```bash
    npm run build
    ```
+
+### External Authentication Providers
+
+The app supports Google and Facebook login with **automatic fallback** for development:
+
+**For Development/Testing:**
+- Use `npm run sandbox:local` for local development
+- External providers use default values (non-functional but won't block deployment)
+- Email authentication works normally
+- No need to configure Google/Facebook secrets
+
+**For Production:**
+1. Configure the required secrets using Amplify CLI:
+   ```bash
+   npx ampx sandbox secret set GOOGLE_CLIENT_ID
+   npx ampx sandbox secret set GOOGLE_CLIENT_SECRET
+   npx ampx sandbox secret set FACEBOOK_CLIENT_ID
+   npx ampx sandbox secret set FACEBOOK_CLIENT_SECRET
+   ```
+
+2. Deploy with real external provider credentials:
+   ```bash
+   npm run sandbox
+   ```
+
+**Environment Variable Control:**
+- Set `AMPLIFY_EXTERNAL_PROVIDERS=false` to use default values for external providers
+- Default behavior uses real secrets when available
 
 ### PWA Installation
 
@@ -142,6 +177,37 @@ The app can be installed on mobile devices:
 - `npm run build` - Build for production with PWA optimization
 - `npm run preview` - Preview production build locally
 - `npm run lint` - Run ESLint for code quality
+- `npm run sandbox` - Deploy sandbox with external providers
+- `npm run sandbox:local` - Deploy sandbox with default values for external providers
+
+### Troubleshooting
+
+**Issue: CloudFormation rollback due to missing secrets**
+```
+AmplifySecretFetcherResource | Received response status [FAILED] from custom resource. 
+Message returned: Failed to retrieve backend secret 'FACEBOOK_CLIENT_ID' for 'brain-in-cup'
+```
+
+**Solution:**
+1. Use the local development deployment (uses default values):
+   ```bash
+   npm run sandbox:local
+   ```
+   
+2. Or configure the required secrets for production:
+   ```bash
+   npx ampx sandbox secret set GOOGLE_CLIENT_ID
+   npx ampx sandbox secret set GOOGLE_CLIENT_SECRET
+   npx ampx sandbox secret set FACEBOOK_CLIENT_ID
+   npx ampx sandbox secret set FACEBOOK_CLIENT_SECRET
+   ```
+
+**Issue: Deployment fails in CI/CD**
+
+**Solution:** Set environment variable in your CI/CD pipeline:
+```bash
+AMPLIFY_EXTERNAL_PROVIDERS=false npx ampx sandbox
+```
 
 ### AWS Configuration
 

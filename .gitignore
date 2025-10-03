@@ -195,4 +195,7 @@ conversation_history.pkl
 
 # Python libs (lambda layers)
 **/layer/python/*
+
+# ETC
 .serena/
+PROMPT.md
