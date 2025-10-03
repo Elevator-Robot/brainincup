@@ -353,10 +353,10 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                         ) : (
                           <div
                             className={`font-medium text-sm truncate mb-1 px-3 py-2 transition-colors rounded-xl ${
-                          selectedConversationId === conversation.id 
-                            ? 'text-brand-text-primary' 
-                            : 'text-brand-text-secondary group-hover:text-brand-text-primary'
-                          }`}
+                              selectedConversationId === conversation.id 
+                                ? 'text-brand-text-primary' 
+                                : 'text-brand-text-secondary group-hover:text-brand-text-primary'
+                            }`}
                           >
                             {conversationTitle}
                           </div>
