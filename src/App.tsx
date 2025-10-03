@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { fetchUserAttributes } from 'aws-amplify/auth';
+import { fetchUserAttributes, signOut } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
 import Footer from './components/Footer';
@@ -548,6 +548,14 @@ function App() {
     }
   }, [newConversationId, conversationId]);
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      window.location.reload();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden relative">
@@ -556,7 +564,7 @@ function App() {
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         className="fixed top-4 left-4 z-50 p-3 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
         transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 shadow-glass"
-        aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+        aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
       >
         <div className="w-6 h-6 flex flex-col justify-center items-center">
           <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
@@ -628,43 +636,43 @@ function App() {
         {/* Enhanced Header */}
         <div className="flex items-center justify-between px-6 py-4 pl-20 glass backdrop-blur-xl border-b border-brand-surface-border">
           <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <h2 className="text-lg font-semibold text-brand-text-primary">
-                {conversationId ? (
-                  isEditingTitle ? (
-                    <input
-                      type="text"
-                      defaultValue={currentConversation?.title || ''}
-                      autoFocus
-                      className="bg-transparent border-none outline-none focus:ring-2 focus:ring-brand-accent-primary/50 rounded px-2 py-1 min-w-0 max-w-md"
-                      onBlur={(e) => handleUpdateConversationTitle(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleUpdateConversationTitle(e.currentTarget.value);
-                        } else if (e.key === 'Escape') {
-                          setIsEditingTitle(false);
-                        }
-                      }}
-                    />
-                  ) : (
-                    <span 
-                      onDoubleClick={() => setIsEditingTitle(true)}
-                      className="cursor-pointer hover:bg-brand-surface-hover/20 rounded px-2 py-1 transition-colors duration-200"
-                      title="Double-click to edit conversation name"
-                    >
-                      {currentConversation?.title || 'Untitled Conversation'}
-                    </span>
-                  )
-                ) : (
-                  'Start New Chat'
-                )}
-              </h2>
+            <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
             </div>
+            <h2 className="text-lg font-semibold text-brand-text-primary">
+              {conversationId ? (
+                isEditingTitle ? (
+                  <input
+                    type="text"
+                    defaultValue={currentConversation?.title || ''}
+                    autoFocus
+                    className="bg-transparent border-none outline-none focus:ring-2 focus:ring-brand-accent-primary/50 rounded px-2 py-1 min-w-0 max-w-md"
+                    onBlur={(e) => handleUpdateConversationTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleUpdateConversationTitle(e.currentTarget.value);
+                      } else if (e.key === 'Escape') {
+                        setIsEditingTitle(false);
+                      }
+                    }}
+                  />
+                ) : (
+                  <span 
+                    onDoubleClick={() => setIsEditingTitle(true)}
+                    className="cursor-pointer hover:bg-brand-surface-hover/20 rounded px-2 py-1 transition-colors duration-200"
+                    title="Double-click to edit conversation name"
+                  >
+                    {currentConversation?.title || 'Untitled Conversation'}
+                  </span>
+                )
+              ) : (
+                'Start New Chat'
+              )}
+            </h2>
+          </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowDebugInfo(!showDebugInfo)}
@@ -676,6 +684,22 @@ function App() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                   d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="px-3 py-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
+              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 
+              border border-brand-surface-border hover:border-brand-surface-hover"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="text-sm font-medium hidden sm:inline">Sign out</span>
+              </div>
             </button>
           </div>
         </div>
@@ -760,8 +784,8 @@ function App() {
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                         d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                      </svg>
-                    </div>
+                    </svg>
+                  </div>
                   <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-glass backdrop-blur-lg">
                     <div className="flex items-center gap-2">
                       <div className="flex space-x-1">
@@ -829,9 +853,9 @@ function App() {
                   type="submit"
                   className={`p-4 rounded-2xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 transform
                   ${!inputMessage.trim() || isWaitingForResponse
-                    ? 'glass text-brand-text-muted cursor-not-allowed opacity-50' 
-                    : 'bg-gradient-mesh text-white shadow-glow hover:shadow-glow-sm hover:scale-105 active:scale-95 floating-action'
-                  }`}
+      ? 'glass text-brand-text-muted cursor-not-allowed opacity-50' 
+      : 'bg-gradient-mesh text-white shadow-glow hover:shadow-glow-sm hover:scale-105 active:scale-95 floating-action'
+    }`}
                   disabled={!inputMessage.trim() || isWaitingForResponse}
                 >
                   {isWaitingForResponse ? (
