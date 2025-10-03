@@ -114,23 +114,14 @@ erDiagram
 
 4. **Deploy backend (first time)**
    
-   **Option A: Deploy without external providers (recommended for development)**
+   **Option A: Local development (uses default values for external providers)**
    ```bash
-   npm run sandbox:no-external
+   npm run sandbox:local
    ```
    
-   **Option B: Deploy with external providers (requires secrets)**
+   **Option B: Production deployment (requires configured secrets)**
    ```bash
    npm run sandbox
-   ```
-   
-   **Option C: Use the deployment script**
-   ```bash
-   # Deploy without external providers
-   ./scripts/sandbox-deploy.sh --no-external-providers
-   
-   # Deploy with external providers
-   ./scripts/sandbox-deploy.sh
    ```
 
 5. **Start development server**
@@ -145,11 +136,12 @@ erDiagram
 
 ### External Authentication Providers
 
-The app supports Google and Facebook login, but these are **optional** for development:
+The app supports Google and Facebook login with **automatic fallback** for development:
 
 **For Development/Testing:**
-- Use `npm run sandbox:no-external` to deploy without external providers
-- The app will work with email authentication only
+- Use `npm run sandbox:local` for local development
+- External providers use default values (non-functional but won't block deployment)
+- Email authentication works normally
 - No need to configure Google/Facebook secrets
 
 **For Production:**
@@ -161,14 +153,14 @@ The app supports Google and Facebook login, but these are **optional** for devel
    npx ampx sandbox secret set FACEBOOK_CLIENT_SECRET
    ```
 
-2. Deploy with external providers:
+2. Deploy with real external provider credentials:
    ```bash
    npm run sandbox
    ```
 
 **Environment Variable Control:**
-- Set `AMPLIFY_EXTERNAL_PROVIDERS=false` to disable external providers
-- Set `AMPLIFY_EXTERNAL_PROVIDERS=true` to enable external providers (default)
+- Set `AMPLIFY_EXTERNAL_PROVIDERS=false` to use default values for external providers
+- Default behavior uses real secrets when available
 
 ### PWA Installation
 
@@ -186,8 +178,7 @@ The app can be installed on mobile devices:
 - `npm run preview` - Preview production build locally
 - `npm run lint` - Run ESLint for code quality
 - `npm run sandbox` - Deploy sandbox with external providers
-- `npm run sandbox:no-external` - Deploy sandbox without external providers
-- `npm run sandbox:deploy` - Use interactive deployment script
+- `npm run sandbox:local` - Deploy sandbox with default values for external providers
 
 ### Troubleshooting
 
@@ -198,12 +189,12 @@ Message returned: Failed to retrieve backend secret 'FACEBOOK_CLIENT_ID' for 'br
 ```
 
 **Solution:**
-1. Use the no-external-providers deployment:
+1. Use the local development deployment (uses default values):
    ```bash
-   npm run sandbox:no-external
+   npm run sandbox:local
    ```
    
-2. Or configure the required secrets:
+2. Or configure the required secrets for production:
    ```bash
    npx ampx sandbox secret set GOOGLE_CLIENT_ID
    npx ampx sandbox secret set GOOGLE_CLIENT_SECRET

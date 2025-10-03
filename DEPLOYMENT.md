@@ -15,23 +15,23 @@ This blocked development workflows when external provider secrets were not yet a
 
 ## Solution
 
-The authentication configuration now supports conditional external providers based on the `AMPLIFY_EXTERNAL_PROVIDERS` environment variable:
+The authentication configuration now automatically provides default values for external provider secrets when they're not available:
 
-- **Default behavior**: External providers are enabled (backward compatible)
-- **Development mode**: Set `AMPLIFY_EXTERNAL_PROVIDERS=false` to disable external providers
-- **Production mode**: External providers work as before when secrets are configured
+- **Default behavior**: Uses real secrets when available, falls back to default values when missing
+- **Development mode**: Set `AMPLIFY_EXTERNAL_PROVIDERS=false` to force default values
+- **Production mode**: External providers work normally when secrets are properly configured
 
 ## Deployment Options
 
-### Option 1: Quick Development Deployment (Recommended)
+### Option 1: Local Development Deployment (Recommended)
 
-Deploy without external authentication providers for local development:
+Deploy with default values for external authentication providers:
 
 ```bash
-npm run sandbox:no-external
+npm run sandbox:local
 ```
 
-This sets `AMPLIFY_EXTERNAL_PROVIDERS=false` and deploys successfully without requiring Google/Facebook secrets.
+This sets `AMPLIFY_EXTERNAL_PROVIDERS=false` and uses default values for Google/Facebook secrets, allowing deployment to succeed without configuring real secrets.
 
 ### Option 2: Production Deployment
 

@@ -9,8 +9,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "sandbox": "npx ampx sandbox",
-    "sandbox:no-external": "AMPLIFY_EXTERNAL_PROVIDERS=false npx ampx sandbox",
-    "sandbox:deploy": "./scripts/sandbox-deploy.sh"
+    "sandbox:local": "AMPLIFY_EXTERNAL_PROVIDERS=false npx ampx sandbox"
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.5.5",
