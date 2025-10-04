@@ -193,9 +193,12 @@ amplify_outputs.json
 # Conversation history
 conversation_history.pkl
 
-# Python libs (lambda layers)
-**/layer/python/*
+# Python libs (lambda layers) - cache and compiled files only
+**/layer/python/**/__pycache__/
+**/layer/python/**/*.pyc
+**/layer/python/**/*.pyo
 
 # ETC
 .serena/
 PROMPT.md
+AGENTS.md
