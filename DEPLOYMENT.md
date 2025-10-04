@@ -21,6 +21,36 @@ The authentication configuration now automatically provides default values for e
 - **Development mode**: Set `AMPLIFY_EXTERNAL_PROVIDERS=false` to force default values
 - **Production mode**: External providers work normally when secrets are properly configured
 
+## Prerequisites
+
+### Building the Lambda Layer
+
+Before deploying for the first time, you **must** build the Lambda layer containing Python dependencies:
+
+```bash
+./build-layer.sh
+```
+
+**What it does:**
+- Uses Docker to build dependencies compatible with AWS Lambda (Amazon Linux 2)
+- Installs packages from `amplify/functions/brain/layer/requirements.txt`
+- Optimizes layer size by removing test files, caches, and debug symbols
+- Creates the `amplify/functions/brain/layer/python/` directory
+
+**Requirements:**
+- Docker must be installed and running
+- Script must be run from the project root directory
+
+**When to rebuild:**
+- Before first deployment
+- After updating `requirements.txt`
+- When dependency versions change
+
+**Troubleshooting:**
+- If deployment fails with "Unable to import module 'handler'" error, rebuild the layer
+- If you see import errors for langchain or aws_lambda_powertools, rebuild the layer
+- Make sure Docker is running before executing the script
+
 ## Deployment Options
 
 ### Option 1: Local Development Deployment (Recommended)
