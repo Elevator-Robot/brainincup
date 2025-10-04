@@ -112,7 +112,21 @@ erDiagram
    aws configure
    ```
 
-4. **Deploy backend (first time)**
+4. **Build Lambda layer dependencies**
+   
+   The Lambda function requires Python dependencies packaged in a layer. Build it before first deployment:
+   ```bash
+   ./build-layer.sh
+   ```
+   
+   **Requirements:**
+   - Docker must be installed and running
+   - Script builds dependencies for Amazon Linux 2 (Lambda runtime)
+   - Optimizes layer size by removing unnecessary files
+   
+   **Note:** Re-run this script whenever you update `amplify/functions/brain/layer/requirements.txt`
+
+5. **Deploy backend (first time)**
    
    **Option A: Local development (uses default values for external providers)**
    ```bash
@@ -124,12 +138,12 @@ erDiagram
    npm run sandbox
    ```
 
-5. **Start development server**
+6. **Start development server**
    ```bash
    npm run dev
    ```
 
-6. **Build for production**
+7. **Build for production**
    ```bash
    npm run build
    ```
