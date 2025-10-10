@@ -112,20 +112,74 @@ erDiagram
    aws configure
    ```
 
-4. **Deploy backend (first time)**
+4. **Build Lambda layer dependencies**
+   
+   The Lambda function requires Python dependencies packaged in a layer. Build it before first deployment:
    ```bash
-   npx amplify sandbox
+   chmod +x build-layer.sh  # Make executable (first time only)
+   ./build-layer.sh
+   ```
+   
+   **Requirements:**
+   - Docker must be installed and running
+   - Script builds dependencies for Amazon Linux 2 (Lambda runtime)
+   - Optimizes layer size by removing unnecessary files and stripping debug symbols
+   
+   **Note:** Re-run this script whenever you update `amplify/functions/brain/layer/requirements.txt`
+   
+   **What gets built:**
+   - Python dependencies: langchain, langchain-aws, aws-lambda-powertools, pydantic
+   - Output location: `amplify/functions/brain/layer/python/` (auto-ignored by git)
+
+5. **Deploy backend (first time)**
+   
+   **Option A: Local development (uses default values for external providers)**
+   ```bash
+   npm run sandbox:local
+   ```
+   
+   **Option B: Production deployment (requires configured secrets)**
+   ```bash
+   npm run sandbox
    ```
 
-5. **Start development server**
+6. **Start development server**
    ```bash
    npm run dev
    ```
 
-6. **Build for production**
+7. **Build for production**
    ```bash
    npm run build
    ```
+
+### External Authentication Providers
+
+The app supports Google and Facebook login with **automatic fallback** for development:
+
+**For Development/Testing:**
+- Use `npm run sandbox:local` for local development
+- External providers use default values (non-functional but won't block deployment)
+- Email authentication works normally
+- No need to configure Google/Facebook secrets
+
+**For Production:**
+1. Configure the required secrets using Amplify CLI:
+   ```bash
+   npx ampx sandbox secret set GOOGLE_CLIENT_ID
+   npx ampx sandbox secret set GOOGLE_CLIENT_SECRET
+   npx ampx sandbox secret set FACEBOOK_CLIENT_ID
+   npx ampx sandbox secret set FACEBOOK_CLIENT_SECRET
+   ```
+
+2. Deploy with real external provider credentials:
+   ```bash
+   npm run sandbox
+   ```
+
+**Environment Variable Control:**
+- Set `AMPLIFY_EXTERNAL_PROVIDERS=false` to use default values for external providers
+- Default behavior uses real secrets when available
 
 ### PWA Installation
 
@@ -142,6 +196,62 @@ The app can be installed on mobile devices:
 - `npm run build` - Build for production with PWA optimization
 - `npm run preview` - Preview production build locally
 - `npm run lint` - Run ESLint for code quality
+- `npm run sandbox` - Deploy sandbox with external providers
+- `npm run sandbox:local` - Deploy sandbox with default values for external providers
+
+### Troubleshooting
+
+**Issue: CloudFormation rollback due to missing secrets**
+```
+AmplifySecretFetcherResource | Received response status [FAILED] from custom resource. 
+Message returned: Failed to retrieve backend secret 'FACEBOOK_CLIENT_ID' for 'brain-in-cup'
+```
+
+**Solution:**
+1. Use the local development deployment (uses default values):
+   ```bash
+   npm run sandbox:local
+   ```
+   
+2. Or configure the required secrets for production:
+   ```bash
+   npx ampx sandbox secret set GOOGLE_CLIENT_ID
+   npx ampx sandbox secret set GOOGLE_CLIENT_SECRET
+   npx ampx sandbox secret set FACEBOOK_CLIENT_ID
+   npx ampx sandbox secret set FACEBOOK_CLIENT_SECRET
+   ```
+
+**Issue: build-layer.sh fails with "permission denied"**
+
+**Solution:**
+```bash
+chmod +x build-layer.sh
+./build-layer.sh
+```
+
+**Issue: build-layer.sh fails with Docker errors**
+
+**Solution:**
+1. Ensure Docker Desktop is installed and running
+2. Check Docker daemon: `docker ps`
+3. For M1/M2 Macs, ensure `--platform linux/amd64` flag is working (already in script)
+4. If Docker is slow, consider increasing memory allocation in Docker Desktop settings
+
+**Issue: Lambda function fails with import errors**
+
+**Solution:**
+Rebuild the layer - dependencies may be out of sync:
+```bash
+./build-layer.sh
+npx ampx sandbox
+```
+
+**Issue: Deployment fails in CI/CD**
+
+**Solution:** Set environment variable in your CI/CD pipeline:
+```bash
+AMPLIFY_EXTERNAL_PROVIDERS=false npx ampx sandbox
+```
 
 ### AWS Configuration
 

@@ -541,6 +541,14 @@ function App() {
     }
   }, [newConversationId, conversationId]);
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      window.location.reload();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden relative">

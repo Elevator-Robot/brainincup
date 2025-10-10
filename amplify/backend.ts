@@ -3,8 +3,9 @@ import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { brain } from './functions/brain/resource';
 import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
-import { EventSourceMapping, StartingPosition, LayerVersion, Code, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { EventSourceMapping, StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import { StreamViewType } from 'aws-cdk-lib/aws-dynamodb';
+import { Tags } from 'aws-cdk-lib';
 
 const backend = defineBackend({
   auth,
@@ -13,6 +14,11 @@ const backend = defineBackend({
 });
 
 const stack = backend.stack;
+
+// Add tags to all resources in the stack
+Tags.of(stack).add('Project', 'BrainInCup');
+Tags.of(stack).add('Environment', stack.stackName.includes('sandbox') ? 'development' : 'production');
+Tags.of(stack).add('ManagedBy', 'Amplify');
 
 const { cfnResources } = backend.data.resources;
 cfnResources.amplifyDynamoDbTables['Message'].streamSpecification = {
@@ -30,13 +36,7 @@ brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
-const layer = new LayerVersion(stack, 'BrainDepsLayer', {
-  code: Code.fromAsset('amplify/functions/brain/layer'),
-  compatibleRuntimes: [Runtime.PYTHON_3_12],
-  description: 'Layer containing dependencies for the Brain Lambda function',
-});
-
-brainLambda.addLayers(layer);
+// Note: Layer is already defined in amplify/functions/brain/resource.ts
 
 new EventSourceMapping(stack, 'BrainMessageMapping', {
   target: brainLambda,

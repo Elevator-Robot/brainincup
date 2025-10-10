@@ -193,6 +193,32 @@ amplify_outputs.json
 # Conversation history
 conversation_history.pkl
 
-# Python libs (lambda layers)
-**/layer/python/*
+# Python libs (lambda layers) - entire python dependencies directory
+**/layer/python/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Documentation and notes (working files)
+PROMPT.md
+AGENTS.md
+PYDANTIC_FIX.md
+CHAT_FIX_DOCUMENTATION.md
+
+# IDE and tools
 .serena/
+.vscode/
+.idea/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
