@@ -751,72 +751,95 @@ function App() {
             </div>
           </div>
 
-          {/* Enhanced Input Area with glass morphism */}
-          <div className="border-t border-brand-surface-border glass backdrop-blur-xl p-6">
+          {/* Floating Input Area with enhanced design */}
+          <div className="p-6">
             <div className="max-w-4xl mx-auto">
               {/* Show message if conversation needs naming */}
               {newConversationId && conversationId === newConversationId && (
-                <div className="mb-4 p-4 rounded-xl bg-brand-accent-primary/10 border border-brand-accent-primary/30 text-center">
+                <div className="mb-4 p-4 rounded-2xl bg-brand-accent-primary/10 border border-brand-accent-primary/30 text-center backdrop-blur-xl shadow-lg">
                   <p className="text-sm text-brand-text-primary font-medium">
                     Name your conversation...
                   </p>
                 </div>
               )}
               
-              <form onSubmit={handleSubmit} className="flex gap-4 items-end">
-                <div className="flex-1 relative">
-                  <textarea
-                    ref={inputRef}
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={
-                      isWaitingForResponse
-                        ? 'Waiting for response...'
-                        : newConversationId && conversationId === newConversationId
-                        ? 'Name your conversation first...'
-                        : conversationId 
-                        ? 'Message Brain in Cup...' 
-                        : 'Start typing to begin your conversation...'
-                    }
-                    className="w-full min-h-[52px] max-h-32 py-4 px-5 rounded-2xl resize-none
-                    glass border border-brand-surface-border text-brand-text-primary placeholder-brand-text-muted
-                    focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 focus:border-brand-accent-primary/50
-                    transition-all duration-200 backdrop-blur-lg text-base
-                    hover:border-brand-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isWaitingForResponse || (newConversationId === conversationId)}
-                    rows={1}
-                    style={{
-                      height: 'auto',
-                      minHeight: '52px'
-                    }}
-                    onInput={(e) => {
-                      const target = e.target as HTMLTextAreaElement;
-                      target.style.height = 'auto';
-                      target.style.height = Math.min(target.scrollHeight, 128) + 'px';
-                    }}
-                  />
-                  <div className="absolute bottom-4 right-5 text-xs text-brand-text-muted">
-                    Enter to send • Shift+Enter for new line
+              <form onSubmit={handleSubmit} className="relative">
+                {/* Floating container with premium styling - NO focus effects */}
+                <div className="glass border border-brand-surface-border rounded-3xl p-4 backdrop-blur-2xl 
+                transition-all duration-300"
+                style={{ boxShadow: 'rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.04) 0px 10px 10px -5px' }}>
+                  <div className="flex gap-3 items-end">
+                    <div className="flex-1 relative">
+                      <textarea
+                        ref={inputRef}
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        onFocus={(e) => {
+                          // Force remove any glow effects on focus
+                          e.currentTarget.style.boxShadow = 'none';
+                          e.currentTarget.style.outline = 'none';
+                          e.currentTarget.style.border = 'none';
+                          if (e.currentTarget.parentElement?.parentElement?.parentElement) {
+                            const container = e.currentTarget.parentElement.parentElement.parentElement;
+                            container.style.boxShadow = 'rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.04) 0px 10px 10px -5px';
+                          }
+                        }}
+                        placeholder={
+                          isWaitingForResponse
+                            ? 'Waiting for response...'
+                            : newConversationId && conversationId === newConversationId
+                            ? 'Name your conversation first...'
+                            : conversationId 
+                            ? 'Message Brain in Cup...' 
+                            : 'Start typing to begin your conversation...'
+                        }
+                        className="w-full min-h-[56px] max-h-32 py-3 px-1 resize-none
+                        bg-transparent text-brand-text-primary placeholder-brand-text-muted
+                        border-0 focus:border-0
+                        focus:outline-none focus:ring-0 focus:shadow-none focus-visible:outline-none focus-visible:ring-0 
+                        transition-all duration-200 text-base
+                        disabled:opacity-50 disabled:cursor-not-allowed
+                        !outline-none !ring-0 !shadow-none !border-0"
+                        disabled={isWaitingForResponse || (newConversationId === conversationId)}
+                        rows={1}
+                        style={{
+                          height: 'auto',
+                          minHeight: '56px',
+                          boxShadow: 'none !important',
+                          outline: 'none !important',
+                          border: 'none !important',
+                          borderWidth: '0 !important'
+                        }}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+                        }}
+                      />
+                      <div className="absolute bottom-1 left-1 text-xs text-brand-text-muted/60">
+                        <kbd className="px-1.5 py-0.5 text-xs font-semibold text-brand-text-muted bg-brand-surface-secondary rounded">Enter</kbd> to send • <kbd className="px-1.5 py-0.5 text-xs font-semibold text-brand-text-muted bg-brand-surface-secondary rounded">Shift+Enter</kbd> for new line
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      className={`p-4 rounded-2xl transition-all duration-300 focus:outline-none focus:ring-0 transform flex-shrink-0
+                      ${!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)
+          ? 'glass text-brand-text-muted cursor-not-allowed opacity-40' 
+          : 'bg-gradient-mesh text-white shadow-glow hover:shadow-glow-lg hover:scale-110 active:scale-95 floating-action'
+        }`}
+                      disabled={!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)}
+                    >
+                      {isWaitingForResponse ? (
+                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 </div>
-                <button
-                  type="submit"
-                  className={`p-4 rounded-2xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 transform
-                  ${!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)
-      ? 'glass text-brand-text-muted cursor-not-allowed opacity-50' 
-      : 'bg-gradient-mesh text-white shadow-glow hover:shadow-glow-sm hover:scale-105 active:scale-95 floating-action'
-    }`}
-                  disabled={!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)}
-                >
-                  {isWaitingForResponse ? (
-                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  )}
-                </button>
               </form>
               <div className="mt-3 text-xs text-brand-text-muted text-center">
                 Press Ctrl+K to focus • Ctrl+D for debug • ESC to close sidebar
