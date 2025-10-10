@@ -766,10 +766,23 @@ function App() {
               
               <form onSubmit={handleSubmit} className="relative">
                 {/* Floating container with premium styling */}
-                <div className="glass border border-brand-surface-border rounded-3xl p-4 backdrop-blur-2xl 
-                transition-all duration-300 hover:shadow-glow-lg hover:border-brand-accent-primary/30 animate-fade-in"
-                style={{ boxShadow: 'rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.04) 0px 10px 10px -5px' }}>
-                  <div className="flex gap-3 items-end">
+                <div 
+                  className="glass border border-brand-surface-border rounded-3xl p-4 backdrop-blur-2xl 
+                  transition-all duration-300 hover:shadow-glow-lg hover:border-brand-accent-primary/30 animate-fade-in
+                  cursor-text relative overflow-hidden"
+                  style={{ boxShadow: 'rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.04) 0px 10px 10px -5px' }}
+                  onClick={() => inputRef.current?.focus()}
+                >
+                  {/* Animated gradient border effect */}
+                  <div className="absolute inset-0 rounded-3xl opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                    style={{
+                      background: 'linear-gradient(45deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1), rgba(240, 147, 251, 0.1))',
+                      backgroundSize: '200% 200%',
+                      animation: 'shimmer 3s ease infinite'
+                    }}
+                  />
+                  
+                  <div className="flex gap-3 items-end relative z-10">
                     <div className="flex-1 relative">
                       <textarea
                         ref={inputRef}
@@ -801,7 +814,8 @@ function App() {
                         focus:outline-none focus:ring-0 focus:shadow-none focus-visible:outline-none focus-visible:ring-0 
                         transition-all duration-200 text-base
                         disabled:opacity-50 disabled:cursor-not-allowed
-                        !outline-none !ring-0 !shadow-none !border-0"
+                        !outline-none !ring-0 !shadow-none !border-0
+                        pointer-events-auto"
                         disabled={isWaitingForResponse || (newConversationId === conversationId)}
                         rows={1}
                         style={{
@@ -818,7 +832,13 @@ function App() {
                           target.style.height = Math.min(target.scrollHeight, 128) + 'px';
                         }}
                       />
-                      <div className="absolute bottom-1 left-1 text-xs text-brand-text-muted/60">
+                      <div 
+                        className="absolute bottom-1 left-1 text-xs text-brand-text-muted/60 pointer-events-none"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          inputRef.current?.focus();
+                        }}
+                      >
                         <kbd className="px-1.5 py-0.5 text-xs font-semibold text-brand-text-muted bg-brand-surface-secondary rounded">Enter</kbd> to send • <kbd className="px-1.5 py-0.5 text-xs font-semibold text-brand-text-muted bg-brand-surface-secondary rounded">Shift+Enter</kbd> for new line
                       </div>
                     </div>
