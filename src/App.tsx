@@ -326,6 +326,13 @@ function App() {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
+    // Don't allow sending messages until the conversation is named
+    if (newConversationId && conversationId === newConversationId) {
+      console.log('⚠️ Cannot send message - conversation needs to be named first');
+      // Visual feedback is already shown in the UI, no need for alert
+      return;
+    }
+
     const userMessage = inputMessage;
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setInputMessage('');
@@ -344,6 +351,13 @@ function App() {
   };
 
   const handleSelectConversation = async (selectedConversationId: string) => {
+    // Don't allow switching conversations if there's an unnamed conversation
+    if (newConversationId && conversationId === newConversationId) {
+      console.log('⚠️ Cannot switch - current conversation needs to be named first');
+      // Visual feedback is already shown, just prevent the switch
+      return;
+    }
+    
     // If empty string, clear the conversation
     if (!selectedConversationId) {
       setConversationId(null);
@@ -715,6 +729,16 @@ function App() {
           {/* Enhanced Input Area with glass morphism */}
           <div className="border-t border-brand-surface-border glass backdrop-blur-xl p-6">
             <div className="max-w-4xl mx-auto">
+              {/* Show message if conversation needs naming */}
+              {newConversationId && conversationId === newConversationId && (
+                <div className="mb-4 p-4 rounded-xl bg-brand-accent-primary/10 border border-brand-accent-primary/30 text-center">
+                  <p className="text-sm text-brand-text-primary">
+                    <span className="font-semibold">👆 Name your conversation first</span>
+                    <br />
+                    <span className="text-brand-text-muted">Click the conversation title in the sidebar to give it a name</span>
+                  </p>
+                </div>
+              )}
               <form onSubmit={handleSubmit} className="flex gap-4 items-end">
                 <div className="flex-1 relative">
                   <textarea
@@ -722,13 +746,19 @@ function App() {
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={conversationId ? 'Message Brain in Cup...' : 'Start typing to begin your conversation...'}
+                    placeholder={
+                      newConversationId && conversationId === newConversationId
+                        ? 'Name your conversation first...'
+                        : conversationId 
+                        ? 'Message Brain in Cup...' 
+                        : 'Start typing to begin your conversation...'
+                    }
                     className="w-full min-h-[52px] max-h-32 py-4 px-5 rounded-2xl resize-none
                     glass border border-brand-surface-border text-brand-text-primary placeholder-brand-text-muted
                     focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 focus:border-brand-accent-primary/50
                     transition-all duration-200 backdrop-blur-lg text-base
-                    hover:border-brand-surface-hover"
-                    disabled={isWaitingForResponse}
+                    hover:border-brand-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isWaitingForResponse || (newConversationId === conversationId)}
                     rows={1}
                     style={{
                       height: 'auto',
@@ -747,11 +777,11 @@ function App() {
                 <button
                   type="submit"
                   className={`p-4 rounded-2xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 transform
-                  ${!inputMessage.trim() || isWaitingForResponse
+                  ${!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)
       ? 'glass text-brand-text-muted cursor-not-allowed opacity-50' 
       : 'bg-gradient-mesh text-white shadow-glow hover:shadow-glow-sm hover:scale-105 active:scale-95 floating-action'
     }`}
-                  disabled={!inputMessage.trim() || isWaitingForResponse}
+                  disabled={!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)}
                 >
                   {isWaitingForResponse ? (
                     <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

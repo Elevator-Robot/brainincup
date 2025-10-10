@@ -94,13 +94,24 @@ export default function ConversationList({ onSelectConversation, onNewConversati
 
   // Auto-start editing when a new conversation is created
   useEffect(() => {
-    if (newConversationId && !editingId) {
+    if (newConversationId) {
       console.log('🆕 Auto-starting edit for new conversation:', newConversationId);
+      // Always set editing for new conversations, regardless of current editingId
       setEditingId(newConversationId);
       setEditingTitle(''); // Start with empty title to force user to name it
       setIsNewConversation(true);
     }
-  }, [newConversationId, editingId]);
+  }, [newConversationId]); // Only depend on newConversationId
+
+  // Reset isNewConversation when newConversationId is cleared (e.g., after cancellation)
+  useEffect(() => {
+    if (!newConversationId && isNewConversation) {
+      console.log('🔄 Resetting new conversation state');
+      setIsNewConversation(false);
+      // Also clear editingId if it's still set
+      setEditingId(null);
+    }
+  }, [newConversationId, isNewConversation]);
 
   const handleTitleEdit = (conversationId: string, currentTitle: string) => {
     setEditingId(conversationId);
