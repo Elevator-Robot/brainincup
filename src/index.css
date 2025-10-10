@@ -279,3 +279,43 @@ textarea.w-full:focus {
   outline: none !important;
   box-shadow: none !important;
 }
+
+/* Cool glow effects for drop shadows */
+.drop-shadow-glow {
+  filter: drop-shadow(0 0 8px rgba(102, 126, 234, 0.6));
+}
+
+/* Shimmer effect for loading states */
+.shimmer-bg {
+  background: linear-gradient(
+    90deg,
+    rgba(102, 126, 234, 0.1) 0%,
+    rgba(118, 75, 162, 0.2) 50%,
+    rgba(102, 126, 234, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+/* Neon text glow */
+.text-neon {
+  text-shadow: 0 0 10px rgba(102, 126, 234, 0.8),
+               0 0 20px rgba(102, 126, 234, 0.6),
+               0 0 30px rgba(102, 126, 234, 0.4);
+}
+
+/* Glowing border animation */
+@keyframes glow-border {
+  0%, 100% {
+    border-color: rgba(102, 126, 234, 0.4);
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+  }
+  50% {
+    border-color: rgba(118, 75, 162, 0.6);
+    box-shadow: 0 0 20px rgba(118, 75, 162, 0.5);
+  }
+}
+
+.glow-border-animation {
+  animation: glow-border 3s ease-in-out infinite;
+}

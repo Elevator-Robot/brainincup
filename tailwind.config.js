@@ -65,6 +65,11 @@ export default {
         'glass-lg': '0 16px 64px 0 rgba(31, 38, 135, 0.45)',
         'glow': '0 0 20px rgba(102, 126, 234, 0.6)',
         'glow-sm': '0 0 10px rgba(102, 126, 234, 0.4)',
+        'glow-lg': '0 0 40px rgba(102, 126, 234, 0.8), 0 0 80px rgba(102, 126, 234, 0.4)',
+        'glow-purple': '0 0 30px rgba(118, 75, 162, 0.6), 0 0 60px rgba(118, 75, 162, 0.3)',
+        'glow-pink': '0 0 30px rgba(240, 147, 251, 0.6), 0 0 60px rgba(240, 147, 251, 0.3)',
+        'neon-blue': '0 0 5px rgba(102, 126, 234, 0.8), 0 0 20px rgba(102, 126, 234, 0.6), 0 0 40px rgba(102, 126, 234, 0.4)',
+        'neon-purple': '0 0 5px rgba(118, 75, 162, 0.8), 0 0 20px rgba(118, 75, 162, 0.6), 0 0 40px rgba(118, 75, 162, 0.4)',
       },
       animation: {
         'float': 'float 6s ease-in-out infinite',
@@ -73,6 +78,11 @@ export default {
         'slide-down': 'slide-down 0.5s ease-out',
         'fade-in': 'fade-in 0.3s ease-out',
         'scale-in': 'scale-in 0.2s ease-out',
+        'shimmer': 'shimmer 2s linear infinite',
+        'glow-pulse': 'glow-pulse 3s ease-in-out infinite',
+        'bounce-subtle': 'bounce-subtle 2s ease-in-out infinite',
+        'spin-slow': 'spin 3s linear infinite',
+        'wiggle': 'wiggle 1s ease-in-out infinite',
       },
       keyframes: {
         float: {
@@ -122,6 +132,28 @@ export default {
             opacity: 1,
             transform: 'scale(1)' 
           },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        'glow-pulse': {
+          '0%, 100%': { 
+            boxShadow: '0 0 20px rgba(102, 126, 234, 0.6)',
+            filter: 'brightness(1)',
+          },
+          '50%': { 
+            boxShadow: '0 0 40px rgba(102, 126, 234, 0.8), 0 0 80px rgba(102, 126, 234, 0.4)',
+            filter: 'brightness(1.2)',
+          },
+        },
+        'bounce-subtle': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-5px)' },
+        },
+        wiggle: {
+          '0%, 100%': { transform: 'rotate(-3deg)' },
+          '50%': { transform: 'rotate(3deg)' },
         },
       },
       spacing: {

@@ -687,10 +687,11 @@ function App() {
                   )}
                   
                   <div
-                    className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm
+                    className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 backdrop-blur-sm
+                    transition-all duration-300 hover:scale-[1.02] animate-slide-up
                     ${message.role === 'user' 
-                  ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-sm' 
-                  : 'glass text-brand-text-primary border border-brand-surface-border'
+                  ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple hover:shadow-glow-lg' 
+                  : 'glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg hover:shadow-neon-blue'
                 }`}
                   >
                     <p className="leading-relaxed whitespace-pre-wrap break-words">
@@ -702,7 +703,7 @@ function App() {
                   </div>
                   
                   {message.role === 'user' && (
-                    <div className="w-8 h-8 rounded-xl glass flex items-center justify-center flex-shrink-0 mt-1 border border-brand-surface-border">
+                    <div className="w-8 h-8 rounded-xl glass flex items-center justify-center flex-shrink-0 mt-1 border border-brand-surface-border shadow-glass hover:shadow-glow-sm transition-all duration-300">
                       <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                           d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -713,14 +714,14 @@ function App() {
               ))}
               
               {isWaitingForResponse && (
-                <div className="flex gap-4 justify-start">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm animate-pulse-glow">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex gap-4 justify-start animate-slide-up">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-neon-purple animate-glow-pulse">
+                    <svg className="w-4 h-4 text-white animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                         d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                     </svg>
                   </div>
-                  <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-glass backdrop-blur-lg">
+                  <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-neon-blue backdrop-blur-lg">
                     <div className="flex items-center gap-2">
                       <div className="flex space-x-1">
                         <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
@@ -764,9 +765,9 @@ function App() {
               )}
               
               <form onSubmit={handleSubmit} className="relative">
-                {/* Floating container with premium styling - NO focus effects */}
+                {/* Floating container with premium styling */}
                 <div className="glass border border-brand-surface-border rounded-3xl p-4 backdrop-blur-2xl 
-                transition-all duration-300"
+                transition-all duration-300 hover:shadow-glow-lg hover:border-brand-accent-primary/30 animate-fade-in"
                 style={{ boxShadow: 'rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.04) 0px 10px 10px -5px' }}>
                   <div className="flex gap-3 items-end">
                     <div className="flex-1 relative">
@@ -826,14 +827,14 @@ function App() {
                       className={`p-4 rounded-2xl transition-all duration-300 focus:outline-none focus:ring-0 transform flex-shrink-0
                       ${!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)
           ? 'glass text-brand-text-muted cursor-not-allowed opacity-40' 
-          : 'bg-gradient-mesh text-white shadow-glow hover:shadow-glow-lg hover:scale-110 active:scale-95 floating-action'
+          : 'bg-gradient-mesh text-white shadow-glow-purple hover:shadow-neon-purple hover:scale-110 active:scale-95 animate-glow-pulse'
         }`}
                       disabled={!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)}
                     >
                       {isWaitingForResponse ? (
                         <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       ) : (
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-6 h-6 drop-shadow-glow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                         </svg>
                       )}
