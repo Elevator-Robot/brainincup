@@ -600,7 +600,15 @@ function App() {
       </aside>
 
       {/* Main Content Area with improved layout */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main 
+        className="flex-1 flex flex-col min-w-0 overflow-hidden"
+        onClick={() => {
+          // Close sidebar when clicking anywhere in the main chat area
+          if (isSidebarOpen) {
+            setIsSidebarOpen(false);
+          }
+        }}
+      >
         {/* Screen reader live region for message updates */}
         <div
           aria-live="polite"
