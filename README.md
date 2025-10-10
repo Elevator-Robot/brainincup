@@ -116,15 +116,20 @@ erDiagram
    
    The Lambda function requires Python dependencies packaged in a layer. Build it before first deployment:
    ```bash
+   chmod +x build-layer.sh  # Make executable (first time only)
    ./build-layer.sh
    ```
    
    **Requirements:**
    - Docker must be installed and running
    - Script builds dependencies for Amazon Linux 2 (Lambda runtime)
-   - Optimizes layer size by removing unnecessary files
+   - Optimizes layer size by removing unnecessary files and stripping debug symbols
    
    **Note:** Re-run this script whenever you update `amplify/functions/brain/layer/requirements.txt`
+   
+   **What gets built:**
+   - Python dependencies: langchain, langchain-aws, aws-lambda-powertools, pydantic
+   - Output location: `amplify/functions/brain/layer/python/` (auto-ignored by git)
 
 5. **Deploy backend (first time)**
    
@@ -215,6 +220,31 @@ Message returned: Failed to retrieve backend secret 'FACEBOOK_CLIENT_ID' for 'br
    npx ampx sandbox secret set FACEBOOK_CLIENT_ID
    npx ampx sandbox secret set FACEBOOK_CLIENT_SECRET
    ```
+
+**Issue: build-layer.sh fails with "permission denied"**
+
+**Solution:**
+```bash
+chmod +x build-layer.sh
+./build-layer.sh
+```
+
+**Issue: build-layer.sh fails with Docker errors**
+
+**Solution:**
+1. Ensure Docker Desktop is installed and running
+2. Check Docker daemon: `docker ps`
+3. For M1/M2 Macs, ensure `--platform linux/amd64` flag is working (already in script)
+4. If Docker is slow, consider increasing memory allocation in Docker Desktop settings
+
+**Issue: Lambda function fails with import errors**
+
+**Solution:**
+Rebuild the layer - dependencies may be out of sync:
+```bash
+./build-layer.sh
+npx ampx sandbox
+```
 
 **Issue: Deployment fails in CI/CD**
 

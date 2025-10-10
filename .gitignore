@@ -201,9 +201,6 @@ conversation_history.pkl
 .AppleDouble
 .LSOverride
 
-# Build scripts
-build-layer.sh
-
 # Documentation and notes (working files)
 PROMPT.md
 AGENTS.md
