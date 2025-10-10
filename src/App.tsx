@@ -522,17 +522,6 @@ function App() {
     }
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      window.location.reload();
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-
-
-
   // Clear newConversationId when a conversation is successfully named
   useEffect(() => {
     if (newConversationId && conversationId === newConversationId) {
