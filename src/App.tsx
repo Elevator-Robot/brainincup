@@ -20,8 +20,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [currentConversation, setCurrentConversation] = useState<any>(null); // Current conversation data for header editing
-  const [isEditingTitle, setIsEditingTitle] = useState(false); // Track if user is editing conversation title
+
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default to closed on mobile, will be controlled by responsive logic
   const [conversationListKey, setConversationListKey] = useState(0);
@@ -72,13 +71,6 @@ function App() {
           } else {
             console.log('✅ Test mode: Auto-selecting test conversation');
             setConversationId('test-conversation-1');
-            // Set mock conversation data for header
-            setCurrentConversation({
-              id: 'test-conversation-1',
-              title: 'My AI Discussion',
-              createdAt: new Date(Date.now() - 86400000).toISOString(),
-              updatedAt: new Date(Date.now() - 3600000).toISOString(),
-            });
           }
           return;
         }
@@ -134,6 +126,11 @@ function App() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
         inputRef.current?.focus();
+      }
+      // Ctrl/Cmd + D toggles debug info
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        setShowDebugInfo(prev => !prev);
       }
     };
 
@@ -329,6 +326,13 @@ function App() {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
+    // Don't allow sending messages until the conversation is named
+    if (newConversationId && conversationId === newConversationId) {
+      console.log('⚠️ Cannot send message - conversation needs to be named first');
+      // Visual feedback is already shown in the UI, no need for alert
+      return;
+    }
+
     const userMessage = inputMessage;
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setInputMessage('');
@@ -347,11 +351,18 @@ function App() {
   };
 
   const handleSelectConversation = async (selectedConversationId: string) => {
+    // Don't allow switching conversations if there's an unnamed conversation
+    if (newConversationId && conversationId === newConversationId) {
+      console.log('⚠️ Cannot switch - current conversation needs to be named first');
+      // Visual feedback is already shown, just prevent the switch
+      return;
+    }
+    
     // If empty string, clear the conversation
     if (!selectedConversationId) {
       setConversationId(null);
-      setCurrentConversation(null);
       setMessages([]);
+      setIsWaitingForResponse(false);
       return;
     }
     
@@ -360,10 +371,6 @@ function App() {
     
     // Load conversation data and messages
     try {
-      // Load conversation data for header
-      const { data: conversationData } = await dataClient.models.Conversation.get({ id: selectedConversationId });
-      setCurrentConversation(conversationData);
-      
       const { data: conversationMessages } = await dataClient.models.Message.list({
         filter: { conversationId: { eq: selectedConversationId } }
       });
@@ -382,6 +389,9 @@ function App() {
         return aTime - bTime;
       });
       
+      // Check if there's a pending message (message without response)
+      let hasPendingMessage = false;
+      
       // For each message, add it and its corresponding response
       sortedMessages.forEach(msg => {
         timeline.push({ role: 'user', content: msg.content || '' });
@@ -390,12 +400,25 @@ function App() {
         const response = brainResponses?.find(br => br.messageId === msg.id);
         if (response?.response) {
           timeline.push({ role: 'assistant', content: response.response });
+        } else {
+          // This message has no response yet - mark as pending
+          hasPendingMessage = true;
+          console.log('⏳ Found pending message:', msg.id);
         }
       });
+      
+      // Set waiting state based on whether there's a pending message
+      if (hasPendingMessage) {
+        console.log('🔒 Blocking input - pending message detected after load');
+        setIsWaitingForResponse(true);
+      } else {
+        setIsWaitingForResponse(false);
+      }
       
       setMessages(timeline);
     } catch (error) {
       console.error('Error loading conversation messages:', error);
+      setIsWaitingForResponse(false);
     }
   };
 
@@ -499,47 +522,6 @@ function App() {
     }
   };
 
-  const handleUpdateConversationTitle = async (newTitle: string) => {
-    if (!conversationId || !currentConversation) return;
-    
-    const trimmedTitle = newTitle.trim();
-    if (!trimmedTitle) {
-      setIsEditingTitle(false);
-      return;
-    }
-    
-    try {
-      // For test mode, just update local state
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('testmode') === 'true') {
-        console.log('✅ Test mode: Updating conversation title to:', trimmedTitle);
-        setCurrentConversation((prev: any) => prev ? { ...prev, title: trimmedTitle } : null);
-        setIsEditingTitle(false);
-        // Trigger conversation list refresh
-        setConversationListKey(prev => prev + 1);
-        return;
-      }
-      
-      // Update in database
-      const { data: updatedConversation } = await dataClient.models.Conversation.update({
-        id: conversationId,
-        title: trimmedTitle
-      });
-      
-      if (updatedConversation) {
-        setCurrentConversation(updatedConversation);
-        console.log('✅ Updated conversation title:', trimmedTitle);
-        // Trigger conversation list refresh
-        setConversationListKey(prev => prev + 1);
-      }
-      
-      setIsEditingTitle(false);
-    } catch (error) {
-      console.error('❌ Error updating conversation title:', error);
-      setIsEditingTitle(false);
-    }
-  };
-
   // Clear newConversationId when a conversation is successfully named
   useEffect(() => {
     if (newConversationId && conversationId === newConversationId) {
@@ -592,7 +574,7 @@ function App() {
           isSidebarOpen ? 'opacity-100' : 'opacity-0'
         }`}>
           {/* Sidebar Header with enhanced styling */}
-          <div className="flex items-center p-6 pt-20 border-b border-brand-surface-border">
+          <div className="flex items-center justify-between p-6 pt-20 border-b border-brand-surface-border">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm animate-float">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -604,6 +586,16 @@ function App() {
                 Brain in Cup
               </h1>
             </div>
+            <button
+              onClick={handleSignOut}
+              className="p-2 rounded-lg text-brand-text-muted hover:text-brand-text-primary transition-colors duration-200 hover:bg-brand-surface-hover/20"
+              title="Sign out"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
           </div>
 
           {/* Conversation List with enhanced styling */}
@@ -622,7 +614,15 @@ function App() {
       </aside>
 
       {/* Main Content Area with improved layout */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main 
+        className="flex-1 flex flex-col min-w-0 overflow-hidden"
+        onClick={() => {
+          // Close sidebar when clicking anywhere in the main chat area
+          if (isSidebarOpen) {
+            setIsSidebarOpen(false);
+          }
+        }}
+      >
         {/* Screen reader live region for message updates */}
         <div
           aria-live="polite"
@@ -633,76 +633,7 @@ function App() {
           {messages.length > 0 && `Conversation has ${messages.length} messages`}
         </div>
 
-        {/* Enhanced Header */}
-        <div className="flex items-center justify-between px-6 py-4 pl-20 glass backdrop-blur-xl border-b border-brand-surface-border">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold text-brand-text-primary">
-              {conversationId ? (
-                isEditingTitle ? (
-                  <input
-                    type="text"
-                    defaultValue={currentConversation?.title || ''}
-                    autoFocus
-                    className="bg-transparent border-none outline-none focus:ring-2 focus:ring-brand-accent-primary/50 rounded px-2 py-1 min-w-0 max-w-md"
-                    onBlur={(e) => handleUpdateConversationTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleUpdateConversationTitle(e.currentTarget.value);
-                      } else if (e.key === 'Escape') {
-                        setIsEditingTitle(false);
-                      }
-                    }}
-                  />
-                ) : (
-                  <span 
-                    onDoubleClick={() => setIsEditingTitle(true)}
-                    className="cursor-pointer hover:bg-brand-surface-hover/20 rounded px-2 py-1 transition-colors duration-200"
-                    title="Double-click to edit conversation name"
-                  >
-                    {currentConversation?.title || 'Untitled Conversation'}
-                  </span>
-                )
-              ) : (
-                'Start New Chat'
-              )}
-            </h2>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowDebugInfo(!showDebugInfo)}
-              className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
-              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50"
-              aria-label="Toggle debug info"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
-            <button
-              onClick={handleSignOut}
-              className="px-3 py-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
-              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 
-              border border-brand-surface-border hover:border-brand-surface-hover"
-              aria-label="Sign out"
-              title="Sign out"
-            >
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span className="text-sm font-medium hidden sm:inline">Sign out</span>
-              </div>
-            </button>
-          </div>
-        </div>
+
 
         {/* Enhanced Chat Area with glass morphism design */}
         <div className="flex-1 flex flex-col min-h-0">
@@ -753,10 +684,11 @@ function App() {
                   )}
                   
                   <div
-                    className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm
+                    className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 backdrop-blur-sm
+                    transition-all duration-300 hover:scale-[1.02] animate-slide-up
                     ${message.role === 'user' 
-                  ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-sm' 
-                  : 'glass text-brand-text-primary border border-brand-surface-border'
+                  ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple hover:shadow-glow-lg' 
+                  : 'glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg hover:shadow-neon-blue'
                 }`}
                   >
                     <p className="leading-relaxed whitespace-pre-wrap break-words">
@@ -768,7 +700,7 @@ function App() {
                   </div>
                   
                   {message.role === 'user' && (
-                    <div className="w-8 h-8 rounded-xl glass flex items-center justify-center flex-shrink-0 mt-1 border border-brand-surface-border">
+                    <div className="w-8 h-8 rounded-xl glass flex items-center justify-center flex-shrink-0 mt-1 border border-brand-surface-border shadow-glass hover:shadow-glow-sm transition-all duration-300">
                       <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                           d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -779,14 +711,14 @@ function App() {
               ))}
               
               {isWaitingForResponse && (
-                <div className="flex gap-4 justify-start">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm animate-pulse-glow">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex gap-4 justify-start animate-slide-up">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-neon-purple animate-glow-pulse">
+                    <svg className="w-4 h-4 text-white animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                         d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                     </svg>
                   </div>
-                  <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-glass backdrop-blur-lg">
+                  <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-neon-blue backdrop-blur-lg">
                     <div className="flex items-center gap-2">
                       <div className="flex space-x-1">
                         <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
@@ -817,58 +749,118 @@ function App() {
             </div>
           </div>
 
-          {/* Enhanced Input Area with glass morphism */}
-          <div className="border-t border-brand-surface-border glass backdrop-blur-xl p-6">
+          {/* Floating Input Area with enhanced design */}
+          <div className="p-6">
             <div className="max-w-4xl mx-auto">
-              <form onSubmit={handleSubmit} className="flex gap-4 items-end">
-                <div className="flex-1 relative">
-                  <textarea
-                    ref={inputRef}
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={conversationId ? 'Message Brain in Cup...' : 'Start typing to begin your conversation...'}
-                    className="w-full min-h-[52px] max-h-32 py-4 px-5 rounded-2xl resize-none
-                    glass border border-brand-surface-border text-brand-text-primary placeholder-brand-text-muted
-                    focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 focus:border-brand-accent-primary/50
-                    transition-all duration-200 backdrop-blur-lg text-base
-                    hover:border-brand-surface-hover"
-                    disabled={isWaitingForResponse}
-                    rows={1}
+              {/* Show message if conversation needs naming */}
+              {newConversationId && conversationId === newConversationId && (
+                <div className="mb-4 p-4 rounded-2xl bg-brand-accent-primary/10 border border-brand-accent-primary/30 text-center backdrop-blur-xl shadow-lg">
+                  <p className="text-sm text-brand-text-primary font-medium">
+                    Name your conversation...
+                  </p>
+                </div>
+              )}
+              
+              <form onSubmit={handleSubmit} className="relative">
+                {/* Floating container with premium styling */}
+                <div 
+                  className="glass border border-brand-surface-border rounded-3xl p-4 backdrop-blur-2xl 
+                  transition-all duration-300 hover:shadow-glow-lg hover:border-brand-accent-primary/30 animate-fade-in
+                  cursor-text relative overflow-hidden"
+                  style={{ boxShadow: 'rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.04) 0px 10px 10px -5px' }}
+                  onClick={() => inputRef.current?.focus()}
+                >
+                  {/* Animated gradient border effect */}
+                  <div className="absolute inset-0 rounded-3xl opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none"
                     style={{
-                      height: 'auto',
-                      minHeight: '52px'
-                    }}
-                    onInput={(e) => {
-                      const target = e.target as HTMLTextAreaElement;
-                      target.style.height = 'auto';
-                      target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+                      background: 'linear-gradient(45deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1), rgba(240, 147, 251, 0.1))',
+                      backgroundSize: '200% 200%',
+                      animation: 'shimmer 3s ease infinite'
                     }}
                   />
-                  <div className="absolute bottom-4 right-5 text-xs text-brand-text-muted">
-                    Enter to send • Shift+Enter for new line
+                  
+                  <div className="flex gap-3 items-end relative z-10">
+                    <div className="flex-1 relative">
+                      <textarea
+                        ref={inputRef}
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        onFocus={(e) => {
+                          // Force remove any glow effects on focus
+                          e.currentTarget.style.boxShadow = 'none';
+                          e.currentTarget.style.outline = 'none';
+                          e.currentTarget.style.border = 'none';
+                          if (e.currentTarget.parentElement?.parentElement?.parentElement) {
+                            const container = e.currentTarget.parentElement.parentElement.parentElement;
+                            container.style.boxShadow = 'rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.04) 0px 10px 10px -5px';
+                          }
+                        }}
+                        placeholder={
+                          isWaitingForResponse
+                            ? 'Waiting for response...'
+                            : newConversationId && conversationId === newConversationId
+                            ? 'Name your conversation first...'
+                            : conversationId 
+                            ? 'Message Brain in Cup...' 
+                            : 'Start typing to begin your conversation...'
+                        }
+                        className="w-full min-h-[56px] max-h-32 py-3 px-1 resize-none
+                        bg-transparent text-brand-text-primary placeholder-brand-text-muted
+                        border-0 focus:border-0
+                        focus:outline-none focus:ring-0 focus:shadow-none focus-visible:outline-none focus-visible:ring-0 
+                        transition-all duration-200 text-base
+                        disabled:opacity-50 disabled:cursor-not-allowed
+                        !outline-none !ring-0 !shadow-none !border-0
+                        pointer-events-auto"
+                        disabled={isWaitingForResponse || (newConversationId === conversationId)}
+                        rows={1}
+                        style={{
+                          height: 'auto',
+                          minHeight: '56px',
+                          boxShadow: 'none !important',
+                          outline: 'none !important',
+                          border: 'none !important',
+                          borderWidth: '0 !important'
+                        }}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+                        }}
+                      />
+                      <div 
+                        className="absolute bottom-1 left-1 text-xs text-brand-text-muted/60 pointer-events-none"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          inputRef.current?.focus();
+                        }}
+                      >
+                        <kbd className="px-1.5 py-0.5 text-xs font-semibold text-brand-text-muted bg-brand-surface-secondary rounded">Enter</kbd> to send • <kbd className="px-1.5 py-0.5 text-xs font-semibold text-brand-text-muted bg-brand-surface-secondary rounded">Shift+Enter</kbd> for new line
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      className={`p-4 rounded-2xl transition-all duration-300 focus:outline-none focus:ring-0 transform flex-shrink-0
+                      ${!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)
+          ? 'glass text-brand-text-muted cursor-not-allowed opacity-40' 
+          : 'bg-gradient-mesh text-white shadow-glow-purple hover:shadow-neon-purple hover:scale-110 active:scale-95 animate-glow-pulse'
+        }`}
+                      disabled={!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)}
+                    >
+                      {isWaitingForResponse ? (
+                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <svg className="w-6 h-6 drop-shadow-glow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 </div>
-                <button
-                  type="submit"
-                  className={`p-4 rounded-2xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 transform
-                  ${!inputMessage.trim() || isWaitingForResponse
-      ? 'glass text-brand-text-muted cursor-not-allowed opacity-50' 
-      : 'bg-gradient-mesh text-white shadow-glow hover:shadow-glow-sm hover:scale-105 active:scale-95 floating-action'
-    }`}
-                  disabled={!inputMessage.trim() || isWaitingForResponse}
-                >
-                  {isWaitingForResponse ? (
-                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  )}
-                </button>
               </form>
               <div className="mt-3 text-xs text-brand-text-muted text-center">
-                Press Ctrl+K to focus • ESC to close sidebar
+                Press Ctrl+K to focus • Ctrl+D for debug • ESC to close sidebar
               </div>
             </div>
           </div>

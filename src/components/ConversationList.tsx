@@ -94,13 +94,24 @@ export default function ConversationList({ onSelectConversation, onNewConversati
 
   // Auto-start editing when a new conversation is created
   useEffect(() => {
-    if (newConversationId && !editingId) {
+    if (newConversationId) {
       console.log('🆕 Auto-starting edit for new conversation:', newConversationId);
+      // Always set editing for new conversations, regardless of current editingId
       setEditingId(newConversationId);
       setEditingTitle(''); // Start with empty title to force user to name it
       setIsNewConversation(true);
     }
-  }, [newConversationId, editingId]);
+  }, [newConversationId]); // Only depend on newConversationId
+
+  // Reset isNewConversation when newConversationId is cleared (e.g., after cancellation)
+  useEffect(() => {
+    if (!newConversationId && isNewConversation) {
+      console.log('🔄 Resetting new conversation state');
+      setIsNewConversation(false);
+      // Also clear editingId if it's still set
+      setEditingId(null);
+    }
+  }, [newConversationId, isNewConversation]);
 
   const handleTitleEdit = (conversationId: string, currentTitle: string) => {
     setEditingId(conversationId);
@@ -316,19 +327,18 @@ export default function ConversationList({ onSelectConversation, onNewConversati
             const isEditing = editingId === conversation.id;
             
             return (
-              <div
+              <button
                 key={conversation.id}
+                onClick={() => conversation.id && onSelectConversation(conversation.id)}
                 className={`w-full rounded-2xl transition-all duration-200 group relative overflow-hidden animate-slide-up
+                text-left focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50
                 ${selectedConversationId === conversation.id 
                 ? 'bg-gradient-to-r from-brand-accent-primary/20 to-brand-accent-secondary/10 border border-brand-accent-primary/50 shadow-glow-sm' 
                 : 'glass hover:border-brand-accent-primary/30 hover:bg-brand-surface-hover'
               }`}
               >
                 <div className="flex items-center p-4">
-                  <button
-                    onClick={() => conversation.id && onSelectConversation(conversation.id)}
-                    className="flex-1 text-left min-w-0 focus:outline-none"
-                  >
+                  <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start">
                       <div className="flex-1 min-w-0">
                         {isEditing ? (
@@ -353,10 +363,10 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                         ) : (
                           <div
                             className={`font-medium text-sm truncate mb-1 px-3 py-2 transition-colors rounded-xl ${
-                          selectedConversationId === conversation.id 
-                            ? 'text-brand-text-primary' 
-                            : 'text-brand-text-secondary group-hover:text-brand-text-primary'
-                          }`}
+                              selectedConversationId === conversation.id 
+                                ? 'text-brand-text-primary' 
+                                : 'text-brand-text-secondary group-hover:text-brand-text-primary'
+                            }`}
                           >
                             {conversationTitle}
                           </div>
@@ -373,7 +383,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                         </div>
                       )}
                     </div>
-                  </button>
+                  </div>
                   
                   {/* Edit and Delete buttons - shown on hover for better UX */}
                   {!isEditing && (
@@ -414,7 +424,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                 {selectedConversationId === conversation.id && (
                   <div className="absolute inset-0 bg-gradient-to-r from-violet-600/5 to-fuchsia-600/5 pointer-events-none"></div>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
