@@ -362,6 +362,7 @@ function App() {
     if (!selectedConversationId) {
       setConversationId(null);
       setMessages([]);
+      setIsWaitingForResponse(false);
       return;
     }
     
@@ -388,6 +389,9 @@ function App() {
         return aTime - bTime;
       });
       
+      // Check if there's a pending message (message without response)
+      let hasPendingMessage = false;
+      
       // For each message, add it and its corresponding response
       sortedMessages.forEach(msg => {
         timeline.push({ role: 'user', content: msg.content || '' });
@@ -396,12 +400,25 @@ function App() {
         const response = brainResponses?.find(br => br.messageId === msg.id);
         if (response?.response) {
           timeline.push({ role: 'assistant', content: response.response });
+        } else {
+          // This message has no response yet - mark as pending
+          hasPendingMessage = true;
+          console.log('⏳ Found pending message:', msg.id);
         }
       });
+      
+      // Set waiting state based on whether there's a pending message
+      if (hasPendingMessage) {
+        console.log('🔒 Blocking input - pending message detected after load');
+        setIsWaitingForResponse(true);
+      } else {
+        setIsWaitingForResponse(false);
+      }
       
       setMessages(timeline);
     } catch (error) {
       console.error('Error loading conversation messages:', error);
+      setIsWaitingForResponse(false);
     }
   };
 
@@ -740,13 +757,12 @@ function App() {
               {/* Show message if conversation needs naming */}
               {newConversationId && conversationId === newConversationId && (
                 <div className="mb-4 p-4 rounded-xl bg-brand-accent-primary/10 border border-brand-accent-primary/30 text-center">
-                  <p className="text-sm text-brand-text-primary">
-                    <span className="font-semibold">👆 Name your conversation first</span>
-                    <br />
-                    <span className="text-brand-text-muted">Click the conversation title in the sidebar to give it a name</span>
+                  <p className="text-sm text-brand-text-primary font-medium">
+                    Name your conversation...
                   </p>
                 </div>
               )}
+              
               <form onSubmit={handleSubmit} className="flex gap-4 items-end">
                 <div className="flex-1 relative">
                   <textarea
@@ -755,7 +771,9 @@ function App() {
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={
-                      newConversationId && conversationId === newConversationId
+                      isWaitingForResponse
+                        ? 'Waiting for response...'
+                        : newConversationId && conversationId === newConversationId
                         ? 'Name your conversation first...'
                         : conversationId 
                         ? 'Message Brain in Cup...' 
