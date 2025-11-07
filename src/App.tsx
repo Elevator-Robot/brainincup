@@ -12,6 +12,11 @@ interface Message {
   content: string;
   isTyping?: boolean;
   fullContent?: string; // Store the complete content when typing
+  // Additional AI response data
+  sensations?: string[];
+  thoughts?: string[];
+  memories?: string;
+  selfReflection?: string;
 }
 
 function App() {
@@ -26,6 +31,7 @@ function App() {
   const [conversationListKey, setConversationListKey] = useState(0);
   const [newConversationId, setNewConversationId] = useState<string | null>(null); // Track newly created conversation needing name
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -167,6 +173,10 @@ function App() {
               owner
               messageId
               createdAt
+              sensations
+              thoughts
+              memories
+              selfReflection
             }
           }
         `
@@ -182,6 +192,10 @@ function App() {
             owner: string;
             messageId: string;
             createdAt: string;
+            sensations?: string[];
+            thoughts?: string[];
+            memories?: string;
+            selfReflection?: string;
           };
         };
         errors?: Array<{ message: string }>;
@@ -209,7 +223,11 @@ function App() {
                   role: 'assistant' as const, 
                   content: '',
                   isTyping: true,
-                  fullContent: brainResponse.response ?? ''
+                  fullContent: brainResponse.response ?? '',
+                  sensations: brainResponse.sensations,
+                  thoughts: brainResponse.thoughts,
+                  memories: brainResponse.memories,
+                  selfReflection: brainResponse.selfReflection,
                 }];
                 
                 // Start typing animation for the newly added message
@@ -399,7 +417,14 @@ function App() {
         // Find corresponding brain response
         const response = brainResponses?.find(br => br.messageId === msg.id);
         if (response?.response) {
-          timeline.push({ role: 'assistant', content: response.response });
+          timeline.push({ 
+            role: 'assistant', 
+            content: response.response,
+            sensations: response.sensations || [],
+            thoughts: response.thoughts || [],
+            memories: response.memories || '',
+            selfReflection: response.selfReflection || '',
+          });
         } else {
           // This message has no response yet - mark as pending
           hasPendingMessage = true;
@@ -683,20 +708,99 @@ function App() {
                     </div>
                   )}
                   
-                  <div
-                    className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 backdrop-blur-sm
-                    transition-all duration-300 hover:scale-[1.02] animate-slide-up
-                    ${message.role === 'user' 
-                  ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple hover:shadow-glow-lg' 
-                  : 'glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg hover:shadow-neon-blue'
-                }`}
-                  >
-                    <p className="leading-relaxed whitespace-pre-wrap break-words">
-                      {message.content}
-                      {message.isTyping && (
-                        <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
-                      )}
-                    </p>
+                  <div className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]">
+                    <div
+                      className={`rounded-2xl px-4 py-3 backdrop-blur-sm
+                      transition-all duration-300 hover:scale-[1.02] animate-slide-up
+                      ${message.role === 'assistant' ? 'cursor-pointer' : ''}
+                      ${message.role === 'user' 
+                    ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple hover:shadow-glow-lg' 
+                    : 'glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg hover:shadow-neon-blue'
+                  }`}
+                      onClick={() => {
+                        if (message.role === 'assistant') {
+                          setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
+                        }
+                      }}
+                    >
+                      <p className="leading-relaxed whitespace-pre-wrap break-words">
+                        {message.content}
+                        {message.isTyping && (
+                          <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
+                        )}
+                      </p>
+                    </div>
+                    
+                    {/* Show additional details when expanded */}
+                    {message.role === 'assistant' && expandedMessageIndex === index && (
+                      <div className="flex flex-wrap gap-2 animate-slide-up">
+                        {/* Sensations bubble */}
+                        {message.sensations && message.sensations.length > 0 && (
+                          <div className="glass rounded-xl px-3 py-2 text-sm border border-purple-500/30 shadow-glow-sm backdrop-blur-lg">
+                            <div className="font-semibold text-purple-400 mb-1 flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              Sensations
+                            </div>
+                            <ul className="text-brand-text-muted list-disc list-inside space-y-1">
+                              {message.sensations.map((sensation, i) => (
+                                <li key={i}>{sensation}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {/* Thoughts bubble */}
+                        {message.thoughts && message.thoughts.length > 0 && (
+                          <div className="glass rounded-xl px-3 py-2 text-sm border border-blue-500/30 shadow-glow-sm backdrop-blur-lg">
+                            <div className="font-semibold text-blue-400 mb-1 flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                              </svg>
+                              Thoughts
+                            </div>
+                            <ul className="text-brand-text-muted list-disc list-inside space-y-1">
+                              {message.thoughts.map((thought, i) => (
+                                <li key={i}>{thought}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {/* Memories bubble */}
+                        {message.memories && message.memories.trim() && (
+                          <div className="glass rounded-xl px-3 py-2 text-sm border border-green-500/30 shadow-glow-sm backdrop-blur-lg">
+                            <div className="font-semibold text-green-400 mb-1 flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                              </svg>
+                              Memories
+                            </div>
+                            <p className="text-brand-text-muted">{message.memories}</p>
+                          </div>
+                        )}
+                        
+                        {/* Self Reflection bubble */}
+                        {message.selfReflection && message.selfReflection.trim() && (
+                          <div className="glass rounded-xl px-3 py-2 text-sm border border-amber-500/30 shadow-glow-sm backdrop-blur-lg">
+                            <div className="font-semibold text-amber-400 mb-1 flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Self Reflection
+                            </div>
+                            <p className="text-brand-text-muted">{message.selfReflection}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   {message.role === 'user' && (
