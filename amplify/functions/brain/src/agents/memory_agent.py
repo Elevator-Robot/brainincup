@@ -75,6 +75,10 @@ class MemoryAgent:
             conversationId
             messageId
             owner
+            sensations
+            thoughts
+            memories
+            selfReflection
           }
         }
         """

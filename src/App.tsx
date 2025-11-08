@@ -209,6 +209,10 @@ function App() {
           const brainResponse = result.data?.onCreateBrainResponse;
           if (brainResponse) {
             console.log('Extracted brain response:', brainResponse);
+            console.log('Sensations:', brainResponse.sensations);
+            console.log('Thoughts:', brainResponse.thoughts);
+            console.log('Memories:', brainResponse.memories);
+            console.log('Self Reflection:', brainResponse.selfReflection);
             console.log('Current conversation ID:', conversationId);
             console.log('Response conversation ID:', brainResponse.conversationId);
             console.log('Response owner:', brainResponse.owner);
@@ -216,6 +220,7 @@ function App() {
             // Check if this response is for our conversation
             if (brainResponse.conversationId === conversationId) {
               console.log('✅ MATCH: Starting typing animation for response:', brainResponse.response);
+              console.log('✅ MATCH: Including metadata - sensations:', brainResponse.sensations, 'thoughts:', brainResponse.thoughts);
               
               // Add empty assistant message to start typing animation
               setMessages(prev => {
@@ -224,11 +229,13 @@ function App() {
                   content: '',
                   isTyping: true,
                   fullContent: brainResponse.response ?? '',
-                  sensations: brainResponse.sensations,
-                  thoughts: brainResponse.thoughts,
-                  memories: brainResponse.memories,
-                  selfReflection: brainResponse.selfReflection,
+                  sensations: brainResponse.sensations?.filter((s): s is string => s !== null) || [],
+                  thoughts: brainResponse.thoughts?.filter((t): t is string => t !== null) || [],
+                  memories: brainResponse.memories || '',
+                  selfReflection: brainResponse.selfReflection || '',
                 }];
+                
+                console.log('Message being added:', newMessages[newMessages.length - 1]);
                 
                 // Start typing animation for the newly added message
                 const messageIndex = newMessages.length - 1;
@@ -270,17 +277,35 @@ function App() {
 
     let currentIndex = 0;
     const typingSpeed = 30; // Characters per second
+    let loggedOnce = false; // Only log once to avoid spam
 
     const typeNextCharacter = () => {
       if (currentIndex < fullText.length) {
         setMessages(prev => {
           const updatedMessages = [...prev];
           if (updatedMessages[messageIndex]) {
+            // Log once to see what we're preserving
+            if (!loggedOnce && currentIndex === 0) {
+              console.log('Typing animation - preserving fields:', {
+                sensations: updatedMessages[messageIndex].sensations,
+                thoughts: updatedMessages[messageIndex].thoughts,
+                memories: updatedMessages[messageIndex].memories,
+                selfReflection: updatedMessages[messageIndex].selfReflection,
+              });
+              loggedOnce = true;
+            }
+            
+            // Preserve all existing fields when updating content
             updatedMessages[messageIndex] = {
               ...updatedMessages[messageIndex],
               content: fullText.substring(0, currentIndex + 1),
               isTyping: true,
-              fullContent: fullText
+              fullContent: fullText,
+              // Keep the additional fields from the original message
+              sensations: updatedMessages[messageIndex].sensations,
+              thoughts: updatedMessages[messageIndex].thoughts,
+              memories: updatedMessages[messageIndex].memories,
+              selfReflection: updatedMessages[messageIndex].selfReflection,
             };
           }
           return updatedMessages;
@@ -291,11 +316,24 @@ function App() {
         setMessages(prev => {
           const updatedMessages = [...prev];
           if (updatedMessages[messageIndex]) {
+            console.log('Typing animation complete - final message:', {
+              sensations: updatedMessages[messageIndex].sensations,
+              thoughts: updatedMessages[messageIndex].thoughts,
+              memories: updatedMessages[messageIndex].memories,
+              selfReflection: updatedMessages[messageIndex].selfReflection,
+            });
+            
+            // Preserve all existing fields when marking typing complete
             updatedMessages[messageIndex] = {
               ...updatedMessages[messageIndex],
               content: fullText,
               isTyping: false,
-              fullContent: fullText
+              fullContent: fullText,
+              // Keep the additional fields from the original message
+              sensations: updatedMessages[messageIndex].sensations,
+              thoughts: updatedMessages[messageIndex].thoughts,
+              memories: updatedMessages[messageIndex].memories,
+              selfReflection: updatedMessages[messageIndex].selfReflection,
             };
           }
           return updatedMessages;
@@ -420,8 +458,8 @@ function App() {
           timeline.push({ 
             role: 'assistant', 
             content: response.response,
-            sensations: response.sensations || [],
-            thoughts: response.thoughts || [],
+            sensations: response.sensations?.filter((s): s is string => s !== null) || [],
+            thoughts: response.thoughts?.filter((t): t is string => t !== null) || [],
             memories: response.memories || '',
             selfReflection: response.selfReflection || '',
           });
