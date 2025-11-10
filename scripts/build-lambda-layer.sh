@@ -1,0 +1,1 @@
+../amplify/functions/brain/build-layer.sh

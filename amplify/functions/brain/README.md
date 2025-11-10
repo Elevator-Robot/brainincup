@@ -2,6 +2,20 @@
 
 This Lambda function processes user input through 6 AI agents to simulate consciousness.
 
+## Quick Start
+
+**From project root:**
+```bash
+./scripts/build-lambda-layer.sh
+```
+
+**From this directory:**
+```bash
+./build-layer.sh
+```
+
+Both commands do the same thing - the root script is a convenient symlink.
+
 ## Architecture
 - **Runtime**: Python 3.12
 - **Dependencies**: LangChain, AWS Bedrock, Pydantic
