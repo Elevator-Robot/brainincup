@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react';
 import { fetchUserAttributes, signOut } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
-import Footer from './components/Footer';
 import ConversationList from './components/ConversationList';
 
 const dataClient = generateClient<Schema>();
@@ -603,89 +602,207 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden relative">
-      {/* Fixed Hamburger Menu Button - stays in corner */}
-      <button
-        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="fixed top-4 left-4 z-50 p-3 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
-        transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 shadow-glass"
-        aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-      >
-        <div className="w-6 h-6 flex flex-col justify-center items-center">
-          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-            isSidebarOpen ? 'rotate-45 translate-y-1' : '-translate-y-0.5'
-          }`}></span>
-          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-            isSidebarOpen ? 'opacity-0' : 'opacity-100'
-          }`}></span>
-          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-            isSidebarOpen ? '-rotate-45 -translate-y-1' : 'translate-y-0.5'
-          }`}></span>
-        </div>
-      </button>
-
-      {/* Enhanced Sidebar with glass morphism - now push style */}
-      <aside
-        className={`
-          h-full flex-shrink-0 transform transition-all duration-300 ease-in-out z-40
-          ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full'}
-        `}
-        aria-label="Conversation list sidebar"
-        role="complementary"
-      >
-        <div className={`flex flex-col h-full glass backdrop-blur-xl border-r border-brand-surface-border shadow-glass-lg w-80 transition-opacity duration-300 ${
-          isSidebarOpen ? 'opacity-100' : 'opacity-0'
-        }`}>
-          {/* Sidebar Header with enhanced styling */}
-          <div className="flex items-center justify-between p-6 pt-20 border-b border-brand-surface-border">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm animate-float">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
-                Brain in Cup
-              </h1>
+    <div className="h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden relative">
+      {/* Mobile: Top Navigation Bar with Menu Button */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 glass backdrop-blur-xl border-b border-brand-surface-border">
+        <div className="flex items-center justify-between p-4">
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
+            transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50"
+            aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
+          >
+            <div className="w-6 h-6 flex flex-col justify-center items-center">
+              <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+                isSidebarOpen ? 'rotate-45 translate-y-1' : '-translate-y-0.5'
+              }`}></span>
+              <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+                isSidebarOpen ? 'opacity-0' : 'opacity-100'
+              }`}></span>
+              <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+                isSidebarOpen ? '-rotate-45 -translate-y-1' : 'translate-y-0.5'
+              }`}></span>
             </div>
-            <button
-              onClick={handleSignOut}
-              className="p-2 rounded-lg text-brand-text-muted hover:text-brand-text-primary transition-colors duration-200 hover:bg-brand-surface-hover/20"
-              title="Sign out"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          </button>
+          
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-gradient-mesh flex items-center justify-center shadow-glow-sm">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
-            </button>
+            </div>
+            <h1 className="text-lg font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
+              Brain in Cup
+            </h1>
           </div>
-
-          {/* Conversation List with enhanced styling */}
-          <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-surface-tertiary" aria-label="Conversations">
-            <ConversationList 
-              onSelectConversation={handleSelectConversation}
-              onNewConversation={handleNewConversation}
-              onDeleteConversation={handleDeleteConversation}
-              onConversationNamed={handleConversationNamed}
-              selectedConversationId={conversationId}
-              refreshKey={conversationListKey}
-              newConversationId={newConversationId}
-            />
-          </nav>
+          
+          {/* Spacer to keep title centered */}
+          <div className="w-10 h-10"></div>
         </div>
-      </aside>
+      </div>
 
-      {/* Main Content Area with improved layout */}
-      <main 
-        className="flex-1 flex flex-col min-w-0 overflow-hidden"
-        onClick={() => {
-          // Close sidebar when clicking anywhere in the main chat area
-          if (isSidebarOpen) {
-            setIsSidebarOpen(false);
-          }
-        }}
+      {/* Mobile: Full-screen Overlay Menu */}
+      <div
+        className={`lg:hidden fixed inset-0 z-50 transition-all duration-300 ${
+          isSidebarOpen ? 'pointer-events-auto' : 'pointer-events-none'
+        }`}
       >
+        {/* Backdrop */}
+        <div
+          className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${
+            isSidebarOpen ? 'opacity-100' : 'opacity-0'
+          }`}
+          onClick={() => setIsSidebarOpen(false)}
+        />
+        
+        {/* Mobile Menu Panel */}
+        <div
+          className={`absolute top-0 left-0 right-0 bottom-0 glass backdrop-blur-2xl transform transition-all duration-300 ease-out ${
+            isSidebarOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+          }`}
+        >
+          <div className="flex flex-col h-full">
+            {/* Mobile Menu Header */}
+            <div className="flex items-center justify-between p-4 border-b border-brand-surface-border">
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary transition-all duration-200"
+                aria-label="Close menu"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <h2 className="text-xl font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
+                Conversations
+              </h2>
+              <div className="w-10 h-10"></div> {/* Spacer for centering */}
+            </div>
+
+            {/* Mobile Menu Content */}
+            <nav className="flex-1 overflow-y-auto" aria-label="Conversations">
+              <ConversationList 
+                onSelectConversation={(id) => {
+                  handleSelectConversation(id);
+                  setIsSidebarOpen(false); // Close menu after selection on mobile
+                }}
+                onNewConversation={() => {
+                  handleNewConversation();
+                  setIsSidebarOpen(false); // Close menu after creating new conversation
+                }}
+                onDeleteConversation={handleDeleteConversation}
+                onConversationNamed={handleConversationNamed}
+                selectedConversationId={conversationId}
+                refreshKey={conversationListKey}
+                newConversationId={newConversationId}
+              />
+            </nav>
+
+            {/* Mobile Menu Footer with Sign Out */}
+            <div className="border-t border-brand-surface-border p-4">
+              <button
+                onClick={() => {
+                  handleSignOut();
+                  setIsSidebarOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl glass-hover
+                text-brand-text-muted hover:text-brand-text-primary transition-all duration-200
+                hover:bg-brand-surface-hover/20"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="font-medium">Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop: Sidebar with Hamburger Button */}
+      <div className="hidden lg:flex h-full">
+        {/* Desktop Hamburger Button */}
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="fixed top-4 left-4 z-50 p-3 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
+          transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 shadow-glass"
+          aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+        >
+          <div className="w-6 h-6 flex flex-col justify-center items-center">
+            <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+              isSidebarOpen ? 'rotate-45 translate-y-1' : '-translate-y-0.5'
+            }`}></span>
+            <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+              isSidebarOpen ? 'opacity-0' : 'opacity-100'
+            }`}></span>
+            <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+              isSidebarOpen ? '-rotate-45 -translate-y-1' : 'translate-y-0.5'
+            }`}></span>
+          </div>
+        </button>
+
+        {/* Desktop Sidebar */}
+        <aside
+          className={`h-full flex-shrink-0 transform transition-all duration-300 ease-in-out z-40
+            ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full'}`}
+          aria-label="Conversation list sidebar"
+          role="complementary"
+        >
+          <div className={`flex flex-col h-full glass backdrop-blur-xl border-r border-brand-surface-border shadow-glass-lg w-80 transition-opacity duration-300 ${
+            isSidebarOpen ? 'opacity-100' : 'opacity-0'
+          }`}>
+            {/* Desktop Sidebar Header */}
+            <div className="flex items-center justify-between p-6 pt-20 border-b border-brand-surface-border">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm animate-float">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
+                  Brain in Cup
+                </h1>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="p-2 rounded-lg text-brand-text-muted hover:text-brand-text-primary transition-colors duration-200 hover:bg-brand-surface-hover/20"
+                title="Sign out"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Desktop Conversation List */}
+            <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-surface-tertiary" aria-label="Conversations">
+              <ConversationList 
+                onSelectConversation={handleSelectConversation}
+                onNewConversation={handleNewConversation}
+                onDeleteConversation={handleDeleteConversation}
+                onConversationNamed={handleConversationNamed}
+                selectedConversationId={conversationId}
+                refreshKey={conversationListKey}
+                newConversationId={newConversationId}
+              />
+            </nav>
+          </div>
+        </aside>
+
+        {/* Main Content Area - Desktop */}
+        <main 
+          className="flex-1 flex flex-col min-w-0 overflow-hidden"
+          onClick={() => {
+            // Close sidebar when clicking in main area on desktop
+            if (isSidebarOpen) {
+              setIsSidebarOpen(false);
+            }
+          }}
+        >
         {/* Screen reader live region for message updates */}
         <div
           aria-live="polite"
@@ -1008,12 +1125,271 @@ function App() {
           </div>
         </div>
 
-        {/* Enhanced Footer with glass morphism */}
-        <div className="glass backdrop-blur-xl border-t border-brand-surface-border px-6 py-3">
-          <div className="max-w-4xl mx-auto text-center text-xs text-brand-text-muted">
-            <Footer />
+        </main>
+      </div>
+
+      {/* Mobile: Main Content Area */}
+      <main className="lg:hidden flex flex-col h-full pt-16">
+        {/* Screen reader live region for message updates */}
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+        >
+          {isWaitingForResponse && 'AI is thinking...'}
+          {messages.length > 0 && `Conversation has ${messages.length} messages`}
+        </div>
+
+        {/* Enhanced Chat Area with glass morphism design */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Messages with improved styling and animations */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-brand-surface-tertiary">
+            <div className="max-w-4xl mx-auto space-y-4">
+              {messages.length === 0 && !isLoading && conversationId && (
+                <div className="flex justify-center items-center h-full min-h-[200px]">
+                  <div className="text-center px-4">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full 
+                    flex items-center justify-center shadow-lg">
+                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                    </div>
+                    <p className="text-slate-300 text-base">
+                      Start your conversation
+                    </p>
+                    <p className="text-slate-500 text-sm mt-2">
+                      Ask anything - I'm here to help!
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {isLoading && (
+                <div className="flex justify-center items-center h-full min-h-[200px]">
+                  <div className="text-slate-400 flex items-center gap-2">
+                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+                    Loading...
+                  </div>
+                </div>
+              )}
+              
+              {messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {message.role === 'assistant' && (
+                    <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                    </div>
+                  )}
+                  
+                  <div className="flex flex-col gap-2 max-w-[85%]">
+                    <div
+                      className={`rounded-2xl px-4 py-3 backdrop-blur-sm
+                      transition-all duration-300 hover:scale-[1.02] animate-slide-up
+                      ${message.role === 'assistant' ? 'cursor-pointer' : ''}
+                      ${message.role === 'user' 
+                    ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple' 
+                    : 'glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg'
+                  }`}
+                      onClick={() => {
+                        if (message.role === 'assistant') {
+                          setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
+                        }
+                      }}
+                    >
+                      <p className="leading-relaxed whitespace-pre-wrap break-words text-sm">
+                        {message.content}
+                        {message.isTyping && (
+                          <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
+                        )}
+                      </p>
+                    </div>
+                    
+                    {/* Show additional details when expanded */}
+                    {message.role === 'assistant' && expandedMessageIndex === index && (
+                      <div className="flex flex-wrap gap-2 animate-slide-up">
+                        {/* Sensations bubble */}
+                        {message.sensations && message.sensations.length > 0 && (
+                          <div className="glass rounded-xl px-3 py-2 text-xs border border-purple-500/30 shadow-glow-sm backdrop-blur-lg">
+                            <div className="font-semibold text-purple-400 mb-1 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              Sensations
+                            </div>
+                            <ul className="text-brand-text-muted list-disc list-inside space-y-1">
+                              {message.sensations.map((sensation, i) => (
+                                <li key={i}>{sensation}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {/* Thoughts bubble */}
+                        {message.thoughts && message.thoughts.length > 0 && (
+                          <div className="glass rounded-xl px-3 py-2 text-xs border border-blue-500/30 shadow-glow-sm backdrop-blur-lg">
+                            <div className="font-semibold text-blue-400 mb-1 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                              </svg>
+                              Thoughts
+                            </div>
+                            <ul className="text-brand-text-muted list-disc list-inside space-y-1">
+                              {message.thoughts.map((thought, i) => (
+                                <li key={i}>{thought}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {/* Memories bubble */}
+                        {message.memories && message.memories.trim() && (
+                          <div className="glass rounded-xl px-3 py-2 text-xs border border-green-500/30 shadow-glow-sm backdrop-blur-lg">
+                            <div className="font-semibold text-green-400 mb-1 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                              </svg>
+                              Memories
+                            </div>
+                            <p className="text-brand-text-muted">{message.memories}</p>
+                          </div>
+                        )}
+                        
+                        {/* Self Reflection bubble */}
+                        {message.selfReflection && message.selfReflection.trim() && (
+                          <div className="glass rounded-xl px-3 py-2 text-xs border border-amber-500/30 shadow-glow-sm backdrop-blur-lg">
+                            <div className="font-semibold text-amber-400 mb-1 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Self Reflection
+                            </div>
+                            <p className="text-brand-text-muted">{message.selfReflection}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {message.role === 'user' && (
+                    <div className="w-8 h-8 rounded-xl glass flex items-center justify-center flex-shrink-0 mt-1 border border-brand-surface-border shadow-glass">
+                      <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {isWaitingForResponse && (
+                <div className="flex gap-3 justify-start animate-slide-up">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-neon-purple animate-glow-pulse">
+                    <svg className="w-4 h-4 text-white animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-neon-blue backdrop-blur-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
+                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
+                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
+                      </div>
+                      <span className="text-sm text-brand-text-muted">Brain is thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Invisible element to scroll to */}
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* Mobile Input Area */}
+          <div className="p-4 pb-safe">
+            <div className="max-w-4xl mx-auto">
+              {/* Show message if conversation needs naming */}
+              {newConversationId && conversationId === newConversationId && (
+                <div className="mb-3 p-3 rounded-2xl bg-brand-accent-primary/10 border border-brand-accent-primary/30 text-center backdrop-blur-xl">
+                  <p className="text-xs text-brand-text-primary font-medium">
+                    Name your conversation...
+                  </p>
+                </div>
+              )}
+              
+              <form onSubmit={handleSubmit} className="relative">
+                <div 
+                  className="glass border border-brand-surface-border rounded-2xl p-3 backdrop-blur-2xl 
+                  transition-all duration-300 hover:shadow-glow-lg hover:border-brand-accent-primary/30"
+                  onClick={() => inputRef.current?.focus()}
+                >
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 relative">
+                      <textarea
+                        ref={inputRef}
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder={
+                          isWaitingForResponse
+                            ? 'Waiting...'
+                            : newConversationId && conversationId === newConversationId
+                            ? 'Name conversation first...'
+                            : 'Message Brain in Cup...'
+                        }
+                        className="w-full min-h-[44px] max-h-32 py-2 px-1 resize-none
+                        bg-transparent text-brand-text-primary placeholder-brand-text-muted
+                        border-0 focus:outline-none focus:ring-0 text-sm
+                        disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isWaitingForResponse || (newConversationId === conversationId)}
+                        rows={1}
+                        style={{ height: 'auto', minHeight: '44px' }}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className={`p-3 rounded-xl transition-all duration-300 focus:outline-none transform flex-shrink-0
+                      ${!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)
+          ? 'glass text-brand-text-muted cursor-not-allowed opacity-40' 
+          : 'bg-gradient-mesh text-white shadow-glow-purple hover:shadow-neon-purple hover:scale-110 active:scale-95'
+        }`}
+                      disabled={!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)}
+                    >
+                      {isWaitingForResponse ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
+
       </main>
     </div>
   );
