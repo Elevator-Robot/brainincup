@@ -28,26 +28,30 @@ The authentication configuration now automatically provides default values for e
 Before deploying for the first time, you **must** build the Lambda layer containing Python dependencies:
 
 ```bash
-./build-layer.sh
+./scripts/build-lambda-layer.sh
 ```
 
 **What it does:**
-- Uses Docker to build dependencies compatible with AWS Lambda (Amazon Linux 2)
+- Builds dependencies compatible with AWS Lambda (Linux x86_64, Python 3.12)
+- Uses Docker if available, falls back to pip with platform flags
 - Installs packages from `amplify/functions/brain/layer/requirements.txt`
-- Optimizes layer size by removing test files, caches, and debug symbols
+- Compiles native extensions (pydantic_core) for the correct platform
 - Creates the `amplify/functions/brain/layer/python/` directory
 
 **Requirements:**
-- Docker must be installed and running
-- Script must be run from the project root directory
+- Docker (recommended) OR Python 3.12 with pip
+- Internet connection
+- Script can be run from project root or function directory
 
 **When to rebuild:**
 - Before first deployment
 - After updating `requirements.txt`
-- When dependency versions change
+- When Lambda import errors occur (e.g., "No module named 'pydantic_core._pydantic_core'")
+- When switching between development machines (macOS ↔ Linux)
 
 **Troubleshooting:**
-- If deployment fails with "Unable to import module 'handler'" error, rebuild the layer
+- See `scripts/README.md` for detailed documentation
+- See `amplify/functions/brain/README.md` for function-specific details
 - If you see import errors for langchain or aws_lambda_powertools, rebuild the layer
 - Make sure Docker is running before executing the script
 

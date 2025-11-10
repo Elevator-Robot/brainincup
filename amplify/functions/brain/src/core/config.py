@@ -1,7 +1,7 @@
 import os
+import json
 from langchain_aws import ChatBedrock
-from langchain.prompts import PromptTemplate
-from langchain.output_parsers import StructuredOutputParser, ResponseSchema
+from langchain_core.prompts import PromptTemplate
 
 
 def setup_llm():
@@ -47,32 +47,14 @@ Assistant:
     )
     return prompt_template
 
+class SimpleJSONParser:
+    """Simple JSON parser for backwards compatibility."""
+    
+    def parse(self, text):
+        """Parse JSON from text"""
+        return json.loads(text)
+
 
 def setup_parser():
-    # Define the expected JSON schema
-    response_schemas = [
-        ResponseSchema(
-            name="sensations",
-            description="A list of strings describing the physical sensations experienced by the brain",
-            type="List[string]",
-        ),
-        ResponseSchema(
-            name="thoughts",
-            description="A list of strings representing the brain's current thoughts and mental state",
-            type="List[string]",
-        ),
-        ResponseSchema(
-            name="memories",
-            description="A string describing any memories the brain is accessing, even if vague or uncertain",
-            type="string",
-        ),
-        ResponseSchema(
-            name="self_reflection",
-            description="A string of the brain's reflection on its own existence and consciousness",
-            type="string",
-        ),
-    ]
-
-    # Initialize parser
-    parser = StructuredOutputParser.from_response_schemas(response_schemas)
-    return parser
+    """Returns a simple JSON parser"""
+    return SimpleJSONParser()

@@ -114,22 +114,24 @@ erDiagram
 
 4. **Build Lambda layer dependencies**
    
-   The Lambda function requires Python dependencies packaged in a layer. Build it before first deployment:
+   The Lambda function requires Python dependencies with native extensions built for Linux. Build the layer before first deployment:
    ```bash
-   chmod +x build-layer.sh  # Make executable (first time only)
-   ./build-layer.sh
+   ./scripts/build-lambda-layer.sh
    ```
    
    **Requirements:**
-   - Docker must be installed and running
-   - Script builds dependencies for Amazon Linux 2 (Lambda runtime)
-   - Optimizes layer size by removing unnecessary files and stripping debug symbols
+   - Docker (recommended) OR Python 3.12 with pip
+   - Script automatically uses Docker if available, falls back to pip otherwise
+   - Builds dependencies for Amazon Linux 2 (Lambda Python 3.12 runtime)
    
    **Note:** Re-run this script whenever you update `amplify/functions/brain/layer/requirements.txt`
    
    **What gets built:**
    - Python dependencies: langchain, langchain-aws, aws-lambda-powertools, pydantic
+   - Native binaries (pydantic_core) compiled for Linux x86_64
    - Output location: `amplify/functions/brain/layer/python/` (auto-ignored by git)
+   
+   See `scripts/README.md` for detailed documentation.
 
 5. **Deploy backend (first time)**
    
@@ -221,30 +223,24 @@ Message returned: Failed to retrieve backend secret 'FACEBOOK_CLIENT_ID' for 'br
    npx ampx sandbox secret set FACEBOOK_CLIENT_SECRET
    ```
 
-**Issue: build-layer.sh fails with "permission denied"**
+**Issue: Lambda function fails with module import errors (e.g., pydantic_core)**
+
+**Cause:** Layer was built for wrong platform (macOS instead of Linux)
 
 **Solution:**
+Rebuild the layer with the correct platform dependencies:
 ```bash
-chmod +x build-layer.sh
-./build-layer.sh
+./scripts/build-lambda-layer.sh
+npx ampx sandbox --profile brain
 ```
 
 **Issue: build-layer.sh fails with Docker errors**
 
 **Solution:**
-1. Ensure Docker Desktop is installed and running
-2. Check Docker daemon: `docker ps`
-3. For M1/M2 Macs, ensure `--platform linux/amd64` flag is working (already in script)
-4. If Docker is slow, consider increasing memory allocation in Docker Desktop settings
-
-**Issue: Lambda function fails with import errors**
-
-**Solution:**
-Rebuild the layer - dependencies may be out of sync:
-```bash
-./build-layer.sh
-npx ampx sandbox
-```
+1. Script will automatically fall back to pip if Docker is unavailable
+2. For Docker: Ensure Docker Desktop is running (`docker ps`)
+3. Or start Docker Desktop and re-run the script
+4. The pip fallback works for most dependencies including pydantic_core
 
 **Issue: Deployment fails in CI/CD**
 
@@ -266,13 +262,20 @@ Standard AWS Amplify deployment process:
 │   ├── auth/               # Cognito authentication
 │   ├── data/               # GraphQL schema & DynamoDB
 │   ├── functions/brain/    # Lambda function for AI processing
+│   │   ├── src/            # Lambda handler & agent code
+│   │   ├── layer/          # Python dependencies (built, not in git)
+│   │   ├── build-layer.sh  # Script to build Lambda layer
+│   │   └── README.md       # Function-specific documentation
 │   └── backend.ts          # Backend configuration
 ├── public/                 # Static assets & PWA manifest
+├── scripts/                # Utility scripts
+│   ├── README.md           # Script documentation
+│   └── build-lambda-layer.sh  # Symlink to Lambda layer build script
 ├── src/
 │   ├── components/         # React components
 │   ├── App.tsx            # Main application component
 │   └── main.tsx           # Application entry point
-└── .amazonq/rules/        # Development guidelines
+└── .github/                # GitHub workflows & Copilot instructions
 ```
 
 ## 📱 PWA Features
