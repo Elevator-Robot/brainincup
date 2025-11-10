@@ -123,16 +123,7 @@ function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // ESC closes sidebar
-      if (e.key === 'Escape' && isSidebarOpen) {
-        setIsSidebarOpen(false);
-      }
-      // Ctrl/Cmd + K focuses composer
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        inputRef.current?.focus();
-      }
-      // Ctrl/Cmd + D toggles debug info
+      // Ctrl/Cmd + D toggles debug info (dev only)
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
         setShowDebugInfo(prev => !prev);
@@ -141,7 +132,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSidebarOpen]);
+  }, []);
 
   // Cleanup typing animation when conversation changes or component unmounts
   useEffect(() => {
@@ -1088,15 +1079,6 @@ function App() {
                           target.style.height = Math.min(target.scrollHeight, 128) + 'px';
                         }}
                       />
-                      <div 
-                        className="absolute bottom-1 left-1 text-xs text-brand-text-muted/60 pointer-events-none"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          inputRef.current?.focus();
-                        }}
-                      >
-                        <kbd className="px-1.5 py-0.5 text-xs font-semibold text-brand-text-muted bg-brand-surface-secondary rounded">Enter</kbd> to send • <kbd className="px-1.5 py-0.5 text-xs font-semibold text-brand-text-muted bg-brand-surface-secondary rounded">Shift+Enter</kbd> for new line
-                      </div>
                     </div>
                     <button
                       type="submit"
@@ -1118,9 +1100,6 @@ function App() {
                   </div>
                 </div>
               </form>
-              <div className="mt-3 text-xs text-brand-text-muted text-center">
-                Press Ctrl+K to focus • Ctrl+D for debug • ESC to close sidebar
-              </div>
             </div>
           </div>
         </div>
