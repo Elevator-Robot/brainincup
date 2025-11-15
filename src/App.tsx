@@ -3,6 +3,7 @@ import { fetchUserAttributes, signOut } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
 import ConversationList from './components/ConversationList';
+import BrainIcon from './components/BrainIcon';
 
 const dataClient = generateClient<Schema>();
 
@@ -618,10 +619,7 @@ function App() {
           
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-gradient-mesh flex items-center justify-center shadow-glow-sm">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
+              <BrainIcon className="w-5 h-5" />
             </div>
             <h1 className="text-lg font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
               Brain in Cup
@@ -748,10 +746,7 @@ function App() {
             <div className="flex items-center justify-between p-6 pt-20 border-b border-brand-surface-border">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm animate-float">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
+                  <BrainIcon className="w-5 h-5 text-white" />
                 </div>
                 <h1 className="text-xl font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
                   Brain in Cup
@@ -847,10 +842,7 @@ function App() {
                 >
                   {message.role === 'assistant' && (
                     <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm animate-float">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                      </svg>
+                      <BrainIcon className="w-4 h-4 text-white" />
                     </div>
                   )}
                   
@@ -904,10 +896,7 @@ function App() {
                         {message.thoughts && message.thoughts.length > 0 && (
                           <div className="glass rounded-xl px-3 py-2 text-sm border border-blue-500/30 shadow-glow-sm backdrop-blur-lg">
                             <div className="font-semibold text-blue-400 mb-1 flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                              </svg>
+                              <BrainIcon className="w-4 h-4" />
                               Thoughts
                             </div>
                             <ul className="text-brand-text-muted list-disc list-inside space-y-1">
@@ -963,10 +952,7 @@ function App() {
               {isWaitingForResponse && (
                 <div className="flex gap-4 justify-start animate-slide-up">
                   <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-neon-purple animate-glow-pulse">
-                    <svg className="w-4 h-4 text-white animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
+                    <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
                   </div>
                   <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-neon-blue backdrop-blur-lg">
                     <div className="flex items-center gap-2">
@@ -1160,10 +1146,7 @@ function App() {
                 >
                   {message.role === 'assistant' && (
                     <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                      </svg>
+                      <BrainIcon className="w-4 h-4 text-white" />
                     </div>
                   )}
                   
@@ -1217,10 +1200,7 @@ function App() {
                         {message.thoughts && message.thoughts.length > 0 && (
                           <div className="glass rounded-xl px-3 py-2 text-xs border border-blue-500/30 shadow-glow-sm backdrop-blur-lg">
                             <div className="font-semibold text-blue-400 mb-1 flex items-center gap-1">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                              </svg>
+                              <BrainIcon className="w-3 h-3" />
                               Thoughts
                             </div>
                             <ul className="text-brand-text-muted list-disc list-inside space-y-1">
@@ -1276,10 +1256,7 @@ function App() {
               {isWaitingForResponse && (
                 <div className="flex gap-3 justify-start animate-slide-up">
                   <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-neon-purple animate-glow-pulse">
-                    <svg className="w-4 h-4 text-white animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
+                    <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
                   </div>
                   <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-neon-blue backdrop-blur-lg">
                     <div className="flex items-center gap-2">
