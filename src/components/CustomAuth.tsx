@@ -171,10 +171,10 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
             <BrainIcon className="w-12 h-12" />
           </div>
           <h1 className="text-2xl font-bold text-brand-text-primary mb-2">
-            Welcome to Brain in Cup
+            Log in or sign up
           </h1>
           <p className="text-brand-text-secondary text-sm">
-            Log in or sign up to start your AI conversation
+            Create conversations, browse history, and receive no promotional emails.
           </p>
         </div>
 
