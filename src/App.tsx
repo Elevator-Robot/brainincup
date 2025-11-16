@@ -121,6 +121,16 @@ function App() {
     }
   }, [messages]);
 
+  // Auto-scroll to bottom when expanded message details change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      // Small delay to let the expansion animation complete
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [expandedMessageIndex]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -804,8 +814,11 @@ function App() {
         {/* Enhanced Chat Area with glass morphism design */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Messages with improved styling and animations */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary">
-            <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col-reverse">
+            <div className="max-w-4xl mx-auto space-y-6 flex flex-col">
+              {/* Invisible element to scroll to - at the bottom in reversed layout */}
+              <div ref={messagesEndRef} />
+              
               {messages.length === 0 && !isLoading && conversationId && (
                 <div className="flex justify-center items-center h-full min-h-[200px]">
                   <div className="text-center">
@@ -979,9 +992,6 @@ function App() {
                   </div>
                 </div>
               )}
-              
-              {/* Invisible element to scroll to */}
-              <div ref={messagesEndRef} />
             </div>
           </div>
 
@@ -1108,8 +1118,11 @@ function App() {
         {/* Enhanced Chat Area with glass morphism design */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Messages with improved styling and animations */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-brand-surface-tertiary">
-            <div className="max-w-4xl mx-auto space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col-reverse">
+            <div className="max-w-4xl mx-auto space-y-4 flex flex-col">
+              {/* Invisible element to scroll to - at the bottom in reversed layout */}
+              <div ref={messagesEndRef} />
+              
               {messages.length === 0 && !isLoading && conversationId && (
                 <div className="flex justify-center items-center h-full min-h-[200px]">
                   <div className="text-center px-4">
@@ -1270,9 +1283,6 @@ function App() {
                   </div>
                 </div>
               )}
-              
-              {/* Invisible element to scroll to */}
-              <div ref={messagesEndRef} />
             </div>
           </div>
 
