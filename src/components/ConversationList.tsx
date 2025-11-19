@@ -325,148 +325,171 @@ export default function ConversationList({ onSelectConversation, onNewConversati
             const dateText = formatDate((conversation.updatedAt || conversation.createdAt) || undefined);
             const conversationTitle = conversation.title || (conversation.id === newConversationId ? '' : 'Untitled Conversation');
             const isEditing = editingId === conversation.id;
+            const isDeleting = deleteConfirmId === conversation.id;
             
             return (
-              <button
+              <div
                 key={conversation.id}
-                onClick={() => conversation.id && onSelectConversation(conversation.id)}
-                className={`w-full rounded-2xl transition-all duration-200 group relative overflow-hidden animate-slide-up
-                text-left focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50
+                className={`w-full rounded-2xl transition-all duration-200 relative overflow-hidden animate-slide-up
                 ${selectedConversationId === conversation.id 
                 ? 'bg-gradient-to-r from-brand-accent-primary/20 to-brand-accent-secondary/10 border border-brand-accent-primary/50 shadow-glow-sm' 
                 : 'glass hover:border-brand-accent-primary/30 hover:bg-brand-surface-hover'
               }`}
               >
-                <div className="flex items-center p-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 min-w-0">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            onBlur={() => {
-                              // For new conversations, don't auto-save on blur - require explicit save
-                              if (!isNewConversation) {
-                                handleTitleSave(conversation.id!);
-                              }
-                            }}
-                            onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
-                            onFocus={(e) => e.target.select()}
-                            className="w-full glass text-brand-text-primary text-sm font-medium rounded-xl px-3 py-2 
-                            border border-brand-accent-primary/50 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 
-                            backdrop-blur-sm"
-                            autoFocus
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : (
-                          <div
-                            className={`font-medium text-sm truncate mb-1 px-3 py-2 transition-colors rounded-xl ${
-                              selectedConversationId === conversation.id 
-                                ? 'text-brand-text-primary' 
-                                : 'text-brand-text-secondary group-hover:text-brand-text-primary'
-                            }`}
-                          >
-                            {conversationTitle}
-                          </div>
-                        )}
-                        {dateText && (
-                          <div className="text-xs text-brand-text-muted group-hover:text-brand-text-secondary px-3">
-                            {dateText}
-                          </div>
-                        )}
-                      </div>
-                      {selectedConversationId === conversation.id && (
-                        <div className="text-brand-accent-primary text-sm ml-3 flex-shrink-0">
-                          <div className="w-2 h-2 bg-brand-accent-primary rounded-full animate-pulse"></div>
-                        </div>
-                      )}
+                {isEditing ? (
+                  /* Editing Mode - Full focus on the input */
+                  <div className="p-4">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
+                        onFocus={(e) => e.target.select()}
+                        placeholder={isNewConversation ? "Name your conversation..." : "Conversation name"}
+                        className="flex-1 glass text-brand-text-primary text-sm font-medium rounded-xl px-4 py-3
+                        border-2 border-brand-accent-primary/50 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 
+                        focus:border-brand-accent-primary backdrop-blur-sm transition-all duration-200"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => handleTitleSave(conversation.id!)}
+                        className="flex-1 px-4 py-2.5 text-sm font-medium text-white
+                        bg-brand-accent-primary hover:bg-brand-accent-primary/90 rounded-xl 
+                        transition-all duration-200 active:scale-95
+                        focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50
+                        disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isNewConversation && !editingTitle.trim()}
+                      >
+                        {isNewConversation ? 'Create' : 'Save'}
+                      </button>
+                      <button
+                        onClick={() => handleTitleCancel(conversation.id || undefined)}
+                        className="px-4 py-2.5 text-sm font-medium text-brand-text-muted
+                        glass-hover hover:text-brand-text-primary rounded-xl 
+                        transition-all duration-200 active:scale-95
+                        focus:outline-none focus:ring-2 focus:ring-brand-surface-border"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
-                  
-                  {/* Edit and Delete buttons - shown on hover for better UX */}
-                  {!isEditing && (
-                    <div className="flex items-center gap-1 ml-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleTitleEdit(conversation.id!, conversationTitle);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-2 rounded-xl glass-hover transition-all duration-200
-                        text-brand-text-muted hover:text-brand-text-primary"
-                        title="Edit conversation name"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                ) : isDeleting ? (
+                  /* Delete Confirmation - Inline */
+                  <div className="p-4 bg-brand-status-error/10 border-2 border-brand-status-error/50">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-8 h-8 rounded-lg bg-brand-status-error/20 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-brand-status-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
                         </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-brand-text-primary mb-1">Delete this conversation?</div>
+                        <div className="text-xs text-brand-text-muted">This action cannot be undone.</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDeleteExecute(conversation.id!)}
+                        className="flex-1 px-4 py-2.5 text-sm font-medium text-white
+                        bg-brand-status-error hover:bg-red-600 rounded-xl transition-all duration-200 active:scale-95
+                        focus:outline-none focus:ring-2 focus:ring-brand-status-error/50"
+                      >
+                        Delete
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteConfirm(conversation.id!);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-2 rounded-xl glass-hover transition-all duration-200
-                        text-brand-text-muted hover:text-brand-status-error"
-                        title="Delete conversation"
+                        onClick={handleDeleteCancel}
+                        className="px-4 py-2.5 text-sm font-medium text-brand-text-muted
+                        glass-hover hover:text-brand-text-primary rounded-xl 
+                        transition-all duration-200 active:scale-95
+                        focus:outline-none focus:ring-2 focus:ring-brand-surface-border"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        Cancel
                       </button>
                     </div>
-                  )}
-                </div>
-                
-                {/* Subtle gradient overlay for active conversation */}
-                {selectedConversationId === conversation.id && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-violet-600/5 to-fuchsia-600/5 pointer-events-none"></div>
+                  </div>
+                ) : (
+                  /* Normal Mode - Conversation item */
+                  <button
+                    onClick={() => conversation.id && onSelectConversation(conversation.id)}
+                    className="w-full text-left focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 rounded-2xl"
+                  >
+                    <div className="flex items-center p-4 group">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0 pr-3">
+                            <div
+                              className={`font-medium text-sm truncate mb-1 px-3 py-2 transition-colors rounded-xl ${
+                                selectedConversationId === conversation.id 
+                                  ? 'text-brand-text-primary' 
+                                  : 'text-brand-text-secondary group-hover:text-brand-text-primary'
+                              }`}
+                            >
+                              {conversationTitle}
+                            </div>
+                            {dateText && (
+                              <div className="text-xs text-brand-text-muted group-hover:text-brand-text-secondary px-3">
+                                {dateText}
+                              </div>
+                            )}
+                          </div>
+                          {selectedConversationId === conversation.id && (
+                            <div className="text-brand-accent-primary text-sm flex-shrink-0">
+                              <div className="w-2 h-2 bg-brand-accent-primary rounded-full animate-pulse"></div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Edit and Delete buttons - Always visible on mobile, hover on desktop */}
+                      <div className="flex items-center gap-1 ml-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTitleEdit(conversation.id!, conversationTitle);
+                          }}
+                          className="p-2.5 rounded-xl glass-hover transition-all duration-200
+                          text-brand-text-muted hover:text-brand-accent-primary hover:bg-brand-accent-primary/10
+                          active:scale-95 touch-manipulation"
+                          title="Edit conversation name"
+                          aria-label="Edit conversation name"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteConfirm(conversation.id!);
+                          }}
+                          className="p-2.5 rounded-xl glass-hover transition-all duration-200
+                          text-brand-text-muted hover:text-brand-status-error hover:bg-brand-status-error/10
+                          active:scale-95 touch-manipulation"
+                          title="Delete conversation"
+                          aria-label="Delete conversation"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Subtle gradient overlay for active conversation */}
+                    {selectedConversationId === conversation.id && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-violet-600/5 to-fuchsia-600/5 pointer-events-none rounded-2xl"></div>
+                    )}
+                  </button>
                 )}
-              </button>
+              </div>
             );
           })}
-        </div>
-      )}
-      
-      {/* Enhanced Delete Confirmation Modal */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="glass rounded-3xl border border-brand-surface-border shadow-glass-lg max-w-md w-full mx-4 animate-scale-in">
-            <div className="p-8">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-brand-status-error/20 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-brand-status-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-brand-text-primary">Delete conversation?</h3>
-                  <p className="text-sm text-brand-text-muted">This action cannot be undone.</p>
-                </div>
-              </div>
-              
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={handleDeleteCancel}
-                  className="glass-button text-brand-text-primary hover:bg-brand-surface-hover
-                  px-6 py-3 text-sm font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleDeleteExecute(deleteConfirmId)}
-                  className="px-6 py-3 text-sm font-medium text-white
-                  bg-brand-status-error hover:bg-red-600 rounded-xl transition-all duration-200 active:scale-95
-                  focus:outline-none focus:ring-2 focus:ring-brand-status-error/50"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>
