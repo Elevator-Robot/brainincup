@@ -35,6 +35,7 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const messageContainerRefs = useRef<Map<number, HTMLDivElement>>(new Map()); // Track individual message container refs (bubble + details)
 
   useEffect(() => {
     async function getUserAttributes() {
@@ -122,12 +123,103 @@ function App() {
   }, [messages]);
 
   // Auto-scroll to bottom when expanded message details change
+  // Aggressively keep clicked message bubble visible when expanded - works on both desktop and mobile
   useEffect(() => {
-    if (messagesEndRef.current) {
-      // Small delay to let the expansion animation complete
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+    if (expandedMessageIndex !== null) {
+      console.log('🔍 Sticky scroll triggered for message index:', expandedMessageIndex);
+      
+      const containerElement = messageContainerRefs.current.get(expandedMessageIndex);
+      if (!containerElement) {
+        console.warn('❌ Container element not found for index:', expandedMessageIndex);
+        return;
+      }
+
+      const bubbleElement = containerElement.querySelector('.message-bubble') as HTMLElement;
+      if (!bubbleElement) {
+        console.warn('❌ Bubble element not found');
+        return;
+      }
+
+      const scrollContainer = bubbleElement.closest('.overflow-y-auto') as HTMLElement;
+      if (!scrollContainer) {
+        console.warn('❌ Scroll container not found');
+        return;
+      }
+
+      console.log('✅ All elements found, setting up sticky scroll');
+
+      // Check if using flex-col-reverse (messages layout)
+      const isReversedLayout = scrollContainer.querySelector('.flex-col-reverse') !== null;
+      console.log('📐 Reversed layout:', isReversedLayout);
+
+      let checkCount = 0;
+
+      // Function to ensure bubble stays visible
+      const ensureBubbleVisible = () => {
+        checkCount++;
+        const bubbleRect = bubbleElement.getBoundingClientRect();
+        const scrollRect = scrollContainer.getBoundingClientRect();
+        
+        const bubbleTop = bubbleRect.top;
+        const scrollTop = scrollRect.top;
+        const isAboveViewport = bubbleTop < scrollTop + 60; // 60px safety margin
+        
+        console.log(`🔄 Check #${checkCount}:`, {
+          bubbleTop,
+          scrollTop,
+          isAbove: isAboveViewport,
+          offset: bubbleTop - scrollTop
+        });
+        
+        if (isAboveViewport) {
+          console.log('⚠️ Bubble is above viewport! Scrolling...');
+          
+          if (isReversedLayout) {
+            // For reversed layout, we need to scroll differently
+            const offset = bubbleTop - scrollTop;
+            console.log('📍 Reversed layout scroll by:', offset - 60);
+            
+            scrollContainer.scrollBy({
+              top: offset - 60, // Keep 60px padding from top
+              behavior: 'smooth'
+            });
+          } else {
+            // Normal layout
+            console.log('📍 Normal layout scrollIntoView');
+            bubbleElement.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start',
+              inline: 'nearest' 
+            });
+          }
+        } else {
+          console.log('✅ Bubble is in viewport');
+        }
+      };
+
+      // Run immediately
+      console.log('🚀 Running immediate check');
+      ensureBubbleVisible();
+
+      // Keep checking during expansion animation (every 50ms for 500ms)
+      const intervals: NodeJS.Timeout[] = [];
+      for (let i = 1; i <= 10; i++) {
+        intervals.push(setTimeout(ensureBubbleVisible, i * 50));
+      }
+
+      // Use ResizeObserver to detect when the container size changes due to expansion
+      const resizeObserver = new ResizeObserver(() => {
+        console.log('📏 ResizeObserver triggered');
+        ensureBubbleVisible();
+      });
+      resizeObserver.observe(containerElement);
+
+      // Cleanup
+      return () => {
+        console.log('🧹 Cleaning up sticky scroll for index:', expandedMessageIndex);
+        intervals.forEach(interval => clearTimeout(interval));
+        resizeObserver.disconnect();
+      };
     }
   }, [expandedMessageIndex]);
 
@@ -859,9 +951,16 @@ function App() {
                     </div>
                   )}
                   
-                  <div className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]">
+                  <div 
+                    ref={(el) => {
+                      if (el && message.role === 'assistant') {
+                        messageContainerRefs.current.set(index, el);
+                      }
+                    }}
+                    className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]"
+                  >
                     <div
-                      className={`rounded-2xl px-4 py-3 backdrop-blur-sm
+                      className={`message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm
                       transition-all duration-300 hover:scale-[1.02] animate-slide-up
                       ${message.role === 'assistant' ? 'cursor-pointer' : ''}
                       ${message.role === 'user' 
@@ -909,7 +1008,10 @@ function App() {
                         {message.thoughts && message.thoughts.length > 0 && (
                           <div className="glass rounded-xl px-3 py-2 text-sm border border-blue-500/30 shadow-glow-sm backdrop-blur-lg">
                             <div className="font-semibold text-blue-400 mb-1 flex items-center gap-1">
-                              <BrainIcon className="w-4 h-4" />
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                              </svg>
                               Thoughts
                             </div>
                             <ul className="text-brand-text-muted list-disc list-inside space-y-1">
@@ -1163,9 +1265,16 @@ function App() {
                     </div>
                   )}
                   
-                  <div className="flex flex-col gap-2 max-w-[85%]">
+                  <div 
+                    ref={(el) => {
+                      if (el && message.role === 'assistant') {
+                        messageContainerRefs.current.set(index, el);
+                      }
+                    }}
+                    className="flex flex-col gap-2 max-w-[85%]"
+                  >
                     <div
-                      className={`rounded-2xl px-4 py-3 backdrop-blur-sm
+                      className={`message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm
                       transition-all duration-300 hover:scale-[1.02] animate-slide-up
                       ${message.role === 'assistant' ? 'cursor-pointer' : ''}
                       ${message.role === 'user' 
@@ -1213,7 +1322,10 @@ function App() {
                         {message.thoughts && message.thoughts.length > 0 && (
                           <div className="glass rounded-xl px-3 py-2 text-xs border border-blue-500/30 shadow-glow-sm backdrop-blur-lg">
                             <div className="font-semibold text-blue-400 mb-1 flex items-center gap-1">
-                              <BrainIcon className="w-3 h-3" />
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                              </svg>
                               Thoughts
                             </div>
                             <ul className="text-brand-text-muted list-disc list-inside space-y-1">
