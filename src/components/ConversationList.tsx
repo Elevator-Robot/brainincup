@@ -330,10 +330,10 @@ export default function ConversationList({ onSelectConversation, onNewConversati
             return (
               <div
                 key={conversation.id}
-                className={`w-full rounded-2xl transition-all duration-200 relative overflow-hidden animate-slide-up
+                className={`w-full rounded-2xl transition-all duration-200 relative overflow-hidden animate-slide-up border-2
                 ${selectedConversationId === conversation.id 
-                ? 'bg-gradient-to-r from-brand-accent-primary/20 to-brand-accent-secondary/10 border border-brand-accent-primary/50 shadow-glow-sm' 
-                : 'glass hover:border-brand-accent-primary/30 hover:bg-brand-surface-hover'
+                ? 'bg-gradient-to-r from-brand-accent-primary/30 to-brand-accent-secondary/20 border-brand-accent-primary shadow-glow ring-2 ring-brand-accent-primary/30' 
+                : 'glass hover:border-brand-accent-primary/30 hover:bg-brand-surface-hover border-transparent'
               }`}
               >
                 {isEditing ? (
@@ -422,16 +422,20 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0 pr-3">
                             <div
-                              className={`font-medium text-sm truncate mb-1 px-3 py-2 transition-colors rounded-xl ${
+                              className={`text-sm truncate mb-1 px-3 py-2 transition-colors rounded-xl ${
                                 selectedConversationId === conversation.id 
-                                  ? 'text-brand-text-primary' 
-                                  : 'text-brand-text-secondary group-hover:text-brand-text-primary'
+                                  ? 'text-brand-text-primary font-semibold' 
+                                  : 'text-brand-text-secondary font-medium group-hover:text-brand-text-primary'
                               }`}
                             >
                               {conversationTitle}
                             </div>
                             {dateText && (
-                              <div className="text-xs text-brand-text-muted group-hover:text-brand-text-secondary px-3">
+                              <div className={`text-xs px-3 transition-colors ${
+                                selectedConversationId === conversation.id
+                                  ? 'text-brand-text-secondary'
+                                  : 'text-brand-text-muted group-hover:text-brand-text-secondary'
+                              }`}>
                                 {dateText}
                               </div>
                             )}
@@ -481,9 +485,9 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                       </div>
                     </div>
                     
-                    {/* Subtle gradient overlay for active conversation */}
+                    {/* Stronger gradient overlay for active conversation */}
                     {selectedConversationId === conversation.id && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-violet-600/5 to-fuchsia-600/5 pointer-events-none rounded-2xl"></div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-violet-600/10 to-fuchsia-600/10 pointer-events-none rounded-2xl"></div>
                     )}
                   </button>
                 )}
