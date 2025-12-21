@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import { getCurrentUser } from 'aws-amplify/auth';
-import App from './App.tsx';
-import CustomAuth from './components/CustomAuth.tsx';
+import App from './App';
+import CustomAuth from './components/CustomAuth';
 import './index.css';
 import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
@@ -105,7 +105,7 @@ function AuthWrapper() {
   return <App />;
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AuthWrapper />
   </React.StrictMode>,
