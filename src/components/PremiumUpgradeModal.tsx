@@ -42,15 +42,15 @@ export default function PremiumUpgradeModal({ isOpen, onClose, onUpgrade }: Prem
 
   return (
     <div 
-      className="fixed inset-0 bg-black/80 backdrop-blur-lg z-50 flex items-center justify-center p-4 animate-fade-in overflow-y-auto"
+      className="fixed inset-0 bg-black/80 backdrop-blur-lg z-50 flex items-center justify-center p-4 sm:p-6 animate-fade-in"
       onClick={onClose}
     >
       <div 
-        className="glass rounded-3xl border-2 border-brand-accent-primary/50 shadow-glow max-w-4xl w-full mx-4 my-8 animate-scale-in overflow-hidden"
+        className="glass rounded-3xl border-2 border-brand-accent-primary/50 shadow-glow max-w-3xl w-full max-h-[90vh] mx-auto animate-scale-in overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Hero Section */}
-        <div className="relative p-8 md:p-12 bg-gradient-to-br from-violet-600/20 via-fuchsia-600/20 to-amber-600/20 overflow-hidden">
+        <div className="relative p-6 md:p-8 bg-gradient-to-br from-violet-600/20 via-fuchsia-600/20 to-amber-600/20 overflow-hidden">
           {/* Animated background elements */}
           <div className="absolute inset-0 opacity-20">
             <div className="absolute top-10 left-10 w-32 h-32 bg-violet-500 rounded-full blur-3xl animate-pulse"></div>
@@ -69,12 +69,12 @@ export default function PremiumUpgradeModal({ isOpen, onClose, onUpgrade }: Prem
             </button>
 
             <div className="text-center mb-8">
-              <div className="inline-flex items-center gap-2 mb-4">
-                <span className="text-6xl animate-float">🎲</span>
-                <span className="text-6xl animate-float delay-200">⚔️</span>
-                <span className="text-6xl animate-float delay-400">🏰</span>
+              <div className="inline-flex items-center gap-2 mb-3">
+                <span className="text-4xl animate-float">🎲</span>
+                <span className="text-4xl animate-float delay-200">⚔️</span>
+                <span className="text-4xl animate-float delay-400">🏰</span>
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-brand-text-primary mb-4">
+              <h1 className="text-3xl md:text-4xl font-bold text-brand-text-primary mb-3">
                 Unlock Premium
               </h1>
               <p className="text-xl text-brand-text-secondary max-w-2xl mx-auto">
@@ -83,7 +83,7 @@ export default function PremiumUpgradeModal({ isOpen, onClose, onUpgrade }: Prem
             </div>
 
             {/* Pricing Card */}
-            <div className="max-w-md mx-auto glass rounded-2xl border-2 border-brand-accent-primary/50 p-8 shadow-glow-lg">
+            <div className="max-w-md mx-auto glass rounded-2xl border-2 border-brand-accent-primary/50 p-6 shadow-glow-lg">
               <div className="text-center mb-6">
                 <div className="inline-block px-4 py-1 rounded-full bg-amber-500/20 text-amber-400 text-sm font-semibold mb-4">
                   LAUNCH SPECIAL
@@ -119,15 +119,15 @@ export default function PremiumUpgradeModal({ isOpen, onClose, onUpgrade }: Prem
         </div>
 
         {/* Features Grid */}
-        <div className="p-8 md:p-12 bg-gradient-to-b from-transparent to-brand-bg-secondary/30">
-          <h2 className="text-2xl font-bold text-brand-text-primary mb-8 text-center">
+        <div className="p-6 md:p-8 bg-gradient-to-b from-transparent to-brand-bg-secondary/30">
+          <h2 className="text-2xl font-bold text-brand-text-primary mb-6 text-center">
             What You'll Get
           </h2>
-          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          <div className="grid sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
             {features.map((feature, index) => (
               <div 
                 key={index}
-                className="glass rounded-2xl p-6 border border-brand-surface-border hover:border-brand-accent-primary/30 
+                className="glass rounded-2xl p-5 border border-brand-surface-border hover:border-brand-accent-primary/30 
                 transition-all duration-300 hover:shadow-glow-sm group"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
@@ -150,9 +150,9 @@ export default function PremiumUpgradeModal({ isOpen, onClose, onUpgrade }: Prem
         </div>
 
         {/* Social Proof / Guarantee */}
-        <div className="p-8 bg-gradient-to-r from-violet-600/10 to-fuchsia-600/10 border-t border-brand-surface-border">
+        <div className="p-6 bg-gradient-to-r from-violet-600/10 to-fuchsia-600/10 border-t border-brand-surface-border">
           <div className="max-w-3xl mx-auto">
-            <div className="grid md:grid-cols-3 gap-6 text-center">
+            <div className="grid md:grid-cols-3 gap-4 text-center">
               <div>
                 <div className="text-3xl font-bold text-brand-accent-primary mb-2">∞</div>
                 <div className="text-sm text-brand-text-muted">Unlimited Adventures</div>
@@ -167,15 +167,6 @@ export default function PremiumUpgradeModal({ isOpen, onClose, onUpgrade }: Prem
               </div>
             </div>
 
-            <div className="mt-8 p-4 rounded-xl glass border border-green-500/30 bg-green-500/10">
-              <div className="flex items-center justify-center gap-2 text-green-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-sm font-medium">30-day money-back guarantee</span>
-              </div>
-            </div>
           </div>
         </div>
 
