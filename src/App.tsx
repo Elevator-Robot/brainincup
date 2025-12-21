@@ -4,6 +4,9 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
 import ConversationList from './components/ConversationList';
 import BrainIcon from './components/BrainIcon';
+import PersonalitySelector from './components/PersonalitySelector';
+import PersonalityIndicator from './components/PersonalityIndicator';
+import PremiumUpgradeModal from './components/PremiumUpgradeModal';
 
 const dataClient = generateClient<Schema>();
 
@@ -32,6 +35,12 @@ function App() {
   const [newConversationId, setNewConversationId] = useState<string | null>(null); // Track newly created conversation needing name
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
+  
+  // Personality mode state
+  const [personalityMode, setPersonalityMode] = useState<string>('default');
+  const [isPremium, setIsPremium] = useState<boolean>(false); // TODO: Check from user attributes or subscription service
+  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -520,6 +529,16 @@ function App() {
     
     // Load conversation data and messages
     try {
+      // Load the conversation to get personality mode
+      const { data: conversationData } = await dataClient.models.Conversation.get({
+        id: selectedConversationId
+      });
+      
+      if (conversationData) {
+        setPersonalityMode(conversationData.personalityMode || 'default');
+        console.log('📌 Loaded personality mode:', conversationData.personalityMode || 'default');
+      }
+      
       const { data: conversationMessages } = await dataClient.models.Message.list({
         filter: { conversationId: { eq: selectedConversationId } }
       });
@@ -695,43 +714,72 @@ function App() {
     }
   };
 
+  const handlePersonalityChange = async (newPersonality: string) => {
+    if (!conversationId) {
+      console.warn('No conversation selected');
+      return;
+    }
+
+    try {
+      // Update the conversation with new personality mode
+      await dataClient.models.Conversation.update({
+        id: conversationId,
+        personalityMode: newPersonality
+      });
+
+      setPersonalityMode(newPersonality);
+      console.log('✅ Personality mode updated to:', newPersonality);
+    } catch (error) {
+      console.error('❌ Error updating personality mode:', error);
+    }
+  };
+
+  const handleUpgradeClick = () => {
+    setShowUpgradeModal(true);
+  };
+
+  const handleUpgrade = () => {
+    // TODO: Implement Stripe payment flow
+    console.log('🚀 Starting upgrade process...');
+    // For now, just simulate upgrade
+    setIsPremium(true);
+    setShowUpgradeModal(false);
+    alert('Upgrade successful! Premium features unlocked. (Payment integration coming soon)');
+  };
+
   return (
     <div className="h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden relative">
-      {/* Mobile: Top Navigation Bar with Menu Button */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 glass backdrop-blur-xl border-b border-brand-surface-border">
-        <div className="flex items-center justify-between p-4">
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
-            transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50"
-            aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
-          >
-            <div className="w-6 h-6 flex flex-col justify-center items-center">
-              <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-                isSidebarOpen ? 'rotate-45 translate-y-1' : '-translate-y-0.5'
-              }`}></span>
-              <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-                isSidebarOpen ? 'opacity-0' : 'opacity-100'
-              }`}></span>
-              <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-                isSidebarOpen ? '-rotate-45 -translate-y-1' : 'translate-y-0.5'
-              }`}></span>
-            </div>
-          </button>
-          
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-mesh flex items-center justify-center shadow-glow-sm">
-              <BrainIcon className="w-5 h-5" />
-            </div>
-            <h1 className="text-lg font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
-              Brain in Cup
-            </h1>
-          </div>
-          
-          {/* Spacer to keep title centered */}
-          <div className="w-10 h-10"></div>
+      {/* Floating Sidebar Toggle */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="fixed top-4 left-4 z-50 p-3 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
+        transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 shadow-glass"
+        aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
+      >
+        <div className="w-6 h-6 flex flex-col justify-center items-center">
+          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+            isSidebarOpen ? 'rotate-45 translate-y-1' : '-translate-y-0.5'
+          }`}></span>
+          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+            isSidebarOpen ? 'opacity-0' : 'opacity-100'
+          }`}></span>
+          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
+            isSidebarOpen ? '-rotate-45 -translate-y-1' : 'translate-y-0.5'
+          }`}></span>
         </div>
-      </div>
+      </button>
+
+      {/* Floating Mode Button */}
+      {conversationId && (
+        <div className="fixed top-4 right-4 z-50">
+          <PersonalitySelector
+            currentPersonality={personalityMode}
+            onSelectPersonality={handlePersonalityChange}
+            isPremium={isPremium}
+            onUpgradeClick={handleUpgradeClick}
+          />
+        </div>
+      )}
 
       {/* Mobile: Full-screen Overlay Menu */}
       <div
@@ -814,26 +862,6 @@ function App() {
 
       {/* Desktop: Sidebar with Hamburger Button */}
       <div className="hidden lg:flex h-full">
-        {/* Desktop Hamburger Button */}
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="fixed top-4 left-4 z-50 p-3 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
-          transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 shadow-glass"
-          aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-        >
-          <div className="w-6 h-6 flex flex-col justify-center items-center">
-            <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-              isSidebarOpen ? 'rotate-45 translate-y-1' : '-translate-y-0.5'
-            }`}></span>
-            <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-              isSidebarOpen ? 'opacity-0' : 'opacity-100'
-            }`}></span>
-            <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-              isSidebarOpen ? '-rotate-45 -translate-y-1' : 'translate-y-0.5'
-            }`}></span>
-          </div>
-        </button>
-
         {/* Desktop Sidebar */}
         <aside
           className={`h-full flex-shrink-0 transform transition-all duration-300 ease-in-out z-40
@@ -854,16 +882,18 @@ function App() {
                   Brain in Cup
                 </h1>
               </div>
-              <button
-                onClick={handleSignOut}
-                className="p-2 rounded-lg text-brand-text-muted hover:text-brand-text-primary transition-colors duration-200 hover:bg-brand-surface-hover/20"
-                title="Sign out"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSignOut}
+                  className="p-2 rounded-lg text-brand-text-muted hover:text-brand-text-primary transition-colors duration-200 hover:bg-brand-surface-hover/20"
+                  title="Sign out"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* Desktop Conversation List */}
@@ -901,13 +931,16 @@ function App() {
           {messages.length > 0 && `Conversation has ${messages.length} messages`}
         </div>
 
-
-
         {/* Enhanced Chat Area with glass morphism design */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Messages with improved styling and animations */}
           <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col-reverse">
             <div className="max-w-4xl mx-auto space-y-6 flex flex-col">
+              {/* Personality Indicator */}
+              {conversationId && personalityMode !== 'default' && (
+                <PersonalityIndicator personality={personalityMode} />
+              )}
+              
               {/* Invisible element to scroll to - at the bottom in reversed layout */}
               <div ref={messagesEndRef} />
               
@@ -1206,7 +1239,7 @@ function App() {
       </div>
 
       {/* Mobile: Main Content Area */}
-      <main className="lg:hidden flex flex-col h-full pt-16">
+      <main className="lg:hidden flex flex-col h-full pt-6">
         {/* Screen reader live region for message updates */}
         <div
           aria-live="polite"
@@ -1222,6 +1255,11 @@ function App() {
           {/* Messages with improved styling and animations */}
           <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col-reverse">
             <div className="max-w-4xl mx-auto space-y-4 flex flex-col">
+              {/* Personality Indicator */}
+              {conversationId && personalityMode !== 'default' && (
+                <PersonalityIndicator personality={personalityMode} />
+              )}
+              
               {/* Invisible element to scroll to - at the bottom in reversed layout */}
               <div ref={messagesEndRef} />
               
@@ -1469,6 +1507,13 @@ function App() {
         </div>
 
       </main>
+      
+      {/* Premium Upgrade Modal */}
+      <PremiumUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onUpgrade={handleUpgrade}
+      />
     </div>
   );
 }
