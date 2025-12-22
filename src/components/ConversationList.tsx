@@ -500,7 +500,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
       {/* Mode Filters */}
       <div className="mb-6 flex justify-center">
         <div
-          className="inline-flex rounded-2xl border border-white/10 bg-white/5 p-1 backdrop-blur-2xl shadow-[0_25px_65px_rgba(3,4,21,0.55)]"
+          className="inline-flex rounded-2xl p-1 gap-px"
           role="group"
           aria-label="Filter conversations by mode"
         >
@@ -522,7 +522,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                 } after:absolute after:inset-0 after:rounded-[inherit] after:pointer-events-none after:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-2px_0_rgba(0,0,0,0.35)] ${
                   isActive
                     ? `text-white bg-gradient-to-b ${mode.accent} border-white/20 shadow-[0_20px_45px_rgba(6,4,24,0.55)]`
-                    : 'text-white/70 bg-gradient-to-b from-slate-900/60 to-slate-950/70 border-white/5 hover:text-white hover:border-white/15 hover:from-slate-900/80 hover:to-slate-950/80'
+                    : 'text-white/70 bg-transparent border-white/20 hover:text-white hover:border-white/50 hover:bg-white/10'
                 }`}
               >
                 <span>{mode.shortLabel}</span>
