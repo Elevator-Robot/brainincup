@@ -1126,14 +1126,9 @@ function App() {
           }`}>
             {/* Desktop Sidebar Header */}
             <div className="flex items-center justify-between p-6 pt-20 border-b border-brand-surface-border">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center shadow-glow-sm animate-float">
-                  <BrainIcon className="w-5 h-5 text-white" />
-                </div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
-                  Brain in Cup
-                </h1>
-              </div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
+                Brain in Cup
+              </h1>
             </div>
 
             {/* Desktop Conversation List */}

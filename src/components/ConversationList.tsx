@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import type React from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { getModeMeta, MODE_OPTIONS, normalizePersonalityMode } from '../constants/personalityModes';
@@ -207,6 +208,13 @@ export default function ConversationList({ onSelectConversation, onNewConversati
     }
   };
 
+  const handleConversationKeyPress = (event: React.KeyboardEvent<HTMLDivElement>, conversationId: string) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onSelectConversation(conversationId);
+    }
+  };
+
   const handleDeleteConfirm = (conversationId: string) => {
     setDeleteConfirmId(conversationId);
   };
@@ -289,11 +297,10 @@ export default function ConversationList({ onSelectConversation, onNewConversati
     : conversations;
 
   const isFilteredEmpty = !!modeFilter && !isLoading && conversations.length > 0 && conversationsToShow.length === 0;
-  const activeFilterMeta = modeFilter ? MODE_OPTIONS.find((mode) => mode.id === modeFilter) : null;
 
   const conversationContent = isFilteredEmpty ? (
     <div className="text-center py-10 rounded-3xl border border-dashed border-white/10 text-white/60">
-      <p className="text-sm font-semibold mb-1">No {activeFilterMeta?.shortLabel?.toLowerCase()} threads yet</p>
+      <p className="text-sm font-semibold mb-1">No threads in this mode yet</p>
       <p className="text-xs text-white/40">Start a new conversation to spin one up.</p>
     </div>
   ) : (
@@ -303,14 +310,12 @@ export default function ConversationList({ onSelectConversation, onNewConversati
       const modeMeta = getModeMeta(conversation.personalityMode);
       const isEditing = editingId === conversation.id;
       const isDeleting = deleteConfirmId === conversation.id;
-      const accentDotClass = modeMeta.id === 'game_master'
-        ? 'bg-amber-300/80 shadow-[0_0_14px_rgba(251,191,36,0.45)]'
-        : 'bg-fuchsia-300/80 shadow-[0_0_14px_rgba(217,70,239,0.45)]';
+      const hoverHueClass = 'from-brand-accent-primary/35 via-transparent to-brand-accent-secondary/40';
 
       return (
         <div
           key={conversation.id}
-          className={`relative w-full rounded-3xl overflow-hidden border border-white/10 bg-[#090514]/85 backdrop-blur-2xl 
+          className={`relative w-full rounded-3xl overflow-hidden border border-white/5 bg-white/5 backdrop-blur-2xl
           transition-all duration-300 animate-slide-up
           ${selectedConversationId === conversation.id 
           ? 'shadow-[0_25px_60px_rgba(99,67,255,0.45)] ring-2 ring-brand-accent-primary/40'
@@ -391,28 +396,22 @@ export default function ConversationList({ onSelectConversation, onNewConversati
               </div>
             </div>
           ) : (
-            <button
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => conversation.id && onSelectConversation(conversation.id)}
-              className="group relative w-full text-left rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50"
+              onKeyDown={(event) => conversation.id && handleConversationKeyPress(event, conversation.id)}
+              className="group relative w-full text-left rounded-3xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50"
             >
               <div
-                className={`absolute inset-0 opacity-25 bg-gradient-to-br ${modeMeta.accent}`}
+                className="absolute inset-0 rounded-[inherit] border border-white/10 bg-white/5 backdrop-blur-xl"
                 aria-hidden="true"
               ></div>
               <div
-                className={`absolute inset-0 opacity-0 group-hover:opacity-60 transition-opacity duration-300 blur-3xl bg-gradient-to-r ${modeMeta.accent}`}
+                className={`absolute inset-0 rounded-[inherit] bg-gradient-to-br ${hoverHueClass} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
                 aria-hidden="true"
               ></div>
-              <div className="relative flex items-start gap-4 p-5">
-                <div className="relative flex-shrink-0">
-                  <div className="w-12 h-12 rounded-2xl border border-white/15 bg-white/5 flex items-center justify-center text-xl text-white">
-                    <span>{modeMeta.icon}</span>
-                  </div>
-                  <div
-                    className={`absolute inset-0 rounded-2xl opacity-60 blur-lg bg-gradient-to-br ${modeMeta.accent}`}
-                    aria-hidden="true"
-                  ></div>
-                </div>
+              <div className="relative flex items-start gap-3 p-5">
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex items-start gap-3">
                     <p
@@ -438,7 +437,6 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`inline-flex h-2.5 w-2.5 rounded-full ${accentDotClass}`} aria-hidden="true"></span>
                     <span className="flex-1 text-xs text-white/70 truncate">
                       {modeMeta.description}
                     </span>
@@ -476,7 +474,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                   </button>
                 </div>
               </div>
-            </button>
+            </div>
           )}
         </div>
       );
@@ -486,71 +484,49 @@ export default function ConversationList({ onSelectConversation, onNewConversati
   return (
     <div className="p-6">
       {/* Streamlined New Conversation button */}
-      <button
-        onClick={onNewConversation}
-        className="group relative w-full mb-6 overflow-hidden rounded-2xl border border-white/10 
-        bg-white/5 px-6 py-5 text-left text-white backdrop-blur-2xl transition-all duration-300 
-        hover:border-brand-accent-primary/60 hover:bg-white/10 focus:outline-none focus:ring-2 
-        focus:ring-brand-accent-primary/40"
-      >
-        <span className="pointer-events-none absolute inset-x-6 -top-1 h-px bg-gradient-to-r 
-          from-transparent via-white/70 to-transparent opacity-0 transition-opacity duration-300 
-          group-hover:opacity-100" />
-        <span className="pointer-events-none absolute inset-x-6 -bottom-1 h-px bg-gradient-to-r 
-          from-transparent via-brand-accent-secondary/80 to-transparent opacity-80" />
-        <div className="relative flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="relative flex h-12 w-12 items-center justify-center rounded-[1.35rem] border border-white/15 
-              bg-gradient-to-br from-brand-accent-primary/35 via-transparent to-brand-accent-secondary/30 text-white 
-              shadow-[0_15px_35px_rgba(119,60,255,0.35)]">
-              <span className="text-xl font-light">✦</span>
-              <span className="absolute inset-0 rounded-[1.35rem] bg-gradient-to-br from-white/30 to-transparent opacity-60" />
-            </div>
-            <div>
-              <p className="text-[0.62rem] uppercase tracking-[0.6em] text-white/45 group-hover:text-white/70">Begin</p>
-              <p className="text-lg font-semibold tracking-tight">New Conversation</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[0.65rem] uppercase tracking-[0.45em] text-white/55 group-hover:text-white">Enter</span>
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/5 text-white/80 transition-all duration-300 group-hover:border-brand-accent-primary/70">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </span>
-          </div>
-        </div>
-      </button>
+      <div className="mb-6 flex justify-end">
+        <button
+          onClick={onNewConversation}
+          className="group relative inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 backdrop-blur-xl transition-all duration-300 hover:border-brand-accent-primary/40 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/30"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/10 text-base text-white/80 transition-all duration-300 group-hover:bg-brand-accent-primary/30 group-hover:text-white">
+            +
+          </span>
+          <span className="tracking-tight">New Conversation</span>
+          <span className="text-[0.55rem] uppercase tracking-[0.45em] text-white/40">Start</span>
+        </button>
+      </div>
 
       {/* Mode Filters */}
-      <div className="mb-6">
-        <div className="flex flex-wrap items-center text-[11px] uppercase tracking-[0.45em] text-white/60">
+      <div className="mb-6 flex justify-center">
+        <div
+          className="inline-flex rounded-2xl border border-white/10 bg-white/5 p-1 backdrop-blur-2xl shadow-[0_25px_65px_rgba(3,4,21,0.55)]"
+          role="group"
+          aria-label="Filter conversations by mode"
+        >
           {MODE_OPTIONS.map((mode, index) => {
             const isActive = modeFilter === mode.id;
+            const roundedClass =
+              index === 0 ? 'rounded-l-2xl' : index === MODE_OPTIONS.length - 1 ? 'rounded-r-2xl' : '';
+
             return (
-              <div key={mode.id} className="flex items-center">
-                <button
-                  type="button"
-                  onClick={() => setModeFilter((current) => current === mode.id ? null : mode.id)}
-                  className={`relative px-4 py-2 transition-colors duration-200 focus:outline-none ${
-                    isActive
-                      ? 'text-white'
-                      : 'text-white/50 hover:text-white/80'
-                  }`}
-                  aria-pressed={isActive}
-                >
-                  <span className="tracking-[0.35em]">{mode.shortLabel}</span>
-                  <span
-                    className={`pointer-events-none absolute left-3 right-3 -bottom-1 h-px transition-opacity duration-200 ${
-                      isActive ? 'opacity-100 bg-gradient-to-r from-brand-accent-primary via-white to-brand-accent-secondary' : 'opacity-0'
-                    }`}
-                    aria-hidden="true"
-                  />
-                </button>
-                {index < MODE_OPTIONS.length - 1 && (
-                  <span className="mx-3 text-white/25 select-none">|</span>
-                )}
-              </div>
+              <button
+                key={mode.id}
+                type="button"
+                onClick={() => setModeFilter((current) => (current === mode.id ? null : mode.id))}
+                aria-pressed={isActive}
+                className={`relative inline-flex items-center justify-center border align-middle select-none font-sans text-sm font-semibold text-center tracking-tight px-6 py-3 duration-300 ease-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/30 ${
+                  roundedClass
+                } ${
+                  index < MODE_OPTIONS.length - 1 ? '-mr-px' : ''
+                } after:absolute after:inset-0 after:rounded-[inherit] after:pointer-events-none after:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-2px_0_rgba(0,0,0,0.35)] ${
+                  isActive
+                    ? `text-white bg-gradient-to-b ${mode.accent} border-white/20 shadow-[0_20px_45px_rgba(6,4,24,0.55)]`
+                    : 'text-white/70 bg-gradient-to-b from-slate-900/60 to-slate-950/70 border-white/5 hover:text-white hover:border-white/15 hover:from-slate-900/80 hover:to-slate-950/80'
+                }`}
+              >
+                <span>{mode.shortLabel}</span>
+              </button>
             );
           })}
         </div>
@@ -577,17 +553,6 @@ export default function ConversationList({ onSelectConversation, onNewConversati
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center justify-between mb-4 px-2">
-            <h3 className="text-xs font-semibold text-brand-text-muted uppercase tracking-wider">
-              Recent Conversations
-            </h3>
-            {activeFilterMeta && (
-              <span className="text-[11px] uppercase tracking-[0.45em] text-white/60 flex items-center gap-1">
-                <span>{activeFilterMeta.icon}</span>
-                {activeFilterMeta.shortLabel}
-              </span>
-            )}
-          </div>
           {conversationContent}
 
         </div>
