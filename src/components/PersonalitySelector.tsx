@@ -3,8 +3,6 @@ import { useState, useRef, useEffect } from 'react';
 interface PersonalitySelectorProps {
   currentPersonality: string;
   onSelectPersonality: (personality: string) => void;
-  isPremium: boolean;
-  onUpgradeClick: () => void;
 }
 
 interface Personality {
@@ -12,8 +10,7 @@ interface Personality {
   name: string;
   icon: string;
   description: string;
-  tagline: string;
-  isPremium: boolean;
+  tagline?: string;
   color: string;
 }
 
@@ -24,25 +21,21 @@ const personalities: Personality[] = [
     icon: '🧠',
     description: 'Thoughtful AI consciousness for deep conversations',
     tagline: 'Default mode',
-    isPremium: false,
     color: 'from-violet-500 to-fuchsia-500'
   },
   {
-    id: 'rpg_dm',
-    name: 'Dungeon Master',
+    id: 'game_master',
+    name: 'Game Master',
     icon: '🎲',
-    description: 'Epic fantasy adventures with an AI Game Master',
-    tagline: 'Premium $2.50/mo',
-    isPremium: true,
+    description: 'AI storyteller that leads surreal quests and adapts to your darkness.',
+    tagline: 'Immersive quests',
     color: 'from-amber-500 to-orange-500'
   }
 ];
 
 export default function PersonalitySelector({ 
   currentPersonality, 
-  onSelectPersonality, 
-  isPremium,
-  onUpgradeClick 
+  onSelectPersonality
 }: PersonalitySelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -92,11 +85,6 @@ export default function PersonalitySelector({
   }, [isOpen]);
 
   const handleSelect = (personality: Personality) => {
-    if (personality.isPremium && !isPremium) {
-      onUpgradeClick();
-      setIsOpen(false);
-      return;
-    }
     onSelectPersonality(personality.id);
     setIsOpen(false);
   };
@@ -166,7 +154,6 @@ export default function PersonalitySelector({
             <div className="py-2">
               {personalities.map((personality) => {
                 const isSelected = personality.id === currentPersonality;
-                const isLocked = personality.isPremium && !isPremium;
 
                 return (
                   <button
@@ -202,20 +189,12 @@ export default function PersonalitySelector({
                         <p className="text-xs text-brand-text-muted line-clamp-2 mb-1">
                           {personality.description}
                         </p>
-                        {personality.isPremium && (
+                        {personality.tagline && (
                           <span className="inline-block px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                            {isLocked ? personality.tagline : 'PREMIUM'}
+                            {personality.tagline}
                           </span>
                         )}
                       </div>
-
-                      {/* Lock Icon for premium */}
-                      {isLocked && (
-                        <svg className="w-4 h-4 text-amber-400 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                      )}
                     </div>
                   </button>
                 );

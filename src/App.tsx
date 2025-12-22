@@ -1,14 +1,16 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchUserAttributes, signOut } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
 import ConversationList from './components/ConversationList';
 import BrainIcon from './components/BrainIcon';
-import PersonalitySelector from './components/PersonalitySelector';
 import PersonalityIndicator from './components/PersonalityIndicator';
-import PremiumUpgradeModal from './components/PremiumUpgradeModal';
-
+import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 const dataClient = generateClient<Schema>();
+
+type AdventureRecord = Schema['GameMasterAdventure']['type'];
+type QuestStepRecord = Schema['GameMasterQuestStep']['type'];
+type PlayerChoiceRecord = Schema['GameMasterPlayerChoice']['type'];
 
 interface Message {
   role: 'user' | 'assistant';
@@ -20,6 +22,93 @@ interface Message {
   thoughts?: string[];
   memories?: string;
   selfReflection?: string;
+}
+
+const summarizeText = (text: string, max = 220) => {
+  if (!text) return '';
+  return text.length > max ? `${text.slice(0, max).trim()}…` : text.trim();
+};
+
+const inferDangerLevel = (text: string) => {
+  if (!text) return 'Unknown';
+  const lowered = text.toLowerCase();
+  if (/[\b](battle|blood|demon|peril|trap|void)[\b]/.test(lowered)) return 'Severe';
+  if (/[\b](shadow|storm|blade|curse|haunt)[\b]/.test(lowered)) return 'Rising';
+  return 'Calm';
+};
+
+const inferToneTag = (text: string) => {
+  if (!text) return 'neutral';
+  const lowered = text.toLowerCase();
+  if (/[\b](hope|ally|gentle|serene|calm)[\b]/.test(lowered)) return 'warm';
+  if (/[\b](rage|fear|torment|dark)[\b]/.test(lowered)) return 'brooding';
+  return 'curious';
+};
+
+interface GameMasterHudProps {
+  adventure: AdventureRecord;
+  questSteps: QuestStepRecord[];
+  playerChoices: PlayerChoiceRecord[];
+}
+
+function GameMasterHud({ adventure, questSteps, playerChoices }: GameMasterHudProps) {
+  const latestStep = questSteps.slice(-1)[0];
+  const recentSteps = questSteps.slice(-3).reverse();
+  const recentChoices = playerChoices.slice(-3).reverse();
+  return (
+    <div className="animate-slide-up w-full">
+      <div className="w-full mb-4 p-5 rounded-2xl glass border border-amber-500/20 bg-amber-500/5">
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-amber-200/70">Game Master Adventure</p>
+            <h3 className="text-lg font-semibold text-brand-text-primary">{adventure.title}</h3>
+            <p className="text-xs text-brand-text-secondary">
+              {adventure.genre} • Tone: {adventure.tone} • Difficulty: {adventure.difficulty}
+            </p>
+          </div>
+          {latestStep && (
+            <div className="text-right">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-amber-200/70">Current Beat</p>
+              <p className="text-sm text-brand-text-primary line-clamp-2 max-w-xs">
+                {latestStep.summary}
+              </p>
+              <p className="text-[11px] text-amber-300">Danger: {latestStep.dangerLevel}</p>
+            </div>
+          )}
+        </div>
+        <div className="mt-4 grid md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-amber-200/70 mb-2">Recent Scenes</p>
+            <div className="space-y-2">
+              {recentSteps.length === 0 && (
+                <p className="text-xs text-brand-text-muted">Awaiting the Game Master’s opening scene.</p>
+              )}
+              {recentSteps.map(step => (
+                <div key={step.id} className="p-3 rounded-xl border border-amber-500/20 bg-black/20">
+                  <p className="text-xs text-brand-text-primary mb-1">{step.summary}</p>
+                  <p className="text-[10px] text-amber-200/80">Danger: {step.dangerLevel}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-amber-200/70 mb-2">Recent Choices</p>
+            <div className="space-y-2">
+              {recentChoices.length === 0 && (
+                <p className="text-xs text-brand-text-muted">Drop in any idea—your choices steer the world.</p>
+              )}
+              {recentChoices.map(choice => (
+                <div key={choice.id} className="p-3 rounded-xl border border-brand-surface-border bg-brand-bg-primary/30">
+                  <p className="text-xs text-brand-text-primary mb-1">{choice.content}</p>
+                  <p className="text-[10px] text-brand-text-muted">Tone: {choice.toneTag || 'neutral'}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function App() {
@@ -35,11 +124,155 @@ function App() {
   const [newConversationId, setNewConversationId] = useState<string | null>(null); // Track newly created conversation needing name
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
+  const [isModePickerOpen, setIsModePickerOpen] = useState(false);
+  
+  // Game Master data state
+  const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
+  const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
+  const [playerChoices, setPlayerChoices] = useState<PlayerChoiceRecord[]>([]);
   
   // Personality mode state
   const [personalityMode, setPersonalityMode] = useState<string>('default');
-  const [isPremium, setIsPremium] = useState<boolean>(false); // TODO: Check from user attributes or subscription service
-  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
+  const effectivePersonality = normalizePersonalityMode(personalityMode);
+  const ensureAdventureState = useCallback(async (convId: string, modeOverride?: string): Promise<AdventureRecord | null> => {
+    const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
+    if (activeMode !== 'game_master') return null;
+    try {
+      const { data } = await dataClient.models.GameMasterAdventure.list({
+        filter: { conversationId: { eq: convId } },
+        limit: 1,
+      });
+      let adventure: AdventureRecord | null = data?.[0] ? (data[0] as AdventureRecord) : null;
+      if (!adventure) {
+        const created = await dataClient.models.GameMasterAdventure.create({
+          conversationId: convId,
+          title: 'MindQuest',
+          genre: 'Surreal Fantasy',
+          tone: 'Player-led',
+          difficulty: 'Story-first',
+          safetyLevel: 'User Directed',
+        });
+        adventure = created.data ? (created.data as AdventureRecord) : null;
+      }
+      if (adventure) {
+        setAdventureState(adventure);
+      }
+      return adventure;
+    } catch (error) {
+      console.error('Error ensuring Game Master adventure state:', error);
+      return null;
+    }
+  }, [effectivePersonality]);
+
+  const fetchAdventureBundle = useCallback(async (convId: string, modeOverride?: string) => {
+    const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
+    if (activeMode !== 'game_master') {
+      setAdventureState(null);
+      setQuestSteps([]);
+      setPlayerChoices([]);
+      return;
+    }
+    const adventure = await ensureAdventureState(convId, activeMode);
+    if (!adventure || !adventure.id) return;
+    const adventureId = adventure.id as string;
+    try {
+      const [stepsRes, choicesRes] = await Promise.all([
+        dataClient.models.GameMasterQuestStep.list({
+          filter: { adventureId: { eq: adventureId } },
+          limit: 200,
+        }),
+        dataClient.models.GameMasterPlayerChoice.list({
+          filter: { conversationId: { eq: convId } },
+          limit: 200,
+        }),
+      ]);
+      const steps = ((stepsRes.data ?? []).filter(Boolean) as QuestStepRecord[])
+        .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
+      const choices = ((choicesRes.data ?? []).filter(Boolean) as PlayerChoiceRecord[])
+        .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
+      setQuestSteps(steps);
+      setPlayerChoices(choices);
+    } catch (error) {
+      console.error('Error loading Game Master data:', error);
+    }
+  }, [effectivePersonality, ensureAdventureState]);
+
+  const recordQuestStep = useCallback(async (brainResponse: {
+    id?: string;
+    messageId?: string;
+    response?: string;
+  }) => {
+    if (effectivePersonality !== 'game_master' || !conversationId) return;
+    const adventure = await ensureAdventureState(conversationId);
+    if (!adventure) return;
+    const narration = brainResponse.response ?? '';
+    const summary = summarizeText(narration);
+    try {
+      const created = await dataClient.models.GameMasterQuestStep.create({
+        adventureId: adventure.id!,
+        conversationId,
+        brainResponseId: brainResponse.id ?? '',
+        messageId: brainResponse.messageId ?? '',
+        summary,
+        narration,
+        dangerLevel: inferDangerLevel(narration),
+        locationTag: adventure.lastLocation ?? '',
+        createdAt: new Date().toISOString(),
+      });
+      const questStep = (created.data as QuestStepRecord | null) ?? null;
+      if (questStep) {
+        setQuestSteps(prev => [...prev, questStep]);
+        await dataClient.models.GameMasterAdventure.update({
+          id: adventure.id!,
+          lastStepId: questStep.id,
+          updatedAt: new Date().toISOString(),
+        });
+        setAdventureState((prev: AdventureRecord | null) => (prev ? { ...prev, lastStepId: questStep.id } : prev));
+      }
+    } catch (error) {
+      console.error('Error recording quest step:', error);
+    }
+  }, [conversationId, effectivePersonality, ensureAdventureState]);
+
+  const recordPlayerChoice = useCallback(async (messageId: string, content: string) => {
+    if (effectivePersonality !== 'game_master' || !conversationId) return;
+    const adventure = await ensureAdventureState(conversationId);
+    if (!adventure) return;
+    if (!adventure.lastStepId) {
+      // Wait for at least one quest step before tracking choices
+      return;
+    }
+    try {
+      const created = await dataClient.models.GameMasterPlayerChoice.create({
+        questStepId: adventure.lastStepId,
+        conversationId,
+        messageId,
+        content,
+        toneTag: inferToneTag(content),
+        createdAt: new Date().toISOString(),
+      });
+      const playerChoice = (created.data as PlayerChoiceRecord | null) ?? null;
+      if (playerChoice) {
+        setPlayerChoices(prev => [...prev, playerChoice]);
+      }
+    } catch (error) {
+      console.error('Error recording player choice:', error);
+    }
+  }, [conversationId, effectivePersonality, ensureAdventureState]);
+
+  useEffect(() => {
+    if (!conversationId) {
+      setAdventureState(null);
+      setQuestSteps([]);
+      setPlayerChoices([]);
+      return;
+    }
+    if (effectivePersonality === 'game_master') {
+      fetchAdventureBundle(conversationId);
+    }
+  }, [conversationId, effectivePersonality, fetchAdventureBundle]);
+
+
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -323,6 +556,9 @@ function App() {
             if (brainResponse.conversationId === conversationId) {
               console.log('✅ MATCH: Starting typing animation for response:', brainResponse.response);
               console.log('✅ MATCH: Including metadata - sensations:', brainResponse.sensations, 'thoughts:', brainResponse.thoughts);
+              if (effectivePersonality === 'game_master') {
+                recordQuestStep(brainResponse);
+              }
               
               // Add empty assistant message to start typing animation
               setMessages(prev => {
@@ -368,7 +604,7 @@ function App() {
       console.error('Error setting up raw subscription:', error);
       return () => {}; // Empty cleanup function
     }
-  }, [conversationId]);
+  }, [conversationId, effectivePersonality, recordQuestStep]);
 
   // Typing animation function
   const startTypingAnimation = (messageIndex: number, fullText: string) => {
@@ -465,6 +701,10 @@ function App() {
         conversationId: conversationId
       });
 
+      if (savedMessage?.id) {
+        await recordPlayerChoice(savedMessage.id, content);
+      }
+
       console.log('Message saved to backend:', savedMessage);
     } catch (error) {
       console.error('Error sending message to backend:', error);
@@ -521,6 +761,9 @@ function App() {
       setConversationId(null);
       setMessages([]);
       setIsWaitingForResponse(false);
+      setAdventureState(null);
+      setQuestSteps([]);
+      setPlayerChoices([]);
       return;
     }
     
@@ -535,8 +778,23 @@ function App() {
       });
       
       if (conversationData) {
-        setPersonalityMode(conversationData.personalityMode || 'default');
-        console.log('📌 Loaded personality mode:', conversationData.personalityMode || 'default');
+        const storedMode = conversationData.personalityMode || 'default';
+        const normalizedMode = normalizePersonalityMode(storedMode);
+        if (storedMode !== normalizedMode) {
+          await dataClient.models.Conversation.update({
+            id: selectedConversationId,
+            personalityMode: normalizedMode,
+          });
+        }
+        setPersonalityMode(normalizedMode);
+        if (normalizedMode === 'game_master') {
+          await fetchAdventureBundle(selectedConversationId);
+        } else {
+          setAdventureState(null);
+          setQuestSteps([]);
+          setPlayerChoices([]);
+        }
+        console.log('📌 Loaded personality mode:', normalizedMode);
       }
       
       const { data: conversationMessages } = await dataClient.models.Message.list({
@@ -597,18 +855,28 @@ function App() {
     }
   };
 
-  const handleNewConversation = async () => {
+  const handleNewConversation = () => {
+    if (newConversationId && conversationId === newConversationId) {
+      console.warn('⚠️ Name the current conversation before starting another.');
+      return;
+    }
+    setIsModePickerOpen(true);
+  };
+
+  const createConversationWithMode = async (modeId: string) => {
     try {
-      // For development testing, create a mock conversation
+      const normalized = normalizePersonalityMode(modeId);
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('testmode') === 'true') {
         const mockConversationId = 'test-conversation-' + Date.now();
         console.log('✅ Test mode: Creating mock conversation that needs naming:', mockConversationId);
         setConversationId(mockConversationId);
-        setNewConversationId(mockConversationId); // Mark as needing a name
+        setNewConversationId(mockConversationId);
         setMessages([]);
-        
-        // Trigger a refresh of the conversation list
+        setPersonalityMode(normalized);
+        setAdventureState(null);
+        setQuestSteps([]);
+        setPlayerChoices([]);
         setConversationListKey(prev => prev + 1);
         return;
       }
@@ -616,21 +884,35 @@ function App() {
       // Get current user for participants
       const currentUserId = userAttributes?.sub || userAttributes?.email || 'anonymous';
       
-      console.log('Creating new conversation with user:', currentUserId);
+      console.log('Creating new conversation with user:', currentUserId, 'mode:', normalized);
       
       const { data: newConversation } = await dataClient.models.Conversation.create({
         title: '', // Start with empty title to force naming
-        participants: [currentUserId] // Add current user to participants
-        // createdAt and updatedAt are handled automatically by Amplify
+        participants: [currentUserId],
+        personalityMode: normalized,
       });
       
       if (newConversation) {
-        setConversationId(newConversation.id);
-        setNewConversationId(newConversation.id); // Mark as needing a name
+        const createdId = newConversation.id;
+        if (!createdId) {
+          console.error('❌ Failed to create conversation: No ID returned');
+          return;
+        }
+
+        setConversationId(createdId);
+        setNewConversationId(createdId);
         setMessages([]);
-        console.log('✅ Created new conversation that needs naming:', newConversation.id);
+        setPersonalityMode(normalized);
+        console.log('✅ Created new conversation that needs naming:', createdId);
         
-        // Trigger a refresh of the conversation list
+        if (normalized === 'game_master') {
+          await fetchAdventureBundle(createdId, normalized);
+        } else {
+          setAdventureState(null);
+          setQuestSteps([]);
+          setPlayerChoices([]);
+        }
+
         setConversationListKey(prev => prev + 1);
       } else {
         console.error('❌ Failed to create conversation: No data returned');
@@ -639,6 +921,15 @@ function App() {
       console.error('❌ Error creating new conversation:', error);
       // Don't throw the error to prevent breaking the UI
     }
+  };
+
+  const handleModeSelected = async (modeId: string) => {
+    setIsModePickerOpen(false);
+    await createConversationWithMode(modeId);
+  };
+
+  const handleModePickerClose = () => {
+    setIsModePickerOpen(false);
   };
 
   const handleDeleteConversation = async (conversationIdToDelete: string) => {
@@ -714,38 +1005,11 @@ function App() {
     }
   };
 
-  const handlePersonalityChange = async (newPersonality: string) => {
-    if (!conversationId) {
-      console.warn('No conversation selected');
-      return;
-    }
-
-    try {
-      // Update the conversation with new personality mode
-      await dataClient.models.Conversation.update({
-        id: conversationId,
-        personalityMode: newPersonality
-      });
-
-      setPersonalityMode(newPersonality);
-      console.log('✅ Personality mode updated to:', newPersonality);
-    } catch (error) {
-      console.error('❌ Error updating personality mode:', error);
-    }
-  };
-
-  const handleUpgradeClick = () => {
-    setShowUpgradeModal(true);
-  };
-
-  const handleUpgrade = () => {
-    // TODO: Implement Stripe payment flow
-    console.log('🚀 Starting upgrade process...');
-    // For now, just simulate upgrade
-    setIsPremium(true);
-    setShowUpgradeModal(false);
-    alert('Upgrade successful! Premium features unlocked. (Payment integration coming soon)');
-  };
+  const hasPersonalityPanel = effectivePersonality !== 'default';
+  const hasAdventurePanel = effectivePersonality === 'game_master' && Boolean(adventureState);
+  const hasSidebarContent = Boolean(
+    conversationId && (hasPersonalityPanel || hasAdventurePanel)
+  );
 
   return (
     <div className="h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden relative">
@@ -768,18 +1032,6 @@ function App() {
           }`}></span>
         </div>
       </button>
-
-      {/* Floating Mode Button */}
-      {conversationId && (
-        <div className="fixed top-4 right-4 z-50">
-          <PersonalitySelector
-            currentPersonality={personalityMode}
-            onSelectPersonality={handlePersonalityChange}
-            isPremium={isPremium}
-            onUpgradeClick={handleUpgradeClick}
-          />
-        </div>
-      )}
 
       {/* Mobile: Full-screen Overlay Menu */}
       <div
@@ -882,18 +1134,6 @@ function App() {
                   Brain in Cup
                 </h1>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleSignOut}
-                  className="p-2 rounded-lg text-brand-text-muted hover:text-brand-text-primary transition-colors duration-200 hover:bg-brand-surface-hover/20"
-                  title="Sign out"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                </button>
-              </div>
             </div>
 
             {/* Desktop Conversation List */}
@@ -908,6 +1148,19 @@ function App() {
                 newConversationId={newConversationId}
               />
             </nav>
+
+            <div className="border-t border-brand-surface-border p-4">
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary transition-all duration-200 hover:bg-brand-surface-hover/20"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="font-medium">Sign Out</span>
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -931,14 +1184,27 @@ function App() {
           {messages.length > 0 && `Conversation has ${messages.length} messages`}
         </div>
 
-        {/* Enhanced Chat Area with glass morphism design */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Enhanced Chat Area with glass morphism design */}
           {/* Messages with improved styling and animations */}
           <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col-reverse">
             <div className="max-w-4xl mx-auto space-y-6 flex flex-col">
-              {/* Personality Indicator */}
-              {conversationId && personalityMode !== 'default' && (
-                <PersonalityIndicator personality={personalityMode} />
+              {/* Personality Indicator (mobile only) */}
+              {conversationId && effectivePersonality !== 'default' && (
+                <div className="lg:hidden">
+                  <PersonalityIndicator personality={effectivePersonality} />
+                </div>
+              )}
+
+              {conversationId && effectivePersonality === 'game_master' && adventureState && (
+                <div className="lg:hidden">
+                  <GameMasterHud
+                    adventure={adventureState}
+                    questSteps={questSteps}
+                    playerChoices={playerChoices}
+                  />
+                </div>
               )}
               
               {/* Invisible element to scroll to - at the bottom in reversed layout */}
@@ -1175,7 +1441,7 @@ function App() {
                             : newConversationId && conversationId === newConversationId
                             ? 'Name your conversation first...'
                             : conversationId 
-                            ? 'Message Brain in Cup...' 
+                            ? (effectivePersonality === 'game_master' ? 'Describe your next move for the Game Master...' : 'Message Brain in Cup...') 
                             : 'Start typing to begin your conversation...'
                         }
                         className="w-full min-h-[56px] max-h-32 py-3 px-1 resize-none
@@ -1225,6 +1491,24 @@ function App() {
               </form>
             </div>
           </div>
+          </div>
+          {hasSidebarContent && (
+            <aside className="hidden lg:flex w-80 flex-col border-l border-brand-surface-border bg-brand-bg-primary/30 px-5 py-6">
+              <div className="sticky top-10 space-y-5 w-full">
+                {conversationId && effectivePersonality !== 'default' && (
+                  <PersonalityIndicator personality={effectivePersonality} />
+                )}
+
+                {conversationId && effectivePersonality === 'game_master' && adventureState && (
+                  <GameMasterHud
+                    adventure={adventureState}
+                    questSteps={questSteps}
+                    playerChoices={playerChoices}
+                  />
+                )}
+              </div>
+            </aside>
+          )}
         </div>
 
         </main>
@@ -1248,8 +1532,16 @@ function App() {
           <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col-reverse">
             <div className="max-w-4xl mx-auto space-y-4 flex flex-col">
               {/* Personality Indicator */}
-              {conversationId && personalityMode !== 'default' && (
-                <PersonalityIndicator personality={personalityMode} />
+              {conversationId && effectivePersonality !== 'default' && (
+                <PersonalityIndicator personality={effectivePersonality} />
+              )}
+
+              {conversationId && effectivePersonality === 'game_master' && adventureState && (
+                <GameMasterHud
+                  adventure={adventureState}
+                  questSteps={questSteps}
+                  playerChoices={playerChoices}
+                />
               )}
               
               {/* Invisible element to scroll to - at the bottom in reversed layout */}
@@ -1491,13 +1783,53 @@ function App() {
         </div>
 
       </main>
-      
-      {/* Premium Upgrade Modal */}
-      <PremiumUpgradeModal
-        isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        onUpgrade={handleUpgrade}
-      />
+
+      {isModePickerOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-md"
+            onClick={handleModePickerClose}
+          />
+          <div
+            className="relative glass rounded-3xl border border-brand-surface-border shadow-glass-xl w-full max-w-2xl p-6 md:p-8 space-y-6"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-[0.4em] text-brand-text-muted">Choose a mode</p>
+              <h2 className="text-2xl font-semibold text-brand-text-primary">How do you want to explore?</h2>
+              <p className="text-sm text-brand-text-secondary">Pick the vibe for this thread. You can always start another to try a different persona.</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {MODE_OPTIONS.map(option => (
+                <button
+                  key={option.id}
+                  onClick={() => handleModeSelected(option.id)}
+                  className="text-left rounded-2xl border border-brand-surface-border p-4 glass-hover transition-all duration-300 hover:border-brand-accent-primary/50 hover:shadow-glow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${option.accent} flex items-center justify-center text-xl`}>
+                      {option.icon}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs uppercase tracking-[0.3em] text-brand-text-muted">{option.badge}</span>
+                      <span className="text-base font-semibold text-brand-text-primary">{option.title}</span>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm text-brand-text-secondary">{option.description}</p>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleModePickerClose}
+              className="w-full py-3 rounded-2xl border border-brand-surface-border text-brand-text-muted hover:text-brand-text-primary transition-colors"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

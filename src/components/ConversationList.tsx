@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
+import { getModeMeta, MODE_OPTIONS, normalizePersonalityMode } from '../constants/personalityModes';
+import type { PersonalityModeId } from '../constants/personalityModes';
 
 const dataClient = generateClient<Schema>();
 
-type ConversationType = Schema['Conversation']['type'];
+type ConversationType = Schema['Conversation']['type'] & { personalityMode?: string | null };
 
 interface ConversationListProps {
   onSelectConversation: (conversationId: string) => void;
@@ -23,6 +25,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
   const [editingTitle, setEditingTitle] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isNewConversation, setIsNewConversation] = useState(false); // Track if we're naming a new conversation
+  const [modeFilter, setModeFilter] = useState<PersonalityModeId | null>(null);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -279,23 +282,279 @@ export default function ConversationList({ onSelectConversation, onNewConversati
     }
   };
 
+  const conversationsToShow = modeFilter
+    ? conversations.filter(
+        (conv) => normalizePersonalityMode(conv.personalityMode) === modeFilter
+      )
+    : conversations;
+
+  const isFilteredEmpty = !!modeFilter && !isLoading && conversations.length > 0 && conversationsToShow.length === 0;
+  const activeFilterMeta = modeFilter ? MODE_OPTIONS.find((mode) => mode.id === modeFilter) : null;
+
+  const conversationContent = isFilteredEmpty ? (
+    <div className="text-center py-10 rounded-3xl border border-dashed border-white/10 text-white/60">
+      <p className="text-sm font-semibold mb-1">No {activeFilterMeta?.shortLabel?.toLowerCase()} threads yet</p>
+      <p className="text-xs text-white/40">Start a new conversation to spin one up.</p>
+    </div>
+  ) : (
+    conversationsToShow.map((conversation) => {
+      const dateText = formatDate((conversation.updatedAt || conversation.createdAt) || undefined);
+      const conversationTitle = conversation.title || (conversation.id === newConversationId ? '' : 'Untitled Conversation');
+      const modeMeta = getModeMeta(conversation.personalityMode);
+      const isEditing = editingId === conversation.id;
+      const isDeleting = deleteConfirmId === conversation.id;
+      const accentDotClass = modeMeta.id === 'game_master'
+        ? 'bg-amber-300/80 shadow-[0_0_14px_rgba(251,191,36,0.45)]'
+        : 'bg-fuchsia-300/80 shadow-[0_0_14px_rgba(217,70,239,0.45)]';
+
+      return (
+        <div
+          key={conversation.id}
+          className={`relative w-full rounded-3xl overflow-hidden border border-white/10 bg-[#090514]/85 backdrop-blur-2xl 
+          transition-all duration-300 animate-slide-up
+          ${selectedConversationId === conversation.id 
+          ? 'shadow-[0_25px_60px_rgba(99,67,255,0.45)] ring-2 ring-brand-accent-primary/40'
+          : 'hover:-translate-y-1 hover:border-white/20'}
+        `}
+        >
+          {isEditing ? (
+            <div className="p-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
+                  onFocus={(e) => e.target.select()}
+                  placeholder={isNewConversation ? "Name your conversation..." : "Conversation name"}
+                  className="flex-1 glass text-brand-text-primary text-sm font-medium rounded-xl px-4 py-3
+                  border-2 border-brand-accent-primary/50 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 
+                  focus:border-brand-accent-primary backdrop-blur-sm transition-all duration-200"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => handleTitleSave(conversation.id!)}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white
+                  bg-brand-accent-primary hover:bg-brand-accent-primary/90 rounded-xl 
+                  transition-all duration-200 active:scale-95
+                  focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50
+                  disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isNewConversation && !editingTitle.trim()}
+                >
+                  {isNewConversation ? 'Create' : 'Save'}
+                </button>
+                <button
+                  onClick={() => handleTitleCancel(conversation.id || undefined)}
+                  className="px-4 py-2.5 text-sm font-medium text-brand-text-muted
+                  glass-hover hover:text-brand-text-primary rounded-xl 
+                  transition-all duration-200 active:scale-95
+                  focus:outline-none focus:ring-2 focus:ring-brand-surface-border"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : isDeleting ? (
+            <div className="p-4 bg-brand-status-error/10 border-2 border-brand-status-error/50">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-brand-status-error/20 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-brand-status-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-brand-text-primary mb-1">Delete this conversation?</div>
+                  <div className="text-xs text-brand-text-muted">This action cannot be undone.</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleDeleteExecute(conversation.id!)}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white
+                  bg-brand-status-error hover:bg-red-600 rounded-xl transition-all duration-200 active:scale-95
+                  focus:outline-none focus:ring-2 focus:ring-brand-status-error/50"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={handleDeleteCancel}
+                  className="px-4 py-2.5 text-sm font-medium text-brand-text-muted
+                  glass-hover hover:text-brand-text-primary rounded-xl 
+                  transition-all duration-200 active:scale-95
+                  focus:outline-none focus:ring-2 focus:ring-brand-surface-border"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => conversation.id && onSelectConversation(conversation.id)}
+              className="group relative w-full text-left rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50"
+            >
+              <div
+                className={`absolute inset-0 opacity-25 bg-gradient-to-br ${modeMeta.accent}`}
+                aria-hidden="true"
+              ></div>
+              <div
+                className={`absolute inset-0 opacity-0 group-hover:opacity-60 transition-opacity duration-300 blur-3xl bg-gradient-to-r ${modeMeta.accent}`}
+                aria-hidden="true"
+              ></div>
+              <div className="relative flex items-start gap-4 p-5">
+                <div className="relative flex-shrink-0">
+                  <div className="w-12 h-12 rounded-2xl border border-white/15 bg-white/5 flex items-center justify-center text-xl text-white">
+                    <span>{modeMeta.icon}</span>
+                  </div>
+                  <div
+                    className={`absolute inset-0 rounded-2xl opacity-60 blur-lg bg-gradient-to-br ${modeMeta.accent}`}
+                    aria-hidden="true"
+                  ></div>
+                </div>
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-start gap-3">
+                    <p
+                      className={`flex-1 text-sm font-semibold tracking-tight truncate ${
+                        selectedConversationId === conversation.id
+                          ? 'text-white'
+                          : 'text-brand-text-secondary group-hover:text-white'
+                      }`}
+                      title={conversationTitle || undefined}
+                    >
+                      {conversationTitle || 'Untitled'}
+                    </p>
+                    {dateText && (
+                      <span
+                        className={`text-[10px] uppercase tracking-[0.4em] flex-shrink-0 ${
+                          selectedConversationId === conversation.id
+                            ? 'text-white/80'
+                            : 'text-brand-text-muted group-hover:text-brand-text-secondary'
+                        }`}
+                      >
+                        {dateText}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`inline-flex h-2.5 w-2.5 rounded-full ${accentDotClass}`} aria-hidden="true"></span>
+                    <span className="flex-1 text-xs text-white/70 truncate">
+                      {modeMeta.description}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2 ml-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTitleEdit(conversation.id!, conversationTitle);
+                    }}
+                    className="p-2 rounded-xl border border-white/10 bg-white/5 text-brand-text-muted hover:text-white hover:border-brand-accent-primary/40 transition-all duration-200 backdrop-blur-sm"
+                    title="Edit conversation name"
+                    aria-label="Edit conversation name"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteConfirm(conversation.id!);
+                    }}
+                    className="p-2 rounded-xl border border-white/10 bg-white/5 text-brand-text-muted hover:text-brand-status-error hover:border-brand-status-error/50 transition-all duration-200 backdrop-blur-sm"
+                    title="Delete conversation"
+                    aria-label="Delete conversation"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </button>
+          )}
+        </div>
+      );
+    })
+  );
+
   return (
     <div className="p-6">
-      {/* Enhanced New Conversation Button */}
+      {/* Streamlined New Conversation button */}
       <button
         onClick={onNewConversation}
-        className="w-full mb-6 px-5 py-4 rounded-2xl bg-gradient-mesh text-white font-medium 
-        shadow-glow hover:shadow-glow-sm hover:scale-[1.02] active:scale-[0.98]
-        transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 
-        transform floating-action"
+        className="group relative w-full mb-6 overflow-hidden rounded-2xl border border-white/10 
+        bg-white/5 px-6 py-5 text-left text-white backdrop-blur-2xl transition-all duration-300 
+        hover:border-brand-accent-primary/60 hover:bg-white/10 focus:outline-none focus:ring-2 
+        focus:ring-brand-accent-primary/40"
       >
-        <div className="flex items-center justify-center gap-3">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          <span>New Conversation</span>
+        <span className="pointer-events-none absolute inset-x-6 -top-1 h-px bg-gradient-to-r 
+          from-transparent via-white/70 to-transparent opacity-0 transition-opacity duration-300 
+          group-hover:opacity-100" />
+        <span className="pointer-events-none absolute inset-x-6 -bottom-1 h-px bg-gradient-to-r 
+          from-transparent via-brand-accent-secondary/80 to-transparent opacity-80" />
+        <div className="relative flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="relative flex h-12 w-12 items-center justify-center rounded-[1.35rem] border border-white/15 
+              bg-gradient-to-br from-brand-accent-primary/35 via-transparent to-brand-accent-secondary/30 text-white 
+              shadow-[0_15px_35px_rgba(119,60,255,0.35)]">
+              <span className="text-xl font-light">✦</span>
+              <span className="absolute inset-0 rounded-[1.35rem] bg-gradient-to-br from-white/30 to-transparent opacity-60" />
+            </div>
+            <div>
+              <p className="text-[0.62rem] uppercase tracking-[0.6em] text-white/45 group-hover:text-white/70">Begin</p>
+              <p className="text-lg font-semibold tracking-tight">New Conversation</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[0.65rem] uppercase tracking-[0.45em] text-white/55 group-hover:text-white">Enter</span>
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/5 text-white/80 transition-all duration-300 group-hover:border-brand-accent-primary/70">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </span>
+          </div>
         </div>
       </button>
+
+      {/* Mode Filters */}
+      <div className="mb-6">
+        <div className="flex flex-wrap items-center text-[11px] uppercase tracking-[0.45em] text-white/60">
+          {MODE_OPTIONS.map((mode, index) => {
+            const isActive = modeFilter === mode.id;
+            return (
+              <div key={mode.id} className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setModeFilter((current) => current === mode.id ? null : mode.id)}
+                  className={`relative px-4 py-2 transition-colors duration-200 focus:outline-none ${
+                    isActive
+                      ? 'text-white'
+                      : 'text-white/50 hover:text-white/80'
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  <span className="tracking-[0.35em]">{mode.shortLabel}</span>
+                  <span
+                    className={`pointer-events-none absolute left-3 right-3 -bottom-1 h-px transition-opacity duration-200 ${
+                      isActive ? 'opacity-100 bg-gradient-to-r from-brand-accent-primary via-white to-brand-accent-secondary' : 'opacity-0'
+                    }`}
+                    aria-hidden="true"
+                  />
+                </button>
+                {index < MODE_OPTIONS.length - 1 && (
+                  <span className="mx-3 text-white/25 select-none">|</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Conversations List */}
       {isLoading ? (
@@ -318,182 +577,19 @@ export default function ConversationList({ onSelectConversation, onNewConversati
         </div>
       ) : (
         <div className="space-y-3">
-          <h3 className="text-xs font-semibold text-brand-text-muted uppercase tracking-wider mb-4 px-2">
-            Recent Conversations
-          </h3>
-          {conversations.map((conversation) => {
-            const dateText = formatDate((conversation.updatedAt || conversation.createdAt) || undefined);
-            const conversationTitle = conversation.title || (conversation.id === newConversationId ? '' : 'Untitled Conversation');
-            const isEditing = editingId === conversation.id;
-            const isDeleting = deleteConfirmId === conversation.id;
-            
-            return (
-              <div
-                key={conversation.id}
-                className={`w-full rounded-2xl transition-all duration-200 relative overflow-hidden animate-slide-up border-2
-                ${selectedConversationId === conversation.id 
-                ? 'bg-gradient-to-r from-brand-accent-primary/30 to-brand-accent-secondary/20 border-brand-accent-primary shadow-glow ring-2 ring-brand-accent-primary/30' 
-                : 'glass hover:border-brand-accent-primary/30 hover:bg-brand-surface-hover border-transparent'
-              }`}
-              >
-                {isEditing ? (
-                  /* Editing Mode - Full focus on the input */
-                  <div className="p-4">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={editingTitle}
-                        onChange={(e) => setEditingTitle(e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
-                        onFocus={(e) => e.target.select()}
-                        placeholder={isNewConversation ? "Name your conversation..." : "Conversation name"}
-                        className="flex-1 glass text-brand-text-primary text-sm font-medium rounded-xl px-4 py-3
-                        border-2 border-brand-accent-primary/50 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 
-                        focus:border-brand-accent-primary backdrop-blur-sm transition-all duration-200"
-                        autoFocus
-                      />
-                    </div>
-                    <div className="flex gap-2 mt-3">
-                      <button
-                        onClick={() => handleTitleSave(conversation.id!)}
-                        className="flex-1 px-4 py-2.5 text-sm font-medium text-white
-                        bg-brand-accent-primary hover:bg-brand-accent-primary/90 rounded-xl 
-                        transition-all duration-200 active:scale-95
-                        focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50
-                        disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={isNewConversation && !editingTitle.trim()}
-                      >
-                        {isNewConversation ? 'Create' : 'Save'}
-                      </button>
-                      <button
-                        onClick={() => handleTitleCancel(conversation.id || undefined)}
-                        className="px-4 py-2.5 text-sm font-medium text-brand-text-muted
-                        glass-hover hover:text-brand-text-primary rounded-xl 
-                        transition-all duration-200 active:scale-95
-                        focus:outline-none focus:ring-2 focus:ring-brand-surface-border"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : isDeleting ? (
-                  /* Delete Confirmation - Inline */
-                  <div className="p-4 bg-brand-status-error/10 border-2 border-brand-status-error/50">
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-lg bg-brand-status-error/20 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-4 h-4 text-brand-status-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-brand-text-primary mb-1">Delete this conversation?</div>
-                        <div className="text-xs text-brand-text-muted">This action cannot be undone.</div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleDeleteExecute(conversation.id!)}
-                        className="flex-1 px-4 py-2.5 text-sm font-medium text-white
-                        bg-brand-status-error hover:bg-red-600 rounded-xl transition-all duration-200 active:scale-95
-                        focus:outline-none focus:ring-2 focus:ring-brand-status-error/50"
-                      >
-                        Delete
-                      </button>
-                      <button
-                        onClick={handleDeleteCancel}
-                        className="px-4 py-2.5 text-sm font-medium text-brand-text-muted
-                        glass-hover hover:text-brand-text-primary rounded-xl 
-                        transition-all duration-200 active:scale-95
-                        focus:outline-none focus:ring-2 focus:ring-brand-surface-border"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Normal Mode - Conversation item */
-                  <button
-                    onClick={() => conversation.id && onSelectConversation(conversation.id)}
-                    className="w-full text-left focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 rounded-2xl"
-                  >
-                    <div className="flex items-center p-4 group">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1 min-w-0 pr-3">
-                            <div
-                              className={`text-sm truncate mb-1 px-3 py-2 transition-colors rounded-xl ${
-                                selectedConversationId === conversation.id 
-                                  ? 'text-brand-text-primary font-semibold' 
-                                  : 'text-brand-text-secondary font-medium group-hover:text-brand-text-primary'
-                              }`}
-                            >
-                              {conversationTitle}
-                            </div>
-                            {dateText && (
-                              <div className={`text-xs px-3 transition-colors ${
-                                selectedConversationId === conversation.id
-                                  ? 'text-brand-text-secondary'
-                                  : 'text-brand-text-muted group-hover:text-brand-text-secondary'
-                              }`}>
-                                {dateText}
-                              </div>
-                            )}
-                          </div>
-                          {selectedConversationId === conversation.id && (
-                            <div className="text-brand-accent-primary text-sm flex-shrink-0">
-                              <div className="w-2 h-2 bg-brand-accent-primary rounded-full animate-pulse"></div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Edit and Delete buttons - Always visible on mobile, hover on desktop */}
-                      <div className="flex items-center gap-1 ml-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTitleEdit(conversation.id!, conversationTitle);
-                          }}
-                          className="p-2.5 rounded-xl glass-hover transition-all duration-200
-                          text-brand-text-muted hover:text-brand-accent-primary hover:bg-brand-accent-primary/10
-                          active:scale-95 touch-manipulation"
-                          title="Edit conversation name"
-                          aria-label="Edit conversation name"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteConfirm(conversation.id!);
-                          }}
-                          className="p-2.5 rounded-xl glass-hover transition-all duration-200
-                          text-brand-text-muted hover:text-brand-status-error hover:bg-brand-status-error/10
-                          active:scale-95 touch-manipulation"
-                          title="Delete conversation"
-                          aria-label="Delete conversation"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {/* Stronger gradient overlay for active conversation */}
-                    {selectedConversationId === conversation.id && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-violet-600/10 to-fuchsia-600/10 pointer-events-none rounded-2xl"></div>
-                    )}
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          <div className="flex items-center justify-between mb-4 px-2">
+            <h3 className="text-xs font-semibold text-brand-text-muted uppercase tracking-wider">
+              Recent Conversations
+            </h3>
+            {activeFilterMeta && (
+              <span className="text-[11px] uppercase tracking-[0.45em] text-white/60 flex items-center gap-1">
+                <span>{activeFilterMeta.icon}</span>
+                {activeFilterMeta.shortLabel}
+              </span>
+            )}
+          </div>
+          {conversationContent}
+
         </div>
       )}
     </div>

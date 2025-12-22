@@ -6,9 +6,10 @@ const schema = a.schema({
     id: a.id(),
     title: a.string().default('New Conversation'),
     participants: a.string().array(),
-    personalityMode: a.string().default('default'), // 'default' or 'rpg_dm'
+    personalityMode: a.string().default('default'),
     messages: a.hasMany('Message', 'conversationId'),
     brainResponses: a.hasMany('BrainResponse', 'conversationId'),
+    gameMasterAdventure: a.hasOne('GameMasterAdventure', 'conversationId'),
     createdAt: a.date(),
     updatedAt: a.date(),
   }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
@@ -28,14 +29,14 @@ const schema = a.schema({
     conversationId: a.id(),
     conversation: a.belongsTo('Conversation', 'conversationId'),
 
-    messageId: a.id(), // the user message this is responding to
+    messageId: a.id(),
     message: a.belongsTo('Message', 'messageId'),
 
     response: a.string(),
 
     sensations: a.string().array(),
     thoughts: a.string().array(),
-    memories: a.string(), // could later link to a Memory model
+    memories: a.string(),
     selfReflection: a.string(),
 
     createdAt: a.date(),
@@ -44,6 +45,50 @@ const schema = a.schema({
     allow.owner(),
     allow.authenticated().to(['read']),
   ]),
+
+  GameMasterAdventure: a.model({
+    id: a.id(),
+    conversationId: a.id(),
+    conversation: a.belongsTo('Conversation', 'conversationId'),
+    title: a.string().default('Untitled Adventure'),
+    genre: a.string().default('Surreal Fantasy'),
+    tone: a.string().default('Player-led'),
+    difficulty: a.string().default('Story-first'),
+    safetyLevel: a.string().default('User Directed'),
+    moodTag: a.string().default('Unsettled'),
+    lastLocation: a.string().default('Unknown'),
+    lastStepId: a.string().default(''),
+    questSteps: a.hasMany('GameMasterQuestStep', 'adventureId'),
+    createdAt: a.date(),
+    updatedAt: a.date(),
+  }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
+
+  GameMasterQuestStep: a.model({
+    id: a.id(),
+    adventureId: a.id(),
+    adventure: a.belongsTo('GameMasterAdventure', 'adventureId'),
+    conversationId: a.id(),
+    brainResponseId: a.string().default(''),
+    messageId: a.string().default(''),
+    title: a.string().default(''),
+    summary: a.string(),
+    narration: a.string(),
+    dangerLevel: a.string().default('Unknown'),
+    locationTag: a.string().default(''),
+    createdAt: a.date(),
+    playerChoices: a.hasMany('GameMasterPlayerChoice', 'questStepId'),
+  }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
+
+  GameMasterPlayerChoice: a.model({
+    id: a.id(),
+    questStepId: a.id(),
+    questStep: a.belongsTo('GameMasterQuestStep', 'questStepId'),
+    conversationId: a.id(),
+    messageId: a.id(),
+    content: a.string(),
+    toneTag: a.string().default('neutral'),
+    createdAt: a.date(),
+  }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 });
 
 export const data = defineData({
