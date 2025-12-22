@@ -45,6 +45,11 @@ class MemoryAgent:
             raise ValueError("MESSAGE_TABLE_NAME environment variable must be set")
         self.message_table = self.dynamodb_client.Table(self.message_table_name)  # type: ignore
 
+        self.response_table_name = getenv("RESPONSE_TABLE_NAME")
+        if not self.response_table_name:
+            raise ValueError("RESPONSE_TABLE_NAME environment variable must be set")
+        self.response_table = self.dynamodb_client.Table(self.response_table_name)  # type: ignore
+
         self.appsync_api_url: str = getenv("APPSYNC_API_URL") or ""
         if not self.appsync_api_url:
             raise ValueError("APPSYNC_API_URL environment variable must be set")
@@ -57,13 +62,39 @@ class MemoryAgent:
         return None
 
     def load_conversation_history(self):
-        """Load conversation history by conversation_id (sorted by timestamp ascending)."""
-        response = self.message_table.query(
+        """Load conversation history with paired AI responses."""
+        messages_response = self.message_table.query(
             IndexName="gsi-Conversation.messages",
             KeyConditionExpression=Key("conversationId").eq(self.conversation_id),
             ScanIndexForward=True,  # Oldest to newest
         )
-        return response.get("Items", [])
+        messages = messages_response.get("Items", [])
+
+        brain_response_items = self.response_table.query(
+            IndexName="gsi-Conversation.brainResponses",
+            KeyConditionExpression=Key("conversationId").eq(self.conversation_id),
+            ScanIndexForward=True,
+        ).get("Items", [])
+
+        responses_by_message = {}
+        for item in brain_response_items:
+            message_id = item.get("messageId")
+            if message_id:
+                responses_by_message[message_id] = item
+
+        conversation_history = []
+        for message in messages:
+            message_id = message.get("id")
+            response_item = responses_by_message.get(message_id)
+            conversation_history.append(
+                {
+                    "id": message_id,
+                    "user_input": message.get("content", ""),
+                    "response": response_item if response_item else "",
+                }
+            )
+
+        return conversation_history
 
     def save_response(self, response, message_id=None, owner=None):
         """Save the AI-generated response to the BrainResponse table via AppSync GraphQL mutation."""
