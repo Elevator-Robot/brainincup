@@ -1055,20 +1055,17 @@ function App() {
         >
           <div className="flex flex-col h-full">
             {/* Mobile Menu Header */}
-            <div className="flex items-center justify-between p-4 border-b border-brand-surface-border">
+            <div className="flex items-center gap-3 p-4 border-b border-brand-surface-border">
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary transition-all duration-200"
+                className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary transition-all duration-200 flex-shrink-0"
                 aria-label="Close menu"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              <h2 className="text-xl font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
-                Conversations
-              </h2>
-              <div className="w-10 h-10"></div> {/* Spacer for centering */}
+              <span className="text-lg font-light text-brand-text-primary tracking-wide">Conversations</span>
             </div>
 
             {/* Mobile Menu Content */}
@@ -1124,13 +1121,9 @@ function App() {
           <div className={`flex flex-col h-full glass backdrop-blur-xl border-r border-brand-surface-border shadow-glass-lg w-80 transition-opacity duration-300 ${
             isSidebarOpen ? 'opacity-100' : 'opacity-0'
           }`}>
-            {/* Desktop Sidebar Header */}
-            <div className="flex items-center justify-between p-6 pt-20 border-b border-brand-surface-border">
-              <h1 className="text-xl font-bold bg-gradient-to-r from-brand-text-primary to-brand-text-accent bg-clip-text text-transparent">
-                Brain in Cup
-              </h1>
+            <div className="flex justify-end px-4 py-3">
+              <span className="text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
             </div>
-
             {/* Desktop Conversation List */}
             <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-surface-tertiary" aria-label="Conversations">
               <ConversationList 
