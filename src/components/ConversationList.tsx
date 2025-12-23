@@ -199,6 +199,15 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
     setIsNewConversation(false);
   };
 
+  const handleInputBlur = (conversationId: string) => {
+    if (editingId !== conversationId) return;
+    if (editingTitle.trim()) {
+      handleTitleSave(conversationId);
+    } else {
+      handleTitleCancel(conversationId);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent, conversationId: string) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -331,43 +340,18 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
             aria-hidden="true"
           ></span>
           {isEditing ? (
-            <div className="p-4">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={editingTitle}
-                  onChange={(e) => setEditingTitle(e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
-                  onFocus={(e) => e.target.select()}
-                  placeholder={isNewConversation ? "Name your interaction..." : "Interaction name"}
-                  className="flex-1 glass text-brand-text-primary text-sm font-medium rounded-xl px-4 py-3
-                  border-2 border-brand-accent-primary/50 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 
-                  focus:border-brand-accent-primary backdrop-blur-sm transition-all duration-200"
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={() => handleTitleSave(conversation.id!)}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white
-                  bg-brand-accent-primary hover:bg-brand-accent-primary/90 rounded-xl 
-                  transition-all duration-200 active:scale-95
-                  focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50
-                  disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isNewConversation && !editingTitle.trim()}
-                >
-                  {isNewConversation ? 'Create' : 'Save'}
-                </button>
-                <button
-                  onClick={() => handleTitleCancel(conversation.id || undefined)}
-                  className="px-4 py-2.5 text-sm font-medium text-brand-text-muted
-                  glass-hover hover:text-brand-text-primary rounded-xl 
-                  transition-all duration-200 active:scale-95
-                  focus:outline-none focus:ring-2 focus:ring-brand-surface-border"
-                >
-                  Cancel
-                </button>
-              </div>
+            <div className="px-5 py-4">
+              <input
+                type="text"
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
+                onBlur={() => handleInputBlur(conversation.id!)}
+                onFocus={(e) => e.target.select()}
+                placeholder={isNewConversation ? "Name your interaction..." : "Interaction name"}
+                className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2 text-sm font-medium text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/40"
+                autoFocus
+              />
             </div>
           ) : isDeleting ? (
             <div className="p-4 bg-brand-status-error/10 border-2 border-brand-status-error/50">
