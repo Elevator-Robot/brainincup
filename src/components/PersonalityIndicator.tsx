@@ -3,5 +3,6 @@ interface PersonalityIndicatorProps {
 }
 
 export default function PersonalityIndicator({ personality }: PersonalityIndicatorProps) {
+  void personality;
   return null;
 }

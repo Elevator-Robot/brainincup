@@ -313,7 +313,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
       const isEditing = editingId === conversation.id;
       const isDeleting = deleteConfirmId === conversation.id;
       const isSelected = selectedConversationId === conversation.id;
-      const hoverHueClass = 'from-brand-accent-primary/35 via-transparent to-brand-accent-secondary/40';
 
       return (
         <div
@@ -408,7 +407,14 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
             <div
               role="button"
               tabIndex={0}
+              title="Double-click to rename"
               onClick={() => conversation.id && onSelectConversation(conversation.id)}
+              onDoubleClick={(event) => {
+                event.stopPropagation();
+                if (conversation.id) {
+                  handleTitleEdit(conversation.id, conversationTitle);
+                }
+              }}
               onKeyDown={(event) => conversation.id && handleConversationKeyPress(event, conversation.id)}
               className="group relative w-full text-left rounded-3xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50"
             >
@@ -445,20 +451,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                 </div>
                 
                 <div className="flex items-center gap-2 ml-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTitleEdit(conversation.id!, conversationTitle);
-                    }}
-                    className="p-2 rounded-xl border border-white/10 bg-white/5 text-brand-text-muted hover:text-white hover:border-brand-accent-primary/40 transition-all duration-200 backdrop-blur-sm"
-                    title="Edit interaction name"
-                    aria-label="Edit interaction name"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
