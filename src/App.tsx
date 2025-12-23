@@ -1055,7 +1055,7 @@ function App() {
         >
           <div className="flex flex-col h-full">
             {/* Mobile Menu Header */}
-            <div className="flex items-center gap-3 p-4 border-b border-brand-surface-border">
+            <div className="flex items-center gap-3 p-4">
               <button
                 onClick={() => setIsSidebarOpen(false)}
                 className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary transition-all duration-200 flex-shrink-0"
@@ -1065,22 +1065,22 @@ function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              <span className="text-lg font-light text-brand-text-primary tracking-wide">Conversations</span>
+              <span className="text-lg font-light text-brand-text-primary tracking-wide">Interactions</span>
             </div>
 
             {/* Mobile Menu Content */}
-            <nav className="flex-1 overflow-y-auto" aria-label="Conversations">
+            <nav className="flex-1 overflow-y-auto" aria-label="Interactions">
               <ConversationList 
                 onSelectConversation={(id) => {
                   handleSelectConversation(id);
                   setIsSidebarOpen(false); // Close menu after selection on mobile
                 }}
-                onNewConversation={() => {
-                  handleNewConversation();
-                  setIsSidebarOpen(false); // Close menu after creating new conversation
-                }}
                 onDeleteConversation={handleDeleteConversation}
                 onConversationNamed={handleConversationNamed}
+                onNewConversation={() => {
+                  handleNewConversation();
+                }}
+                disableNewConversation={Boolean(newConversationId && conversationId === newConversationId)}
                 selectedConversationId={conversationId}
                 refreshKey={conversationListKey}
                 newConversationId={newConversationId}
@@ -1115,7 +1115,7 @@ function App() {
         <aside
           className={`h-full flex-shrink-0 transform transition-all duration-300 ease-in-out z-40
             ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full'}`}
-          aria-label="Conversation list sidebar"
+          aria-label="Interaction list sidebar"
           role="complementary"
         >
           <div className={`flex flex-col h-full glass backdrop-blur-xl border-r border-brand-surface-border shadow-glass-lg w-80 transition-opacity duration-300 ${
@@ -1125,12 +1125,13 @@ function App() {
               <span className="text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
             </div>
             {/* Desktop Conversation List */}
-            <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-surface-tertiary" aria-label="Conversations">
+            <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-surface-tertiary" aria-label="Interactions">
               <ConversationList 
                 onSelectConversation={handleSelectConversation}
-                onNewConversation={handleNewConversation}
                 onDeleteConversation={handleDeleteConversation}
                 onConversationNamed={handleConversationNamed}
+                onNewConversation={handleNewConversation}
+                disableNewConversation={Boolean(newConversationId && conversationId === newConversationId)}
                 selectedConversationId={conversationId}
                 refreshKey={conversationListKey}
                 newConversationId={newConversationId}
@@ -1169,7 +1170,7 @@ function App() {
           className="sr-only"
         >
           {isWaitingForResponse && 'AI is thinking...'}
-          {messages.length > 0 && `Conversation has ${messages.length} messages`}
+          {messages.length > 0 && `Interaction has ${messages.length} messages`}
         </div>
 
         <div className="flex flex-1 min-h-0">
@@ -1366,7 +1367,7 @@ function App() {
                 <div className="mt-6 glass rounded-2xl p-4 animate-fade-in">
                   <h3 className="text-sm font-medium text-brand-text-primary mb-2">Debug Information</h3>
                   <div className="text-xs text-brand-text-muted space-y-1">
-                    <p>Conversation ID: {conversationId || 'None'}</p>
+                    <p>Interaction ID: {conversationId || 'None'}</p>
                     <p>User: {userAttributes?.sub || 'Unknown'}</p>
                     <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
                     <p>Messages count: {messages.length}</p>
@@ -1427,10 +1428,10 @@ function App() {
                           isWaitingForResponse
                             ? 'Waiting for response...'
                             : newConversationId && conversationId === newConversationId
-                            ? 'Name your conversation first...'
+                            ? 'Name your interaction first...'
                             : conversationId 
                             ? (effectivePersonality === 'game_master' ? 'Describe your next move for the Game Master...' : 'Message Brain in Cup...') 
-                            : 'Start typing to begin your conversation...'
+                            : 'Start typing to begin your interaction...'
                         }
                         className="w-full min-h-[56px] max-h-32 py-3 px-1 resize-none
                         bg-transparent text-brand-text-primary placeholder-brand-text-muted
@@ -1511,7 +1512,7 @@ function App() {
           className="sr-only"
         >
           {isWaitingForResponse && 'AI is thinking...'}
-          {messages.length > 0 && `Conversation has ${messages.length} messages`}
+          {messages.length > 0 && `Interaction has ${messages.length} messages`}
         </div>
 
         {/* Enhanced Chat Area with glass morphism design */}
@@ -1729,7 +1730,7 @@ function App() {
                           isWaitingForResponse
                             ? 'Waiting...'
                             : newConversationId && conversationId === newConversationId
-                            ? 'Name conversation first...'
+                            ? 'Name interaction first...'
                             : 'Message Brain in Cup...'
                         }
                         className="w-full min-h-[44px] max-h-32 py-2 px-1 resize-none

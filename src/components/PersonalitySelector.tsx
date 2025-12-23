@@ -19,7 +19,7 @@ const personalities: Personality[] = [
     id: 'default',
     name: 'Brain in Cup',
     icon: '🧠',
-    description: 'Thoughtful AI consciousness for deep conversations',
+    description: 'Thoughtful AI consciousness for deep interactions',
     tagline: 'Default mode',
     color: 'from-violet-500 to-fuchsia-500'
   },

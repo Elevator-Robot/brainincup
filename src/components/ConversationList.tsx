@@ -11,15 +11,16 @@ type ConversationType = Schema['Conversation']['type'] & { personalityMode?: str
 
 interface ConversationListProps {
   onSelectConversation: (conversationId: string) => void;
-  onNewConversation: () => void;
   onDeleteConversation?: (conversationId: string) => void;
   onConversationNamed?: (conversationId: string) => void; // Called when a conversation is successfully named
+  onNewConversation?: () => void;
+  disableNewConversation?: boolean;
   selectedConversationId: string | null;
   refreshKey?: number;
   newConversationId?: string | null; // ID of newly created conversation that needs naming
 }
 
-export default function ConversationList({ onSelectConversation, onNewConversation, onDeleteConversation, onConversationNamed, selectedConversationId, refreshKey, newConversationId }: ConversationListProps) {
+export default function ConversationList({ onSelectConversation, onDeleteConversation, onConversationNamed, onNewConversation, disableNewConversation, selectedConversationId, refreshKey, newConversationId }: ConversationListProps) {
   const [conversations, setConversations] = useState<ConversationType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -27,6 +28,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isNewConversation, setIsNewConversation] = useState(false); // Track if we're naming a new conversation
   const [modeFilter, setModeFilter] = useState<PersonalityModeId | null>(null);
+  const newConversationDisabled = Boolean(disableNewConversation);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -119,7 +121,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
 
   const handleTitleEdit = (conversationId: string, currentTitle: string) => {
     setEditingId(conversationId);
-    setEditingTitle(currentTitle || 'New Conversation');
+    setEditingTitle(currentTitle || 'New Interaction');
   };
 
   const handleTitleSave = async (conversationId: string) => {
@@ -127,18 +129,18 @@ export default function ConversationList({ onSelectConversation, onNewConversati
     
     // For new conversations, require a non-empty name
     if (isNewConversation && !trimmedTitle) {
-      console.log('⚠️ New conversation requires a name, not saving');
+      console.log('⚠️ New interaction requires a name, not saving');
       return; // Don't save, stay in edit mode
     }
     
     // For existing conversations, fallback to default if empty
     if (!isNewConversation && !trimmedTitle) {
-      setEditingTitle('New Conversation');
+      setEditingTitle('New Interaction');
       return;
     }
 
     try {
-      const finalTitle = trimmedTitle || 'New Conversation';
+      const finalTitle = trimmedTitle || 'New Interaction';
       
       // For test mode, just update local state
       const urlParams = new URLSearchParams(window.location.search);
@@ -301,12 +303,12 @@ export default function ConversationList({ onSelectConversation, onNewConversati
   const conversationContent = isFilteredEmpty ? (
     <div className="text-center py-10 rounded-3xl border border-dashed border-white/10 text-white/60">
       <p className="text-sm font-semibold mb-1">No threads in this mode yet</p>
-      <p className="text-xs text-white/40">Start a new conversation to spin one up.</p>
+      <p className="text-xs text-white/40">Start a new interaction to spin one up.</p>
     </div>
   ) : (
     conversationsToShow.map((conversation) => {
       const dateText = formatDate((conversation.updatedAt || conversation.createdAt) || undefined);
-      const conversationTitle = conversation.title || (conversation.id === newConversationId ? '' : 'Untitled Conversation');
+      const conversationTitle = conversation.title || (conversation.id === newConversationId ? '' : 'Untitled Interaction');
       const modeMeta = getModeMeta(conversation.personalityMode);
       const isEditing = editingId === conversation.id;
       const isDeleting = deleteConfirmId === conversation.id;
@@ -331,7 +333,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                   onChange={(e) => setEditingTitle(e.target.value)}
                   onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
                   onFocus={(e) => e.target.select()}
-                  placeholder={isNewConversation ? "Name your conversation..." : "Conversation name"}
+                  placeholder={isNewConversation ? "Name your interaction..." : "Interaction name"}
                   className="flex-1 glass text-brand-text-primary text-sm font-medium rounded-xl px-4 py-3
                   border-2 border-brand-accent-primary/50 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 
                   focus:border-brand-accent-primary backdrop-blur-sm transition-all duration-200"
@@ -371,7 +373,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-brand-text-primary mb-1">Delete this conversation?</div>
+                  <div className="text-sm font-semibold text-brand-text-primary mb-1">Delete this interaction?</div>
                   <div className="text-xs text-brand-text-muted">This action cannot be undone.</div>
                 </div>
               </div>
@@ -450,8 +452,8 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                       handleTitleEdit(conversation.id!, conversationTitle);
                     }}
                     className="p-2 rounded-xl border border-white/10 bg-white/5 text-brand-text-muted hover:text-white hover:border-brand-accent-primary/40 transition-all duration-200 backdrop-blur-sm"
-                    title="Edit conversation name"
-                    aria-label="Edit conversation name"
+                    title="Edit interaction name"
+                    aria-label="Edit interaction name"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -464,8 +466,8 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                       handleDeleteConfirm(conversation.id!);
                     }}
                     className="p-2 rounded-xl border border-white/10 bg-white/5 text-brand-text-muted hover:text-brand-status-error hover:border-brand-status-error/50 transition-all duration-200 backdrop-blur-sm"
-                    title="Delete conversation"
-                    aria-label="Delete conversation"
+                    title="Delete interaction"
+                    aria-label="Delete interaction"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -482,27 +484,26 @@ export default function ConversationList({ onSelectConversation, onNewConversati
   );
 
   return (
-    <div className="p-6">
-      {/* Streamlined New Conversation button */}
-      <div className="mb-6 flex justify-end">
-        <button
-          onClick={onNewConversation}
-          className="group relative inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 backdrop-blur-xl transition-all duration-300 hover:border-brand-accent-primary/40 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/30"
-        >
-          <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/10 text-base text-white/80 transition-all duration-300 group-hover:bg-brand-accent-primary/30 group-hover:text-white">
-            +
-          </span>
-          <span className="tracking-tight">New Conversation</span>
-          <span className="text-[0.55rem] uppercase tracking-[0.45em] text-white/40">Start</span>
-        </button>
-      </div>
+    <div className="p-6 space-y-6">
+      {onNewConversation && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onNewConversation}
+            disabled={newConversationDisabled}
+            className="inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold tracking-[0.25em] uppercase text-white/70 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-accent-primary/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/30 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            New Interaction
+          </button>
+        </div>
+      )}
 
       {/* Mode Filters */}
-      <div className="mb-6 flex justify-center">
+      <div className="flex justify-center">
         <div
           className="inline-flex rounded-2xl p-1 gap-px"
           role="group"
-          aria-label="Filter conversations by mode"
+          aria-label="Filter interactions by mode"
         >
           {MODE_OPTIONS.map((mode, index) => {
             const isActive = modeFilter === mode.id;
@@ -537,7 +538,7 @@ export default function ConversationList({ onSelectConversation, onNewConversati
         <div className="flex justify-center items-center h-32">
           <div className="text-slate-400 flex items-center gap-2">
             <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-            Loading conversations...
+            Loading interactions...
           </div>
         </div>
       ) : conversations.length === 0 ? (
@@ -548,8 +549,8 @@ export default function ConversationList({ onSelectConversation, onNewConversati
                 d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
           </div>
-          <div className="text-brand-text-primary text-sm font-medium mb-2">No conversations yet</div>
-          <div className="text-brand-text-muted text-xs">Start your first conversation above</div>
+          <div className="text-brand-text-primary text-sm font-medium mb-2">No interactions yet</div>
+          <div className="text-brand-text-muted text-xs">Use the New Interaction button to begin</div>
         </div>
       ) : (
         <div className="space-y-3">
