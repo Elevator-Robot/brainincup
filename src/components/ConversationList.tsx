@@ -312,18 +312,25 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
       const modeMeta = getModeMeta(conversation.personalityMode);
       const isEditing = editingId === conversation.id;
       const isDeleting = deleteConfirmId === conversation.id;
+      const isSelected = selectedConversationId === conversation.id;
       const hoverHueClass = 'from-brand-accent-primary/35 via-transparent to-brand-accent-secondary/40';
 
       return (
         <div
           key={conversation.id}
-          className={`relative w-full rounded-3xl overflow-hidden border border-white/5 bg-white/5 backdrop-blur-2xl
-          transition-all duration-300 animate-slide-up
-          ${selectedConversationId === conversation.id 
-          ? 'shadow-[0_25px_60px_rgba(99,67,255,0.45)] ring-2 ring-brand-accent-primary/40'
-          : 'hover:-translate-y-1 hover:border-white/20'}
+          className={`group relative w-full rounded-2xl transition-all duration-300 animate-slide-up
+          ${isSelected 
+          ? 'bg-white/[0.08] ring-1 ring-brand-accent-primary/45 shadow-[0_25px_60px_rgba(6,4,24,0.55)]'
+          : 'hover:bg-white/[0.04]'}
         `}
         >
+          <span
+            className={`pointer-events-none absolute left-3 top-3 bottom-3 w-1 rounded-full transition-opacity duration-300
+            ${isSelected
+              ? 'opacity-100 bg-gradient-to-b from-brand-accent-primary to-brand-accent-secondary'
+              : 'opacity-0 group-hover:opacity-60 bg-white/30'}`}
+            aria-hidden="true"
+          ></span>
           {isEditing ? (
             <div className="p-4">
               <div className="flex items-center gap-2">
@@ -405,20 +412,12 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
               onKeyDown={(event) => conversation.id && handleConversationKeyPress(event, conversation.id)}
               className="group relative w-full text-left rounded-3xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50"
             >
-              <div
-                className="absolute inset-0 rounded-[inherit] border border-white/10 bg-white/5 backdrop-blur-xl"
-                aria-hidden="true"
-              ></div>
-              <div
-                className={`absolute inset-0 rounded-[inherit] bg-gradient-to-br ${hoverHueClass} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
-                aria-hidden="true"
-              ></div>
-              <div className="relative flex items-start gap-3 p-5">
+              <div className="relative flex items-start gap-3 px-6 py-5">
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex items-start gap-3">
                     <p
                       className={`flex-1 text-sm font-semibold tracking-tight truncate ${
-                        selectedConversationId === conversation.id
+                        isSelected
                           ? 'text-white'
                           : 'text-brand-text-secondary group-hover:text-white'
                       }`}
@@ -429,7 +428,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                     {dateText && (
                       <span
                         className={`text-[10px] uppercase tracking-[0.4em] flex-shrink-0 ${
-                          selectedConversationId === conversation.id
+                          isSelected
                             ? 'text-white/80'
                             : 'text-brand-text-muted group-hover:text-brand-text-secondary'
                         }`}
