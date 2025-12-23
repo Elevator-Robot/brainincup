@@ -38,6 +38,7 @@ const schema = a.schema({
     thoughts: a.string().array(),
     memories: a.string(),
     selfReflection: a.string(),
+    locationTag: a.string(),
 
     createdAt: a.date(),
     owner: a.string(),
@@ -56,7 +57,7 @@ const schema = a.schema({
     difficulty: a.string().default('Story-first'),
     safetyLevel: a.string().default('User Directed'),
     moodTag: a.string().default('Unsettled'),
-    lastLocation: a.string().default('Unknown'),
+    lastLocation: a.string().default('Unknown Realm'),
     lastStepId: a.string().default(''),
     questSteps: a.hasMany('GameMasterQuestStep', 'adventureId'),
     createdAt: a.date(),

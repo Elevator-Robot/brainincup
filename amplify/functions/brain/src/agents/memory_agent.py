@@ -110,6 +110,7 @@ class MemoryAgent:
             thoughts
             memories
             selfReflection
+            locationTag
           }
         }
         """
@@ -130,6 +131,7 @@ class MemoryAgent:
                 "sensations": response.get("sensations", []),
                 "thoughts": response.get("thoughts", []),
                 "selfReflection": response.get("self_reflection", ""),
+                "locationTag": response.get("location") or response.get("location_tag") or "",
                 "owner": final_owner,
             }
         }
