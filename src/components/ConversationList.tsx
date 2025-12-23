@@ -199,6 +199,15 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
     setIsNewConversation(false);
   };
 
+  const handleInputBlur = (conversationId: string) => {
+    if (editingId !== conversationId) return;
+    if (editingTitle.trim()) {
+      handleTitleSave(conversationId);
+    } else {
+      handleTitleCancel(conversationId);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent, conversationId: string) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -312,56 +321,37 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
       const modeMeta = getModeMeta(conversation.personalityMode);
       const isEditing = editingId === conversation.id;
       const isDeleting = deleteConfirmId === conversation.id;
-      const hoverHueClass = 'from-brand-accent-primary/35 via-transparent to-brand-accent-secondary/40';
+      const isSelected = selectedConversationId === conversation.id;
 
       return (
         <div
           key={conversation.id}
-          className={`relative w-full rounded-3xl overflow-hidden border border-white/5 bg-white/5 backdrop-blur-2xl
-          transition-all duration-300 animate-slide-up
-          ${selectedConversationId === conversation.id 
-          ? 'shadow-[0_25px_60px_rgba(99,67,255,0.45)] ring-2 ring-brand-accent-primary/40'
-          : 'hover:-translate-y-1 hover:border-white/20'}
+          className={`group relative w-full rounded-2xl transition-all duration-300 animate-slide-up
+          ${isSelected 
+          ? 'bg-white/[0.08] ring-1 ring-brand-accent-primary/45 shadow-[0_25px_60px_rgba(6,4,24,0.55)]'
+          : 'hover:bg-white/[0.04]'}
         `}
         >
+          <span
+            className={`pointer-events-none absolute left-3 top-3 bottom-3 w-1 rounded-full transition-opacity duration-300
+            ${isSelected
+              ? 'opacity-100 bg-gradient-to-b from-brand-accent-primary to-brand-accent-secondary'
+              : 'opacity-0 group-hover:opacity-60 bg-white/30'}`}
+            aria-hidden="true"
+          ></span>
           {isEditing ? (
-            <div className="p-4">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={editingTitle}
-                  onChange={(e) => setEditingTitle(e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
-                  onFocus={(e) => e.target.select()}
-                  placeholder={isNewConversation ? "Name your interaction..." : "Interaction name"}
-                  className="flex-1 glass text-brand-text-primary text-sm font-medium rounded-xl px-4 py-3
-                  border-2 border-brand-accent-primary/50 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 
-                  focus:border-brand-accent-primary backdrop-blur-sm transition-all duration-200"
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={() => handleTitleSave(conversation.id!)}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white
-                  bg-brand-accent-primary hover:bg-brand-accent-primary/90 rounded-xl 
-                  transition-all duration-200 active:scale-95
-                  focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50
-                  disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isNewConversation && !editingTitle.trim()}
-                >
-                  {isNewConversation ? 'Create' : 'Save'}
-                </button>
-                <button
-                  onClick={() => handleTitleCancel(conversation.id || undefined)}
-                  className="px-4 py-2.5 text-sm font-medium text-brand-text-muted
-                  glass-hover hover:text-brand-text-primary rounded-xl 
-                  transition-all duration-200 active:scale-95
-                  focus:outline-none focus:ring-2 focus:ring-brand-surface-border"
-                >
-                  Cancel
-                </button>
-              </div>
+            <div className="px-5 py-4">
+              <input
+                type="text"
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
+                onBlur={() => handleInputBlur(conversation.id!)}
+                onFocus={(e) => e.target.select()}
+                placeholder={isNewConversation ? "Name your interaction..." : "Interaction name"}
+                className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2 text-sm font-medium text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/40"
+                autoFocus
+              />
             </div>
           ) : isDeleting ? (
             <div className="p-4 bg-brand-status-error/10 border-2 border-brand-status-error/50">
@@ -401,24 +391,23 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
             <div
               role="button"
               tabIndex={0}
+              title="Double-click to rename"
               onClick={() => conversation.id && onSelectConversation(conversation.id)}
+              onDoubleClick={(event) => {
+                event.stopPropagation();
+                if (conversation.id) {
+                  handleTitleEdit(conversation.id, conversationTitle);
+                }
+              }}
               onKeyDown={(event) => conversation.id && handleConversationKeyPress(event, conversation.id)}
               className="group relative w-full text-left rounded-3xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50"
             >
-              <div
-                className="absolute inset-0 rounded-[inherit] border border-white/10 bg-white/5 backdrop-blur-xl"
-                aria-hidden="true"
-              ></div>
-              <div
-                className={`absolute inset-0 rounded-[inherit] bg-gradient-to-br ${hoverHueClass} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
-                aria-hidden="true"
-              ></div>
-              <div className="relative flex items-start gap-3 p-5">
+              <div className="relative flex items-start gap-3 px-6 py-5">
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex items-start gap-3">
                     <p
                       className={`flex-1 text-sm font-semibold tracking-tight truncate ${
-                        selectedConversationId === conversation.id
+                        isSelected
                           ? 'text-white'
                           : 'text-brand-text-secondary group-hover:text-white'
                       }`}
@@ -429,7 +418,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                     {dateText && (
                       <span
                         className={`text-[10px] uppercase tracking-[0.4em] flex-shrink-0 ${
-                          selectedConversationId === conversation.id
+                          isSelected
                             ? 'text-white/80'
                             : 'text-brand-text-muted group-hover:text-brand-text-secondary'
                         }`}
@@ -446,20 +435,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                 </div>
                 
                 <div className="flex items-center gap-2 ml-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTitleEdit(conversation.id!, conversationTitle);
-                    }}
-                    className="p-2 rounded-xl border border-white/10 bg-white/5 text-brand-text-muted hover:text-white hover:border-brand-accent-primary/40 transition-all duration-200 backdrop-blur-sm"
-                    title="Edit interaction name"
-                    aria-label="Edit interaction name"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
