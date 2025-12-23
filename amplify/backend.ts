@@ -59,6 +59,7 @@ brainLambda.addToRolePolicy(new PolicyStatement({
     'dynamodb:ListTables',
     'dynamodb:DescribeTable',
     'dynamodb:Query',
+    'dynamodb:GetItem',
     'dynamodb:PutItem',
   ],
   resources: [

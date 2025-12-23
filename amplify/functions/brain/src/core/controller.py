@@ -17,13 +17,17 @@ logger = logging.getLogger(__name__)
 
 
 class Controller:
-    def __init__(self, conversation_id):
+    def __init__(self, conversation_id, personality_mode: str = "default"):
+        self.personality_mode = personality_mode or "default"
         llm = setup_llm()
-        prompt_template = setup_prompt_template()
+        prompt_template, persona_config = setup_prompt_template(self.personality_mode)
         parser = setup_parser()
 
         # Initialize agents
-        self.perception_agent = PerceptionAgent(prompt_template=prompt_template)
+        self.perception_agent = PerceptionAgent(
+            prompt_template=prompt_template,
+            persona_config=persona_config,
+        )
         self.conversation_id = conversation_id
         self.memory_agent = MemoryAgent(self.conversation_id)
         self.reasoning_agent = ReasoningAgent(parser)
