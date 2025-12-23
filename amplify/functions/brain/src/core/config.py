@@ -1,5 +1,6 @@
 import os
 import json
+
 from langchain_aws import ChatBedrock
 from langchain_core.prompts import PromptTemplate
 
@@ -42,7 +43,7 @@ def setup_llm():
 
     # Initialize the Bedrock LLM
     chat_bedrock = ChatBedrock(
-        model_id="amazon.nova-pro-v1:0",
+        model_id="anthropic.claude-3-sonnet-20240229-v1:0",
         region_name="us-east-1"
     )
     return chat_bedrock
