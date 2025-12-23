@@ -187,7 +187,6 @@ node_modules
 
 # Amplify
 .amplify
-amplify_outputs.json
 .aider*
 
 # Conversation history
