@@ -1,8 +1,33 @@
 import json
+import os
+import boto3
 from core import Controller
 from aws_lambda_powertools import Logger
 
 logger = Logger()
+
+
+dynamodb = boto3.resource("dynamodb")
+conversation_table_name = os.getenv("CONVERSATION_TABLE_NAME")
+conversation_table = (
+    dynamodb.Table(conversation_table_name) if conversation_table_name else None
+)
+
+
+def get_personality_mode(conversation_id: str) -> str:
+    if not conversation_table:
+        logger.warning("Conversation table not available; defaulting personality mode.")
+        return "default"
+    try:
+        response = conversation_table.get_item(Key={"id": conversation_id})
+        mode = response.get("Item", {}).get("personalityMode", "default")
+        return mode or "default"
+    except Exception as error:  # pragma: no cover - defensive logging
+        logger.exception(
+            "Failed to fetch personality mode; defaulting to base persona.",
+            extra={"conversation_id": conversation_id, "error": str(error)},
+        )
+        return "default"
 
 
 @logger.inject_lambda_context
@@ -28,15 +53,31 @@ def main(event, context):
                 # Use provided values or None as fallback
                 final_message_id = message_id
                 final_owner = owner
-                
-                # Log what we have
-                logger.info(f"Processing message - ConversationId: {conversation_id}, MessageId: {final_message_id}, Owner: {final_owner}")
-                
-                controller = Controller(conversation_id)
-                response = controller.process_input(user_input, final_message_id, final_owner)
+                personality_mode = get_personality_mode(conversation_id)
+
+                logger.info(
+                    "Processing message",
+                    extra={
+                        "conversation_id": conversation_id,
+                        "message_id": final_message_id,
+                        "owner": final_owner,
+                        "personality_mode": personality_mode,
+                    },
+                )
+
+                controller = Controller(conversation_id, personality_mode)
+                response = controller.process_input(
+                    user_input, final_message_id, final_owner
+                )
                 responses.append({"user_input": user_input, "response": response})
             else:
-                logger.warning(f"Missing required fields - user_input: {bool(user_input)}, conversation_id: {bool(conversation_id)}")
+                logger.warning(
+                    "Missing required fields",
+                    extra={
+                        "has_user_input": bool(user_input),
+                        "has_conversation_id": bool(conversation_id),
+                    },
+                )
 
     logger.info(f"Processed {len(responses)} records")
     logger.debug(f"Responses: {responses}")
