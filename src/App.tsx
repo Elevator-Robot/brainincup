@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { fetchUserAttributes, signOut } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
@@ -11,6 +11,20 @@ const dataClient = generateClient<Schema>();
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
 type QuestStepRecord = Schema['GameMasterQuestStep']['type'];
 type PlayerChoiceRecord = Schema['GameMasterPlayerChoice']['type'];
+
+interface HudQuestStep {
+  id: string;
+  summary: string;
+  dangerLevel: string;
+  createdAt?: string | null;
+}
+
+interface HudPlayerChoice {
+  id: string;
+  content: string;
+  toneTag?: string | null;
+  createdAt?: string | null;
+}
 
 interface Message {
   role: 'user' | 'assistant';
@@ -45,16 +59,60 @@ const inferToneTag = (text: string) => {
   return 'curious';
 };
 
+const mapQuestStepsToHud = (steps: QuestStepRecord[]): HudQuestStep[] =>
+  steps
+    .filter((step): step is QuestStepRecord & { id: string } => Boolean(step && step.id))
+    .map((step) => ({
+      id: step.id!,
+      summary: step.summary || summarizeText(step.narration || ''),
+      dangerLevel: step.dangerLevel || inferDangerLevel(step.narration || step.summary || ''),
+      createdAt: step.createdAt,
+    }));
+
+const mapPlayerChoicesToHud = (choices: PlayerChoiceRecord[]): HudPlayerChoice[] =>
+  choices
+    .filter((choice): choice is PlayerChoiceRecord & { id: string } => Boolean(choice && choice.id))
+    .map((choice) => ({
+      id: choice.id!,
+      content: choice.content || '',
+      toneTag: choice.toneTag || inferToneTag(choice.content || ''),
+      createdAt: choice.createdAt,
+    }));
+
+const deriveHudQuestStepsFromMessages = (messages: Message[]): HudQuestStep[] =>
+  messages
+    .map((message, index) => ({ message, index }))
+    .filter(({ message }) => message.role === 'assistant' && !message.isTyping && Boolean(message.content?.trim() || message.fullContent?.trim()))
+    .map(({ message, index }) => {
+      const content = message.fullContent || message.content;
+      return {
+        id: `derived-step-${index}`,
+        summary: summarizeText(content),
+        dangerLevel: inferDangerLevel(content),
+        createdAt: null,
+      };
+    });
+
+const deriveHudPlayerChoicesFromMessages = (messages: Message[]): HudPlayerChoice[] =>
+  messages
+    .map((message, index) => ({ message, index }))
+    .filter(({ message }) => message.role === 'user' && Boolean(message.content?.trim()))
+    .map(({ message, index }) => ({
+      id: `derived-choice-${index}`,
+      content: message.content,
+      toneTag: inferToneTag(message.content),
+      createdAt: null,
+    }));
+
 interface GameMasterHudProps {
   adventure: AdventureRecord;
-  questSteps: QuestStepRecord[];
-  playerChoices: PlayerChoiceRecord[];
+  questSteps: HudQuestStep[];
+  playerChoices: HudPlayerChoice[];
 }
 
 function GameMasterHud({ adventure, questSteps, playerChoices }: GameMasterHudProps) {
   const latestStep = questSteps.slice(-1)[0];
-  const recentSteps = questSteps.slice(-3).reverse();
-  const recentChoices = playerChoices.slice(-3).reverse();
+  void playerChoices;
   return (
     <div className="animate-slide-up w-full">
       <div className="w-full mb-4 p-5 rounded-2xl glass border border-amber-500/20 bg-amber-500/5">
@@ -75,36 +133,6 @@ function GameMasterHud({ adventure, questSteps, playerChoices }: GameMasterHudPr
               <p className="text-[11px] text-amber-300">Danger: {latestStep.dangerLevel}</p>
             </div>
           )}
-        </div>
-        <div className="mt-4 grid md:grid-cols-2 gap-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-amber-200/70 mb-2">Recent Scenes</p>
-            <div className="space-y-2">
-              {recentSteps.length === 0 && (
-                <p className="text-xs text-brand-text-muted">Awaiting the Game Master’s opening scene.</p>
-              )}
-              {recentSteps.map(step => (
-                <div key={step.id} className="p-3 rounded-xl border border-amber-500/20 bg-black/20">
-                  <p className="text-xs text-brand-text-primary mb-1">{step.summary}</p>
-                  <p className="text-[10px] text-amber-200/80">Danger: {step.dangerLevel}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-amber-200/70 mb-2">Recent Choices</p>
-            <div className="space-y-2">
-              {recentChoices.length === 0 && (
-                <p className="text-xs text-brand-text-muted">Drop in any idea—your choices steer the world.</p>
-              )}
-              {recentChoices.map(choice => (
-                <div key={choice.id} className="p-3 rounded-xl border border-brand-surface-border bg-brand-bg-primary/30">
-                  <p className="text-xs text-brand-text-primary mb-1">{choice.content}</p>
-                  <p className="text-[10px] text-brand-text-muted">Tone: {choice.toneTag || 'neutral'}</p>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -1011,6 +1039,22 @@ function App() {
     conversationId && (hasPersonalityPanel || hasAdventurePanel)
   );
 
+  const normalizedQuestSteps = useMemo(() => mapQuestStepsToHud(questSteps), [questSteps]);
+  const normalizedPlayerChoices = useMemo(() => mapPlayerChoicesToHud(playerChoices), [playerChoices]);
+
+  const derivedQuestSteps = useMemo(() => {
+    if (normalizedQuestSteps.length > 0 || effectivePersonality !== 'game_master') return [];
+    return deriveHudQuestStepsFromMessages(messages);
+  }, [normalizedQuestSteps, messages, effectivePersonality]);
+
+  const derivedPlayerChoices = useMemo(() => {
+    if (normalizedPlayerChoices.length > 0 || effectivePersonality !== 'game_master') return [];
+    return deriveHudPlayerChoicesFromMessages(messages);
+  }, [normalizedPlayerChoices, messages, effectivePersonality]);
+
+  const hudQuestSteps = normalizedQuestSteps.length > 0 ? normalizedQuestSteps : derivedQuestSteps;
+  const hudPlayerChoices = normalizedPlayerChoices.length > 0 ? normalizedPlayerChoices : derivedPlayerChoices;
+
   return (
     <div className="h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden relative">
       {/* Floating Sidebar Toggle */}
@@ -1190,8 +1234,8 @@ function App() {
                 <div className="lg:hidden">
                   <GameMasterHud
                     adventure={adventureState}
-                    questSteps={questSteps}
-                    playerChoices={playerChoices}
+                    questSteps={hudQuestSteps}
+                    playerChoices={hudPlayerChoices}
                   />
                 </div>
               )}
@@ -1491,8 +1535,8 @@ function App() {
                 {conversationId && effectivePersonality === 'game_master' && adventureState && (
                   <GameMasterHud
                     adventure={adventureState}
-                    questSteps={questSteps}
-                    playerChoices={playerChoices}
+                    questSteps={hudQuestSteps}
+                    playerChoices={hudPlayerChoices}
                   />
                 )}
               </div>
@@ -1528,8 +1572,8 @@ function App() {
               {conversationId && effectivePersonality === 'game_master' && adventureState && (
                 <GameMasterHud
                   adventure={adventureState}
-                  questSteps={questSteps}
-                  playerChoices={playerChoices}
+                  questSteps={hudQuestSteps}
+                  playerChoices={hudPlayerChoices}
                 />
               )}
               
