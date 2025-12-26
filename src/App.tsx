@@ -6,6 +6,7 @@ import ConversationList from './components/ConversationList';
 import BrainIcon from './components/BrainIcon';
 import PersonalityIndicator from './components/PersonalityIndicator';
 import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
+import type { PersonalityModeId } from './constants/personalityModes';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -57,6 +58,14 @@ const inferToneTag = (text: string) => {
   if (/[\b](hope|ally|gentle|serene|calm)[\b]/.test(lowered)) return 'warm';
   if (/[\b](rage|fear|torment|dark)[\b]/.test(lowered)) return 'brooding';
   return 'curious';
+};
+
+const generateDefaultConversationTitle = (mode: PersonalityModeId) => {
+  const base = mode === 'game_master' ? 'Quest Thread' : 'Brain Thread';
+  const now = new Date();
+  const date = now.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `${base} • ${date} ${time}`;
 };
 
 const mapQuestStepsToHud = (steps: QuestStepRecord[]): HudQuestStep[] =>
@@ -149,7 +158,6 @@ function App() {
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default to closed on mobile, will be controlled by responsive logic
   const [conversationListKey, setConversationListKey] = useState(0);
-  const [newConversationId, setNewConversationId] = useState<string | null>(null); // Track newly created conversation needing name
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isModePickerOpen, setIsModePickerOpen] = useState(false);
@@ -752,13 +760,6 @@ function App() {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    // Don't allow sending messages until the conversation is named
-    if (newConversationId && conversationId === newConversationId) {
-      console.log('⚠️ Cannot send message - conversation needs to be named first');
-      // Visual feedback is already shown in the UI, no need for alert
-      return;
-    }
-
     const userMessage = inputMessage;
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setInputMessage('');
@@ -777,12 +778,6 @@ function App() {
   };
 
   const handleSelectConversation = async (selectedConversationId: string) => {
-    // Don't allow switching conversations if there's an unnamed conversation
-    if (newConversationId && conversationId === newConversationId) {
-      console.log('⚠️ Cannot switch - current conversation needs to be named first');
-      // Visual feedback is already shown, just prevent the switch
-      return;
-    }
     
     // If empty string, clear the conversation
     if (!selectedConversationId) {
@@ -884,22 +879,29 @@ function App() {
   };
 
   const handleNewConversation = () => {
-    if (newConversationId && conversationId === newConversationId) {
-      console.warn('⚠️ Name the current conversation before starting another.');
-      return;
-    }
     setIsModePickerOpen(true);
   };
 
   const createConversationWithMode = async (modeId: string) => {
     try {
       const normalized = normalizePersonalityMode(modeId);
+      const defaultTitle = generateDefaultConversationTitle(normalized);
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('testmode') === 'true') {
         const mockConversationId = 'test-conversation-' + Date.now();
-        console.log('✅ Test mode: Creating mock conversation that needs naming:', mockConversationId);
+        console.log('✅ Test mode: Creating mock conversation:', mockConversationId);
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(
+            'mockNewConversation',
+            JSON.stringify({
+              id: mockConversationId,
+              title: defaultTitle,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            })
+          );
+        }
         setConversationId(mockConversationId);
-        setNewConversationId(mockConversationId);
         setMessages([]);
         setPersonalityMode(normalized);
         setAdventureState(null);
@@ -915,7 +917,7 @@ function App() {
       console.log('Creating new conversation with user:', currentUserId, 'mode:', normalized);
       
       const { data: newConversation } = await dataClient.models.Conversation.create({
-        title: '', // Start with empty title to force naming
+        title: defaultTitle,
         participants: [currentUserId],
         personalityMode: normalized,
       });
@@ -928,10 +930,9 @@ function App() {
         }
 
         setConversationId(createdId);
-        setNewConversationId(createdId);
         setMessages([]);
         setPersonalityMode(normalized);
-        console.log('✅ Created new conversation that needs naming:', createdId);
+        console.log('✅ Created new conversation:', createdId);
         
         if (normalized === 'game_master') {
           await fetchAdventureBundle(createdId, normalized);
@@ -975,11 +976,6 @@ function App() {
           setMessages([]);
         }
         
-        // Clear new conversation state
-        if (conversationIdToDelete === newConversationId) {
-          setNewConversationId(null);
-        }
-        
         // Trigger a refresh of the conversation list
         setConversationListKey(prev => prev + 1);
         return;
@@ -994,11 +990,6 @@ function App() {
         setMessages([]);
       }
       
-      // Clear new conversation state
-      if (conversationIdToDelete === newConversationId) {
-        setNewConversationId(null);
-      }
-      
       // Trigger a refresh of the conversation list
       setConversationListKey(prev => prev + 1);
       
@@ -1008,21 +999,6 @@ function App() {
     }
   };
 
-  const handleConversationNamed = (conversationId: string) => {
-    console.log('✅ Conversation successfully named:', conversationId);
-    // Clear the new conversation state since it's now properly named
-    if (conversationId === newConversationId) {
-      setNewConversationId(null);
-    }
-  };
-
-  // Clear newConversationId when a conversation is successfully named
-  useEffect(() => {
-    if (newConversationId && conversationId === newConversationId) {
-      // This effect can be used to clear the newConversationId state
-      // when we detect the conversation has been properly named
-    }
-  }, [newConversationId, conversationId]);
 
   const handleSignOut = async () => {
     try {
@@ -1120,14 +1096,11 @@ function App() {
                   setIsSidebarOpen(false); // Close menu after selection on mobile
                 }}
                 onDeleteConversation={handleDeleteConversation}
-                onConversationNamed={handleConversationNamed}
                 onNewConversation={() => {
                   handleNewConversation();
                 }}
-                disableNewConversation={Boolean(newConversationId && conversationId === newConversationId)}
                 selectedConversationId={conversationId}
                 refreshKey={conversationListKey}
-                newConversationId={newConversationId}
               />
             </nav>
 
@@ -1173,12 +1146,9 @@ function App() {
               <ConversationList 
                 onSelectConversation={handleSelectConversation}
                 onDeleteConversation={handleDeleteConversation}
-                onConversationNamed={handleConversationNamed}
                 onNewConversation={handleNewConversation}
-                disableNewConversation={Boolean(newConversationId && conversationId === newConversationId)}
                 selectedConversationId={conversationId}
                 refreshKey={conversationListKey}
-                newConversationId={newConversationId}
               />
             </nav>
 
@@ -1424,15 +1394,6 @@ function App() {
           {/* Floating Input Area with enhanced design */}
           <div className="p-6">
             <div className="max-w-4xl mx-auto">
-              {/* Show message if conversation needs naming */}
-              {newConversationId && conversationId === newConversationId && (
-                <div className="mb-4 p-4 rounded-2xl bg-brand-accent-primary/10 border border-brand-accent-primary/30 text-center backdrop-blur-xl shadow-lg">
-                  <p className="text-sm text-brand-text-primary font-medium">
-                    Name your conversation...
-                  </p>
-                </div>
-              )}
-              
               <form onSubmit={handleSubmit} className="relative">
                 {/* Floating container with premium styling */}
                 <div 
@@ -1471,8 +1432,6 @@ function App() {
                         placeholder={
                           isWaitingForResponse
                             ? 'Waiting for response...'
-                            : newConversationId && conversationId === newConversationId
-                            ? 'Name your interaction first...'
                             : conversationId 
                             ? (effectivePersonality === 'game_master' ? 'Describe your next move for the Game Master...' : 'Message Brain in Cup...') 
                             : 'Start typing to begin your interaction...'
@@ -1485,7 +1444,7 @@ function App() {
                         disabled:opacity-50 disabled:cursor-not-allowed
                         !outline-none !ring-0 !shadow-none !border-0
                         pointer-events-auto"
-                        disabled={isWaitingForResponse || (newConversationId === conversationId)}
+                        disabled={isWaitingForResponse}
                         rows={1}
                         style={{
                           height: 'auto',
@@ -1505,11 +1464,11 @@ function App() {
                     <button
                       type="submit"
                       className={`p-4 rounded-2xl transition-all duration-300 focus:outline-none focus:ring-0 transform flex-shrink-0
-                      ${!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)
+                      ${!inputMessage.trim() || isWaitingForResponse
           ? 'glass text-brand-text-muted cursor-not-allowed opacity-40' 
           : 'bg-gradient-mesh text-white shadow-glow-purple hover:shadow-neon-purple hover:scale-110 active:scale-95 animate-glow-pulse'
         }`}
-                      disabled={!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)}
+                      disabled={!inputMessage.trim() || isWaitingForResponse}
                     >
                       {isWaitingForResponse ? (
                         <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -1748,15 +1707,6 @@ function App() {
           {/* Mobile Input Area */}
           <div className="p-4 pb-safe">
             <div className="max-w-4xl mx-auto">
-              {/* Show message if conversation needs naming */}
-              {newConversationId && conversationId === newConversationId && (
-                <div className="mb-3 p-3 rounded-2xl bg-brand-accent-primary/10 border border-brand-accent-primary/30 text-center backdrop-blur-xl">
-                  <p className="text-xs text-brand-text-primary font-medium">
-                    Name your conversation...
-                  </p>
-                </div>
-              )}
-              
               <form onSubmit={handleSubmit} className="relative">
                 <div 
                   className="glass border border-brand-surface-border rounded-2xl p-3 backdrop-blur-2xl 
@@ -1773,15 +1723,15 @@ function App() {
                         placeholder={
                           isWaitingForResponse
                             ? 'Waiting...'
-                            : newConversationId && conversationId === newConversationId
-                            ? 'Name interaction first...'
-                            : 'Message Brain in Cup...'
+                            : conversationId
+                            ? (effectivePersonality === 'game_master' ? 'Describe your next move for the Game Master...' : 'Message Brain in Cup...')
+                            : 'Start typing to begin your interaction...'
                         }
                         className="w-full min-h-[44px] max-h-32 py-2 px-1 resize-none
                         bg-transparent text-brand-text-primary placeholder-brand-text-muted
                         border-0 focus:outline-none focus:ring-0 text-sm
                         disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={isWaitingForResponse || (newConversationId === conversationId)}
+                        disabled={isWaitingForResponse}
                         rows={1}
                         style={{ height: 'auto', minHeight: '44px' }}
                         onInput={(e) => {
@@ -1794,11 +1744,11 @@ function App() {
                     <button
                       type="submit"
                       className={`p-3 rounded-xl transition-all duration-300 focus:outline-none transform flex-shrink-0
-                      ${!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)
+                      ${!inputMessage.trim() || isWaitingForResponse
           ? 'glass text-brand-text-muted cursor-not-allowed opacity-40' 
           : 'bg-gradient-mesh text-white shadow-glow-purple hover:shadow-neon-purple hover:scale-110 active:scale-95'
         }`}
-                      disabled={!inputMessage.trim() || isWaitingForResponse || (newConversationId === conversationId)}
+                      disabled={!inputMessage.trim() || isWaitingForResponse}
                     >
                       {isWaitingForResponse ? (
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
