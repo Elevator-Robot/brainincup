@@ -12,21 +12,18 @@ type ConversationType = Schema['Conversation']['type'] & { personalityMode?: str
 interface ConversationListProps {
   onSelectConversation: (conversationId: string) => void;
   onDeleteConversation?: (conversationId: string) => void;
-  onConversationNamed?: (conversationId: string) => void; // Called when a conversation is successfully named
   onNewConversation?: () => void;
   disableNewConversation?: boolean;
   selectedConversationId: string | null;
   refreshKey?: number;
-  newConversationId?: string | null; // ID of newly created conversation that needs naming
 }
 
-export default function ConversationList({ onSelectConversation, onDeleteConversation, onConversationNamed, onNewConversation, disableNewConversation, selectedConversationId, refreshKey, newConversationId }: ConversationListProps) {
+export default function ConversationList({ onSelectConversation, onDeleteConversation, onNewConversation, disableNewConversation, selectedConversationId, refreshKey }: ConversationListProps) {
   const [conversations, setConversations] = useState<ConversationType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [isNewConversation, setIsNewConversation] = useState(false); // Track if we're naming a new conversation
   const [modeFilter, setModeFilter] = useState<PersonalityModeId | null>(null);
   const newConversationDisabled = Boolean(disableNewConversation);
 
@@ -62,15 +59,26 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
           }
         ] as unknown as ConversationType[];
 
-        // If there's a new conversation that needs to be shown, add it to the list
-        if (newConversationId && !mockConversations.find(c => c.id === newConversationId)) {
-          const newConversation = {
-            id: newConversationId,
-            title: '', // Empty title for new conversations
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          } as unknown as ConversationType;
-          mockConversations = [newConversation, ...mockConversations]; // Add at the beginning
+        // If a mock conversation was recently created, surface it first
+        if (typeof window !== 'undefined') {
+          const storedMock = window.sessionStorage.getItem('mockNewConversation');
+          if (storedMock) {
+            try {
+              const parsed = JSON.parse(storedMock) as ConversationType;
+              if (parsed?.id && !mockConversations.find(c => c.id === parsed.id)) {
+                mockConversations = [
+                  {
+                    ...parsed,
+                    createdAt: parsed.createdAt || new Date().toISOString(),
+                    updatedAt: parsed.updatedAt || new Date().toISOString(),
+                  },
+                  ...mockConversations
+                ];
+              }
+            } catch (error) {
+              console.warn('Failed to parse mock conversation from sessionStorage', error);
+            }
+          }
         }
 
         setConversations(mockConversations);
@@ -91,57 +99,26 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
     } finally {
       setIsLoading(false);
     }
-  }, [newConversationId]); // Reload when newConversationId changes
+  }, []);
 
   // Reload conversations when key changes or when a new conversation is created
   useEffect(() => {
     loadConversations();
   }, [loadConversations, refreshKey]);
 
-  // Auto-start editing when a new conversation is created
-  useEffect(() => {
-    if (newConversationId) {
-      console.log('🆕 Auto-starting edit for new conversation:', newConversationId);
-      // Always set editing for new conversations, regardless of current editingId
-      setEditingId(newConversationId);
-      setEditingTitle(''); // Start with empty title to force user to name it
-      setIsNewConversation(true);
-    }
-  }, [newConversationId]); // Only depend on newConversationId
-
-  // Reset isNewConversation when newConversationId is cleared (e.g., after cancellation)
-  useEffect(() => {
-    if (!newConversationId && isNewConversation) {
-      console.log('🔄 Resetting new conversation state');
-      setIsNewConversation(false);
-      // Also clear editingId if it's still set
-      setEditingId(null);
-    }
-  }, [newConversationId, isNewConversation]);
 
   const handleTitleEdit = (conversationId: string, currentTitle: string) => {
     setEditingId(conversationId);
-    setEditingTitle(currentTitle || 'New Interaction');
+    setEditingTitle(currentTitle || 'Untitled Interaction');
   };
 
   const handleTitleSave = async (conversationId: string) => {
     const trimmedTitle = editingTitle.trim();
-    
-    // For new conversations, require a non-empty name
-    if (isNewConversation && !trimmedTitle) {
-      console.log('⚠️ New interaction requires a name, not saving');
-      return; // Don't save, stay in edit mode
-    }
-    
-    // For existing conversations, fallback to default if empty
-    if (!isNewConversation && !trimmedTitle) {
-      setEditingTitle('New Interaction');
-      return;
-    }
+    const existingConversation = conversations.find(conv => conv.id === conversationId);
+    const fallbackTitle = existingConversation?.title?.trim() || 'Untitled Interaction';
+    const finalTitle = trimmedTitle || fallbackTitle;
 
     try {
-      const finalTitle = trimmedTitle || 'New Interaction';
-      
       // For test mode, just update local state
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('testmode') === 'true') {
@@ -154,15 +131,16 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
         );
         setEditingId(null);
         setEditingTitle('');
-        setIsNewConversation(false);
         return;
       }
 
-      // Update the conversation title in the database
-      await dataClient.models.Conversation.update({
-        id: conversationId,
-        title: finalTitle
-      });
+      // Update the conversation title in the database when it actually changed
+      if (finalTitle !== fallbackTitle) {
+        await dataClient.models.Conversation.update({
+          id: conversationId,
+          title: finalTitle
+        });
+      }
 
       // Update local state
       setConversations(prevConversations =>
@@ -175,47 +153,29 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
 
       setEditingId(null);
       setEditingTitle('');
-      
-      // If this was a new conversation that was just named, notify parent
-      if (isNewConversation && onConversationNamed) {
-        onConversationNamed(conversationId);
-      }
-      
-      setIsNewConversation(false);
     } catch (error) {
       console.error('Error updating conversation title:', error);
     }
   };
 
-  const handleTitleCancel = (conversationId?: string) => {
-    // If this is a new conversation that's being cancelled, delete it
-    if (isNewConversation && conversationId && onDeleteConversation) {
-      console.log('🗑️ Cancelling new conversation, deleting:', conversationId);
-      onDeleteConversation(conversationId);
-    }
-    
+  const handleTitleCancel = () => {
     setEditingId(null);
     setEditingTitle('');
-    setIsNewConversation(false);
   };
 
   const handleInputBlur = (conversationId: string) => {
     if (editingId !== conversationId) return;
-    if (editingTitle.trim()) {
-      handleTitleSave(conversationId);
-    } else {
-      handleTitleCancel(conversationId);
-    }
+    void handleTitleSave(conversationId);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, conversationId: string) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleTitleSave(conversationId);
+      void handleTitleSave(conversationId);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
-      handleTitleCancel(conversationId);
+      handleTitleCancel();
     }
   };
 
@@ -236,7 +196,13 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
 
   const handleDeleteExecute = async (conversationId: string) => {
     try {
-      // For test mode, just update local state
+      if (onDeleteConversation) {
+        await onDeleteConversation(conversationId);
+        setDeleteConfirmId(null);
+        return;
+      }
+
+      // For test mode or standalone usage, fall back to client-side deletion
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('testmode') === 'true') {
         setConversations(prevConversations =>
@@ -244,28 +210,24 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
         );
         setDeleteConfirmId(null);
         
-        // If we're deleting the currently selected conversation, clear selection
         if (selectedConversationId === conversationId) {
-          onSelectConversation(''); // Clear selection
+          onSelectConversation('');
         }
         return;
       }
 
-      // Delete the conversation from the database
       await dataClient.models.Conversation.delete({
         id: conversationId
       });
 
-      // Update local state
       setConversations(prevConversations =>
         prevConversations.filter(conv => conv.id !== conversationId)
       );
 
       setDeleteConfirmId(null);
       
-      // If we're deleting the currently selected conversation, clear selection
       if (selectedConversationId === conversationId) {
-        onSelectConversation(''); // Clear selection
+        onSelectConversation('');
       }
     } catch (error) {
       console.error('Error deleting conversation:', error);
@@ -317,7 +279,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
   ) : (
     conversationsToShow.map((conversation) => {
       const dateText = formatDate((conversation.updatedAt || conversation.createdAt) || undefined);
-      const conversationTitle = conversation.title || (conversation.id === newConversationId ? '' : 'Untitled Interaction');
+      const conversationTitle = conversation.title?.trim() || 'Untitled Interaction';
       const modeMeta = getModeMeta(conversation.personalityMode);
       const isEditing = editingId === conversation.id;
       const isDeleting = deleteConfirmId === conversation.id;
@@ -348,7 +310,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                 onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
                 onBlur={() => handleInputBlur(conversation.id!)}
                 onFocus={(e) => e.target.select()}
-                placeholder={isNewConversation ? "Name your interaction..." : "Interaction name"}
+                placeholder="Interaction name"
                 className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2 text-sm font-medium text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/40"
                 autoFocus
               />

@@ -188,6 +188,7 @@ node_modules
 # Amplify
 .amplify
 .aider*
+amplify_outputs.json
 
 # Conversation history
 conversation_history.pkl
