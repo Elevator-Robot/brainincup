@@ -114,13 +114,24 @@ erDiagram
 
 4. **Configure Amazon Bedrock AgentCore runtime**
    
-   Export the runtime ARN (and optional tracing controls) before running any Amplify Gen2 commands so the Lambda has the correct environment variables. The ARN comes from the AgentCore Runtime you deploy by following the [AWS AgentCore runtime guide](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-invoke-agent.html).
+   Choose one of the following paths before running any Amplify Gen2 commands:
+   
+   **Option A – Reuse an existing runtime** (quickest):
    ```bash
    export AGENTCORE_RUNTIME_ARN=arn:aws:bedrock-agentcore:<region>:<account>:runtime/<your-runtime-id>
    export AGENTCORE_TRACE_ENABLED=false
    export AGENTCORE_TRACE_SAMPLE_RATE=0.0
    ```
-   You can also store these values with `npx ampx sandbox secret set` if you prefer managed secrets.
+   `AGENTCORE_RUNTIME_ARN` should point to a runtime you created manually via the [AgentCore runtime deployment guide](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-invoke-agent.html). Store these values with `npx ampx sandbox secret set` for CI/CD if desired.
+   
+   **Option B – Let Amplify/CDK provision the runtime**:
+   ```bash
+   export AGENTCORE_CONTAINER_URI=123456789012.dkr.ecr.us-east-1.amazonaws.com/brain-agent:latest
+   export AGENTCORE_RUNTIME_NAME=BrainInCupRuntime   # optional override
+   export AGENTCORE_NETWORK_MODE=PUBLIC             # or VPC_PRIVATE
+   export AGENTCORE_RUNTIME_LOG_LEVEL=INFO          # optional
+   ```
+   When `AGENTCORE_CONTAINER_URI` is defined, the Amplify stack creates an `AWS::BedrockAgentCore::Runtime` resource under the hood and injects its ARN into the Lambda automatically, following the official CloudFormation specification for Bedrock AgentCore runtimes ([AWS docs](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-bedrockagentcore-runtime.html)). Make sure the referenced container image or artifact was built according to the AgentCore packaging requirements.
 
 5. **Build Lambda layer dependencies**
    
