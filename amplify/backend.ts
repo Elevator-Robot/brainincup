@@ -53,6 +53,19 @@ if (agentcoreContainerUri) {
   });
   agentcoreRuntimeRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess'));
   agentcoreRuntimeRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ContainerRegistryReadOnly'));
+  
+  // Add CloudWatch Logs permissions for runtime logging
+  agentcoreRuntimeRole.addToPolicy(new PolicyStatement({
+    actions: [
+      'logs:CreateLogGroup',
+      'logs:CreateLogStream',
+      'logs:PutLogEvents',
+    ],
+    resources: [
+      `arn:aws:logs:${stack.region}:${stack.account}:log-group:/aws/bedrock-agentcore/runtimes/*`,
+    ],
+    effect: Effect.ALLOW,
+  }));
 
   const runtimeResource = new CfnResource(stack, 'AgentCoreRuntime', {
     type: 'AWS::BedrockAgentCore::Runtime',
@@ -68,6 +81,7 @@ if (agentcoreContainerUri) {
       },
       EnvironmentVariables: {
         LOG_LEVEL: process.env.AGENTCORE_RUNTIME_LOG_LEVEL ?? 'INFO',
+        AWS_REGION: stack.region,
       },
       RoleArn: agentcoreRuntimeRole.roleArn,
       Description: 'Amazon Bedrock AgentCore runtime managed by Amplify Gen2 backend',
