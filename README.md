@@ -112,7 +112,17 @@ erDiagram
    aws configure
    ```
 
-4. **Build Lambda layer dependencies**
+4. **Configure Amazon Bedrock AgentCore runtime**
+   
+   Export the runtime ARN (and optional tracing controls) before running any Amplify Gen2 commands so the Lambda has the correct environment variables. The ARN comes from the AgentCore Runtime you deploy by following the [AWS AgentCore runtime guide](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-invoke-agent.html).
+   ```bash
+   export AGENTCORE_RUNTIME_ARN=arn:aws:bedrock-agentcore:<region>:<account>:runtime/<your-runtime-id>
+   export AGENTCORE_TRACE_ENABLED=false
+   export AGENTCORE_TRACE_SAMPLE_RATE=0.0
+   ```
+   You can also store these values with `npx ampx sandbox secret set` if you prefer managed secrets.
+
+5. **Build Lambda layer dependencies**
    
    The Lambda function requires Python dependencies with native extensions built for Linux. Build the layer before first deployment:
    ```bash
@@ -127,13 +137,13 @@ erDiagram
    **Note:** Re-run this script whenever you update `amplify/functions/brain/layer/requirements.txt`
    
    **What gets built:**
-   - Python dependencies: langchain, langchain-aws, aws-lambda-powertools, pydantic
+   - Python dependencies: aws-lambda-powertools, pydantic, requests
    - Native binaries (pydantic_core) compiled for Linux x86_64
    - Output location: `amplify/functions/brain/layer/python/` (auto-ignored by git)
    
    See `scripts/README.md` for detailed documentation.
 
-5. **Deploy backend (first time)**
+6. **Deploy backend (first time)**
    
    **Option A: Local development (uses default values for external providers)**
    ```bash
@@ -145,12 +155,12 @@ erDiagram
    npm run sandbox
    ```
 
-6. **Start development server**
+7. **Start development server**
    ```bash
    npm run dev
    ```
 
-7. **Build for production**
+8. **Build for production**
    ```bash
    npm run build
    ```

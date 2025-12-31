@@ -36,6 +36,11 @@ brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
+const agentcoreRuntimeArn = process.env.AGENTCORE_RUNTIME_ARN;
+brainLambda.addEnvironment('AGENTCORE_RUNTIME_ARN', agentcoreRuntimeArn ?? '');
+brainLambda.addEnvironment('AGENTCORE_TRACE_ENABLED', process.env.AGENTCORE_TRACE_ENABLED ?? 'false');
+brainLambda.addEnvironment('AGENTCORE_TRACE_SAMPLE_RATE', process.env.AGENTCORE_TRACE_SAMPLE_RATE ?? '0');
+
 // Note: Layer is already defined in amplify/functions/brain/resource.ts
 
 new EventSourceMapping(stack, 'BrainMessageMapping', {
@@ -45,8 +50,8 @@ new EventSourceMapping(stack, 'BrainMessageMapping', {
 });
 
 brainLambda.addToRolePolicy(new PolicyStatement({
-  actions: ['bedrock:*'],
-  resources: ['*'],
+  actions: ['bedrock-agentcore:InvokeAgentRuntime'],
+  resources: [agentcoreRuntimeArn ?? '*'],
   effect: Effect.ALLOW,
 }));
 

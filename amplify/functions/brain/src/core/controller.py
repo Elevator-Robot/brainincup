@@ -1,5 +1,6 @@
 import logging
-import logging
+import uuid
+
 from agents import (
     PerceptionAgent,
     MemoryAgent,
@@ -9,7 +10,7 @@ from agents import (
     SelfAgent,
     DepthAgent,
 )
-from core.config import setup_llm, setup_prompt_template, setup_parser
+from core.config import setup_agentcore_client, setup_prompt_template, setup_parser
 
 # Set up logging
 logging.basicConfig(level=logging.ERROR)
@@ -19,9 +20,9 @@ logger = logging.getLogger(__name__)
 class Controller:
     def __init__(self, conversation_id, personality_mode: str = "default"):
         self.personality_mode = personality_mode or "default"
-        llm = setup_llm()
         prompt_template, persona_config = setup_prompt_template(self.personality_mode)
         parser = setup_parser()
+        agentcore_client = setup_agentcore_client()
 
         # Initialize agents
         self.perception_agent = PerceptionAgent(
@@ -32,7 +33,7 @@ class Controller:
         self.memory_agent = MemoryAgent(self.conversation_id)
         self.reasoning_agent = ReasoningAgent(parser)
         self.emotional_agent = EmotionalAgent()
-        self.language_agent = LanguageAgent(llm)
+        self.language_agent = LanguageAgent(agentcore_client, persona_config)
         self.depth_agent = DepthAgent()
         self.self_agent = SelfAgent()
 
@@ -44,8 +45,18 @@ class Controller:
 
         # Perception Agent formats the prompt
         formatted_prompt = self.perception_agent.process_input(user_input, context)
-        # Language Agent generates raw response
-        raw_response = self.language_agent.generate_response(formatted_prompt)
+        # Language Agent invokes AgentCore runtime
+        raw_response = self.language_agent.generate_response(
+            formatted_prompt,
+            session_id=self.conversation_id,
+            metadata={
+                "context": context,
+                "message_id": message_id,
+                "owner": owner,
+                "personality_mode": self.personality_mode,
+                "trace_id": str(uuid.uuid4()),
+            },
+        )
 
         # Reasoning Agent parses the response
         parsed_response = self.reasoning_agent.analyze_input(raw_response, context)

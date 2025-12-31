@@ -1,9 +1,8 @@
-from langchain_core.prompts import PromptTemplate
 from typing import Any, Dict
 
 
 class PerceptionAgent:
-    def __init__(self, prompt_template: PromptTemplate, persona_config: Dict[str, Any]):
+    def __init__(self, prompt_template, persona_config: Dict[str, Any]):
         self.prompt_template = prompt_template
         self.persona_config = persona_config or {}
         self.perception_data = {}

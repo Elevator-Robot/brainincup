@@ -11,6 +11,9 @@ class ReasoningAgent:
     def analyze_input(self, llm_response, context):
         """Parse and validate the LLM response"""
         try:
+            if isinstance(llm_response, dict):
+                return llm_response
+
             # Try to parse as JSON first
             if isinstance(llm_response, str):
                 try:

@@ -52,7 +52,7 @@ Before deploying for the first time, you **must** build the Lambda layer contain
 **Troubleshooting:**
 - See `scripts/README.md` for detailed documentation
 - See `amplify/functions/brain/README.md` for function-specific details
-- If you see import errors for langchain or aws_lambda_powertools, rebuild the layer
+- If you see import errors for aws_lambda_powertools or pydantic, rebuild the layer
 - Make sure Docker is running before executing the script
 
 ## Deployment Options
