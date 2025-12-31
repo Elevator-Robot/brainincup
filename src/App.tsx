@@ -1107,7 +1107,8 @@ function App() {
             {/* Mobile Menu Footer with Sign Out */}
             <div className="border-t border-brand-surface-border p-4">
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   handleSignOut();
                   setIsSidebarOpen(false);
                 }}
@@ -1131,7 +1132,7 @@ function App() {
         {/* Desktop Sidebar */}
         <aside
           className={`h-full flex-shrink-0 transform transition-all duration-300 ease-in-out z-40
-            ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full'}`}
+            ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full pointer-events-none'}`}
           aria-label="Interaction list sidebar"
           role="complementary"
         >
@@ -1154,7 +1155,10 @@ function App() {
 
             <div className="border-t border-brand-surface-border p-4">
               <button
-                onClick={handleSignOut}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSignOut();
+                }}
                 className="w-full flex items-center justify-center gap-2 p-3 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary transition-all duration-200 hover:bg-brand-surface-hover/20"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
