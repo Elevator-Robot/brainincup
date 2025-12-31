@@ -48,7 +48,7 @@ let agentcoreRuntimeArn = process.env.AGENTCORE_RUNTIME_ARN;
 
 if (agentcoreContainerUri) {
   const agentcoreRuntimeRole = new Role(stack, 'AgentCoreRuntimeRole', {
-    assumedBy: new ServicePrincipal('bedrock.amazonaws.com'),
+    assumedBy: new ServicePrincipal('bedrock-agentcore.amazonaws.com'),
     description: 'Execution role for Amazon Bedrock AgentCore runtime',
   });
   agentcoreRuntimeRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess'));
@@ -71,10 +71,10 @@ if (agentcoreContainerUri) {
       },
       RoleArn: agentcoreRuntimeRole.roleArn,
       Description: 'Amazon Bedrock AgentCore runtime managed by Amplify Gen2 backend',
-      Tags: [
-        { Key: 'Project', Value: 'BrainInCup' },
-        { Key: 'ManagedBy', Value: 'Amplify' },
-      ],
+      Tags: {
+        Project: 'BrainInCup',
+        ManagedBy: 'Amplify',
+      },
     },
   });
 
@@ -100,7 +100,10 @@ new EventSourceMapping(stack, 'BrainMessageMapping', {
 
 brainLambda.addToRolePolicy(new PolicyStatement({
   actions: ['bedrock-agentcore:InvokeAgentRuntime'],
-  resources: [agentcoreRuntimeArn ?? '*'],
+  resources: agentcoreRuntimeArn ? [
+    agentcoreRuntimeArn,
+    `${agentcoreRuntimeArn}/*`
+  ] : ['*'],
   effect: Effect.ALLOW,
 }));
 

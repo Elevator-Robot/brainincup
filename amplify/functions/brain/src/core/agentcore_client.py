@@ -41,7 +41,7 @@ class AgentCoreClient:
         if not session_id:
             raise ValueError("session_id must be provided")
 
-        body = json.dumps(payload).encode("utf-8")
+        body = json.dumps(payload)
         request: Dict[str, Any] = {
             "agentRuntimeArn": self.runtime_arn,
             "runtimeSessionId": session_id,

@@ -93,6 +93,7 @@ erDiagram
 - Node.js 18+ and npm
 - AWS CLI configured
 - AWS Amplify CLI
+- Docker (for AgentCore runtime)
 
 ### Installation
 
@@ -114,7 +115,18 @@ erDiagram
 
 4. **Configure Amazon Bedrock AgentCore runtime**
    
-   Choose one of the following paths before running any Amplify Gen2 commands:
+   Use the automated setup script to detect and configure environment variables:
+   ```bash
+   source scripts/setup-agentcore-env.sh
+   ```
+   
+   This script will:
+   - Detect if you have an existing AgentCore runtime and use its ARN
+   - Or configure container URI to provision a new runtime
+   - Set trace and monitoring variables
+   - Optionally export variables to your current shell
+   
+   **Manual configuration** (if needed):
    
    **Option A – Reuse an existing runtime** (quickest):
    ```bash
