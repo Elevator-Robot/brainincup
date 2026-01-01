@@ -93,6 +93,7 @@ erDiagram
 - Node.js 18+ and npm
 - AWS CLI configured
 - AWS Amplify CLI
+- Docker (for AgentCore runtime)
 
 ### Installation
 
@@ -112,7 +113,39 @@ erDiagram
    aws configure
    ```
 
-4. **Build Lambda layer dependencies**
+4. **Configure Amazon Bedrock AgentCore runtime**
+   
+   Use the automated setup script to detect and configure environment variables:
+   ```bash
+   source scripts/setup-agentcore-env.sh
+   ```
+   
+   This script will:
+   - Detect if you have an existing AgentCore runtime and use its ARN
+   - Or configure container URI to provision a new runtime
+   - Set trace and monitoring variables
+   - Optionally export variables to your current shell
+   
+   **Manual configuration** (if needed):
+   
+   **Option A – Reuse an existing runtime** (quickest):
+   ```bash
+   export AGENTCORE_RUNTIME_ARN=arn:aws:bedrock-agentcore:<region>:<account>:runtime/<your-runtime-id>
+   export AGENTCORE_TRACE_ENABLED=false
+   export AGENTCORE_TRACE_SAMPLE_RATE=0.0
+   ```
+   `AGENTCORE_RUNTIME_ARN` should point to a runtime you created manually via the [AgentCore runtime deployment guide](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-invoke-agent.html). Store these values with `npx ampx sandbox secret set` for CI/CD if desired.
+   
+   **Option B – Let Amplify/CDK provision the runtime**:
+   ```bash
+   export AGENTCORE_CONTAINER_URI=123456789012.dkr.ecr.us-east-1.amazonaws.com/brain-agent:latest
+   export AGENTCORE_RUNTIME_NAME=BrainInCupRuntime   # optional override
+   export AGENTCORE_NETWORK_MODE=PUBLIC             # or VPC_PRIVATE
+   export AGENTCORE_RUNTIME_LOG_LEVEL=INFO          # optional
+   ```
+   When `AGENTCORE_CONTAINER_URI` is defined, the Amplify stack creates an `AWS::BedrockAgentCore::Runtime` resource under the hood and injects its ARN into the Lambda automatically, following the official CloudFormation specification for Bedrock AgentCore runtimes ([AWS docs](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-bedrockagentcore-runtime.html)). Make sure the referenced container image or artifact was built according to the AgentCore packaging requirements.
+
+5. **Build Lambda layer dependencies**
    
    The Lambda function requires Python dependencies with native extensions built for Linux. Build the layer before first deployment:
    ```bash
@@ -127,13 +160,13 @@ erDiagram
    **Note:** Re-run this script whenever you update `amplify/functions/brain/layer/requirements.txt`
    
    **What gets built:**
-   - Python dependencies: langchain, langchain-aws, aws-lambda-powertools, pydantic
+   - Python dependencies: aws-lambda-powertools, pydantic, requests
    - Native binaries (pydantic_core) compiled for Linux x86_64
    - Output location: `amplify/functions/brain/layer/python/` (auto-ignored by git)
    
    See `scripts/README.md` for detailed documentation.
 
-5. **Deploy backend (first time)**
+6. **Deploy backend (first time)**
    
    **Option A: Local development (uses default values for external providers)**
    ```bash
@@ -145,12 +178,12 @@ erDiagram
    npm run sandbox
    ```
 
-6. **Start development server**
+7. **Start development server**
    ```bash
    npm run dev
    ```
 
-7. **Build for production**
+8. **Build for production**
    ```bash
    npm run build
    ```

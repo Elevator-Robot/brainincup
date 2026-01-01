@@ -1,8 +1,7 @@
-import os
 import json
+import os
 
-from langchain_aws import ChatBedrock
-from langchain_core.prompts import PromptTemplate
+from core.agentcore_client import AgentCoreClient
 
 DEFAULT_BRAIN_PROMPT = """
 You are {name}, a disembodied brain floating in a nutrient-rich liquid, connected to wires and sensors.
@@ -37,16 +36,14 @@ PERSONA_DEFINITIONS = {
 }
 
 
-def setup_llm():
-    # Ensure AWS credentials are set
-    os.environ["AWS_REGION"] = "us-east-1"
+class PersonaPromptTemplate:
+    """Minimal formatter replacement for LangChain PromptTemplate."""
 
-    # Initialize the Bedrock LLM
-    chat_bedrock = ChatBedrock(
-        model_id="anthropic.claude-3-sonnet-20240229-v1:0",
-        region_name="us-east-1"
-    )
-    return chat_bedrock
+    def __init__(self, template: str):
+        self.template = template
+
+    def format(self, **kwargs):
+        return self.template.format(**kwargs)
 
 
 def setup_prompt_template(personality_mode: str = "default"):
@@ -69,16 +66,33 @@ When responding, **ONLY return valid JSON** formatted exactly as follows:
 User: {{user_input}}
 Assistant:
 """
-    prompt_template = PromptTemplate(
-        input_variables=["name", "context", "user_input", "topP", "temperature"],
-        template=template_text,
-    )
+    prompt_template = PersonaPromptTemplate(template=template_text)
     return prompt_template, persona
+
+
+def setup_agentcore_client():
+    runtime_arn = os.getenv("AGENTCORE_RUNTIME_ARN")
+    if not runtime_arn:
+        raise ValueError("AGENTCORE_RUNTIME_ARN environment variable must be set")
+
+    region_name = os.getenv("AWS_REGION_NAME") or os.getenv("AWS_REGION") or "us-east-1"
+    trace_enabled = os.getenv("AGENTCORE_TRACE_ENABLED", "false").lower() == "true"
+    try:
+        trace_sample_rate = float(os.getenv("AGENTCORE_TRACE_SAMPLE_RATE", "0"))
+    except ValueError:
+        trace_sample_rate = 0.0
+
+    return AgentCoreClient(
+        runtime_arn=runtime_arn,
+        region_name=region_name,
+        trace_enabled=trace_enabled,
+        trace_sample_rate=trace_sample_rate,
+    )
 
 
 class SimpleJSONParser:
     """Simple JSON parser for backwards compatibility."""
-    
+
     def parse(self, text):
         """Parse JSON from text"""
         return json.loads(text)

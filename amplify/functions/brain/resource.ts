@@ -19,7 +19,7 @@ export const brain = defineFunction((scope) => {
       exclude: ['requirements.txt']
     }),
     compatibleRuntimes: [Runtime.PYTHON_3_12],
-    description: 'Dependencies for Brain function including langchain and AWS SDK',
+    description: 'Dependencies for Brain function including AWS SDK tooling',
   });
 
   return new Function(scope, 'BrainFunction', {

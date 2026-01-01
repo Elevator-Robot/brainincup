@@ -253,7 +253,7 @@ graph TB
     B --> H
     B --> I
     B --> J
-    K -.->|langchain<br/>boto3<br/>requests| B
+    K -.->|AgentCore client<br/>boto3<br/>requests| B
     
     style A fill:#FF6B6B
     style B fill:#4ECDC4
@@ -268,7 +268,7 @@ graph TB
         A[Brain Lambda Function]
         
         subgraph "IAM Policies"
-            B[Bedrock Access<br/>bedrock:*]
+            B[AgentCore Runtime<br/>bedrock-agentcore:InvokeAgentRuntime]
             C[DynamoDB Access<br/>Query, PutItem, etc.]
             D[AppSync Access<br/>appsync:GraphQL]
             E[DynamoDB Streams<br/>GetRecords, etc.]
@@ -280,6 +280,9 @@ graph TB
             H[RESPONSE_TABLE_NAME]
             I[APPSYNC_API_URL]
             J[AWS_REGION_NAME]
+            N[AGENTCORE_RUNTIME_ARN]
+            O[AGENTCORE_TRACE_ENABLED]
+            P[AGENTCORE_TRACE_SAMPLE_RATE]
         end
     end
     
@@ -292,6 +295,9 @@ graph TB
     H -.-> A
     I -.-> A
     J -.-> A
+    N -.-> A
+    O -.-> A
+    P -.-> A
     
     style A fill:#FF6B6B
     style B fill:#95E1D3

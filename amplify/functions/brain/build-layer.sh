@@ -5,7 +5,8 @@ set -e
 # This ensures binary dependencies like pydantic_core are built for the correct platform
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LAYER_DIR="${SCRIPT_DIR}/layer"
+FUNCTION_DIR="${SCRIPT_DIR}/../amplify/functions/brain"
+LAYER_DIR="${FUNCTION_DIR}/layer"
 
 echo "🧹 Cleaning existing layer..."
 rm -rf "${LAYER_DIR}/python"
@@ -16,10 +17,10 @@ if docker info > /dev/null 2>&1; then
   echo "🐳 Building dependencies using Docker for Lambda Python 3.12 runtime..."
   docker run --rm \
     --platform linux/amd64 \
-    -v "${LAYER_DIR}:/layer" \
-    -w /layer \
+    -v "${LAYER_DIR}:/var/task" \
+    --entrypoint "" \
     public.ecr.aws/lambda/python:3.12 \
-    pip install -r requirements.txt -t python/ --no-cache-dir
+    pip install -r /var/task/requirements.txt -t /var/task/python/ --no-cache-dir
 else
   echo "⚠️  Docker not available. Using pip with --platform flag..."
   echo "⚠️  Note: This may not work for all binary dependencies."
