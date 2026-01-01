@@ -43,7 +43,8 @@ brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResource
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
 const agentcoreContainerUri = process.env.AGENTCORE_CONTAINER_URI;
-const requestedRuntimeName = process.env.AGENTCORE_RUNTIME_NAME ?? `Brain${stack.stackName}Runtime`;
+const defaultRuntimeName = sanitizeRuntimeName(stack.stackName.replace('amplify-brainincup-', 'Brain-'));
+const requestedRuntimeName = process.env.AGENTCORE_RUNTIME_NAME ?? defaultRuntimeName;
 let agentcoreRuntimeArn = process.env.AGENTCORE_RUNTIME_ARN;
 
 if (agentcoreContainerUri) {
