@@ -223,6 +223,18 @@ The app can be installed on mobile devices:
 2. Look for "Add to Home Screen" prompt
 3. Install for native-like experience with offline capabilities
 
+## 📚 Documentation
+
+- **[Backend Architecture](docs/BACKEND_ARCHITECTURE.md)** - AWS infrastructure, agent workflow, data models
+- **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to the project
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment and environment configuration
+
+### For AI Agents
+- **[AGENTS.md](AGENTS.md)** - Development environment setup, testing instructions, PR guidelines
+
+### Additional Resources
+- **[AgentCore Migration](docs/archive/)** - Performance analysis, setup guides, and migration documentation
+
 ## 🔧 Development
 
 ### Available Scripts
