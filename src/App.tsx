@@ -1567,9 +1567,9 @@ function App() {
                     <p className="text-xs text-brand-text-muted uppercase tracking-wider">
                       {conversationId ? (
                         effectivePersonality === 'game_master' ? 'Quest Log' :
-                        effectivePersonality === 'scientist' ? 'Research Notes' :
-                        effectivePersonality === 'philosopher' ? 'Dialectic' :
-                        effectivePersonality === 'artist' ? 'Canvas' :
+                        (effectivePersonality as string) === 'scientist' ? 'Research Notes' :
+                        (effectivePersonality as string) === 'philosopher' ? 'Dialectic' :
+                        (effectivePersonality as string) === 'artist' ? 'Canvas' :
                         'Session'
                       ) : 'New Thread'}
                     </p>
@@ -1579,9 +1579,9 @@ function App() {
                       </p>
                     ) : conversationId && effectivePersonality !== 'default' && effectivePersonality !== 'game_master' ? (
                       <p className="text-sm text-brand-text-primary font-medium truncate">
-                        {effectivePersonality === 'scientist' ? 'Active Investigation' :
-                         effectivePersonality === 'philosopher' ? 'Active Discussion' :
-                         effectivePersonality === 'artist' ? 'Creative Flow' :
+                        {(effectivePersonality as string) === 'scientist' ? 'Active Investigation' :
+                         (effectivePersonality as string) === 'philosopher' ? 'Active Discussion' :
+                         (effectivePersonality as string) === 'artist' ? 'Creative Flow' :
                          'In Progress'}
                       </p>
                     ) : null}
