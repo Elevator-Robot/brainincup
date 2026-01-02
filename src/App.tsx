@@ -996,6 +996,7 @@ function App() {
 
   const handleModeSelected = async (modeId: string) => {
     setIsModePickerOpen(false);
+    setIsSidebarOpen(false); // Close sidebar when starting new conversation
     await createConversationWithMode(modeId);
   };
 
@@ -1075,63 +1076,23 @@ function App() {
 
   return (
     <div className="h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden relative">
-      {/* Floating Sidebar Toggle */}
-      <button
-        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="fixed top-4 left-4 z-50 p-3 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary 
-        transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 shadow-glass"
-        aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
-      >
-        <div className="w-6 h-6 flex flex-col justify-center items-center">
-          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-            isSidebarOpen ? 'rotate-45 translate-y-1' : '-translate-y-0.5'
-          }`}></span>
-          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-            isSidebarOpen ? 'opacity-0' : 'opacity-100'
-          }`}></span>
-          <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ease-out ${
-            isSidebarOpen ? '-rotate-45 -translate-y-1' : 'translate-y-0.5'
-          }`}></span>
-        </div>
-      </button>
+
 
       {/* Mobile: Full-screen Overlay Menu */}
       <div
-        className={`lg:hidden fixed inset-0 z-[100] transition-all duration-300 ${
+        className={`lg:hidden fixed inset-0 z-[50] transition-all duration-300 ${
           isSidebarOpen ? 'pointer-events-auto' : 'pointer-events-none'
         }`}
       >
-        {/* Backdrop */}
+        {/* Full screen overlay that covers entire screen */}
         <div
-          className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${
-            isSidebarOpen ? 'opacity-100' : 'opacity-0'
-          }`}
-          onClick={() => setIsSidebarOpen(false)}
-        />
-        
-        {/* Mobile Menu Panel - Morphs from nav bar */}
-        <div
-          className={`absolute top-0 left-0 right-0 bg-brand-surface-elevated/95 backdrop-blur-xl border-b border-brand-surface-border/50 shadow-lg transform transition-all duration-300 ease-out ${
-            isSidebarOpen ? 'h-full opacity-100' : 'h-0 opacity-0 overflow-hidden'
+          className={`absolute inset-0 bg-brand-background/98 backdrop-blur-xl transform transition-all duration-300 ${
+            isSidebarOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
           }`}
         >
-          <div className="flex flex-col h-full pt-safe">
-            {/* Mobile Menu Header - Matches nav bar */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-brand-surface-border/30">
-              <button
-                onClick={() => setIsSidebarOpen(false)}
-                className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
-                aria-label="Close menu"
-              >
-                <svg className="w-6 h-6 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <span className="text-lg font-light text-brand-text-primary tracking-wide">Interactions</span>
-            </div>
-
+          <div className="flex flex-col h-full pt-20">
             {/* Mobile Menu Content */}
-            <nav className="flex-1 overflow-y-auto" aria-label="Interactions">
+            <nav className="flex-1 overflow-y-auto p-4" aria-label="Interactions">
               <ConversationList 
                 onSelectConversation={(id) => {
                   handleSelectConversation(id);
@@ -1154,7 +1115,7 @@ function App() {
                   handleSignOut();
                   setIsSidebarOpen(false);
                 }}
-                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl glass-hover
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl
                 text-brand-text-muted hover:text-brand-text-primary transition-all duration-200
                 hover:bg-brand-surface-hover/20"
               >
@@ -1169,19 +1130,20 @@ function App() {
         </div>
       </div>
 
-      {/* Desktop: Sidebar with Hamburger Button */}
+      {/* Desktop: Sidebar Layout */}
       <div className="hidden lg:flex h-full">
-        {/* Desktop Sidebar */}
+        {/* Desktop Sidebar - Collapsible */}
         <aside
-          className={`h-full flex-shrink-0 transform transition-all duration-300 ease-in-out z-40
-            ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full pointer-events-none'}`}
+          className={`flex-shrink-0 bg-brand-surface-elevated/95 backdrop-blur-xl border-r border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
+            isSidebarOpen ? 'w-80' : 'w-0 -translate-x-full'
+          }`}
           aria-label="Interaction list sidebar"
           role="complementary"
         >
-          <div className={`flex flex-col h-full glass backdrop-blur-xl border-r border-brand-surface-border shadow-glass-lg w-80 transition-opacity duration-300 ${
+          <div className={`flex flex-col h-full w-80 transition-opacity duration-300 ${
             isSidebarOpen ? 'opacity-100' : 'opacity-0'
           }`}>
-            <div className="flex justify-end px-4 py-3">
+            <div className="flex items-center px-4 py-3 pl-16">
               <span className="text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
             </div>
             {/* Desktop Conversation List */}
@@ -1201,7 +1163,7 @@ function App() {
                   e.stopPropagation();
                   handleSignOut();
                 }}
-                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary transition-all duration-200 hover:bg-brand-surface-hover/20"
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl hover:bg-brand-surface-hover text-brand-text-muted hover:text-brand-text-primary transition-all duration-200"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -1213,15 +1175,30 @@ function App() {
           </div>
         </aside>
 
+        {/* Floating sidebar toggle button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsSidebarOpen(!isSidebarOpen);
+          }}
+          className="fixed top-4 left-4 z-50 p-2 text-brand-text-primary hover:text-brand-accent-primary transition-colors duration-200 focus:outline-none"
+          aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+        >
+          {isSidebarOpen ? (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
+
         {/* Main Content Area - Desktop */}
         <main 
-          className="flex-1 flex flex-col min-w-0 overflow-hidden"
-          onClick={() => {
-            // Close sidebar when clicking in main area on desktop
-            if (isSidebarOpen) {
-              setIsSidebarOpen(false);
-            }
-          }}
+          className="flex-1 flex flex-col min-w-0 overflow-hidden relative"
+          onClick={() => setIsSidebarOpen(false)}
         >
         {/* Screen reader live region for message updates */}
         <div
@@ -1505,26 +1482,28 @@ function App() {
             </div>
           </div>
           </div>
-          {hasSidebarContent && (
-            <aside className="hidden lg:flex w-96 flex-col border-l border-brand-surface-border/30 px-6 py-6 bg-gradient-to-t from-brand-bg-primary via-brand-bg-primary/50 to-transparent">
-              <div className="sticky top-10 space-y-6 w-full">
-                {conversationId && effectivePersonality !== 'default' && (
-                  <PersonalityIndicator personality={effectivePersonality} />
-                )}
-
-                {conversationId && effectivePersonality === 'game_master' && adventureState && (
-                  <GameMasterHud
-                    adventure={adventureState}
-                    questSteps={hudQuestSteps}
-                    playerChoices={hudPlayerChoices}
-                  />
-                )}
-              </div>
-            </aside>
-          )}
         </div>
-
+          
         </main>
+
+        {/* Desktop HUD Sidebar */}
+        {hasSidebarContent && (
+          <aside className="hidden lg:flex w-96 flex-col border-l border-brand-surface-border/30 px-6 py-6 bg-gradient-to-t from-brand-bg-primary via-brand-bg-primary/50 to-transparent">
+            <div className="sticky top-10 space-y-6 w-full">
+              {conversationId && effectivePersonality !== 'default' && (
+                <PersonalityIndicator personality={effectivePersonality} />
+              )}
+
+              {conversationId && effectivePersonality === 'game_master' && adventureState && (
+                <GameMasterHud
+                  adventure={adventureState}
+                  questSteps={hudQuestSteps}
+                  playerChoices={hudPlayerChoices}
+                />
+              )}
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* Mobile: Main Content Area */}
@@ -1535,16 +1514,20 @@ function App() {
         onTouchEnd={onTouchEnd}
       >
         {/* Mobile Top Nav Bar */}
-        <nav className="sticky top-0 z-50 bg-brand-surface-elevated/95 backdrop-blur-xl border-b border-brand-surface-border/50 shadow-lg pt-safe">
+        <nav className="sticky top-0 z-[60] bg-brand-surface-elevated/95 backdrop-blur-xl border-b border-brand-surface-border/50 shadow-lg pt-safe">
           <div className="flex items-center gap-3 px-4 py-3">
-            {/* Hamburger Menu Button */}
+            {/* Hamburger Menu Button - Morphs into X when open */}
             <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
-              aria-label="Open conversations menu"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors relative z-[70]"
+              aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
             >
-              <svg className="w-6 h-6 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg className="w-6 h-6 text-brand-text-primary transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {isSidebarOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
               </svg>
             </button>
 
@@ -1557,11 +1540,12 @@ function App() {
         <div className="sticky top-0 z-40 pt-safe">
           <div className="flex gap-2 mx-4 mt-4 items-start">
             {/* First Bar - Quest Log */}
-            <div 
-              className={`flex-1 rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
-                mobileInfoExpanded ? 'mb-4' : ''
-              }`}
-            >
+            <div className="flex-1 relative">
+              <div 
+                className={`rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
+                  mobileInfoExpanded ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
+                }`}
+              >
               {/* Collapsed Header Bar */}
               <button
                 onClick={() => setMobileInfoExpanded(!mobileInfoExpanded)}
@@ -1634,13 +1618,17 @@ function App() {
                   )}
                 </div>
               )}
+              </div>
             </div>
 
             {/* Second Bar - Character Sheet (D&D style) */}
             {conversationId && effectivePersonality === 'game_master' && (
-              <div 
-                className="flex-1 rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300"
-              >
+              <div className="flex-1 relative">
+                <div 
+                  className={`rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
+                    mobileCharSheetExpanded ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
+                  }`}
+                >
                 <button
                   onClick={() => setMobileCharSheetExpanded(!mobileCharSheetExpanded)}
                   className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
@@ -1736,6 +1724,7 @@ function App() {
                     </div>
                   </div>
                 )}
+              </div>
               </div>
             )}
           </div>
@@ -1989,7 +1978,7 @@ function App() {
       </main>
 
       {isModePickerOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center px-4">
           <div
             className="absolute inset-0 bg-black/70 backdrop-blur-md"
             onClick={handleModePickerClose}
