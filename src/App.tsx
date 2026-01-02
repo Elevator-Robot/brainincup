@@ -381,6 +381,14 @@ function App() {
     getUserAttributes();
   }, []);
 
+  // Save conversationId to localStorage whenever it changes
+  useEffect(() => {
+    if (conversationId) {
+      localStorage.setItem('lastConversationId', conversationId);
+      console.log('💾 Saved conversation to localStorage:', conversationId);
+    }
+  }, [conversationId]);
+
   // Auto-load most recent conversation or create new one on app start
   useEffect(() => {
     async function autoLoadConversation() {
@@ -400,6 +408,27 @@ function App() {
             setConversationId('test-conversation-1');
           }
           return;
+        }
+
+        // Check for last conversation ID in localStorage
+        const lastConversationId = localStorage.getItem('lastConversationId');
+        if (lastConversationId) {
+          console.log('💾 Found last conversation in localStorage:', lastConversationId);
+          try {
+            // Verify the conversation still exists
+            const { data: conversation } = await dataClient.models.Conversation.get({ id: lastConversationId });
+            if (conversation) {
+              console.log('✅ Restoring last conversation');
+              await handleSelectConversation(lastConversationId);
+              return;
+            } else {
+              console.log('⚠️ Last conversation no longer exists, clearing localStorage');
+              localStorage.removeItem('lastConversationId');
+            }
+          } catch (error) {
+            console.error('❌ Error verifying last conversation:', error);
+            localStorage.removeItem('lastConversationId');
+          }
         }
 
         // Load existing conversations
