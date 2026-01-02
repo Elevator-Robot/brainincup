@@ -156,7 +156,7 @@ function App() {
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default to closed on mobile, will be controlled by responsive logic
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default to closed
   const [mobileInfoExpanded, setMobileInfoExpanded] = useState(false);
   const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(false);
   const [conversationListKey, setConversationListKey] = useState(0);
@@ -1057,7 +1057,7 @@ function App() {
 
       {/* Mobile: Full-screen Overlay Menu */}
       <div
-        className={`lg:hidden fixed inset-0 z-50 transition-all duration-300 ${
+        className={`lg:hidden fixed inset-0 z-[100] transition-all duration-300 ${
           isSidebarOpen ? 'pointer-events-auto' : 'pointer-events-none'
         }`}
       >
@@ -1491,7 +1491,18 @@ function App() {
       <main className="lg:hidden flex flex-col h-full">
         {/* Floating Expandable Header Bars - Side by Side */}
         <div className="sticky top-0 z-50 pt-safe">
-          <div className="flex gap-2 mx-4 mt-4">
+          <div className="flex gap-2 mx-4 mt-4 items-start">
+            {/* Hamburger Menu Button */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="flex-shrink-0 w-12 h-12 rounded-full bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
+              aria-label="Open conversations menu"
+            >
+              <svg className="w-6 h-6 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
             {/* First Bar - Quest Log */}
             <div 
               className={`flex-1 rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
