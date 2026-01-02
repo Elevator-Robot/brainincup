@@ -164,6 +164,10 @@ function App() {
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isModePickerOpen, setIsModePickerOpen] = useState(false);
   
+  // Swipe gesture state
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  
   // Game Master data state
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
@@ -172,6 +176,42 @@ function App() {
   // Personality mode state
   const [personalityMode, setPersonalityMode] = useState<string>('default');
   const effectivePersonality = normalizePersonalityMode(personalityMode);
+  
+  // Swipe gesture handlers
+  const minSwipeDistance = 50;
+  const edgeThreshold = 50; // Must start swipe within 50px from left edge
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    const touch = e.targetTouches[0];
+    if (touch.clientX <= edgeThreshold) { // Only detect swipes starting from left edge
+      setTouchStart(touch.clientX);
+    } else {
+      setTouchStart(null);
+    }
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchStart === null) return;
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchEnd - touchStart;
+    const isRightSwipe = distance > minSwipeDistance;
+    const isLeftSwipe = distance < -minSwipeDistance;
+    
+    if (isRightSwipe && !isSidebarOpen) {
+      setIsSidebarOpen(true);
+    } else if (isLeftSwipe && isSidebarOpen) {
+      setIsSidebarOpen(false);
+    }
+    
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
+
   const ensureAdventureState = useCallback(async (convId: string, modeOverride?: string): Promise<AdventureRecord | null> => {
     const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
     if (activeMode !== 'game_master') return null;
@@ -1488,21 +1528,15 @@ function App() {
       </div>
 
       {/* Mobile: Main Content Area */}
-      <main className="lg:hidden flex flex-col h-full">
+      <main 
+        className="lg:hidden flex flex-col h-full"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         {/* Floating Expandable Header Bars - Side by Side */}
         <div className="sticky top-0 z-50 pt-safe">
           <div className="flex gap-2 mx-4 mt-4 items-start">
-            {/* Hamburger Menu Button */}
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="flex-shrink-0 w-12 h-12 rounded-full bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
-              aria-label="Open conversations menu"
-            >
-              <svg className="w-6 h-6 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-
             {/* First Bar - Quest Log */}
             <div 
               className={`flex-1 rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
