@@ -157,6 +157,7 @@ function App() {
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default to closed on mobile, will be controlled by responsive logic
+  const [mobileInfoExpanded, setMobileInfoExpanded] = useState(false);
   const [conversationListKey, setConversationListKey] = useState(0);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
@@ -1486,7 +1487,89 @@ function App() {
       </div>
 
       {/* Mobile: Main Content Area */}
-      <main className="lg:hidden flex flex-col h-full pt-6">
+      <main className="lg:hidden flex flex-col h-full">
+        {/* Floating Expandable Header Bar */}
+        <div className="sticky top-0 z-50 pt-safe">
+          <div 
+            className={`mx-4 mt-4 rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
+              mobileInfoExpanded ? 'mb-4' : ''
+            }`}
+          >
+            {/* Collapsed Header Bar */}
+            <button
+              onClick={() => setMobileInfoExpanded(!mobileInfoExpanded)}
+              className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                {conversationId && effectivePersonality !== 'default' && effectivePersonality !== 'game_master' && (
+                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${
+                    effectivePersonality === 'scientist' ? 'from-blue-500 to-cyan-500' :
+                    effectivePersonality === 'philosopher' ? 'from-purple-500 to-pink-500' :
+                    effectivePersonality === 'artist' ? 'from-pink-500 to-rose-500' :
+                    'from-violet-500 to-fuchsia-500'
+                  } flex items-center justify-center flex-shrink-0`}>
+                    <span className="text-lg">
+                      {effectivePersonality === 'scientist' ? '🔬' :
+                       effectivePersonality === 'philosopher' ? '🤔' :
+                       effectivePersonality === 'artist' ? '🎨' : '🧠'}
+                    </span>
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-brand-text-muted uppercase tracking-wider">
+                    {conversationId ? (
+                      effectivePersonality === 'game_master' ? 'Quest Log' :
+                      effectivePersonality === 'scientist' ? 'Research Notes' :
+                      effectivePersonality === 'philosopher' ? 'Dialectic' :
+                      effectivePersonality === 'artist' ? 'Canvas' :
+                      'Session'
+                    ) : 'New Thread'}
+                  </p>
+                  {adventureState && effectivePersonality === 'game_master' ? (
+                    <p className="text-sm text-brand-text-primary font-medium truncate">
+                      {adventureState.title}
+                    </p>
+                  ) : conversationId && effectivePersonality !== 'default' ? (
+                    <p className="text-sm text-brand-text-primary font-medium truncate">
+                      {effectivePersonality === 'scientist' ? 'Active Investigation' :
+                       effectivePersonality === 'philosopher' ? 'Active Discussion' :
+                       effectivePersonality === 'artist' ? 'Creative Flow' :
+                       'In Progress'}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <svg 
+                className={`w-5 h-5 text-brand-text-muted transition-transform duration-300 flex-shrink-0 ${
+                  mobileInfoExpanded ? 'rotate-180' : ''
+                }`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Expanded Content */}
+            {mobileInfoExpanded && (
+              <div className="px-4 pb-4 space-y-4 animate-slide-up border-t border-brand-surface-border/30 pt-4">
+                {conversationId && effectivePersonality !== 'default' && (
+                  <PersonalityIndicator personality={effectivePersonality} />
+                )}
+
+                {conversationId && effectivePersonality === 'game_master' && adventureState && (
+                  <GameMasterHud
+                    adventure={adventureState}
+                    questSteps={hudQuestSteps}
+                    playerChoices={hudPlayerChoices}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Screen reader live region for message updates */}
         <div
           aria-live="polite"
@@ -1502,18 +1585,6 @@ function App() {
           {/* Messages with improved styling and animations */}
           <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col-reverse">
             <div className="max-w-4xl mx-auto space-y-4 flex flex-col">
-              {/* Personality Indicator */}
-              {conversationId && effectivePersonality !== 'default' && (
-                <PersonalityIndicator personality={effectivePersonality} />
-              )}
-
-              {conversationId && effectivePersonality === 'game_master' && adventureState && (
-                <GameMasterHud
-                  adventure={adventureState}
-                  questSteps={hudQuestSteps}
-                  playerChoices={hudPlayerChoices}
-                />
-              )}
               
               {/* Invisible element to scroll to - at the bottom in reversed layout */}
               <div ref={messagesEndRef} />
