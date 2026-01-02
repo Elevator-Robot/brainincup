@@ -158,6 +158,7 @@ function App() {
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default to closed on mobile, will be controlled by responsive logic
   const [mobileInfoExpanded, setMobileInfoExpanded] = useState(false);
+  const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(false);
   const [conversationListKey, setConversationListKey] = useState(0);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
@@ -1488,87 +1489,194 @@ function App() {
 
       {/* Mobile: Main Content Area */}
       <main className="lg:hidden flex flex-col h-full">
-        {/* Floating Expandable Header Bar */}
+        {/* Floating Expandable Header Bars - Side by Side */}
         <div className="sticky top-0 z-50 pt-safe">
-          <div 
-            className={`mx-4 mt-4 rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
-              mobileInfoExpanded ? 'mb-4' : ''
-            }`}
-          >
-            {/* Collapsed Header Bar */}
-            <button
-              onClick={() => setMobileInfoExpanded(!mobileInfoExpanded)}
-              className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
+          <div className="flex gap-2 mx-4 mt-4">
+            {/* First Bar - Quest Log */}
+            <div 
+              className={`flex-1 rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
+                mobileInfoExpanded ? 'mb-4' : ''
+              }`}
             >
-              <div className="flex items-center gap-3 min-w-0">
-                {conversationId && effectivePersonality !== 'default' && effectivePersonality !== 'game_master' && (
-                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${
-                    effectivePersonality === 'scientist' ? 'from-blue-500 to-cyan-500' :
-                    effectivePersonality === 'philosopher' ? 'from-purple-500 to-pink-500' :
-                    effectivePersonality === 'artist' ? 'from-pink-500 to-rose-500' :
-                    'from-violet-500 to-fuchsia-500'
-                  } flex items-center justify-center flex-shrink-0`}>
-                    <span className="text-lg">
-                      {effectivePersonality === 'scientist' ? '🔬' :
-                       effectivePersonality === 'philosopher' ? '🤔' :
-                       effectivePersonality === 'artist' ? '🎨' : '🧠'}
-                    </span>
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-brand-text-muted uppercase tracking-wider">
-                    {conversationId ? (
-                      effectivePersonality === 'game_master' ? 'Quest Log' :
-                      effectivePersonality === 'scientist' ? 'Research Notes' :
-                      effectivePersonality === 'philosopher' ? 'Dialectic' :
-                      effectivePersonality === 'artist' ? 'Canvas' :
-                      'Session'
-                    ) : 'New Thread'}
-                  </p>
-                  {adventureState && effectivePersonality === 'game_master' ? (
-                    <p className="text-sm text-brand-text-primary font-medium truncate">
-                      {adventureState.title}
-                    </p>
-                  ) : conversationId && effectivePersonality !== 'default' ? (
-                    <p className="text-sm text-brand-text-primary font-medium truncate">
-                      {effectivePersonality === 'scientist' ? 'Active Investigation' :
-                       effectivePersonality === 'philosopher' ? 'Active Discussion' :
-                       effectivePersonality === 'artist' ? 'Creative Flow' :
-                       'In Progress'}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <svg 
-                className={`w-5 h-5 text-brand-text-muted transition-transform duration-300 flex-shrink-0 ${
-                  mobileInfoExpanded ? 'rotate-180' : ''
-                }`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
+              {/* Collapsed Header Bar */}
+              <button
+                onClick={() => setMobileInfoExpanded(!mobileInfoExpanded)}
+                className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+                <div className="flex items-center gap-3 min-w-0">
+                  {conversationId && effectivePersonality !== 'default' && effectivePersonality !== 'game_master' && (
+                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${
+                      effectivePersonality === 'scientist' ? 'from-blue-500 to-cyan-500' :
+                      effectivePersonality === 'philosopher' ? 'from-purple-500 to-pink-500' :
+                      effectivePersonality === 'artist' ? 'from-pink-500 to-rose-500' :
+                      'from-violet-500 to-fuchsia-500'
+                    } flex items-center justify-center flex-shrink-0`}>
+                      <span className="text-lg">
+                        {effectivePersonality === 'scientist' ? '🔬' :
+                         effectivePersonality === 'philosopher' ? '🤔' :
+                         effectivePersonality === 'artist' ? '🎨' : '🧠'}
+                      </span>
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-brand-text-muted uppercase tracking-wider">
+                      {conversationId ? (
+                        effectivePersonality === 'game_master' ? 'Quest Log' :
+                        effectivePersonality === 'scientist' ? 'Research Notes' :
+                        effectivePersonality === 'philosopher' ? 'Dialectic' :
+                        effectivePersonality === 'artist' ? 'Canvas' :
+                        'Session'
+                      ) : 'New Thread'}
+                    </p>
+                    {adventureState && effectivePersonality === 'game_master' ? (
+                      <p className="text-sm text-brand-text-primary font-medium truncate">
+                        {adventureState.title}
+                      </p>
+                    ) : conversationId && effectivePersonality !== 'default' && effectivePersonality !== 'game_master' ? (
+                      <p className="text-sm text-brand-text-primary font-medium truncate">
+                        {effectivePersonality === 'scientist' ? 'Active Investigation' :
+                         effectivePersonality === 'philosopher' ? 'Active Discussion' :
+                         effectivePersonality === 'artist' ? 'Creative Flow' :
+                         'In Progress'}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <svg 
+                  className={`w-5 h-5 text-brand-text-muted transition-transform duration-300 flex-shrink-0 ${
+                    mobileInfoExpanded ? 'rotate-180' : ''
+                  }`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-            {/* Expanded Content */}
-            {mobileInfoExpanded && (
-              <div className="px-4 pb-4 space-y-4 animate-slide-up border-t border-brand-surface-border/30 pt-4">
-                {conversationId && effectivePersonality !== 'default' && (
-                  <PersonalityIndicator personality={effectivePersonality} />
-                )}
+              {/* Expanded Content */}
+              {mobileInfoExpanded && (
+                <div className="px-4 pb-4 space-y-4 animate-slide-up border-t border-brand-surface-border/30 pt-4">
+                  {conversationId && effectivePersonality !== 'default' && (
+                    <PersonalityIndicator personality={effectivePersonality} />
+                  )}
 
-                {conversationId && effectivePersonality === 'game_master' && adventureState && (
-                  <GameMasterHud
-                    adventure={adventureState}
-                    questSteps={hudQuestSteps}
-                    playerChoices={hudPlayerChoices}
-                  />
+                  {conversationId && effectivePersonality === 'game_master' && adventureState && (
+                    <GameMasterHud
+                      adventure={adventureState}
+                      questSteps={hudQuestSteps}
+                      playerChoices={hudPlayerChoices}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Second Bar - Character Sheet (D&D style) */}
+            {conversationId && effectivePersonality === 'game_master' && (
+              <div 
+                className="flex-1 rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300"
+              >
+                <button
+                  onClick={() => setMobileCharSheetExpanded(!mobileCharSheetExpanded)}
+                  className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
+                      <p className="text-sm text-brand-text-primary font-medium truncate">Stats & Inventory</p>
+                    </div>
+                  </div>
+                  <svg 
+                    className={`w-5 h-5 text-brand-text-muted transition-transform duration-300 flex-shrink-0 ${
+                      mobileCharSheetExpanded ? 'rotate-180' : ''
+                    }`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Expanded Character Sheet Content */}
+                {mobileCharSheetExpanded && adventureState && (
+                  <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
+                    {/* Stats */}
+                    <div>
+                      <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Ability Scores</h4>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="text-xs text-brand-text-muted">STR</div>
+                          <div className="text-lg font-bold text-brand-text-primary">10</div>
+                        </div>
+                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="text-xs text-brand-text-muted">DEX</div>
+                          <div className="text-lg font-bold text-brand-text-primary">12</div>
+                        </div>
+                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="text-xs text-brand-text-muted">CON</div>
+                          <div className="text-lg font-bold text-brand-text-primary">14</div>
+                        </div>
+                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="text-xs text-brand-text-muted">INT</div>
+                          <div className="text-lg font-bold text-brand-text-primary">16</div>
+                        </div>
+                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="text-xs text-brand-text-muted">WIS</div>
+                          <div className="text-lg font-bold text-brand-text-primary">13</div>
+                        </div>
+                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="text-xs text-brand-text-muted">CHA</div>
+                          <div className="text-lg font-bold text-brand-text-primary">11</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Health & Level */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs uppercase tracking-wider text-brand-text-muted">Level</span>
+                        <span className="text-sm font-bold text-brand-text-primary">1</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs uppercase tracking-wider text-brand-text-muted">HP</span>
+                          <span className="text-xs text-brand-text-secondary">12 / 12</span>
+                        </div>
+                        <div className="h-2 bg-brand-surface-hover rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{width: '100%'}}></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Inventory */}
+                    <div>
+                      <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Inventory</h4>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-brand-text-secondary">• Rusty Sword</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-brand-text-secondary">• Leather Armor</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-brand-text-secondary">• 5 Gold Pieces</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
           </div>
         </div>
+
 
         {/* Screen reader live region for message updates */}
         <div
