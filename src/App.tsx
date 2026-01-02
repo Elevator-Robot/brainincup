@@ -1109,21 +1109,21 @@ function App() {
           onClick={() => setIsSidebarOpen(false)}
         />
         
-        {/* Mobile Menu Panel */}
+        {/* Mobile Menu Panel - Morphs from nav bar */}
         <div
-          className={`absolute top-0 left-0 right-0 bottom-0 glass backdrop-blur-2xl transform transition-all duration-300 ease-out ${
-            isSidebarOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+          className={`absolute top-0 left-0 right-0 bg-brand-surface-elevated/95 backdrop-blur-xl border-b border-brand-surface-border/50 shadow-lg transform transition-all duration-300 ease-out ${
+            isSidebarOpen ? 'h-full opacity-100' : 'h-0 opacity-0 overflow-hidden'
           }`}
         >
-          <div className="flex flex-col h-full">
-            {/* Mobile Menu Header */}
-            <div className="flex items-center gap-3 p-4">
+          <div className="flex flex-col h-full pt-safe">
+            {/* Mobile Menu Header - Matches nav bar */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-brand-surface-border/30">
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="p-2 rounded-xl glass-hover text-brand-text-muted hover:text-brand-text-primary transition-all duration-200 flex-shrink-0"
+                className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
                 aria-label="Close menu"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -1534,8 +1534,27 @@ function App() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
+        {/* Mobile Top Nav Bar */}
+        <nav className="sticky top-0 z-50 bg-brand-surface-elevated/95 backdrop-blur-xl border-b border-brand-surface-border/50 shadow-lg pt-safe">
+          <div className="flex items-center gap-3 px-4 py-3">
+            {/* Hamburger Menu Button */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
+              aria-label="Open conversations menu"
+            >
+              <svg className="w-6 h-6 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            {/* Title/Branding */}
+            <span className="text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
+          </div>
+        </nav>
+
         {/* Floating Expandable Header Bars - Side by Side */}
-        <div className="sticky top-0 z-50 pt-safe">
+        <div className="sticky top-0 z-40 pt-safe">
           <div className="flex gap-2 mx-4 mt-4 items-start">
             {/* First Bar - Quest Log */}
             <div 
