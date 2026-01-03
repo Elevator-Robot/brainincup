@@ -123,11 +123,12 @@ function GameMasterHud({ adventure, questSteps, playerChoices }: GameMasterHudPr
   const latestStep = questSteps.slice(-1)[0];
   void playerChoices;
   return (
-    <div className="animate-slide-up w-full">
-      <div className="w-full mb-4 p-5 rounded-lg">
+    <div className="animate-slide-up w-full space-y-6">
+      {/* Quest Log Section */}
+      <div className="w-full p-5 rounded-lg">
         <div className="flex flex-col gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-1">Game Master Adventure</p>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-1">Quest Log</p>
             <h3 className="text-lg font-semibold text-brand-text-primary">{adventure.title}</h3>
             <p className="text-xs text-brand-text-secondary">
               {adventure.genre} • Tone: {adventure.tone} • Difficulty: {adventure.difficulty}
@@ -142,6 +143,65 @@ function GameMasterHud({ adventure, questSteps, playerChoices }: GameMasterHudPr
               <p className="text-[11px] text-brand-text-secondary mt-1">Danger: {latestStep.dangerLevel}</p>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Divider with Glow */}
+      <div className="w-full px-5">
+        <div className="relative">
+          <div className="h-px bg-gradient-to-r from-transparent via-brand-accent-primary to-transparent opacity-70"></div>
+          <div className="absolute inset-0 h-px bg-gradient-to-r from-transparent via-brand-accent-primary to-transparent blur-sm opacity-50"></div>
+        </div>
+      </div>
+
+      {/* Character Section */}
+      <div className="w-full p-5 rounded-lg">
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-1">Character</p>
+            <h3 className="text-lg font-semibold text-brand-text-primary">Adventurer</h3>
+          </div>
+          
+          {/* Stats */}
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-2">Stats</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center">
+                <div className="text-xs text-brand-text-secondary">STR</div>
+                <div className="text-sm font-semibold text-brand-text-primary">10</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-brand-text-secondary">DEX</div>
+                <div className="text-sm font-semibold text-brand-text-primary">12</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-brand-text-secondary">INT</div>
+                <div className="text-sm font-semibold text-brand-text-primary">14</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-brand-text-secondary">WIS</div>
+                <div className="text-sm font-semibold text-brand-text-primary">11</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-brand-text-secondary">CON</div>
+                <div className="text-sm font-semibold text-brand-text-primary">13</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-brand-text-secondary">CHA</div>
+                <div className="text-sm font-semibold text-brand-text-primary">9</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Inventory */}
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-2">Inventory</p>
+            <div className="space-y-1">
+              <div className="text-xs text-brand-text-secondary">• Rusty Sword</div>
+              <div className="text-xs text-brand-text-secondary">• Leather Armor</div>
+              <div className="text-xs text-brand-text-secondary">• 5 Gold Pieces</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1268,7 +1328,7 @@ function App() {
               {messages.length === 0 && !isLoading && conversationId && (
                 <div className="flex justify-center items-center h-full min-h-[300px]">
                   <div className="text-center space-y-3 mt-64">
-                    <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Thread</div>
+                    <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
                     <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
                   </div>
                 </div>
@@ -1628,19 +1688,31 @@ function App() {
                 </svg>
               </button>
 
-              {/* Expanded Content */}
+              {/* Expanded Quest Log Content */}
               {mobileInfoExpanded && (
                 <div className="px-4 pb-4 space-y-4 animate-slide-up border-t border-brand-surface-border/30 pt-4">
-                  {conversationId && effectivePersonality !== 'default' && (
+                  {conversationId && effectivePersonality !== 'default' && effectivePersonality !== 'game_master' && (
                     <PersonalityIndicator personality={effectivePersonality} />
                   )}
 
                   {conversationId && effectivePersonality === 'game_master' && adventureState && (
-                    <GameMasterHud
-                      adventure={adventureState}
-                      questSteps={hudQuestSteps}
-                      playerChoices={hudPlayerChoices}
-                    />
+                    <div className="space-y-3">
+                      {/* TODO: Replace stubbed values with database data */}
+                      <div>
+                        <h3 className="text-base font-semibold text-brand-text-primary mb-1">
+                          {adventureState.title || 'MindQuest'}
+                        </h3>
+                        <p className="text-sm text-brand-text-secondary">
+                          {adventureState.genre || 'Surreal Fantasy'} • Tone: {adventureState.tone || 'Player-led'} • Difficulty: {adventureState.difficulty || 'Story-first'}
+                        </p>
+                      </div>
+                      
+                      {adventureState.safetyLevel && (
+                        <div className="text-xs text-brand-text-muted">
+                          Safety: {adventureState.safetyLevel}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -1779,7 +1851,7 @@ function App() {
               {messages.length === 0 && !isLoading && conversationId && (
                 <div className="flex justify-center items-center h-full min-h-[300px]">
                   <div className="text-center space-y-3 px-4 mt-64">
-                    <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Thread</div>
+                    <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
                     <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
                   </div>
                 </div>
