@@ -1266,13 +1266,10 @@ function App() {
               <div ref={messagesEndRef} />
               
               {messages.length === 0 && !isLoading && conversationId && (
-                <div className="flex justify-center items-center h-full min-h-[200px]">
-                  <div className="text-center space-y-3 mt-8">
+                <div className="flex justify-center items-center h-full min-h-[300px]">
+                  <div className="text-center space-y-3 mt-64">
                     <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Thread</div>
                     <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
-                    <p className="text-brand-text-secondary text-sm">
-                      Awaiting input...
-                    </p>
                   </div>
                 </div>
               )}
@@ -1780,13 +1777,10 @@ function App() {
               <div ref={messagesEndRef} />
               
               {messages.length === 0 && !isLoading && conversationId && (
-                <div className="flex justify-center items-center h-full min-h-[200px]">
-                  <div className="text-center space-y-3 px-4 mt-6">
+                <div className="flex justify-center items-center h-full min-h-[300px]">
+                  <div className="text-center space-y-3 px-4 mt-64">
                     <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Thread</div>
                     <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
-                    <p className="text-brand-text-secondary text-sm">
-                      Awaiting input...
-                    </p>
                   </div>
                 </div>
               )}
