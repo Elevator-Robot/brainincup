@@ -21,7 +21,9 @@ An AI consciousness simulation system. Experience the sensation of a brain suspe
 
 Brain uses a multi-agent AI system where specialized cognitive modules process user input through distinct layers: perception, memory, reasoning, emotion, language, and self-reflection. This creates a unique conversational experience that feels introspective and thoughtful.
 
-See [Backend Architecture](docs/BACKEND_ARCHITECTURE.md) for technical implementation details and architecture diagrams.
+See the [Agent Responsibilities diagram](docs/BACKEND_ARCHITECTURE.md#agent-responsibilities) for details on how Brain's internal agents work together.
+
+For technical implementation details and architecture diagrams, see [Backend Architecture](docs/BACKEND_ARCHITECTURE.md).
 
 ## Getting Started
 
