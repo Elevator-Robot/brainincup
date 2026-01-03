@@ -1,5 +1,7 @@
 # Brain In Cup
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
 ![Brain](brain.png)
 
 A Progressive Web App (PWA) featuring an AI consciousness simulation system built with AWS Amplify Gen2. Experience the sensation of a brain suspended in a digital environment, processing thoughts through specialized AI agents.
