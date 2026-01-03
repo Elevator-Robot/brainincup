@@ -64,7 +64,7 @@ const inferToneTag = (text: string) => {
 };
 
 const generateDefaultConversationTitle = (mode: PersonalityModeId) => {
-  const base = mode === 'game_master' ? 'Quest Thread' : 'Brain Thread';
+  const base = mode === 'game_master' ? 'Quest' : 'Brain';
   const now = new Date();
   const date = now.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });

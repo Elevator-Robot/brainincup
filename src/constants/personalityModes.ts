@@ -23,8 +23,8 @@ export const MODE_OPTIONS: PersonalityModeMeta[] = [
     id: 'default',
     icon: '🧠',
     title: 'Experience Brain',
-    description: 'A reflective; phylisophical companion and exestential experiment.',
-    badge: 'Living notebook',
+    description: 'A reflective, philosophical companion and existential experiment.',
+    badge: 'Introspection',
     accent: 'from-violet-500/80 to-fuchsia-500/80',
     shortLabel: 'Brain',
     tagClass: 'bg-violet-500/10 text-violet-100 border-violet-400/30'

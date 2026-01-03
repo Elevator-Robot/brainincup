@@ -265,15 +265,15 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
 
   const conversationsToShow = modeFilter
     ? conversations.filter(
-        (conv) => normalizePersonalityMode(conv.personalityMode) === modeFilter
-      )
+      (conv) => normalizePersonalityMode(conv.personalityMode) === modeFilter
+    )
     : conversations;
 
   const isFilteredEmpty = !!modeFilter && !isLoading && conversations.length > 0 && conversationsToShow.length === 0;
 
   const conversationContent = isFilteredEmpty ? (
     <div className="text-center py-10 rounded-3xl border border-dashed border-white/10 text-white/60">
-      <p className="text-sm font-semibold mb-1">No threads in this mode yet</p>
+      <p className="text-sm font-semibold mb-1">No interactions of this mode yet</p>
       <p className="text-xs text-white/40">Start a new interaction to spin one up.</p>
     </div>
   ) : (
@@ -297,8 +297,8 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
           <span
             className={`pointer-events-none absolute left-3 top-3 bottom-3 w-1 rounded-full transition-opacity duration-300
             ${isSelected
-              ? 'opacity-100 bg-gradient-to-b from-brand-accent-primary to-brand-accent-secondary'
-              : 'opacity-0 group-hover:opacity-60 bg-white/30'}`}
+          ? 'opacity-100 bg-gradient-to-b from-brand-accent-primary to-brand-accent-secondary'
+          : 'opacity-0 group-hover:opacity-60 bg-white/30'}`}
             aria-hidden="true"
           ></span>
           {isEditing ? (
