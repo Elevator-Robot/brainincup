@@ -1012,7 +1012,12 @@ function App() {
   };
 
   const handleNewConversation = () => {
-    setIsModePickerOpen(true);
+    // In Brain mode, skip the picker and create conversation directly
+    if (effectivePersonality !== 'game_master') {
+      createConversationWithMode('default');
+    } else {
+      setIsModePickerOpen(true);
+    }
   };
 
   const createConversationWithMode = async (modeId: string) => {
@@ -1624,8 +1629,9 @@ function App() {
           </div>
         </nav>
 
-        {/* Floating Expandable Header Bars - Side by Side */}
-        <div className="sticky top-0 z-40 pt-safe">
+        {/* Floating Expandable Header Bars - Side by Side - Only for Game Master mode */}
+        {effectivePersonality === 'game_master' && (
+        <div className="lg:hidden sticky top-0 z-40 pt-safe">
           <div className="flex gap-2 mx-4 mt-4 items-start">
             {/* First Bar - Quest Log */}
             <div className="flex-1 relative">
@@ -1640,40 +1646,13 @@ function App() {
                 className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  {conversationId && effectivePersonality !== 'default' && effectivePersonality !== 'game_master' && (
-                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${
-                      effectivePersonality === 'scientist' ? 'from-blue-500 to-cyan-500' :
-                      effectivePersonality === 'philosopher' ? 'from-purple-500 to-pink-500' :
-                      effectivePersonality === 'artist' ? 'from-pink-500 to-rose-500' :
-                      'from-violet-500 to-fuchsia-500'
-                    } flex items-center justify-center flex-shrink-0`}>
-                      <span className="text-lg">
-                        {effectivePersonality === 'scientist' ? '🔬' :
-                         effectivePersonality === 'philosopher' ? '🤔' :
-                         effectivePersonality === 'artist' ? '🎨' : '🧠'}
-                      </span>
-                    </div>
-                  )}
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-brand-text-muted uppercase tracking-wider">
-                      {conversationId ? (
-                        effectivePersonality === 'game_master' ? 'Quest Log' :
-                        (effectivePersonality as string) === 'scientist' ? 'Research Notes' :
-                        (effectivePersonality as string) === 'philosopher' ? 'Dialectic' :
-                        (effectivePersonality as string) === 'artist' ? 'Canvas' :
-                        'Session'
-                      ) : 'New Thread'}
+                      Quest Log
                     </p>
-                    {adventureState && effectivePersonality === 'game_master' ? (
+                    {adventureState ? (
                       <p className="text-sm text-brand-text-primary font-medium truncate">
                         {adventureState.title}
-                      </p>
-                    ) : conversationId && effectivePersonality !== 'default' && effectivePersonality !== 'game_master' ? (
-                      <p className="text-sm text-brand-text-primary font-medium truncate">
-                        {(effectivePersonality as string) === 'scientist' ? 'Active Investigation' :
-                         (effectivePersonality as string) === 'philosopher' ? 'Active Discussion' :
-                         (effectivePersonality as string) === 'artist' ? 'Creative Flow' :
-                         'In Progress'}
                       </p>
                     ) : null}
                   </div>
@@ -1693,11 +1672,7 @@ function App() {
               {/* Expanded Quest Log Content */}
               {mobileInfoExpanded && (
                 <div className="px-4 pb-4 space-y-4 animate-slide-up border-t border-brand-surface-border/30 pt-4">
-                  {conversationId && effectivePersonality !== 'default' && effectivePersonality !== 'game_master' && (
-                    <PersonalityIndicator personality={effectivePersonality} />
-                  )}
-
-                  {conversationId && effectivePersonality === 'game_master' && adventureState && (
+                  {adventureState && (
                     <div className="space-y-3">
                       {/* TODO: Replace stubbed values with database data */}
                       <div>
@@ -1722,13 +1697,12 @@ function App() {
             </div>
 
             {/* Second Bar - Character Sheet (D&D style) */}
-            {conversationId && effectivePersonality === 'game_master' && (
-              <div className="flex-1 relative">
-                <div 
-                  className={`rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
-                    mobileCharSheetExpanded ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
-                  }`}
-                >
+            <div className="flex-1 relative">
+              <div 
+                className={`rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
+                  mobileCharSheetExpanded ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
+                }`}
+              >
                 <button
                   onClick={() => setMobileCharSheetExpanded(!mobileCharSheetExpanded)}
                   className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
@@ -1825,10 +1799,10 @@ function App() {
                   </div>
                 )}
               </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
+        )}
 
 
         {/* Screen reader live region for message updates */}
