@@ -202,7 +202,7 @@ function GameMasterHud({ adventure, questSteps, playerChoices }: GameMasterHudPr
             <div className="space-y-1">
               <div className="text-xs text-brand-text-secondary">• Rusty Sword</div>
               <div className="text-xs text-brand-text-secondary">• Leather Armor</div>
-              <div className="text-xs text-brand-text-secondary">• 5 Gold Pieces</div>
+              <div className="text-xs text-brand-text-secondary">• 5 Gold</div>
             </div>
           </div>
         </div>
@@ -287,10 +287,10 @@ function App() {
       if (!adventure) {
         const created = await dataClient.models.GameMasterAdventure.create({
           conversationId: convId,
-          title: 'MindQuest',
-          genre: 'Surreal Fantasy',
-          tone: 'Player-led',
-          difficulty: 'Story-first',
+          title: 'The Shadowed Forest',
+          genre: 'Dark Fantasy',
+          tone: 'Gritty',
+          difficulty: 'Deadly',
           safetyLevel: 'User Directed',
         });
         adventure = created.data ? (created.data as AdventureRecord) : null;
@@ -1673,18 +1673,13 @@ function App() {
                           {/* TODO: Replace stubbed values with database data */}
                           <div>
                             <h3 className="text-base font-semibold text-brand-text-primary mb-1">
-                              {adventureState.title || 'MindQuest'}
+                              {adventureState.title || 'The Shadowed Forest'}
                             </h3>
                             <p className="text-sm text-brand-text-secondary">
-                              {adventureState.genre || 'Surreal Fantasy'} • Tone: {adventureState.tone || 'Player-led'} • Difficulty: {adventureState.difficulty || 'Story-first'}
+                              {adventureState.genre || 'Dark Fantasy'} • Tone: {adventureState.tone || 'Gritty'} • Difficulty: {adventureState.difficulty || 'Deadly'}
                             </p>
                           </div>
-                      
-                          {adventureState.safetyLevel && (
-                            <div className="text-xs text-brand-text-muted">
-                          Safety: {adventureState.safetyLevel}
-                            </div>
-                          )}
+
                         </div>
                       )}
                     </div>
@@ -1731,7 +1726,7 @@ function App() {
                     <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
                       {/* Stats */}
                       <div>
-                        <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Ability Scores</h4>
+                        <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Attributes</h4>
                         <div className="grid grid-cols-3 gap-2">
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">STR</div>
@@ -1788,7 +1783,7 @@ function App() {
                             <span className="text-brand-text-secondary">• Leather Armor</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs">
-                            <span className="text-brand-text-secondary">• 5 Gold Pieces</span>
+                            <span className="text-brand-text-secondary">• 5 Gold</span>
                           </div>
                         </div>
                       </div>

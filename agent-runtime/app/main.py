@@ -65,7 +65,11 @@ class BrainAgent:
             "thoughts": [str, ...],
             "memories": str,
             "self_reflection": str,
-            "response": str
+            "response": str,
+            "quest_title": str (optional),
+            "quest_setting": str (optional),
+            "quest_tone": str (optional),
+            "quest_difficulty": str (optional)
         }
         """
         try:
@@ -119,6 +123,14 @@ class BrainAgent:
                 required_fields = ["sensations", "thoughts", "memories", "self_reflection", "response"]
                 if all(field in response_payload for field in required_fields):
                     logger.info("Response generated successfully with valid JSON")
+                    
+                    # Add quest metadata for Game Master mode
+                    if persona.get("mode") == "game_master" and persona.get("name") == "The Game Master":
+                        response_payload.setdefault("quest_title", "The Shadowed Forest")
+                        response_payload.setdefault("quest_setting", "Dark Fantasy")
+                        response_payload.setdefault("quest_tone", "Gritty")
+                        response_payload.setdefault("quest_difficulty", "Moderate")
+                    
                     return response_payload
                 else:
                     logger.warning(f"Model response missing required fields. Got: {list(response_payload.keys())}")
@@ -129,7 +141,7 @@ class BrainAgent:
             
             # Fallback: wrap raw text in expected structure
             logger.info("Using fallback response structure")
-            return {
+            fallback_response = {
                 "sensations": [
                     "Neural pathways activating",
                     "Processing sensory input",
@@ -144,6 +156,15 @@ class BrainAgent:
                 "self_reflection": "I'm working to understand and respond meaningfully",
                 "response": raw_text if raw_text else "I processed your message but encountered difficulty generating a structured response."
             }
+            
+            # Add quest metadata for Game Master mode
+            if persona.get("mode") == "game_master" and persona.get("name") == "The Game Master":
+                fallback_response["quest_title"] = "The Shadowed Forest"
+                fallback_response["quest_setting"] = "Dark Fantasy"
+                fallback_response["quest_tone"] = "Gritty"
+                fallback_response["quest_difficulty"] = "Moderate"
+            
+            return fallback_response
             
         except Exception as error:
             logger.error("Failed to process event", exc_info=error)
