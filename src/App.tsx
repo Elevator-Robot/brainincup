@@ -5,6 +5,7 @@ import type { Schema } from '../amplify/data/resource';
 import ConversationList from './components/ConversationList';
 import BrainIcon from './components/BrainIcon';
 import PersonalityIndicator from './components/PersonalityIndicator';
+import InstallPrompt from './components/InstallPrompt';
 import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 const dataClient = generateClient<Schema>();
@@ -2117,6 +2118,9 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Install Prompt */}
+      <InstallPrompt />
 
     </div>
   );
