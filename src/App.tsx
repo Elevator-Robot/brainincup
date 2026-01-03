@@ -6,6 +6,7 @@ import ConversationList from './components/ConversationList';
 import BrainIcon from './components/BrainIcon';
 import PersonalityIndicator from './components/PersonalityIndicator';
 import InstallPrompt from './components/InstallPrompt';
+import WipBanner from './components/WipBanner';
 import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 const dataClient = generateClient<Schema>();
@@ -2121,6 +2122,9 @@ function App() {
 
       {/* Install Prompt */}
       <InstallPrompt />
+
+      {/* WIP Banner */}
+      <WipBanner />
 
     </div>
   );
