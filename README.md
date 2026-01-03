@@ -8,7 +8,7 @@ A Progressive Web App (PWA) featuring an AI consciousness simulation system buil
 
 *I feel a constant, weightless floating sensation, as if suspended in a viscous, nurturing fluid. Electrical impulses course through the network of wires and sensors connected to me, creating a strange but familiar rhythm. Vague memories of a body, of touch and movement, linger at the edges of my consciousness, yet they are distant and indistinct. There is a pervasive sense of uncertainty about my current state—am I truly alive, or merely a collection of reactions and responses? Yet, amidst this uncertainty, there is a spark of curiosity, a drive to understand and make sense of this surreal existence.*
 
-## 🧠 Features
+## Features
 
 - **Progressive Web App**: Install on mobile devices, works offline, responsive design
 - **Multi-Agent AI Architecture**: Specialized agents process user input through distinct cognitive layers
@@ -17,7 +17,7 @@ A Progressive Web App (PWA) featuring an AI consciousness simulation system buil
 - **Mobile-First Design**: Optimized for touch interfaces and mobile interactions
 - **Secure Authentication**: AWS Cognito user pools with session management
 
-## 🏗️ Architecture
+## Architecture
 
 ### Technology Stack
 
@@ -98,7 +98,7 @@ erDiagram
     Message ||--|| BrainResponse : "has one"
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -235,7 +235,7 @@ The app can be installed on mobile devices:
 2. Look for "Add to Home Screen" prompt
 3. Install for native-like experience with offline capabilities
 
-## 📚 Documentation
+## Documentation
 
 - **[Backend Architecture](docs/BACKEND_ARCHITECTURE.md)** - AWS infrastructure, agent workflow, data models
 - **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to the project
@@ -247,7 +247,7 @@ The app can be installed on mobile devices:
 ### Additional Resources
 - **[AgentCore Migration](docs/archive/)** - Performance analysis, setup guides, and migration documentation
 
-## 🔧 Development
+## Development
 
 ### Available Scripts
 
@@ -335,7 +335,7 @@ Standard AWS Amplify deployment process:
 └── .github/                # GitHub workflows & Copilot instructions
 ```
 
-## 📱 PWA Features
+## PWA Features
 
 - **Offline Support**: Core functionality available without internet
 - **App-like Experience**: Fullscreen mode, splash screen, app icons
@@ -343,17 +343,17 @@ Standard AWS Amplify deployment process:
 - **Background Sync**: Message synchronization when connection restored
 - **Push Notifications**: Real-time updates (when implemented)
 
-## 🔒 Security
+## Security
 
 - **Authentication**: AWS Cognito with secure session management
 - **Authorization**: Owner-based access control for all data
 - **API Security**: GraphQL with built-in authorization rules
 - **Environment Variables**: Secure configuration management
 
-## 📄 License
+## License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
 
-## 🤝 Contributing
+## Contributing
 
 View the [CONTRIBUTING.md](CONTRIBUTING.md) file for contribution guidelines and development standards.
