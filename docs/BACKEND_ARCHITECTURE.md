@@ -7,32 +7,73 @@ This document describes the complete backend architecture of the Brain In Cup AI
 
 ```mermaid
 graph TB
-    subgraph "Frontend Layer"
-        A[React PWA]
+    subgraph "Frontend"
+        UI[React UI]
     end
     
-    subgraph "AWS Amplify Gen2 Backend"
-        B[AWS Cognito<br/>User Authentication]
-        C[AWS AppSync<br/>GraphQL API]
-        D[DynamoDB Tables]
-        E[Lambda Function<br/>Brain Processor]
-        F[AWS Bedrock<br/>Amazon Nova Pro]
+    subgraph "AWS AppSync GraphQL API"
+        APPSYNC[AppSync API]
     end
     
-    A -->|Authenticate| B
-    A -->|GraphQL Queries/Mutations| C
-    C -->|CRUD Operations| D
-    D -->|DynamoDB Streams| E
-    E -->|AI Processing| F
-    E -->|Save Response| C
-    C -->|Real-time Subscriptions| A
+    subgraph "DynamoDB Tables"
+        CONV[Conversation Table]
+        MSG[Message Table<br/>DynamoDB Stream Enabled]
+        RESP[BrainResponse Table]
+    end
     
-    style A fill:#61dafb
-    style B fill:#ff9900
-    style C fill:#ff9900
-    style D fill:#4053d6
-    style E fill:#ff9900
-    style F fill:#ff9900
+    subgraph "Lambda Function - Brain"
+        LAMBDA[Brain Lambda<br/>Thin Proxy Layer]
+        HANDLER[DynamoDB Stream Handler]
+        CONTROLLER[Controller]
+        AGENTS[Agent Pipeline<br/>- Perception<br/>- Memory<br/>- Reasoning<br/>- Emotional<br/>- Language<br/>- Depth<br/>- Self]
+        AGENTCORE_CLIENT[AgentCore Client<br/>boto3 wrapper]
+    end
+    
+    subgraph "AWS Bedrock AgentCore Runtime"
+        RUNTIME[AgentCore Runtime<br/>Docker Container]
+        FASTAPI[FastAPI Server<br/>/invocations endpoint]
+        BRAIN_AGENT[BrainAgent<br/>LLM Orchestration]
+        BEDROCK_CLIENT[Bedrock Runtime Client]
+    end
+    
+    subgraph "AWS Bedrock"
+        LLM[Claude 3 Sonnet<br/>Foundation Model]
+    end
+    
+    UI -->|GraphQL Mutation| APPSYNC
+    APPSYNC -->|Write Message| MSG
+    MSG -->|DynamoDB Stream Event| HANDLER
+    HANDLER -->|Processes NEW/MODIFY events| CONTROLLER
+    CONTROLLER -->|Orchestrates| AGENTS
+    AGENTS -->|Invokes| AGENTCORE_CLIENT
+    AGENTCORE_CLIENT -->|bedrock-agentcore:InvokeAgentRuntime| RUNTIME
+    RUNTIME -->|POST /invocations| FASTAPI
+    FASTAPI -->|Delegates| BRAIN_AGENT
+    BRAIN_AGENT -->|invoke_model| BEDROCK_CLIENT
+    BEDROCK_CLIENT -->|Calls Claude| LLM
+    LLM -->|JSON Response| BEDROCK_CLIENT
+    BEDROCK_CLIENT -->|Returns| BRAIN_AGENT
+    BRAIN_AGENT -->|JSON Response| FASTAPI
+    FASTAPI -->|Returns| RUNTIME
+    RUNTIME -->|Returns| AGENTCORE_CLIENT
+    AGENTCORE_CLIENT -->|Raw Response| AGENTS
+    AGENTS -->|Final Response| CONTROLLER
+    CONTROLLER -->|Saves| RESP
+    RESP -->|Subscription| APPSYNC
+    APPSYNC -->|Real-time Update| UI
+    
+    CONTROLLER -->|Read Context| CONV
+    CONTROLLER -->|Read History| MSG
+
+    classDef lambdaStyle fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#000
+    classDef agentcoreStyle fill:#527FFF,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef bedrockStyle fill:#01A88D,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef dynamoStyle fill:#4053D6,stroke:#232F3E,stroke-width:2px,color:#fff
+    
+    class LAMBDA,HANDLER,CONTROLLER,AGENTS,AGENTCORE_CLIENT lambdaStyle
+    class RUNTIME,FASTAPI,BRAIN_AGENT agentcoreStyle
+    class LLM,BEDROCK_CLIENT bedrockStyle
+    class CONV,MSG,RESP dynamoStyle
 ```
 
 ## Authentication Flow
@@ -102,6 +143,59 @@ erDiagram
     }
 ```
 
+## AWS Bedrock AgentCore Integration
+
+### Architecture Overview
+
+Brain in Cup uses AWS Bedrock AgentCore to offload heavy LLM processing from Lambda. This architecture separates concerns:
+
+- **Lambda Function**: Thin proxy layer handling DynamoDB streams, agent orchestration, and response persistence
+- **AgentCore Runtime**: Persistent Docker container executing LLM invocations without cold starts or timeout limits
+
+### Lambda → AgentCore Flow
+
+1. **Lambda receives** DynamoDB Stream event with user message
+2. **Controller orchestrates** agent pipeline (Perception, Memory, etc.)
+3. **LanguageAgent** delegates to AgentCoreClient
+4. **AgentCoreClient** invokes `bedrock-agentcore:InvokeAgentRuntime` API
+5. **AgentCore Runtime** processes via FastAPI `/invocations` endpoint
+6. **BrainAgent** (inside AgentCore) calls Bedrock Runtime for Claude LLM
+7. **Response flows back** through AgentCore → Lambda agent pipeline
+8. **Controller saves** structured response to DynamoDB
+
+### Why AgentCore
+
+**Before AgentCore:**
+- Lambda required heavy dependencies (LangChain, pydantic, tiktoken)
+- Cold starts slowed first requests
+- Memory tuning required (1024MB+ for LangChain)
+- 15-minute Lambda timeout risk for complex chains
+
+**After AgentCore:**
+- Lambda stays lean (boto3 only, ~256MB)
+- No cold starts for LLM logic
+- No timeout concerns
+- Simplified dependency management
+
+### Key Components
+
+**Lambda Layer (`amplify/functions/brain/layer/`):**
+- Minimal dependencies: aws-lambda-powertools, pydantic, requests
+- No LangChain or LLM frameworks
+- Built for Amazon Linux 2
+
+**AgentCore Runtime (`agent-runtime/`):**
+- Docker container with FastAPI server
+- Bedrock Runtime client for Claude invocations
+- Handles prompt engineering and response parsing
+- Deployed once, scales automatically
+
+**AgentCore Client (`amplify/functions/brain/src/core/agentcore_client.py`):**
+- Thin boto3 wrapper
+- Invokes `bedrock-agentcore:InvokeAgentRuntime` API
+- Handles tracing and error handling
+- SSE stream parsing
+
 ## Message Processing Flow
 
 ```mermaid
@@ -111,14 +205,18 @@ sequenceDiagram
     participant MessageTable
     participant DynamoStream
     participant Lambda
+    participant Controller
     participant MemoryAgent
     participant PerceptionAgent
     participant LanguageAgent
+    participant AgentCoreClient
+    participant AgentCore
+    participant BrainAgent
+    participant BedrockRuntime
     participant ReasoningAgent
     participant EmotionalAgent
     participant DepthAgent
     participant SelfAgent
-    participant Bedrock
     participant ResponseTable
     
     User->>AppSync: Send Message (GraphQL Mutation)
@@ -126,32 +224,39 @@ sequenceDiagram
     MessageTable->>DynamoStream: Trigger Stream Event
     DynamoStream->>Lambda: Invoke with Message Data
     
-    Lambda->>MemoryAgent: Load Conversation History
+    Lambda->>Controller: Initialize with conversation_id
+    Controller->>MemoryAgent: Load Conversation History
     MemoryAgent->>MessageTable: Query Past Messages
     MessageTable-->>MemoryAgent: Return History
-    MemoryAgent-->>Lambda: Context (last 100 messages)
+    MemoryAgent-->>Controller: Context (last 100 messages)
     
-    Lambda->>PerceptionAgent: Format Prompt with Context
-    PerceptionAgent-->>Lambda: Formatted Prompt
+    Controller->>PerceptionAgent: Format Prompt with Context
+    PerceptionAgent-->>Controller: Formatted Prompt
     
-    Lambda->>LanguageAgent: Generate Response
-    LanguageAgent->>Bedrock: Invoke Amazon Nova Pro
-    Bedrock-->>LanguageAgent: Raw AI Response
-    LanguageAgent-->>Lambda: JSON Response
+    Controller->>LanguageAgent: Generate Response
+    LanguageAgent->>AgentCoreClient: Invoke AgentCore Runtime
+    AgentCoreClient->>AgentCore: bedrock-agentcore:InvokeAgentRuntime
+    AgentCore->>BrainAgent: POST /invocations
+    BrainAgent->>BedrockRuntime: invoke_model (Claude)
+    BedrockRuntime-->>BrainAgent: JSON Response
+    BrainAgent-->>AgentCore: Structured Response
+    AgentCore-->>AgentCoreClient: Return Response
+    AgentCoreClient-->>LanguageAgent: Raw JSON
+    LanguageAgent-->>Controller: AI Response
     
-    Lambda->>ReasoningAgent: Parse & Validate Response
-    ReasoningAgent-->>Lambda: Structured Response
+    Controller->>ReasoningAgent: Parse & Validate Response
+    ReasoningAgent-->>Controller: Structured Response
     
-    Lambda->>EmotionalAgent: Apply Emotional Context
-    EmotionalAgent-->>Lambda: Emotionally Enhanced Response
+    Controller->>EmotionalAgent: Apply Emotional Context
+    EmotionalAgent-->>Controller: Emotionally Enhanced Response
     
-    Lambda->>DepthAgent: Add Philosophical Depth
-    DepthAgent-->>Lambda: Deep Enhanced Response
+    Controller->>DepthAgent: Add Philosophical Depth
+    DepthAgent-->>Controller: Deep Enhanced Response
     
-    Lambda->>SelfAgent: Final Review
-    SelfAgent-->>Lambda: Final Response
+    Controller->>SelfAgent: Final Review
+    SelfAgent-->>Controller: Final Response
     
-    Lambda->>MemoryAgent: Save Response
+    Controller->>MemoryAgent: Save Response
     MemoryAgent->>AppSync: GraphQL Mutation
     AppSync->>ResponseTable: Store BrainResponse
     ResponseTable-->>AppSync: Confirmation

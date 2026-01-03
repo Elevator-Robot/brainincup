@@ -22,9 +22,19 @@ A Progressive Web App (PWA) featuring an AI consciousness simulation system buil
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
 - **Backend**: AWS Amplify Gen2 with CDK constructs
 - **Database**: DynamoDB with real-time subscriptions
-- **AI Processing**: AWS Bedrock + Lambda (Python 3.12)
+- **AI Processing**: AWS Bedrock AgentCore + Lambda (Python 3.12)
 - **Authentication**: AWS Cognito User Pools
 - **PWA**: Vite PWA plugin with Workbox service worker
+
+### AgentCore Architecture
+
+Brain in Cup uses **AWS Bedrock AgentCore** to offload LLM processing from Lambda:
+
+- **Lambda**: Thin proxy handling DynamoDB streams, agent orchestration, response persistence
+- **AgentCore Runtime**: Persistent Docker container running FastAPI server with direct Bedrock access
+- **Benefits**: No cold starts for AI logic, no Lambda timeout limits, simplified dependencies
+
+See [Backend Architecture](docs/BACKEND_ARCHITECTURE.md) for detailed diagrams.
 
 ### Multi-Agent Workflow
 
