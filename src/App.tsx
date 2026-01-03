@@ -9,6 +9,7 @@ import InstallPrompt from './components/InstallPrompt';
 import WipBanner from './components/WipBanner';
 import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
+import { featureFlags } from './featureFlags';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -1012,12 +1013,7 @@ function App() {
   };
 
   const handleNewConversation = () => {
-    // In Brain mode, skip the picker and create conversation directly
-    if (effectivePersonality !== 'game_master') {
-      createConversationWithMode('default');
-    } else {
-      setIsModePickerOpen(true);
-    }
+    setIsModePickerOpen(true);
   };
 
   const createConversationWithMode = async (modeId: string) => {
@@ -1278,7 +1274,7 @@ function App() {
             setIsSidebarOpen(!isSidebarOpen);
           }}
           className="fixed top-4 left-4 z-50 p-2 text-brand-text-primary hover:text-brand-accent-primary transition-colors duration-200 focus:outline-none"
-          aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+          aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
         >
           {isSidebarOpen ? (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1296,286 +1292,286 @@ function App() {
           className="flex-1 flex flex-col min-w-0 overflow-hidden relative"
           onClick={() => setIsSidebarOpen(false)}
         >
-        {/* Screen reader live region for message updates */}
-        <div
-          aria-live="polite"
-          aria-atomic="true"
-          className="sr-only"
-        >
-          {isWaitingForResponse && 'AI is thinking...'}
-          {messages.length > 0 && `Interaction has ${messages.length} messages`}
-        </div>
+          {/* Screen reader live region for message updates */}
+          <div
+            aria-live="polite"
+            aria-atomic="true"
+            className="sr-only"
+          >
+            {isWaitingForResponse && 'AI is thinking...'}
+            {messages.length > 0 && `Interaction has ${messages.length} messages`}
+          </div>
 
-        <div className="flex flex-1 min-h-0">
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* Enhanced Chat Area with glass morphism design */}
-          {/* Messages with improved styling and animations */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col-reverse">
-            <div className={`mx-auto space-y-6 flex flex-col transition-all duration-300 ${hasSidebarContent ? 'max-w-4xl' : 'max-w-5xl'}`}>
-              {/* Personality Indicator (mobile only) */}
-              {conversationId && effectivePersonality !== 'default' && (
-                <div className="lg:hidden">
-                  <PersonalityIndicator personality={effectivePersonality} />
-                </div>
-              )}
-
-              {conversationId && effectivePersonality === 'game_master' && adventureState && (
-                <div className="lg:hidden">
-                  <GameMasterHud
-                    adventure={adventureState}
-                    questSteps={hudQuestSteps}
-                    playerChoices={hudPlayerChoices}
-                  />
-                </div>
-              )}
-              
-              {/* Invisible element to scroll to - at the bottom in reversed layout */}
-              <div ref={messagesEndRef} />
-              
-              {messages.length === 0 && !isLoading && conversationId && (
-                <div className="flex justify-center items-center h-full min-h-[300px]">
-                  <div className="text-center space-y-3 mt-64">
-                    <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
-                    <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
-                  </div>
-                </div>
-              )}
-              
-              {isLoading && (
-                <div className="flex justify-center items-center h-full min-h-[200px]">
-                  <div className="text-slate-400 flex items-center gap-2">
-                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                    Loading...
-                  </div>
-                </div>
-              )}
-              
-              {messages.map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  {message.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm animate-float">
-                      <BrainIcon className="w-4 h-4 text-white" />
+          <div className="flex flex-1 min-h-0">
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* Enhanced Chat Area with glass morphism design */}
+              {/* Messages with improved styling and animations */}
+              <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col-reverse">
+                <div className={`mx-auto space-y-6 flex flex-col transition-all duration-300 ${hasSidebarContent ? 'max-w-4xl' : 'max-w-5xl'}`}>
+                  {/* Personality Indicator (mobile only) */}
+                  {conversationId && effectivePersonality !== 'default' && (
+                    <div className="lg:hidden">
+                      <PersonalityIndicator personality={effectivePersonality} />
                     </div>
                   )}
-                  
-                  <div 
-                    ref={(el) => {
-                      if (el && message.role === 'assistant') {
-                        messageContainerRefs.current.set(index, el);
-                      }
-                    }}
-                    className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]"
-                  >
+
+                  {conversationId && effectivePersonality === 'game_master' && adventureState && (
+                    <div className="lg:hidden">
+                      <GameMasterHud
+                        adventure={adventureState}
+                        questSteps={hudQuestSteps}
+                        playerChoices={hudPlayerChoices}
+                      />
+                    </div>
+                  )}
+              
+                  {/* Invisible element to scroll to - at the bottom in reversed layout */}
+                  <div ref={messagesEndRef} />
+              
+                  {messages.length === 0 && !isLoading && conversationId && (
+                    <div className="flex justify-center items-center h-full min-h-[300px]">
+                      <div className="text-center space-y-3 mt-64">
+                        <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
+                        <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
+                      </div>
+                    </div>
+                  )}
+              
+                  {isLoading && (
+                    <div className="flex justify-center items-center h-full min-h-[200px]">
+                      <div className="text-slate-400 flex items-center gap-2">
+                        <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+                    Loading...
+                      </div>
+                    </div>
+                  )}
+              
+                  {messages.map((message, index) => (
                     <div
-                      className={`message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm
+                      key={index}
+                      className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      {message.role === 'assistant' && (
+                        <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm animate-float">
+                          <BrainIcon className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                  
+                      <div 
+                        ref={(el) => {
+                          if (el && message.role === 'assistant') {
+                            messageContainerRefs.current.set(index, el);
+                          }
+                        }}
+                        className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]"
+                      >
+                        <div
+                          className={`message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm
                       transition-all duration-300 hover:scale-[1.02] animate-slide-up
                       ${message.role === 'assistant' ? 'cursor-pointer' : ''}
                       ${message.role === 'user' 
-                    ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple hover:shadow-glow-lg' 
-                    : 'glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg hover:shadow-neon-blue'
-                  }`}
-                      onClick={() => {
-                        if (message.role === 'assistant') {
-                          setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
-                        }
-                      }}
-                    >
-                      <p className="leading-relaxed whitespace-pre-wrap break-words">
-                        {message.content}
-                        {message.isTyping && (
-                          <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
-                        )}
-                      </p>
-                    </div>
+                      ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple hover:shadow-glow-lg' 
+                      : 'glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg hover:shadow-neon-blue'
+                    }`}
+                          onClick={() => {
+                            if (message.role === 'assistant') {
+                              setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
+                            }
+                          }}
+                        >
+                          <p className="leading-relaxed whitespace-pre-wrap break-words">
+                            {message.content}
+                            {message.isTyping && (
+                              <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
+                            )}
+                          </p>
+                        </div>
                     
-                    {/* Show additional details when expanded */}
-                    {message.role === 'assistant' && expandedMessageIndex === index && (
-                      <div className="mt-4 space-y-3 animate-slide-up">
-                        {/* Sensations */}
-                        {message.sensations && message.sensations.length > 0 && (
-                          <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                            <div className="font-medium text-purple-300 mb-2 flex items-center gap-2 text-sm">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
+                        {/* Show additional details when expanded */}
+                        {message.role === 'assistant' && expandedMessageIndex === index && (
+                          <div className="mt-4 space-y-3 animate-slide-up">
+                            {/* Sensations */}
+                            {message.sensations && message.sensations.length > 0 && (
+                              <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                <div className="font-medium text-purple-300 mb-2 flex items-center gap-2 text-sm">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
                               Sensations
-                            </div>
-                            <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
-                              {message.sensations.map((sensation, i) => (
-                                <li key={i} className="leading-relaxed">• {sensation}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                                </div>
+                                <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
+                                  {message.sensations.map((sensation, i) => (
+                                    <li key={i} className="leading-relaxed">• {sensation}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                         
-                        {/* Thoughts */}
-                        {message.thoughts && message.thoughts.length > 0 && (
-                          <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                            <div className="font-medium text-blue-300 mb-2 flex items-center gap-2 text-sm">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                              </svg>
+                            {/* Thoughts */}
+                            {message.thoughts && message.thoughts.length > 0 && (
+                              <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                <div className="font-medium text-blue-300 mb-2 flex items-center gap-2 text-sm">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                  </svg>
                               Thoughts
-                            </div>
-                            <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
-                              {message.thoughts.map((thought, i) => (
-                                <li key={i} className="leading-relaxed">• {thought}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                                </div>
+                                <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
+                                  {message.thoughts.map((thought, i) => (
+                                    <li key={i} className="leading-relaxed">• {thought}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                         
-                        {/* Memories */}
-                        {message.memories && message.memories.trim() && (
-                          <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                            <div className="font-medium text-green-300 mb-2 flex items-center gap-2 text-sm">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                              </svg>
+                            {/* Memories */}
+                            {message.memories && message.memories.trim() && (
+                              <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                <div className="font-medium text-green-300 mb-2 flex items-center gap-2 text-sm">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                  </svg>
                               Memories
-                            </div>
-                            <p className="text-brand-text-muted text-sm leading-relaxed">{message.memories}</p>
-                          </div>
-                        )}
+                                </div>
+                                <p className="text-brand-text-muted text-sm leading-relaxed">{message.memories}</p>
+                              </div>
+                            )}
                         
-                        {/* Self Reflection */}
-                        {message.selfReflection && message.selfReflection.trim() && (
-                          <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                            <div className="font-medium text-violet-300 mb-2 flex items-center gap-2 text-sm">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
+                            {/* Self Reflection */}
+                            {message.selfReflection && message.selfReflection.trim() && (
+                              <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                <div className="font-medium text-violet-300 mb-2 flex items-center gap-2 text-sm">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                      d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
                               Self Reflection
-                            </div>
-                            <p className="text-brand-text-muted text-sm leading-relaxed">{message.selfReflection}</p>
+                                </div>
+                                <p className="text-brand-text-muted text-sm leading-relaxed">{message.selfReflection}</p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
                   
-                  {message.role === 'user' && (
-                    <div className="w-8 h-8 rounded-xl glass flex items-center justify-center flex-shrink-0 mt-1 border border-brand-surface-border shadow-glass hover:shadow-glow-sm transition-all duration-300">
-                      <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
+                      {message.role === 'user' && (
+                        <div className="w-8 h-8 rounded-xl glass flex items-center justify-center flex-shrink-0 mt-1 border border-brand-surface-border shadow-glass hover:shadow-glow-sm transition-all duration-300">
+                          <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              
+                  {isWaitingForResponse && (
+                    <div className="flex gap-4 justify-start animate-slide-up">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-neon-purple animate-glow-pulse">
+                        <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
+                      </div>
+                      <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-neon-blue backdrop-blur-lg">
+                        <div className="flex items-center gap-2">
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
+                            <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
+                            <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
+                          </div>
+                          <span className="text-sm text-brand-text-muted">Brain is thinking...</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+              
+                  {/* Enhanced Debug info - now toggleable */}
+                  {showDebugInfo && (
+                    <div className="mt-6 glass rounded-2xl p-4 animate-fade-in">
+                      <h3 className="text-sm font-medium text-brand-text-primary mb-2">Debug Information</h3>
+                      <div className="text-xs text-brand-text-muted space-y-1">
+                        <p>Interaction ID: {conversationId || 'None'}</p>
+                        <p>User: {userAttributes?.sub || 'Unknown'}</p>
+                        <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
+                        <p>Messages count: {messages.length}</p>
+                      </div>
                     </div>
                   )}
                 </div>
-              ))}
-              
-              {isWaitingForResponse && (
-                <div className="flex gap-4 justify-start animate-slide-up">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-neon-purple animate-glow-pulse">
-                    <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
-                  </div>
-                  <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-neon-blue backdrop-blur-lg">
-                    <div className="flex items-center gap-2">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
-                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
-                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
+              </div>
+
+              {/* Modern Input Area */}
+              <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t from-brand-bg-primary via-brand-bg-primary to-transparent pt-6 pb-4 px-4 sm:px-6">
+                <div className={`mx-auto transition-all duration-300 ${hasSidebarContent ? 'max-w-4xl' : 'max-w-5xl'}`}>
+                  <form onSubmit={handleSubmit} className="relative">
+                    <div className="flex gap-2 items-end bg-brand-surface-elevated/80 backdrop-blur-xl rounded-2xl border border-brand-surface-border/50 p-2 shadow-lg transition-all duration-200 focus-within:border-brand-accent-primary/50 focus-within:shadow-xl">
+                      {/* Textarea */}
+                      <div className="flex-1 min-w-0">
+                        <textarea
+                          ref={inputRef}
+                          value={inputMessage}
+                          onChange={(e) => setInputMessage(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder={
+                            isWaitingForResponse
+                              ? 'Brain is thinking...'
+                              : conversationId 
+                                ? (effectivePersonality === 'game_master' ? 'What do you do next?' : 'Message Brain...') 
+                                : 'Start a new conversation...'
+                          }
+                          className="w-full px-3 py-3 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
+                          disabled={isWaitingForResponse}
+                          rows={1}
+                          style={{ 
+                            maxHeight: '160px',
+                            minHeight: '48px',
+                            height: 'auto'
+                          }}
+                          onInput={(e) => {
+                            const target = e.target as HTMLTextAreaElement;
+                            target.style.height = 'auto';
+                            target.style.height = Math.min(target.scrollHeight, 160) + 'px';
+                          }}
+                        />
                       </div>
-                      <span className="text-sm text-brand-text-muted">Brain is thinking...</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Enhanced Debug info - now toggleable */}
-              {showDebugInfo && (
-                <div className="mt-6 glass rounded-2xl p-4 animate-fade-in">
-                  <h3 className="text-sm font-medium text-brand-text-primary mb-2">Debug Information</h3>
-                  <div className="text-xs text-brand-text-muted space-y-1">
-                    <p>Interaction ID: {conversationId || 'None'}</p>
-                    <p>User: {userAttributes?.sub || 'Unknown'}</p>
-                    <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
-                    <p>Messages count: {messages.length}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Modern Input Area */}
-          <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t from-brand-bg-primary via-brand-bg-primary to-transparent pt-6 pb-4 px-4 sm:px-6">
-            <div className={`mx-auto transition-all duration-300 ${hasSidebarContent ? 'max-w-4xl' : 'max-w-5xl'}`}>
-              <form onSubmit={handleSubmit} className="relative">
-                <div className="flex gap-2 items-end bg-brand-surface-elevated/80 backdrop-blur-xl rounded-2xl border border-brand-surface-border/50 p-2 shadow-lg transition-all duration-200 focus-within:border-brand-accent-primary/50 focus-within:shadow-xl">
-                  {/* Textarea */}
-                  <div className="flex-1 min-w-0">
-                    <textarea
-                      ref={inputRef}
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={
-                        isWaitingForResponse
-                          ? 'Brain is thinking...'
-                          : conversationId 
-                          ? (effectivePersonality === 'game_master' ? 'What do you do next?' : 'Message Brain...') 
-                          : 'Start a new conversation...'
-                      }
-                      className="w-full px-3 py-3 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
-                      disabled={isWaitingForResponse}
-                      rows={1}
-                      style={{ 
-                        maxHeight: '160px',
-                        minHeight: '48px',
-                        height: 'auto'
-                      }}
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement;
-                        target.style.height = 'auto';
-                        target.style.height = Math.min(target.scrollHeight, 160) + 'px';
-                      }}
-                    />
-                  </div>
-
-                  {/* Send Button */}
-                  <button
-                    type="submit"
-                    className={`flex-shrink-0 p-3 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 focus:ring-offset-2 focus:ring-offset-brand-bg-primary
+                      {/* Send Button */}
+                      <button
+                        type="submit"
+                        className={`flex-shrink-0 p-3 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 focus:ring-offset-2 focus:ring-offset-brand-bg-primary
                     ${!inputMessage.trim() || isWaitingForResponse
-                      ? 'bg-brand-surface-hover text-brand-text-muted cursor-not-allowed opacity-50' 
-                      : 'bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95'
-                    }`}
-                    disabled={!inputMessage.trim() || isWaitingForResponse}
-                    aria-label={isWaitingForResponse ? 'Sending message' : 'Send message'}
-                  >
-                    {isWaitingForResponse ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
+      ? 'bg-brand-surface-hover text-brand-text-muted cursor-not-allowed opacity-50' 
+      : 'bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95'
+    }`}
+                        disabled={!inputMessage.trim() || isWaitingForResponse}
+                        aria-label={isWaitingForResponse ? 'Sending message' : 'Send message'}
+                      >
+                        {isWaitingForResponse ? (
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
 
-                {/* Keyboard hint */}
-                {!isWaitingForResponse && (
-                  <div className="mt-2 text-center">
-                    <p className="text-xs text-brand-text-muted/50">
+                    {/* Keyboard hint */}
+                    {!isWaitingForResponse && (
+                      <div className="mt-2 text-center">
+                        <p className="text-xs text-brand-text-muted/50">
                       Press <kbd className="px-1.5 py-0.5 rounded bg-brand-surface-elevated/50 border border-brand-surface-border/30 text-[10px] font-mono">Enter</kbd> to send, <kbd className="px-1.5 py-0.5 rounded bg-brand-surface-elevated/50 border border-brand-surface-border/30 text-[10px] font-mono">Shift+Enter</kbd> for new line
-                    </p>
-                  </div>
-                )}
-              </form>
+                        </p>
+                      </div>
+                    )}
+                  </form>
+                </div>
+              </div>
             </div>
           </div>
-          </div>
-        </div>
           
         </main>
 
@@ -1613,7 +1609,7 @@ function App() {
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors relative z-[70]"
-              aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
+              aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
             >
               <svg className="w-6 h-6 text-brand-text-primary transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {isSidebarOpen ? (
@@ -1631,177 +1627,177 @@ function App() {
 
         {/* Floating Expandable Header Bars - Side by Side - Only for Game Master mode */}
         {effectivePersonality === 'game_master' && (
-        <div className="lg:hidden sticky top-0 z-40 pt-safe">
-          <div className="flex gap-2 mx-4 mt-4 items-start">
-            {/* First Bar - Quest Log */}
-            <div className="flex-1 relative">
-              <div 
-                className={`rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
-                  mobileInfoExpanded ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
-                }`}
-              >
-              {/* Collapsed Header Bar */}
-              <button
-                onClick={() => setMobileInfoExpanded(!mobileInfoExpanded)}
-                className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-brand-text-muted uppercase tracking-wider">
-                      Quest Log
-                    </p>
-                    {adventureState ? (
-                      <p className="text-sm text-brand-text-primary font-medium truncate">
-                        {adventureState.title}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-                <svg 
-                  className={`w-5 h-5 text-brand-text-muted transition-transform duration-300 flex-shrink-0 ${
-                    mobileInfoExpanded ? 'rotate-180' : ''
-                  }`} 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
+          <div className="lg:hidden sticky top-0 z-40 pt-safe">
+            <div className="flex gap-2 mx-4 mt-4 items-start">
+              {/* First Bar - Quest Log */}
+              <div className="flex-1 relative">
+                <div 
+                  className={`rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
+                    mobileInfoExpanded ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
+                  }`}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {/* Expanded Quest Log Content */}
-              {mobileInfoExpanded && (
-                <div className="px-4 pb-4 space-y-4 animate-slide-up border-t border-brand-surface-border/30 pt-4">
-                  {adventureState && (
-                    <div className="space-y-3">
-                      {/* TODO: Replace stubbed values with database data */}
-                      <div>
-                        <h3 className="text-base font-semibold text-brand-text-primary mb-1">
-                          {adventureState.title || 'MindQuest'}
-                        </h3>
-                        <p className="text-sm text-brand-text-secondary">
-                          {adventureState.genre || 'Surreal Fantasy'} • Tone: {adventureState.tone || 'Player-led'} • Difficulty: {adventureState.difficulty || 'Story-first'}
+                  {/* Collapsed Header Bar */}
+                  <button
+                    onClick={() => setMobileInfoExpanded(!mobileInfoExpanded)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-brand-text-muted uppercase tracking-wider">
+                      Quest Log
                         </p>
+                        {adventureState ? (
+                          <p className="text-sm text-brand-text-primary font-medium truncate">
+                            {adventureState.title}
+                          </p>
+                        ) : null}
                       </div>
+                    </div>
+                    <svg 
+                      className={`w-5 h-5 text-brand-text-muted transition-transform duration-300 flex-shrink-0 ${
+                        mobileInfoExpanded ? 'rotate-180' : ''
+                      }`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Expanded Quest Log Content */}
+                  {mobileInfoExpanded && (
+                    <div className="px-4 pb-4 space-y-4 animate-slide-up border-t border-brand-surface-border/30 pt-4">
+                      {adventureState && (
+                        <div className="space-y-3">
+                          {/* TODO: Replace stubbed values with database data */}
+                          <div>
+                            <h3 className="text-base font-semibold text-brand-text-primary mb-1">
+                              {adventureState.title || 'MindQuest'}
+                            </h3>
+                            <p className="text-sm text-brand-text-secondary">
+                              {adventureState.genre || 'Surreal Fantasy'} • Tone: {adventureState.tone || 'Player-led'} • Difficulty: {adventureState.difficulty || 'Story-first'}
+                            </p>
+                          </div>
                       
-                      {adventureState.safetyLevel && (
-                        <div className="text-xs text-brand-text-muted">
+                          {adventureState.safetyLevel && (
+                            <div className="text-xs text-brand-text-muted">
                           Safety: {adventureState.safetyLevel}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-              )}
               </div>
-            </div>
 
-            {/* Second Bar - Character Sheet (D&D style) */}
-            <div className="flex-1 relative">
-              <div 
-                className={`rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
-                  mobileCharSheetExpanded ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
-                }`}
-              >
-                <button
-                  onClick={() => setMobileCharSheetExpanded(!mobileCharSheetExpanded)}
-                  className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
+              {/* Second Bar - Character Sheet (D&D style) */}
+              <div className="flex-1 relative">
+                <div 
+                  className={`rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
+                    mobileCharSheetExpanded ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
+                  }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
-                      <p className="text-sm text-brand-text-primary font-medium truncate">Stats & Inventory</p>
-                    </div>
-                  </div>
-                  <svg 
-                    className={`w-5 h-5 text-brand-text-muted transition-transform duration-300 flex-shrink-0 ${
-                      mobileCharSheetExpanded ? 'rotate-180' : ''
-                    }`} 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
+                  <button
+                    onClick={() => setMobileCharSheetExpanded(!mobileCharSheetExpanded)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {/* Expanded Character Sheet Content */}
-                {mobileCharSheetExpanded && adventureState && (
-                  <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
-                    {/* Stats */}
-                    <div>
-                      <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Ability Scores</h4>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                          <div className="text-xs text-brand-text-muted">STR</div>
-                          <div className="text-lg font-bold text-brand-text-primary">10</div>
-                        </div>
-                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                          <div className="text-xs text-brand-text-muted">DEX</div>
-                          <div className="text-lg font-bold text-brand-text-primary">12</div>
-                        </div>
-                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                          <div className="text-xs text-brand-text-muted">CON</div>
-                          <div className="text-lg font-bold text-brand-text-primary">14</div>
-                        </div>
-                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                          <div className="text-xs text-brand-text-muted">INT</div>
-                          <div className="text-lg font-bold text-brand-text-primary">16</div>
-                        </div>
-                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                          <div className="text-xs text-brand-text-muted">WIS</div>
-                          <div className="text-lg font-bold text-brand-text-primary">13</div>
-                        </div>
-                        <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                          <div className="text-xs text-brand-text-muted">CHA</div>
-                          <div className="text-lg font-bold text-brand-text-primary">11</div>
-                        </div>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
+                        <p className="text-sm text-brand-text-primary font-medium truncate">Stats & Inventory</p>
                       </div>
                     </div>
+                    <svg 
+                      className={`w-5 h-5 text-brand-text-muted transition-transform duration-300 flex-shrink-0 ${
+                        mobileCharSheetExpanded ? 'rotate-180' : ''
+                      }`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
 
-                    {/* Health & Level */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs uppercase tracking-wider text-brand-text-muted">Level</span>
-                        <span className="text-sm font-bold text-brand-text-primary">1</span>
-                      </div>
+                  {/* Expanded Character Sheet Content */}
+                  {mobileCharSheetExpanded && adventureState && (
+                    <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
+                      {/* Stats */}
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs uppercase tracking-wider text-brand-text-muted">HP</span>
-                          <span className="text-xs text-brand-text-secondary">12 / 12</span>
-                        </div>
-                        <div className="h-2 bg-brand-surface-hover rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{width: '100%'}}></div>
+                        <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Ability Scores</h4>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-xs text-brand-text-muted">STR</div>
+                            <div className="text-lg font-bold text-brand-text-primary">10</div>
+                          </div>
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-xs text-brand-text-muted">DEX</div>
+                            <div className="text-lg font-bold text-brand-text-primary">12</div>
+                          </div>
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-xs text-brand-text-muted">CON</div>
+                            <div className="text-lg font-bold text-brand-text-primary">14</div>
+                          </div>
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-xs text-brand-text-muted">INT</div>
+                            <div className="text-lg font-bold text-brand-text-primary">16</div>
+                          </div>
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-xs text-brand-text-muted">WIS</div>
+                            <div className="text-lg font-bold text-brand-text-primary">13</div>
+                          </div>
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-xs text-brand-text-muted">CHA</div>
+                            <div className="text-lg font-bold text-brand-text-primary">11</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Inventory */}
-                    <div>
-                      <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Inventory</h4>
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-brand-text-secondary">• Rusty Sword</span>
+                      {/* Health & Level */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs uppercase tracking-wider text-brand-text-muted">Level</span>
+                          <span className="text-sm font-bold text-brand-text-primary">1</span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-brand-text-secondary">• Leather Armor</span>
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs uppercase tracking-wider text-brand-text-muted">HP</span>
+                            <span className="text-xs text-brand-text-secondary">12 / 12</span>
+                          </div>
+                          <div className="h-2 bg-brand-surface-hover rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: '100%' }}></div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-brand-text-secondary">• 5 Gold Pieces</span>
+                      </div>
+
+                      {/* Inventory */}
+                      <div>
+                        <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Inventory</h4>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-brand-text-secondary">• Rusty Sword</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-brand-text-secondary">• Leather Armor</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-brand-text-secondary">• 5 Gold Pieces</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
         )}
 
 
@@ -1866,9 +1862,9 @@ function App() {
                       transition-all duration-300 hover:scale-[1.02] animate-slide-up
                       ${message.role === 'assistant' ? 'cursor-pointer' : ''}
                       ${message.role === 'user' 
-                    ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple' 
-                    : 'glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg'
-                  }`}
+                  ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple' 
+                  : 'glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg'
+                }`}
                       onClick={() => {
                         if (message.role === 'assistant') {
                           setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
@@ -2002,8 +1998,8 @@ function App() {
                         isWaitingForResponse
                           ? 'Brain is thinking...'
                           : conversationId
-                          ? (effectivePersonality === 'game_master' ? 'What do you do next?' : 'Message Brain...')
-                          : 'Start a new conversation...'
+                            ? (effectivePersonality === 'game_master' ? 'What do you do next?' : 'Message Brain...')
+                            : 'Start a new conversation...'
                       }
                       className="w-full px-3 py-2.5 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-sm leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
                       disabled={isWaitingForResponse}
@@ -2026,9 +2022,9 @@ function App() {
                     type="submit"
                     className={`flex-shrink-0 p-2.5 rounded-xl transition-all duration-200 focus:outline-none active:scale-95
                     ${!inputMessage.trim() || isWaitingForResponse
-                      ? 'bg-brand-surface-hover text-brand-text-muted cursor-not-allowed opacity-50' 
-                      : 'bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg active:shadow-xl'
-                    }`}
+      ? 'bg-brand-surface-hover text-brand-text-muted cursor-not-allowed opacity-50' 
+      : 'bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg active:shadow-xl'
+    }`}
                     disabled={!inputMessage.trim() || isWaitingForResponse}
                     aria-label={isWaitingForResponse ? 'Sending message' : 'Send message'}
                   >
@@ -2062,7 +2058,7 @@ function App() {
             <div className="space-y-2">
               <p className="text-[11px] uppercase tracking-[0.4em] text-brand-text-muted">Choose a mode</p>
               <h2 className="text-2xl font-semibold text-brand-text-primary">How do you want to explore?</h2>
-              <p className="text-sm text-brand-text-secondary">Pick the vibe for this thread. You can always start another to try a different persona.</p>
+              <p className="text-sm text-brand-text-secondary">Pick the mode for this interaction.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {MODE_OPTIONS.map(option => (
@@ -2097,8 +2093,8 @@ function App() {
       {/* Install Prompt */}
       <InstallPrompt />
 
-      {/* WIP Banner */}
-      <WipBanner />
+      {/* WIP Banner - only show for Game Master mode when feature flag is enabled */}
+      {featureFlags.showGameMasterWIPBanner && effectivePersonality === 'game_master' && <WipBanner />}
 
     </div>
   );
