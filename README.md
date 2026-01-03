@@ -65,9 +65,6 @@ The app works best when installed on mobile devices:
 - **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to the project
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment and cloud setup
 
-### For AI Agents
-- **[AGENTS.md](AGENTS.md)** - Development environment setup, testing instructions, PR guidelines
-
 ### Additional Resources
 - **[AgentCore Migration](docs/archive/)** - Performance analysis and architecture evolution
 
