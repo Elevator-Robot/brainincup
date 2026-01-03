@@ -1679,12 +1679,7 @@ function App() {
                               {adventureState.genre || 'Dark Fantasy'} • Tone: {adventureState.tone || 'Gritty'} • Difficulty: {adventureState.difficulty || 'Deadly'}
                             </p>
                           </div>
-                      
-                          {adventureState.safetyLevel && (
-                            <div className="text-xs text-brand-text-muted">
-                          Content Rating: {adventureState.safetyLevel}
-                            </div>
-                          )}
+
                         </div>
                       )}
                     </div>
