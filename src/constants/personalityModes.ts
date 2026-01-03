@@ -23,8 +23,8 @@ export const MODE_OPTIONS: PersonalityModeMeta[] = [
     id: 'default',
     icon: '🧠',
     title: 'Experience Brain',
-    description: 'A reflective companion for journaling, synthesis, and late-night thinking.',
-    badge: 'Living notebook',
+    description: 'A reflective, philosophical companion and existential experiment.',
+    badge: 'Introspection',
     accent: 'from-violet-500/80 to-fuchsia-500/80',
     shortLabel: 'Brain',
     tagClass: 'bg-violet-500/10 text-violet-100 border-violet-400/30'
@@ -32,8 +32,8 @@ export const MODE_OPTIONS: PersonalityModeMeta[] = [
   {
     id: 'game_master',
     icon: '🎲',
-    title: 'Game Master Adventure',
-    description: 'An improvisational dungeon master that leads surreal quests and adapts to every choice.',
+    title: 'Game Master',
+    description: 'An improvisational dungeon master that leads quests and adapts to your choices.',
     badge: 'Narrative mode',
     accent: 'from-amber-500/80 to-orange-500/80',
     shortLabel: 'Game Master',

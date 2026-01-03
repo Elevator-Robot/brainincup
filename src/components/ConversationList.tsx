@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type React from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
@@ -23,7 +23,8 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteHotId, setDeleteHotId] = useState<string | null>(null);
+  const deleteHotTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [modeFilter, setModeFilter] = useState<PersonalityModeId | null>(null);
   const newConversationDisabled = Boolean(disableNewConversation);
 
@@ -106,6 +107,15 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
     loadConversations();
   }, [loadConversations, refreshKey]);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (deleteHotTimeoutRef.current) {
+        clearTimeout(deleteHotTimeoutRef.current);
+      }
+    };
+  }, []);
+
 
   const handleTitleEdit = (conversationId: string, currentTitle: string) => {
     setEditingId(conversationId);
@@ -186,19 +196,35 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
     }
   };
 
-  const handleDeleteConfirm = (conversationId: string) => {
-    setDeleteConfirmId(conversationId);
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteConfirmId(null);
+  const handleDeleteClick = (conversationId: string) => {
+    // First click: activate hot state
+    if (deleteHotId !== conversationId) {
+      setDeleteHotId(conversationId);
+      
+      // Clear any existing timeout
+      if (deleteHotTimeoutRef.current) {
+        clearTimeout(deleteHotTimeoutRef.current);
+      }
+      
+      // Set timeout to cool down after 3 seconds
+      deleteHotTimeoutRef.current = setTimeout(() => {
+        setDeleteHotId(null);
+      }, 3000);
+    } else {
+      // Second click while hot: execute delete
+      handleDeleteExecute(conversationId);
+    }
   };
 
   const handleDeleteExecute = async (conversationId: string) => {
+    // Clear hot state and timeout
+    setDeleteHotId(null);
+    if (deleteHotTimeoutRef.current) {
+      clearTimeout(deleteHotTimeoutRef.current);
+    }
     try {
       if (onDeleteConversation) {
         await onDeleteConversation(conversationId);
-        setDeleteConfirmId(null);
         return;
       }
 
@@ -208,7 +234,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
         setConversations(prevConversations =>
           prevConversations.filter(conv => conv.id !== conversationId)
         );
-        setDeleteConfirmId(null);
         
         if (selectedConversationId === conversationId) {
           onSelectConversation('');
@@ -223,15 +248,12 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
       setConversations(prevConversations =>
         prevConversations.filter(conv => conv.id !== conversationId)
       );
-
-      setDeleteConfirmId(null);
       
       if (selectedConversationId === conversationId) {
         onSelectConversation('');
       }
     } catch (error) {
       console.error('Error deleting conversation:', error);
-      setDeleteConfirmId(null);
     }
   };
 
@@ -265,15 +287,15 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
 
   const conversationsToShow = modeFilter
     ? conversations.filter(
-        (conv) => normalizePersonalityMode(conv.personalityMode) === modeFilter
-      )
+      (conv) => normalizePersonalityMode(conv.personalityMode) === modeFilter
+    )
     : conversations;
 
   const isFilteredEmpty = !!modeFilter && !isLoading && conversations.length > 0 && conversationsToShow.length === 0;
 
   const conversationContent = isFilteredEmpty ? (
     <div className="text-center py-10 rounded-3xl border border-dashed border-white/10 text-white/60">
-      <p className="text-sm font-semibold mb-1">No threads in this mode yet</p>
+      <p className="text-sm font-semibold mb-1">No interactions of this mode yet</p>
       <p className="text-xs text-white/40">Start a new interaction to spin one up.</p>
     </div>
   ) : (
@@ -282,7 +304,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
       const conversationTitle = conversation.title?.trim() || 'Untitled Interaction';
       const modeMeta = getModeMeta(conversation.personalityMode);
       const isEditing = editingId === conversation.id;
-      const isDeleting = deleteConfirmId === conversation.id;
       const isSelected = selectedConversationId === conversation.id;
 
       return (
@@ -297,8 +318,8 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
           <span
             className={`pointer-events-none absolute left-3 top-3 bottom-3 w-1 rounded-full transition-opacity duration-300
             ${isSelected
-              ? 'opacity-100 bg-gradient-to-b from-brand-accent-primary to-brand-accent-secondary'
-              : 'opacity-0 group-hover:opacity-60 bg-white/30'}`}
+          ? 'opacity-100 bg-gradient-to-b from-brand-accent-primary to-brand-accent-secondary'
+          : 'opacity-0 group-hover:opacity-60 bg-white/30'}`}
             aria-hidden="true"
           ></span>
           {isEditing ? (
@@ -314,40 +335,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                 className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2 text-sm font-medium text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/40"
                 autoFocus
               />
-            </div>
-          ) : isDeleting ? (
-            <div className="p-4 bg-brand-status-error/10 border-2 border-brand-status-error/50">
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-brand-status-error/20 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4 text-brand-status-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-brand-text-primary mb-1">Delete this interaction?</div>
-                  <div className="text-xs text-brand-text-muted">This action cannot be undone.</div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleDeleteExecute(conversation.id!)}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white
-                  bg-brand-status-error hover:bg-red-600 rounded-xl transition-all duration-200 active:scale-95
-                  focus:outline-none focus:ring-2 focus:ring-brand-status-error/50"
-                >
-                  Delete
-                </button>
-                <button
-                  onClick={handleDeleteCancel}
-                  className="px-4 py-2.5 text-sm font-medium text-brand-text-muted
-                  glass-hover hover:text-brand-text-primary rounded-xl 
-                  transition-all duration-200 active:scale-95
-                  focus:outline-none focus:ring-2 focus:ring-brand-surface-border"
-                >
-                  Cancel
-                </button>
-              </div>
             </div>
           ) : (
             <div
@@ -400,10 +387,14 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDeleteConfirm(conversation.id!);
+                      handleDeleteClick(conversation.id!);
                     }}
-                    className="p-2 rounded-xl border border-white/10 bg-white/5 text-brand-text-muted hover:text-brand-status-error hover:border-brand-status-error/50 transition-all duration-200 backdrop-blur-sm"
-                    title="Delete interaction"
+                    className={`p-2 rounded-xl border transition-all duration-200 backdrop-blur-sm ${
+                      deleteHotId === conversation.id
+                        ? 'border-brand-status-error bg-brand-status-error/20 text-brand-status-error shadow-lg shadow-brand-status-error/50 animate-pulse'
+                        : 'border-white/10 bg-white/5 text-brand-text-muted hover:text-brand-status-error hover:border-brand-status-error/50'
+                    }`}
+                    title={deleteHotId === conversation.id ? "Click again to delete" : "Delete interaction"}
                     aria-label="Delete interaction"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
