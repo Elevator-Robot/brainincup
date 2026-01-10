@@ -426,6 +426,7 @@ function App() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const messageContainerRefs = useRef<Map<number, HTMLDivElement>>(new Map()); // Track individual message container refs (bubble + details)
+  const desktopScrollContainerRef = useRef<HTMLDivElement>(null); // Desktop scroll container
 
   useEffect(() => {
     async function getUserAttributes() {
@@ -537,16 +538,17 @@ function App() {
   // Ensure scroll to bottom on initial load and page refresh
   useEffect(() => {
     if (conversationId && messages.length > 0 && messagesEndRef.current) {
-      const scrollContainer = messagesEndRef.current.parentElement;
-      if (scrollContainer) {
-        // For flex-direction: column-reverse, scrollTop: 0 is the bottom
-        // Use requestAnimationFrame to ensure DOM has fully rendered
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            scrollContainer.scrollTop = 0;
-          }, 50);
-        });
-      }
+      // Multiple attempts to ensure scroll happens after render
+      const attemptScroll = () => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+        }
+      };
+      
+      attemptScroll();
+      requestAnimationFrame(attemptScroll);
+      setTimeout(attemptScroll, 100);
+      setTimeout(attemptScroll, 300);
     }
   }, [conversationId, messages.length]);
 
@@ -593,6 +595,13 @@ function App() {
       };
     }
   }, [expandedMessageIndex]);
+
+  // Scroll desktop container to bottom when messages load
+  useEffect(() => {
+    if (desktopScrollContainerRef.current && messages.length > 0) {
+      desktopScrollContainerRef.current.scrollTop = desktopScrollContainerRef.current.scrollHeight;
+    }
+  }, [messages.length]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -956,6 +965,14 @@ function App() {
         }
       });
       
+      // Set messages and scroll to bottom
+      setMessages(timeline);
+      
+      // Scroll to bottom after messages load
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      }, 100);
+      
       // Set waiting state based on whether there's a pending message
       if (hasPendingMessage) {
         console.log('🔒 Blocking input - pending message detected after load');
@@ -1265,7 +1282,7 @@ function App() {
             <div className="flex-1 flex flex-col min-h-0">
               {/* Enhanced Chat Area with glass morphism design */}
               {/* Messages with improved styling and animations */}
-              <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary">
+              <div ref={desktopScrollContainerRef} className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary">
                 <div className={`mx-auto space-y-6 flex flex-col transition-all duration-300 ${hasSidebarContent ? 'max-w-4xl' : 'max-w-5xl'}`}>
                   {/* Personality Indicator (mobile only) */}
                   {conversationId && effectivePersonality !== 'default' && (
@@ -1283,9 +1300,6 @@ function App() {
                       />
                     </div>
                   )}
-              
-                  {/* Invisible element to scroll to - at the bottom in reversed layout */}
-                  <div ref={messagesEndRef} />
               
                   {messages.length === 0 && !isLoading && conversationId && (
                     <div className="flex justify-center items-center h-full min-h-[300px]">
@@ -1459,6 +1473,9 @@ function App() {
                       </div>
                     </div>
                   )}
+                  
+                  {/* Invisible element to scroll to - at the bottom */}
+                  <div ref={messagesEndRef} />
                 </div>
               </div>
 
