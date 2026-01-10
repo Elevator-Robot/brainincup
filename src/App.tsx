@@ -413,6 +413,13 @@ function App() {
     }
   }, [conversationId, effectivePersonality, fetchAdventureBundle]);
 
+  // Scroll to bottom when messages are loaded
+  useEffect(() => {
+    if (messages.length > 0 && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages.length]);
+
 
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -527,22 +534,18 @@ function App() {
     autoLoadConversation();
   }, [userAttributes]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
-
   // Ensure scroll to bottom on initial load and page refresh
   useEffect(() => {
     if (conversationId && messages.length > 0 && messagesEndRef.current) {
       const scrollContainer = messagesEndRef.current.parentElement;
       if (scrollContainer) {
         // For flex-direction: column-reverse, scrollTop: 0 is the bottom
-        setTimeout(() => {
-          scrollContainer.scrollTop = 0;
-        }, 100);
+        // Use requestAnimationFrame to ensure DOM has fully rendered
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            scrollContainer.scrollTop = 0;
+          }, 50);
+        });
       }
     }
   }, [conversationId, messages.length]);
