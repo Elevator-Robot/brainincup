@@ -534,102 +534,58 @@ function App() {
     }
   }, [messages]);
 
+  // Ensure scroll to bottom on initial load and page refresh
+  useEffect(() => {
+    if (conversationId && messages.length > 0 && messagesEndRef.current) {
+      const scrollContainer = messagesEndRef.current.parentElement;
+      if (scrollContainer) {
+        // For flex-direction: column-reverse, scrollTop: 0 is the bottom
+        setTimeout(() => {
+          scrollContainer.scrollTop = 0;
+        }, 100);
+      }
+    }
+  }, [conversationId, messages.length]);
+
   // Auto-scroll to bottom when expanded message details change
-  // Aggressively keep clicked message bubble visible when expanded - works on both desktop and mobile
   useEffect(() => {
     if (expandedMessageIndex !== null) {
-      console.log('🔍 Sticky scroll triggered for message index:', expandedMessageIndex);
-      
       const containerElement = messageContainerRefs.current.get(expandedMessageIndex);
-      if (!containerElement) {
-        console.warn('❌ Container element not found for index:', expandedMessageIndex);
-        return;
-      }
+      if (!containerElement) return;
 
       const bubbleElement = containerElement.querySelector('.message-bubble') as HTMLElement;
-      if (!bubbleElement) {
-        console.warn('❌ Bubble element not found');
-        return;
-      }
+      if (!bubbleElement) return;
 
       const scrollContainer = bubbleElement.closest('.overflow-y-auto') as HTMLElement;
-      if (!scrollContainer) {
-        console.warn('❌ Scroll container not found');
-        return;
-      }
-
-      console.log('✅ All elements found, setting up sticky scroll');
-
-      // Check if using flex-col-reverse (messages layout)
-      const isReversedLayout = scrollContainer.querySelector('.flex-col-reverse') !== null;
-      console.log('📐 Reversed layout:', isReversedLayout);
-
-      let checkCount = 0;
+      if (!scrollContainer) return;
 
       // Function to ensure bubble stays visible
       const ensureBubbleVisible = () => {
-        checkCount++;
         const bubbleRect = bubbleElement.getBoundingClientRect();
         const scrollRect = scrollContainer.getBoundingClientRect();
         
         const bubbleTop = bubbleRect.top;
         const scrollTop = scrollRect.top;
-        const isAboveViewport = bubbleTop < scrollTop + 60; // 60px safety margin
-        
-        console.log(`🔄 Check #${checkCount}:`, {
-          bubbleTop,
-          scrollTop,
-          isAbove: isAboveViewport,
-          offset: bubbleTop - scrollTop
-        });
+        const isAboveViewport = bubbleTop < scrollTop + 60;
         
         if (isAboveViewport) {
-          console.log('⚠️ Bubble is above viewport! Scrolling...');
-          
-          if (isReversedLayout) {
-            // For reversed layout, we need to scroll differently
-            const offset = bubbleTop - scrollTop;
-            console.log('📍 Reversed layout scroll by:', offset - 60);
-            
-            scrollContainer.scrollBy({
-              top: offset - 60, // Keep 60px padding from top
-              behavior: 'smooth'
-            });
-          } else {
-            // Normal layout
-            console.log('📍 Normal layout scrollIntoView');
-            bubbleElement.scrollIntoView({ 
-              behavior: 'smooth', 
-              block: 'start',
-              inline: 'nearest' 
-            });
-          }
-        } else {
-          console.log('✅ Bubble is in viewport');
+          bubbleElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest' 
+          });
         }
       };
 
-      // Run immediately
-      console.log('🚀 Running immediate check');
+      // Run once immediately
       ensureBubbleVisible();
 
-      // Keep checking during expansion animation (every 50ms for 500ms)
-      const intervals: NodeJS.Timeout[] = [];
-      for (let i = 1; i <= 10; i++) {
-        intervals.push(setTimeout(ensureBubbleVisible, i * 50));
-      }
-
       // Use ResizeObserver to detect when the container size changes due to expansion
-      const resizeObserver = new ResizeObserver(() => {
-        console.log('📏 ResizeObserver triggered');
-        ensureBubbleVisible();
-      });
+      const resizeObserver = new ResizeObserver(ensureBubbleVisible);
       resizeObserver.observe(containerElement);
 
       // Cleanup
       return () => {
-        console.log('🧹 Cleaning up sticky scroll for index:', expandedMessageIndex);
-        intervals.forEach(interval => clearTimeout(interval));
         resizeObserver.disconnect();
       };
     }
@@ -1306,7 +1262,7 @@ function App() {
             <div className="flex-1 flex flex-col min-h-0">
               {/* Enhanced Chat Area with glass morphism design */}
               {/* Messages with improved styling and animations */}
-              <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col-reverse">
+              <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary">
                 <div className={`mx-auto space-y-6 flex flex-col transition-all duration-300 ${hasSidebarContent ? 'max-w-4xl' : 'max-w-5xl'}`}>
                   {/* Personality Indicator (mobile only) */}
                   {conversationId && effectivePersonality !== 'default' && (
@@ -1809,11 +1765,8 @@ function App() {
         {/* Enhanced Chat Area with glass morphism design */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Messages with improved styling and animations */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col-reverse">
+          <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col">
             <div className="max-w-4xl mx-auto space-y-4 flex flex-col">
-              
-              {/* Invisible element to scroll to - at the bottom in reversed layout */}
-              <div ref={messagesEndRef} />
               
               {messages.length === 0 && !isLoading && conversationId && (
                 <div className="flex justify-center items-center h-full min-h-[300px]">
@@ -1974,6 +1927,9 @@ function App() {
                   </div>
                 </div>
               )}
+              
+              {/* Invisible element to scroll to - at the bottom */}
+              <div ref={messagesEndRef} />
             </div>
           </div>
 
