@@ -64,6 +64,10 @@ src/
 ├── App.tsx                   # Main app with auth and routing
 └── main.tsx                  # Entry point with Amplify config
 
+docs/
+├── *.md                      # Permanent documentation (CHECK IN)
+└── archive/                  # Temporary notes/setup guides (GITIGNORED - DO NOT CHECK IN)
+
 .github/
 └── copilot-instructions.md  # This file
 
@@ -71,6 +75,11 @@ public/
 ├── manifest.json            # PWA manifest - critical for PWA functionality
 └── icons/                   # PWA icons (multiple sizes required)
 ```
+
+**Documentation Guidelines:**
+- **Permanent docs** (architecture, guides, API docs) → `/docs/*.md` (checked in)
+- **Temporary notes, setup guides, personal notes** → `/docs/archive/` (gitignored, NOT checked in)
+- When creating helper documentation, use `docs/archive/` for anything that shouldn't be committed
 
 **Architecture:**
 - Data model: Use Amplify-generated types from `ClientSchema<typeof schema>`
