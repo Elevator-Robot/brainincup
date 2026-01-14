@@ -14,10 +14,5 @@ jobs:
       - name: Add to Brain in Cup project
         uses: actions/add-to-project@v0.5.0
         with:
-          # TODO: Replace YOUR_PROJECT_NUMBER with your actual project number
-          # Find it by going to: https://github.com/orgs/Elevator-Robot/projects
-          # The number is in the URL, e.g., /projects/1 means project-url should be:
-          # https://github.com/orgs/Elevator-Robot/projects/1
-          # Setup instructions: docs/archive/PROJECT_SETUP.md (not checked in)
-          project-url: https://github.com/orgs/Elevator-Robot/projects/YOUR_PROJECT_NUMBER
+          project-url: https://github.com/orgs/Elevator-Robot/projects/12
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
