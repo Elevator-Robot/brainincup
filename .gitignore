@@ -226,3 +226,5 @@ lerna-debug.log*
 # Archived documentation (informational only, not needed for deployment)
 docs/archive/
 .serena/
+
+# Documentation archive - temporary/helper docs not for version control
