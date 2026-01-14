@@ -59,6 +59,45 @@ const schema = a.schema({
     lastLocation: a.string().default('Unknown'),
     lastStepId: a.string().default(''),
     questSteps: a.hasMany('GameMasterQuestStep', 'adventureId'),
+    character: a.hasOne('GameMasterCharacter', 'adventureId'),
+    createdAt: a.date(),
+    updatedAt: a.date(),
+  }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
+
+  GameMasterCharacter: a.model({
+    id: a.id(),
+    adventureId: a.id(),
+    adventure: a.belongsTo('GameMasterAdventure', 'adventureId'),
+    conversationId: a.id(),
+    
+    // Basic Info
+    name: a.string().default('Adventurer'),
+    race: a.string().default('Human'),
+    class: a.string().default('Wanderer'),
+    level: a.integer().default(1),
+    experience: a.integer().default(0),
+    
+    // Core Stats (D&D 5e style)
+    strength: a.integer().default(10),
+    dexterity: a.integer().default(12),
+    constitution: a.integer().default(14),
+    intelligence: a.integer().default(16),
+    wisdom: a.integer().default(13),
+    charisma: a.integer().default(11),
+    
+    // Derived Stats
+    maxHP: a.integer().default(12),
+    currentHP: a.integer().default(12),
+    armorClass: a.integer().default(10),
+    
+    // JSON fields for complex data
+    inventory: a.json(),
+    skills: a.json(),
+    statusEffects: a.json(),
+    
+    // Versioning for optimistic locking
+    version: a.integer().default(1),
+    
     createdAt: a.date(),
     updatedAt: a.date(),
   }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
