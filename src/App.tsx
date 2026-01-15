@@ -130,6 +130,11 @@ function GameMasterHud({ adventure, questSteps, playerChoices, character }: Game
   
   // Use character data from database or fallback to defaults
   const characterName = character?.name || 'Adventurer';
+  const characterLevel = character?.level || 1;
+  const characterHP = {
+    current: character?.currentHP || 12,
+    max: character?.maxHP || 12,
+  };
   const stats = {
     strength: character?.strength || 10,
     dexterity: character?.dexterity || 12,
@@ -263,6 +268,44 @@ function App() {
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [playerChoices, setPlayerChoices] = useState<PlayerChoiceRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
+  
+  // Helper to get character display data with fallbacks
+  const getCharacterData = useCallback(() => {
+    const stats = {
+      strength: characterState?.strength || 10,
+      dexterity: characterState?.dexterity || 12,
+      constitution: characterState?.constitution || 14,
+      intelligence: characterState?.intelligence || 16,
+      wisdom: characterState?.wisdom || 13,
+      charisma: characterState?.charisma || 11,
+    };
+    
+    const hp = {
+      current: characterState?.currentHP || 12,
+      max: characterState?.maxHP || 12,
+      percentage: ((characterState?.currentHP || 12) / (characterState?.maxHP || 12)) * 100,
+    };
+    
+    let inventory: string[] = ['Rusty Sword', 'Leather Armor', '5 Gold'];
+    if (characterState?.inventory) {
+      try {
+        const parsed = typeof characterState.inventory === 'string' 
+          ? JSON.parse(characterState.inventory) 
+          : characterState.inventory;
+        inventory = Array.isArray(parsed) ? parsed : inventory;
+      } catch (e) {
+        console.error('Failed to parse inventory:', e);
+      }
+    }
+    
+    return {
+      name: characterState?.name || 'Adventurer',
+      level: characterState?.level || 1,
+      stats,
+      hp,
+      inventory,
+    };
+  }, [characterState]);
   
   // Personality mode state
   const [personalityMode, setPersonalityMode] = useState<string>('default');
@@ -1790,7 +1833,9 @@ function App() {
                   </button>
 
                   {/* Expanded Character Sheet Content */}
-                  {mobileCharSheetExpanded && adventureState && (
+                  {mobileCharSheetExpanded && adventureState && (() => {
+                    const charData = getCharacterData();
+                    return (
                     <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
                       {/* Stats */}
                       <div>
@@ -1798,27 +1843,27 @@ function App() {
                         <div className="grid grid-cols-3 gap-2">
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">STR</div>
-                            <div className="text-lg font-bold text-brand-text-primary">10</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.strength}</div>
                           </div>
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">DEX</div>
-                            <div className="text-lg font-bold text-brand-text-primary">12</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.dexterity}</div>
                           </div>
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">CON</div>
-                            <div className="text-lg font-bold text-brand-text-primary">14</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.constitution}</div>
                           </div>
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">INT</div>
-                            <div className="text-lg font-bold text-brand-text-primary">16</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.intelligence}</div>
                           </div>
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">WIS</div>
-                            <div className="text-lg font-bold text-brand-text-primary">13</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.wisdom}</div>
                           </div>
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">CHA</div>
-                            <div className="text-lg font-bold text-brand-text-primary">11</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.charisma}</div>
                           </div>
                         </div>
                       </div>
@@ -1827,15 +1872,15 @@ function App() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs uppercase tracking-wider text-brand-text-muted">Level</span>
-                          <span className="text-sm font-bold text-brand-text-primary">1</span>
+                          <span className="text-sm font-bold text-brand-text-primary">{charData.level}</span>
                         </div>
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs uppercase tracking-wider text-brand-text-muted">HP</span>
-                            <span className="text-xs text-brand-text-secondary">12 / 12</span>
+                            <span className="text-xs text-brand-text-secondary">{charData.hp.current} / {charData.hp.max}</span>
                           </div>
                           <div className="h-2 bg-brand-surface-hover rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: '100%' }}></div>
+                            <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${charData.hp.percentage}%` }}></div>
                           </div>
                         </div>
                       </div>
@@ -1844,19 +1889,16 @@ function App() {
                       <div>
                         <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Inventory</h4>
                         <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-brand-text-secondary">• Rusty Sword</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-brand-text-secondary">• Leather Armor</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-brand-text-secondary">• 5 Gold</span>
-                          </div>
+                          {charData.inventory.map((item, index) => (
+                            <div key={index} className="flex items-center gap-2 text-xs">
+                              <span className="text-brand-text-secondary">• {item}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>
