@@ -15,6 +15,7 @@ const dataClient = generateClient<Schema>();
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
 type QuestStepRecord = Schema['GameMasterQuestStep']['type'];
 type PlayerChoiceRecord = Schema['GameMasterPlayerChoice']['type'];
+type CharacterRecord = Schema['GameMasterCharacter']['type'];
 
 interface HudQuestStep {
   id: string;
@@ -120,11 +121,37 @@ interface GameMasterHudProps {
   adventure: AdventureRecord;
   questSteps: HudQuestStep[];
   playerChoices: HudPlayerChoice[];
+  character: CharacterRecord | null;
 }
 
-function GameMasterHud({ adventure, questSteps, playerChoices }: GameMasterHudProps) {
+function GameMasterHud({ adventure, questSteps, playerChoices, character }: GameMasterHudProps) {
   const latestStep = questSteps.slice(-1)[0];
   void playerChoices;
+  
+  // Use character data from database or fallback to defaults
+  const characterName = character?.name || 'Adventurer';
+  const stats = {
+    strength: character?.strength || 10,
+    dexterity: character?.dexterity || 12,
+    constitution: character?.constitution || 14,
+    intelligence: character?.intelligence || 16,
+    wisdom: character?.wisdom || 13,
+    charisma: character?.charisma || 11,
+  };
+  
+  // Parse inventory JSON string to array
+  let inventory: string[] = ['Rusty Sword', 'Leather Armor', '5 Gold'];
+  if (character?.inventory) {
+    try {
+      const parsed = typeof character.inventory === 'string' 
+        ? JSON.parse(character.inventory) 
+        : character.inventory;
+      inventory = Array.isArray(parsed) ? parsed : inventory;
+    } catch (e) {
+      console.error('Failed to parse inventory:', e);
+    }
+  }
+  
   return (
     <div className="animate-slide-up w-full space-y-6">
       {/* Quest Log Section */}
@@ -162,7 +189,7 @@ function GameMasterHud({ adventure, questSteps, playerChoices }: GameMasterHudPr
         <div className="flex flex-col gap-4">
           <div>
             <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-1">Character</p>
-            <h3 className="text-lg font-semibold text-brand-text-primary">Adventurer</h3>
+            <h3 className="text-lg font-semibold text-brand-text-primary">{characterName}</h3>
           </div>
           
           {/* Stats */}
@@ -171,27 +198,27 @@ function GameMasterHud({ adventure, questSteps, playerChoices }: GameMasterHudPr
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center">
                 <div className="text-xs text-brand-text-secondary">STR</div>
-                <div className="text-sm font-semibold text-brand-text-primary">10</div>
+                <div className="text-sm font-semibold text-brand-text-primary">{stats.strength}</div>
               </div>
               <div className="text-center">
                 <div className="text-xs text-brand-text-secondary">DEX</div>
-                <div className="text-sm font-semibold text-brand-text-primary">12</div>
+                <div className="text-sm font-semibold text-brand-text-primary">{stats.dexterity}</div>
               </div>
               <div className="text-center">
                 <div className="text-xs text-brand-text-secondary">INT</div>
-                <div className="text-sm font-semibold text-brand-text-primary">14</div>
+                <div className="text-sm font-semibold text-brand-text-primary">{stats.intelligence}</div>
               </div>
               <div className="text-center">
                 <div className="text-xs text-brand-text-secondary">WIS</div>
-                <div className="text-sm font-semibold text-brand-text-primary">11</div>
+                <div className="text-sm font-semibold text-brand-text-primary">{stats.wisdom}</div>
               </div>
               <div className="text-center">
                 <div className="text-xs text-brand-text-secondary">CON</div>
-                <div className="text-sm font-semibold text-brand-text-primary">13</div>
+                <div className="text-sm font-semibold text-brand-text-primary">{stats.constitution}</div>
               </div>
               <div className="text-center">
                 <div className="text-xs text-brand-text-secondary">CHA</div>
-                <div className="text-sm font-semibold text-brand-text-primary">9</div>
+                <div className="text-sm font-semibold text-brand-text-primary">{stats.charisma}</div>
               </div>
             </div>
           </div>
@@ -200,9 +227,9 @@ function GameMasterHud({ adventure, questSteps, playerChoices }: GameMasterHudPr
           <div>
             <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-2">Inventory</p>
             <div className="space-y-1">
-              <div className="text-xs text-brand-text-secondary">• Rusty Sword</div>
-              <div className="text-xs text-brand-text-secondary">• Leather Armor</div>
-              <div className="text-xs text-brand-text-secondary">• 5 Gold</div>
+              {inventory.map((item, index) => (
+                <div key={index} className="text-xs text-brand-text-secondary">• {item}</div>
+              ))}
             </div>
           </div>
         </div>
@@ -235,6 +262,7 @@ function App() {
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [playerChoices, setPlayerChoices] = useState<PlayerChoiceRecord[]>([]);
+  const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
   
   // Personality mode state
   const [personalityMode, setPersonalityMode] = useState<string>('default');
@@ -305,17 +333,74 @@ function App() {
     }
   }, [effectivePersonality]);
 
+  const fetchCharacter = useCallback(async (adventureId: string) => {
+    try {
+      const { data } = await dataClient.models.GameMasterCharacter.list({
+        filter: { adventureId: { eq: adventureId } },
+        limit: 1
+      });
+      
+      if (data && data[0]) {
+        setCharacterState(data[0] as CharacterRecord);
+        console.log('✅ Loaded existing character:', data[0].id);
+      } else {
+        console.log('📝 Creating default character for adventure:', adventureId);
+        try {
+          const created = await dataClient.models.GameMasterCharacter.create({
+            adventureId,
+            conversationId,
+            name: 'Adventurer',
+            race: 'Human',
+            characterClass: 'Wanderer',
+            level: 1,
+            experience: 0,
+            strength: 10,
+            dexterity: 12,
+            constitution: 14,
+            intelligence: 16,
+            wisdom: 13,
+            charisma: 11,
+            maxHP: 12,
+            currentHP: 12,
+            armorClass: 10,
+            inventory: JSON.stringify(['Rusty Sword', 'Leather Armor', '5 Gold']),
+            skills: JSON.stringify({}),
+            statusEffects: JSON.stringify([]),
+            version: 1,
+          });
+          
+          console.log('📋 Create result:', created);
+          if (created.data) {
+            setCharacterState(created.data as CharacterRecord);
+            console.log('✅ Created default character:', created.data.id);
+          } else {
+            console.error('❌ Character creation returned no data. Errors:', JSON.stringify(created.errors, null, 2));
+          }
+        } catch (createError) {
+          console.error('❌ Error during character creation:', createError);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading character:', error);
+    }
+  }, [conversationId]);
+
   const fetchAdventureBundle = useCallback(async (convId: string, modeOverride?: string) => {
     const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
     if (activeMode !== 'game_master') {
       setAdventureState(null);
       setQuestSteps([]);
       setPlayerChoices([]);
+      setCharacterState(null);
       return;
     }
     const adventure = await ensureAdventureState(convId, activeMode);
     if (!adventure || !adventure.id) return;
     const adventureId = adventure.id as string;
+    
+    // Fetch character when adventure is loaded
+    await fetchCharacter(adventureId);
+    
     try {
       const [stepsRes, choicesRes] = await Promise.all([
         dataClient.models.GameMasterQuestStep.list({
@@ -336,7 +421,7 @@ function App() {
     } catch (error) {
       console.error('Error loading Game Master data:', error);
     }
-  }, [effectivePersonality, ensureAdventureState]);
+  }, [effectivePersonality, ensureAdventureState, fetchCharacter]);
 
   const recordQuestStep = useCallback(async (brainResponse: {
     id?: string;
@@ -406,6 +491,7 @@ function App() {
       setAdventureState(null);
       setQuestSteps([]);
       setPlayerChoices([]);
+      setCharacterState(null);
       return;
     }
     if (effectivePersonality === 'game_master') {
@@ -889,6 +975,7 @@ function App() {
       setAdventureState(null);
       setQuestSteps([]);
       setPlayerChoices([]);
+      setCharacterState(null);
       return;
     }
     
@@ -918,6 +1005,7 @@ function App() {
           setAdventureState(null);
           setQuestSteps([]);
           setPlayerChoices([]);
+          setCharacterState(null);
         }
         console.log('📌 Loaded personality mode:', normalizedMode);
       }
@@ -1017,6 +1105,7 @@ function App() {
         setAdventureState(null);
         setQuestSteps([]);
         setPlayerChoices([]);
+        setCharacterState(null);
         setConversationListKey(prev => prev + 1);
         return;
       }
@@ -1050,6 +1139,7 @@ function App() {
           setAdventureState(null);
           setQuestSteps([]);
           setPlayerChoices([]);
+          setCharacterState(null);
         }
 
         setConversationListKey(prev => prev + 1);
@@ -1297,6 +1387,7 @@ function App() {
                         adventure={adventureState}
                         questSteps={hudQuestSteps}
                         playerChoices={hudPlayerChoices}
+                        character={characterState}
                       />
                     </div>
                   )}
@@ -1564,6 +1655,7 @@ function App() {
                   adventure={adventureState}
                   questSteps={hudQuestSteps}
                   playerChoices={hudPlayerChoices}
+                  character={characterState}
                 />
               )}
             </div>

@@ -73,7 +73,7 @@ const schema = a.schema({
     // Basic Info
     name: a.string().default('Adventurer'),
     race: a.string().default('Human'),
-    class: a.string().default('Wanderer'),
+    characterClass: a.string().default('Wanderer'),
     level: a.integer().default(1),
     experience: a.integer().default(0),
     
