@@ -21,7 +21,7 @@ export default function WipBanner() {
 
         {/* Content */}
         <div className="text-sm text-brand-text-primary leading-relaxed">
-          <p className="font-medium text-brand-accent-primary mb-1">Hey bud, guess what??</p>
+          <p className="font-medium text-brand-accent-primary mb-1">Hey friend, guess what??</p>
           <p className="text-brand-text-muted text-xs">
             We're working on it. Thanks for visiting ❤️ feel free to explore
           </p>

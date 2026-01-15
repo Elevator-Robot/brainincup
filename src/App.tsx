@@ -138,7 +138,19 @@ function GameMasterHud({ adventure, questSteps, playerChoices, character }: Game
     wisdom: character?.wisdom || 13,
     charisma: character?.charisma || 11,
   };
-  const inventory = character?.inventory as string[] | null || ['Rusty Sword', 'Leather Armor', '5 Gold'];
+  
+  // Parse inventory JSON string to array
+  let inventory: string[] = ['Rusty Sword', 'Leather Armor', '5 Gold'];
+  if (character?.inventory) {
+    try {
+      const parsed = typeof character.inventory === 'string' 
+        ? JSON.parse(character.inventory) 
+        : character.inventory;
+      inventory = Array.isArray(parsed) ? parsed : inventory;
+    } catch (e) {
+      console.error('Failed to parse inventory:', e);
+    }
+  }
   
   return (
     <div className="animate-slide-up w-full space-y-6">
@@ -333,32 +345,39 @@ function App() {
         console.log('✅ Loaded existing character:', data[0].id);
       } else {
         console.log('📝 Creating default character for adventure:', adventureId);
-        const created = await dataClient.models.GameMasterCharacter.create({
-          adventureId,
-          conversationId,
-          name: 'Adventurer',
-          race: 'Human',
-          class: 'Wanderer',
-          level: 1,
-          experience: 0,
-          strength: 10,
-          dexterity: 12,
-          constitution: 14,
-          intelligence: 16,
-          wisdom: 13,
-          charisma: 11,
-          maxHP: 12,
-          currentHP: 12,
-          armorClass: 10,
-          inventory: ['Rusty Sword', 'Leather Armor', '5 Gold'],
-          skills: {},
-          statusEffects: [],
-          version: 1,
-        });
-        
-        if (created.data) {
-          setCharacterState(created.data as CharacterRecord);
-          console.log('✅ Created default character:', created.data.id);
+        try {
+          const created = await dataClient.models.GameMasterCharacter.create({
+            adventureId,
+            conversationId,
+            name: 'Adventurer',
+            race: 'Human',
+            characterClass: 'Wanderer',
+            level: 1,
+            experience: 0,
+            strength: 10,
+            dexterity: 12,
+            constitution: 14,
+            intelligence: 16,
+            wisdom: 13,
+            charisma: 11,
+            maxHP: 12,
+            currentHP: 12,
+            armorClass: 10,
+            inventory: JSON.stringify(['Rusty Sword', 'Leather Armor', '5 Gold']),
+            skills: JSON.stringify({}),
+            statusEffects: JSON.stringify([]),
+            version: 1,
+          });
+          
+          console.log('📋 Create result:', created);
+          if (created.data) {
+            setCharacterState(created.data as CharacterRecord);
+            console.log('✅ Created default character:', created.data.id);
+          } else {
+            console.error('❌ Character creation returned no data. Errors:', JSON.stringify(created.errors, null, 2));
+          }
+        } catch (createError) {
+          console.error('❌ Error during character creation:', createError);
         }
       }
     } catch (error) {
