@@ -125,6 +125,7 @@ interface GameMasterHudProps {
 }
 
 function GameMasterHud({ adventure, questSteps, playerChoices, character }: GameMasterHudProps) {
+  console.log('🎯 GameMasterHud rendering with character:', character);
   const latestStep = questSteps.slice(-1)[0];
   void playerChoices;
   
@@ -268,9 +269,11 @@ function App() {
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [playerChoices, setPlayerChoices] = useState<PlayerChoiceRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
+  const characterCreationLock = useRef(false);
   
   // Helper to get character display data with fallbacks
   const getCharacterData = useCallback(() => {
+    console.log('🔍 getCharacterData called, characterState:', characterState);
     const stats = {
       strength: characterState?.strength || 10,
       dexterity: characterState?.dexterity || 12,
@@ -368,6 +371,7 @@ function App() {
       }
       if (adventure) {
         setAdventureState(adventure);
+        console.log('🎮 Adventure state set:', adventure.id, adventure.title);
       }
       return adventure;
     } catch (error) {
@@ -377,9 +381,16 @@ function App() {
   }, [effectivePersonality]);
 
   const fetchCharacter = useCallback(async (adventureId: string) => {
+    // Prevent duplicate creation with ref-based lock
+    if (characterCreationLock.current) {
+      console.log('⏸️ Character creation already in progress, skipping...');
+      return;
+    }
+    
     try {
+      // Look up character by conversationId instead of adventureId to ensure persistence across refreshes
       const { data } = await dataClient.models.GameMasterCharacter.list({
-        filter: { adventureId: { eq: adventureId } },
+        filter: { conversationId: { eq: conversationId } },
         limit: 1
       });
       
@@ -387,6 +398,7 @@ function App() {
         setCharacterState(data[0] as CharacterRecord);
         console.log('✅ Loaded existing character:', data[0].id);
       } else {
+        characterCreationLock.current = true;
         console.log('📝 Creating default character for adventure:', adventureId);
         try {
           const created = await dataClient.models.GameMasterCharacter.create({
@@ -416,15 +428,19 @@ function App() {
           if (created.data) {
             setCharacterState(created.data as CharacterRecord);
             console.log('✅ Created default character:', created.data.id);
+            console.log('📊 Character data set in state:', created.data);
           } else {
             console.error('❌ Character creation returned no data. Errors:', JSON.stringify(created.errors, null, 2));
           }
         } catch (createError) {
           console.error('❌ Error during character creation:', createError);
+        } finally {
+          characterCreationLock.current = false;
         }
       }
     } catch (error) {
       console.error('❌ Error loading character:', error);
+      characterCreationLock.current = false;
     }
   }, [conversationId]);
 
