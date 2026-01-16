@@ -125,7 +125,6 @@ interface GameMasterHudProps {
 }
 
 function GameMasterHud({ adventure, questSteps, playerChoices, character }: GameMasterHudProps) {
-  console.log('🎯 GameMasterHud rendering with character:', character);
   const latestStep = questSteps.slice(-1)[0];
   void playerChoices;
   
@@ -274,7 +273,6 @@ function App() {
   
   // Helper to get character display data with fallbacks
   const getCharacterData = useCallback(() => {
-    console.log('🔍 getCharacterData called, characterState:', characterState);
     const stats = {
       strength: characterState?.strength || 10,
       dexterity: characterState?.dexterity || 12,
@@ -354,16 +352,13 @@ function App() {
     const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
     if (activeMode !== 'game_master') return null;
     try {
-      console.log('🔍 Looking for existing adventure for conversationId:', convId);
       const { data } = await dataClient.models.GameMasterAdventure.list({
         filter: { conversationId: { eq: convId } },
         limit: 1,
         authMode: 'userPool',
       });
-      console.log('📋 Adventure lookup result:', data);
       let adventure: AdventureRecord | null = data?.[0] ? (data[0] as AdventureRecord) : null;
       if (!adventure) {
-        console.log('📝 No existing adventure found, creating new one for:', convId);
         const created = await dataClient.models.GameMasterAdventure.create({
           conversationId: convId,
           title: 'The Shadowed Forest',
@@ -373,12 +368,9 @@ function App() {
           safetyLevel: 'User Directed',
         });
         adventure = created.data ? (created.data as AdventureRecord) : null;
-      } else {
-        console.log('✅ Found existing adventure:', adventure.id);
       }
       if (adventure) {
         setAdventureState(adventure);
-        console.log('🎮 Adventure state set:', adventure.id, adventure.title);
       }
       return adventure;
     } catch (error) {
@@ -390,30 +382,27 @@ function App() {
   const fetchCharacter = useCallback(async (convId: string) => {
     // Prevent duplicate creation with ref-based lock
     if (characterCreationLock.current) {
-      console.log('⏸️ Character creation already in progress, skipping...');
       return;
     }
     
     try {
-      console.log('🔍 Looking for existing character for conversationId:', convId);
-      // Look up character by conversationId - completely independent of adventure
       const { data, errors } = await dataClient.models.GameMasterCharacter.list({
         filter: { conversationId: { eq: convId } },
         limit: 1,
         authMode: 'userPool',
       });
       
-      console.log('📋 Character lookup result:', data, 'errors:', errors);
+      if (errors && errors.length > 0) {
+        console.error('Error fetching character:', errors);
+      }
       
       if (data && data.length > 0 && data[0]) {
         setCharacterState(data[0] as CharacterRecord);
-        console.log('✅ Loaded existing character:', data[0].id);
-        return; // Early return - character found, don't create
+        return;
       }
       
       // Only create if no character exists for this conversation
       characterCreationLock.current = true;
-      console.log('📝 Creating default character for conversation:', convId);
       try {
         const created = await dataClient.models.GameMasterCharacter.create({
           adventureId: 'placeholder', // Adventure ID doesn't matter anymore
@@ -438,15 +427,12 @@ function App() {
           version: 1,
         });
         
-        console.log('📋 Create result:', created);
         if (created.data) {
           setCharacterState(created.data as CharacterRecord);
-          console.log('✅ Created default character:', created.data.id);
-          console.log('📊 Character data set in state:', created.data);
-          // Small delay to ensure database write propagates before releasing lock
+          // Small delay to ensure database write propagates
           await new Promise(resolve => setTimeout(resolve, 1000));
-        } else {
-          console.error('❌ Character creation returned no data. Errors:', JSON.stringify(created.errors, null, 2));
+        } else if (created.errors) {
+          console.error('Character creation failed:', created.errors);
         }
       } catch (createError) {
         console.error('❌ Error during character creation:', createError);
@@ -462,7 +448,6 @@ function App() {
   const fetchAdventureBundle = useCallback(async (convId: string, modeOverride?: string) => {
     // Prevent duplicate fetches for the same conversation
     if (adventureFetchLock.current === convId) {
-      console.log('⏸️ Adventure bundle fetch already in progress for:', convId);
       return;
     }
     
@@ -618,7 +603,6 @@ function App() {
 
         const attributes = await fetchUserAttributes();
         setUserAttributes(attributes);
-        console.log('👤 Logged-in user:', attributes);
         setIsLoading(false);
       } catch (error) {
         console.error('❌ Error fetching user attributes:', error);
@@ -632,7 +616,6 @@ function App() {
   useEffect(() => {
     if (conversationId) {
       localStorage.setItem('lastConversationId', conversationId);
-      console.log('💾 Saved conversation to localStorage:', conversationId);
     }
   }, [conversationId]);
 
@@ -642,7 +625,6 @@ function App() {
       if (!userAttributes || conversationId) return; // Don't run if already have conversation or no user
       
       try {
-        console.log('🔄 Auto-loading conversation...');
         
         // For test mode, auto-select test conversation or create new one
         const urlParams = new URLSearchParams(window.location.search);
@@ -660,16 +642,13 @@ function App() {
         // Check for last conversation ID in localStorage
         const lastConversationId = localStorage.getItem('lastConversationId');
         if (lastConversationId) {
-          console.log('💾 Found last conversation in localStorage:', lastConversationId);
           try {
             // Verify the conversation still exists
             const { data: conversation } = await dataClient.models.Conversation.get({ id: lastConversationId });
             if (conversation) {
-              console.log('✅ Restoring last conversation');
               await handleSelectConversation(lastConversationId);
               return;
             } else {
-              console.log('⚠️ Last conversation no longer exists, clearing localStorage');
               localStorage.removeItem('lastConversationId');
             }
           } catch (error) {
@@ -690,11 +669,9 @@ function App() {
           });
           
           const mostRecentConversation = sortedConversations[0];
-          console.log('✅ Auto-loaded most recent conversation:', mostRecentConversation.id);
           await handleSelectConversation(mostRecentConversation.id!);
         } else {
           // No conversations exist, create a new one
-          console.log('📝 No conversations found, creating new one...');
           await handleNewConversation();
         }
       } catch (error) {
@@ -1019,7 +996,6 @@ function App() {
         await recordPlayerChoice(savedMessage.id, content);
       }
 
-      console.log('Message saved to backend:', savedMessage);
     } catch (error) {
       console.error('Error sending message to backend:', error);
       setIsWaitingForResponse(false);
@@ -1032,7 +1008,6 @@ function App() {
 
     // If no conversation exists, create one first
     if (!conversationId) {
-      console.log('🔄 No conversation exists, creating one...');
       await handleNewConversation();
       // Wait a bit for the conversation to be created
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -1097,7 +1072,6 @@ function App() {
           setPlayerChoices([]);
           setCharacterState(null);
         }
-        console.log('📌 Loaded personality mode:', normalizedMode);
       }
       
       const { data: conversationMessages } = await dataClient.models.Message.list({
@@ -1139,7 +1113,6 @@ function App() {
         } else {
           // This message has no response yet - mark as pending
           hasPendingMessage = true;
-          console.log('⏳ Found pending message:', msg.id);
         }
       });
       
@@ -1153,7 +1126,6 @@ function App() {
       
       // Set waiting state based on whether there's a pending message
       if (hasPendingMessage) {
-        console.log('🔒 Blocking input - pending message detected after load');
         setIsWaitingForResponse(true);
       } else {
         setIsWaitingForResponse(false);
