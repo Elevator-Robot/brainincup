@@ -99,9 +99,14 @@ const schema = a.schema({
     // Versioning for optimistic locking
     version: a.integer().default(1),
     
+    owner: a.string(),
     createdAt: a.date(),
     updatedAt: a.date(),
-  }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
+  }).authorization(allow => [
+    allow.owner(),
+    allow.authenticated().to(['read']),
+    allow.groups(['Admins'])
+  ]),
 
   GameMasterQuestStep: a.model({
     id: a.id(),

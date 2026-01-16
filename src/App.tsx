@@ -7,6 +7,7 @@ import BrainIcon from './components/BrainIcon';
 import PersonalityIndicator from './components/PersonalityIndicator';
 import InstallPrompt from './components/InstallPrompt';
 import WipBanner from './components/WipBanner';
+import CharacterCreation from './components/CharacterCreation';
 import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import { featureFlags } from './featureFlags';
@@ -122,36 +123,51 @@ interface GameMasterHudProps {
   questSteps: HudQuestStep[];
   playerChoices: HudPlayerChoice[];
   character: CharacterRecord | null;
+  isLoadingCharacter?: boolean;
 }
 
-function GameMasterHud({ adventure, questSteps, playerChoices, character }: GameMasterHudProps) {
+function GameMasterHud({ adventure, questSteps, playerChoices, character, isLoadingCharacter }: GameMasterHudProps) {
   const latestStep = questSteps.slice(-1)[0];
   void playerChoices;
   
-  // Use character data from database or fallback to defaults
-  const characterName = character?.name || 'Adventurer';
-  const characterLevel = character?.level || 1;
+  // Don't show placeholder data while loading
+  if (isLoadingCharacter || !character) {
+    return (
+      <div className="animate-slide-up w-full space-y-6">
+        <div className="w-full p-5 rounded-lg">
+          <div className="flex flex-col gap-4 animate-pulse">
+            <div className="h-6 bg-brand-surface-hover rounded w-3/4"></div>
+            <div className="h-4 bg-brand-surface-hover rounded w-1/2"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Use character data from database
+  const characterName = character.name;
+  const characterLevel = character.level;
   const characterHP = {
-    current: character?.currentHP || 12,
-    max: character?.maxHP || 12,
+    current: character.currentHP,
+    max: character.maxHP,
   };
   const stats = {
-    strength: character?.strength || 10,
-    dexterity: character?.dexterity || 12,
-    constitution: character?.constitution || 14,
-    intelligence: character?.intelligence || 16,
-    wisdom: character?.wisdom || 13,
-    charisma: character?.charisma || 11,
+    strength: character.strength,
+    dexterity: character.dexterity,
+    constitution: character.constitution,
+    intelligence: character.intelligence,
+    wisdom: character.wisdom,
+    charisma: character.charisma,
   };
   
   // Parse inventory JSON string to array
-  let inventory: string[] = ['Rusty Sword', 'Leather Armor', '5 Gold'];
-  if (character?.inventory) {
+  let inventory: string[] = [];
+  if (character.inventory) {
     try {
       const parsed = typeof character.inventory === 'string' 
         ? JSON.parse(character.inventory) 
         : character.inventory;
-      inventory = Array.isArray(parsed) ? parsed : inventory;
+      inventory = Array.isArray(parsed) ? parsed : [];
     } catch (e) {
       console.error('Failed to parse inventory:', e);
     }
@@ -268,6 +284,8 @@ function App() {
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [playerChoices, setPlayerChoices] = useState<PlayerChoiceRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
+  const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
+  const [showCharacterCreation, setShowCharacterCreation] = useState(false);
   const characterCreationLock = useRef(false);
   const adventureFetchLock = useRef<string | null>(null);
   
@@ -379,68 +397,143 @@ function App() {
     }
   }, [effectivePersonality]);
 
-  const fetchCharacter = useCallback(async (convId: string) => {
+  const fetchCharacter = useCallback(async (convId: string, retryCount = 0) => {
     // Prevent duplicate creation with ref-based lock
     if (characterCreationLock.current) {
+      console.log('⏸️ Character fetch already in progress');
       return;
     }
     
+    setIsLoadingCharacter(true);
+    
     try {
-      const { data, errors } = await dataClient.models.GameMasterCharacter.list({
-        filter: { conversationId: { eq: convId } },
-        limit: 1,
-        authMode: 'userPool',
-      });
+      console.log('🔍 Fetching character for conversation:', convId, 'retry:', retryCount);
+      
+      // WORKAROUND: Fetch all characters and filter client-side
+      // This bypasses Amplify's broken filter authorization
+      let data, errors;
+      try {
+        const result = await dataClient.models.GameMasterCharacter.list({
+          limit: 1000, // Get all characters
+          authMode: 'userPool',
+        });
+        data = result.data;
+        errors = result.errors;
+        
+        // Filter client-side for the specific conversationId
+        if (data) {
+          data = data.filter(char => char.conversationId === convId);
+          console.log('🔍 After client-side filter:', data.length, 'characters match conversationId');
+        }
+      } catch (authError) {
+        console.log('userPool auth failed, trying without authMode');
+        const result = await dataClient.models.GameMasterCharacter.list({
+          limit: 1000,
+        });
+        data = result.data;
+        errors = result.errors;
+        
+        // Filter client-side
+        if (data) {
+          data = data.filter(char => char.conversationId === convId);
+          console.log('🔍 After client-side filter:', data.length, 'characters match conversationId');
+        }
+      }
       
       if (errors && errors.length > 0) {
         console.error('Error fetching character:', errors);
       }
       
+      console.log('📋 Character fetch result:', data?.length, 'characters found', data);
+      
       if (data && data.length > 0 && data[0]) {
+        console.log('✅ Character exists, loading:', data[0].id);
         setCharacterState(data[0] as CharacterRecord);
+        setShowCharacterCreation(false);
+        setIsLoadingCharacter(false);
         return;
       }
       
-      // Only create if no character exists for this conversation
-      characterCreationLock.current = true;
-      try {
-        const created = await dataClient.models.GameMasterCharacter.create({
-          adventureId: 'placeholder', // Adventure ID doesn't matter anymore
-          conversationId: convId,
-          name: 'Adventurer',
-          race: 'Human',
-          characterClass: 'Wanderer',
-          level: 1,
-          experience: 0,
-          strength: 10,
-          dexterity: 12,
-          constitution: 14,
-          intelligence: 16,
-          wisdom: 13,
-          charisma: 11,
-          maxHP: 12,
-          currentHP: 12,
-          armorClass: 10,
-          inventory: JSON.stringify(['Rusty Sword', 'Leather Armor', '5 Gold']),
-          skills: JSON.stringify({}),
-          statusEffects: JSON.stringify([]),
-          version: 1,
-        });
-        
-        if (created.data) {
-          setCharacterState(created.data as CharacterRecord);
-          // Small delay to ensure database write propagates
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } else if (created.errors) {
-          console.error('Character creation failed:', created.errors);
-        }
-      } catch (createError) {
-        console.error('❌ Error during character creation:', createError);
-      } finally {
-        characterCreationLock.current = false;
+      // Retry up to 2 times with delay if no character found (database propagation)
+      if (retryCount < 2) {
+        console.log('⏳ Retrying character fetch in 1 second...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return fetchCharacter(convId, retryCount + 1);
       }
+      
+      // No character exists after retries - show character creation modal
+      console.log('📝 No character found after retries - showing creation modal');
+      setIsLoadingCharacter(false);
+      setShowCharacterCreation(true);
     } catch (error) {
       console.error('❌ Error loading character:', error);
+      setIsLoadingCharacter(false);
+      characterCreationLock.current = false;
+    }
+  }, []);
+
+  const createCharacter = useCallback(async (convId: string, characterData: {
+    name: string;
+    race: string;
+    characterClass: string;
+    strength?: number;
+    dexterity?: number;
+    constitution?: number;
+    intelligence?: number;
+    wisdom?: number;
+    charisma?: number;
+  }) => {
+    if (characterCreationLock.current) {
+      return;
+    }
+    
+    characterCreationLock.current = true;
+    
+    try {
+      const created = await dataClient.models.GameMasterCharacter.create({
+        adventureId: 'placeholder',
+        conversationId: convId,
+        name: characterData.name,
+        race: characterData.race,
+        characterClass: characterData.characterClass,
+        level: 1,
+        experience: 0,
+        strength: characterData.strength || 10,
+        dexterity: characterData.dexterity || 12,
+        constitution: characterData.constitution || 14,
+        intelligence: characterData.intelligence || 16,
+        wisdom: characterData.wisdom || 13,
+        charisma: characterData.charisma || 11,
+        maxHP: 12,
+        currentHP: 12,
+        armorClass: 10,
+        inventory: JSON.stringify(['Rusty Sword', 'Leather Armor', '5 Gold']),
+        skills: JSON.stringify({}),
+        statusEffects: JSON.stringify([]),
+        version: 1,
+      });
+      
+      console.log('💾 Character create result:', created);
+      console.log('💾 Saved character with conversationId:', convId);
+      
+      if (created.data) {
+        console.log('💾 Character saved to DB:', {
+          id: created.data.id,
+          conversationId: created.data.conversationId,
+          name: created.data.name,
+        });
+        setCharacterState(created.data as CharacterRecord);
+        setShowCharacterCreation(false);
+        // Small delay to ensure database write propagates
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } else if (created.errors) {
+        console.error('Character creation failed:', created.errors);
+        throw new Error('Failed to create character');
+      }
+    } catch (createError) {
+      console.error('❌ Error during character creation:', createError);
+      throw createError;
+    } finally {
       characterCreationLock.current = false;
     }
   }, []);
@@ -1450,6 +1543,7 @@ function App() {
                         questSteps={hudQuestSteps}
                         playerChoices={hudPlayerChoices}
                         character={characterState}
+                        isLoadingCharacter={isLoadingCharacter}
                       />
                     </div>
                   )}
@@ -1718,6 +1812,7 @@ function App() {
                   questSteps={hudQuestSteps}
                   playerChoices={hudPlayerChoices}
                   character={characterState}
+                  isLoadingCharacter={isLoadingCharacter}
                 />
               )}
             </div>
@@ -1852,7 +1947,7 @@ function App() {
                   </button>
 
                   {/* Expanded Character Sheet Content */}
-                  {mobileCharSheetExpanded && adventureState && (() => {
+                  {mobileCharSheetExpanded && adventureState && !isLoadingCharacter && characterState && (() => {
                     const charData = getCharacterData();
                     return (
                     <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
@@ -2219,6 +2314,25 @@ function App() {
 
       {/* WIP Banner - only show for Game Master mode when feature flag is enabled */}
       {featureFlags.showGameMasterWIPBanner && effectivePersonality === 'game_master' && <WipBanner />}
+
+      {/* Character Creation Modal */}
+      {showCharacterCreation && conversationId && effectivePersonality === 'game_master' && (
+        <CharacterCreation
+          onComplete={(characterData) => {
+            console.log('✨ Character created:', characterData);
+            createCharacter(conversationId, characterData);
+          }}
+          onCancel={() => {
+            console.log('❌ Character creation cancelled, using defaults');
+            // If user cancels, set a default character
+            createCharacter(conversationId, {
+              name: 'Adventurer',
+              race: 'Human',
+              characterClass: 'Wanderer',
+            });
+          }}
+        />
+      )}
 
     </div>
   );
