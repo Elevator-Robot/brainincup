@@ -1,22 +1,24 @@
 import { useState } from 'react';
+import { calculateFinalStats, getAllRaces, getAllClasses } from '../game';
 
 interface CharacterCreationProps {
   onComplete: (character: {
     name: string;
     race: string;
     characterClass: string;
-    strength?: number;
-    dexterity?: number;
-    constitution?: number;
-    intelligence?: number;
-    wisdom?: number;
-    charisma?: number;
+    strength: number;
+    dexterity: number;
+    constitution: number;
+    intelligence: number;
+    wisdom: number;
+    charisma: number;
   }) => void;
   onCancel?: () => void;
 }
 
-const races = ['Human', 'Elf', 'Dwarf', 'Halfling', 'Dragonborn', 'Gnome', 'Half-Elf', 'Half-Orc', 'Tiefling'];
-const classes = ['Fighter', 'Wizard', 'Rogue', 'Cleric', 'Ranger', 'Paladin', 'Barbarian', 'Bard', 'Druid', 'Monk', 'Sorcerer', 'Warlock', 'Wanderer'];
+// Get races and classes from game framework
+const races = getAllRaces().map(r => r.name);
+const classes = getAllClasses().map(c => c.name);
 
 export default function CharacterCreation({ onComplete, onCancel }: CharacterCreationProps) {
   const [name, setName] = useState('');
@@ -37,16 +39,17 @@ export default function CharacterCreation({ onComplete, onCancel }: CharacterCre
       return;
     }
     
+    // Calculate stats using game framework
+    const raceId = race.toLowerCase().replace('-', '');
+    const classId = characterClass.toLowerCase();
+    
+    const finalStats = calculateFinalStats(classId, raceId);
+    
     onComplete({
       name: name.trim(),
       race,
       characterClass,
-      strength: 10,
-      dexterity: 12,
-      constitution: 14,
-      intelligence: 16,
-      wisdom: 13,
-      charisma: 11,
+      ...finalStats,
     });
   };
 

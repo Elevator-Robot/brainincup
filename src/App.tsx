@@ -471,12 +471,12 @@ function App() {
     name: string;
     race: string;
     characterClass: string;
-    strength?: number;
-    dexterity?: number;
-    constitution?: number;
-    intelligence?: number;
-    wisdom?: number;
-    charisma?: number;
+    strength: number;
+    dexterity: number;
+    constitution: number;
+    intelligence: number;
+    wisdom: number;
+    charisma: number;
   }) => {
     if (characterCreationLock.current) {
       return;
@@ -485,6 +485,22 @@ function App() {
     characterCreationLock.current = true;
     
     try {
+      // Calculate derived stats using game framework
+      const { calculateDerivedStats, getClass } = await import('./game');
+      const classId = characterData.characterClass.toLowerCase();
+      const classData = getClass(classId);
+      
+      const derivedStats = calculateDerivedStats({
+        strength: characterData.strength,
+        dexterity: characterData.dexterity,
+        constitution: characterData.constitution,
+        intelligence: characterData.intelligence,
+        wisdom: characterData.wisdom,
+        charisma: characterData.charisma,
+      }, classId, 1);
+      
+      const startingEquipment = classData?.startingEquipment || ['Rusty Sword', 'Leather Armor', '5 Gold'];
+      
       const created = await dataClient.models.GameMasterCharacter.create({
         adventureId: 'placeholder',
         conversationId: convId,
@@ -493,16 +509,16 @@ function App() {
         characterClass: characterData.characterClass,
         level: 1,
         experience: 0,
-        strength: characterData.strength || 10,
-        dexterity: characterData.dexterity || 12,
-        constitution: characterData.constitution || 14,
-        intelligence: characterData.intelligence || 16,
-        wisdom: characterData.wisdom || 13,
-        charisma: characterData.charisma || 11,
-        maxHP: 12,
-        currentHP: 12,
-        armorClass: 10,
-        inventory: JSON.stringify(['Rusty Sword', 'Leather Armor', '5 Gold']),
+        strength: characterData.strength,
+        dexterity: characterData.dexterity,
+        constitution: characterData.constitution,
+        intelligence: characterData.intelligence,
+        wisdom: characterData.wisdom,
+        charisma: characterData.charisma,
+        maxHP: derivedStats.maxHP,
+        currentHP: derivedStats.maxHP,
+        armorClass: derivedStats.armorClass,
+        inventory: JSON.stringify(startingEquipment),
         skills: JSON.stringify({}),
         statusEffects: JSON.stringify([]),
         version: 1,
@@ -2319,11 +2335,15 @@ function App() {
           }}
           onCancel={() => {
             console.log('❌ Character creation cancelled, using defaults');
-            // If user cancels, set a default character
-            createCharacter(conversationId, {
-              name: 'Adventurer',
-              race: 'Human',
-              characterClass: 'Wanderer',
+            // If user cancels, create default character with calculated stats
+            import('./game').then(({ calculateFinalStats }) => {
+              const stats = calculateFinalStats('wanderer', 'human');
+              createCharacter(conversationId, {
+                name: 'Adventurer',
+                race: 'Human',
+                characterClass: 'Wanderer',
+                ...stats,
+              });
             });
           }}
         />
