@@ -395,15 +395,12 @@ function App() {
   const fetchCharacter = useCallback(async (convId: string, retryCount = 0) => {
     // Prevent duplicate creation with ref-based lock
     if (characterCreationLock.current) {
-      console.log('⏸️ Character fetch already in progress');
       return;
     }
     
     setIsLoadingCharacter(true);
     
     try {
-      console.log('🔍 Fetching character for conversation:', convId, 'retry:', retryCount);
-      
       // WORKAROUND: Fetch all characters and filter client-side
       // This bypasses Amplify's broken filter authorization
       let data, errors;
@@ -418,10 +415,8 @@ function App() {
         // Filter client-side for the specific conversationId
         if (data) {
           data = data.filter(char => char.conversationId === convId);
-          console.log('🔍 After client-side filter:', data.length, 'characters match conversationId');
         }
       } catch (authError) {
-        console.log('userPool auth failed, trying without authMode');
         const result = await dataClient.models.GameMasterCharacter.list({
           limit: 1000,
         });
@@ -431,7 +426,6 @@ function App() {
         // Filter client-side
         if (data) {
           data = data.filter(char => char.conversationId === convId);
-          console.log('🔍 After client-side filter:', data.length, 'characters match conversationId');
         }
       }
       
@@ -439,10 +433,7 @@ function App() {
         console.error('Error fetching character:', errors);
       }
       
-      console.log('📋 Character fetch result:', data?.length, 'characters found', data);
-      
       if (data && data.length > 0 && data[0]) {
-        console.log('✅ Character exists, loading:', data[0].id);
         setCharacterState(data[0] as CharacterRecord);
         setShowCharacterCreation(false);
         setIsLoadingCharacter(false);
@@ -451,13 +442,11 @@ function App() {
       
       // Retry up to 2 times with delay if no character found (database propagation)
       if (retryCount < 2) {
-        console.log('⏳ Retrying character fetch in 1 second...');
         await new Promise(resolve => setTimeout(resolve, 1000));
         return fetchCharacter(convId, retryCount + 1);
       }
       
       // No character exists after retries - show character creation modal
-      console.log('📝 No character found after retries - showing creation modal');
       setIsLoadingCharacter(false);
       setShowCharacterCreation(true);
     } catch (error) {
@@ -524,15 +513,7 @@ function App() {
         version: 1,
       });
       
-      console.log('💾 Character create result:', created);
-      console.log('💾 Saved character with conversationId:', convId);
-      
       if (created.data) {
-        console.log('💾 Character saved to DB:', {
-          id: created.data.id,
-          conversationId: created.data.conversationId,
-          name: created.data.name,
-        });
         setCharacterState(created.data as CharacterRecord);
         setShowCharacterCreation(false);
         // Small delay to ensure database write propagates
@@ -542,7 +523,7 @@ function App() {
         throw new Error('Failed to create character');
       }
     } catch (createError) {
-      console.error('❌ Error during character creation:', createError);
+      console.error('Error during character creation:', createError);
       throw createError;
     } finally {
       characterCreationLock.current = false;
@@ -2330,11 +2311,9 @@ function App() {
       {showCharacterCreation && conversationId && effectivePersonality === 'game_master' && (
         <CharacterCreation
           onComplete={(characterData) => {
-            console.log('✨ Character created:', characterData);
             createCharacter(conversationId, characterData);
           }}
           onCancel={() => {
-            console.log('❌ Character creation cancelled, using defaults');
             // If user cancels, create default character with calculated stats
             import('./game').then(({ calculateFinalStats }) => {
               const stats = calculateFinalStats('wanderer', 'human');
