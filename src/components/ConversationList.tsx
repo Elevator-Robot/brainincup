@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type React from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
@@ -23,8 +23,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
-  const [deleteHotId, setDeleteHotId] = useState<string | null>(null);
-  const deleteHotTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [modeFilter, setModeFilter] = useState<PersonalityModeId | null>(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -109,16 +107,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
     loadConversations();
   }, [loadConversations, refreshKey]);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (deleteHotTimeoutRef.current) {
-        clearTimeout(deleteHotTimeoutRef.current);
-      }
-    };
-  }, []);
-
-
   const handleTitleEdit = (conversationId: string, currentTitle: string) => {
     setEditingId(conversationId);
     setEditingTitle(currentTitle || 'Untitled Interaction');
@@ -198,32 +186,8 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
     }
   };
 
-  const handleDeleteClick = (conversationId: string) => {
-    // First click: activate hot state
-    if (deleteHotId !== conversationId) {
-      setDeleteHotId(conversationId);
-      
-      // Clear any existing timeout
-      if (deleteHotTimeoutRef.current) {
-        clearTimeout(deleteHotTimeoutRef.current);
-      }
-      
-      // Set timeout to cool down after 3 seconds
-      deleteHotTimeoutRef.current = setTimeout(() => {
-        setDeleteHotId(null);
-      }, 3000);
-    } else {
-      // Second click while hot: execute delete
-      handleDeleteExecute(conversationId);
-    }
-  };
 
   const handleDeleteExecute = async (conversationId: string) => {
-    // Clear hot state and timeout
-    setDeleteHotId(null);
-    if (deleteHotTimeoutRef.current) {
-      clearTimeout(deleteHotTimeoutRef.current);
-    }
     try {
       if (onDeleteConversation) {
         await onDeleteConversation(conversationId);

@@ -146,11 +146,6 @@ function GameMasterHud({ adventure, questSteps, playerChoices, character, isLoad
   
   // Use character data from database
   const characterName = character.name;
-  const characterLevel = character.level;
-  const characterHP = {
-    current: character.currentHP,
-    max: character.maxHP,
-  };
   const stats = {
     strength: character.strength,
     dexterity: character.dexterity,
