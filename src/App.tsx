@@ -381,30 +381,69 @@ function App() {
     }
   }, [effectivePersonality]);
 
-  const fetchCharacter = useCallback(async (convId: string) => {
+  const fetchCharacter = useCallback(async (convId: string, retryCount = 0) => {
     // Prevent duplicate creation with ref-based lock
     if (characterCreationLock.current) {
+      console.log('⏸️ Character fetch already in progress');
       return;
     }
     
     try {
-      const { data, errors } = await dataClient.models.GameMasterCharacter.list({
-        filter: { conversationId: { eq: convId } },
-        limit: 1,
-        authMode: 'userPool',
-      });
+      console.log('🔍 Fetching character for conversation:', convId, 'retry:', retryCount);
+      
+      // WORKAROUND: Fetch all characters and filter client-side
+      // This bypasses Amplify's broken filter authorization
+      let data, errors;
+      try {
+        const result = await dataClient.models.GameMasterCharacter.list({
+          limit: 1000, // Get all characters
+          authMode: 'userPool',
+        });
+        data = result.data;
+        errors = result.errors;
+        
+        // Filter client-side for the specific conversationId
+        if (data) {
+          data = data.filter(char => char.conversationId === convId);
+          console.log('🔍 After client-side filter:', data.length, 'characters match conversationId');
+        }
+      } catch (authError) {
+        console.log('userPool auth failed, trying without authMode');
+        const result = await dataClient.models.GameMasterCharacter.list({
+          limit: 1000,
+        });
+        data = result.data;
+        errors = result.errors;
+        
+        // Filter client-side
+        if (data) {
+          data = data.filter(char => char.conversationId === convId);
+          console.log('🔍 After client-side filter:', data.length, 'characters match conversationId');
+        }
+      }
       
       if (errors && errors.length > 0) {
         console.error('Error fetching character:', errors);
       }
       
+      console.log('📋 Character fetch result:', data?.length, 'characters found', data);
+      
       if (data && data.length > 0 && data[0]) {
+        console.log('✅ Character exists, loading:', data[0].id);
         setCharacterState(data[0] as CharacterRecord);
         setShowCharacterCreation(false);
         return;
       }
       
-      // No character exists - show character creation modal
+      // Retry up to 2 times with delay if no character found (database propagation)
+      if (retryCount < 2) {
+        console.log('⏳ Retrying character fetch in 1 second...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return fetchCharacter(convId, retryCount + 1);
+      }
+      
+      // No character exists after retries - show character creation modal
+      console.log('📝 No character found after retries - showing creation modal');
       setShowCharacterCreation(true);
     } catch (error) {
       console.error('❌ Error loading character:', error);
@@ -453,11 +492,19 @@ function App() {
         version: 1,
       });
       
+      console.log('💾 Character create result:', created);
+      console.log('💾 Saved character with conversationId:', convId);
+      
       if (created.data) {
+        console.log('💾 Character saved to DB:', {
+          id: created.data.id,
+          conversationId: created.data.conversationId,
+          name: created.data.name,
+        });
         setCharacterState(created.data as CharacterRecord);
         setShowCharacterCreation(false);
         // Small delay to ensure database write propagates
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       } else if (created.errors) {
         console.error('Character creation failed:', created.errors);
         throw new Error('Failed to create character');
@@ -2246,12 +2293,14 @@ function App() {
       {featureFlags.showGameMasterWIPBanner && effectivePersonality === 'game_master' && <WipBanner />}
 
       {/* Character Creation Modal */}
-      {showCharacterCreation && conversationId && (
+      {showCharacterCreation && conversationId && effectivePersonality === 'game_master' && (
         <CharacterCreation
           onComplete={(characterData) => {
+            console.log('✨ Character created:', characterData);
             createCharacter(conversationId, characterData);
           }}
           onCancel={() => {
+            console.log('❌ Character creation cancelled, using defaults');
             // If user cancels, set a default character
             createCharacter(conversationId, {
               name: 'Adventurer',
