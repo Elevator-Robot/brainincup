@@ -26,6 +26,8 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
   const [deleteHotId, setDeleteHotId] = useState<string | null>(null);
   const deleteHotTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [modeFilter, setModeFilter] = useState<PersonalityModeId | null>(null);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const newConversationDisabled = Boolean(disableNewConversation);
 
   const loadConversations = useCallback(async () => {
@@ -340,18 +342,48 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
             <div
               role="button"
               tabIndex={0}
-              title="Double-click to rename"
-              onClick={() => conversation.id && onSelectConversation(conversation.id)}
-              onDoubleClick={(event) => {
-                event.stopPropagation();
-                if (conversation.id) {
-                  handleTitleEdit(conversation.id, conversationTitle);
+              title={isSelectMode ? "Select conversation" : "Click to open"}
+              onClick={() => {
+                if (!conversation.id) return;
+                
+                if (isSelectMode) {
+                  // Toggle selection
+                  const newSelected = new Set(selectedIds);
+                  if (newSelected.has(conversation.id)) {
+                    newSelected.delete(conversation.id);
+                  } else {
+                    newSelected.add(conversation.id);
+                  }
+                  setSelectedIds(newSelected);
+                } else {
+                  onSelectConversation(conversation.id);
                 }
               }}
               onKeyDown={(event) => conversation.id && handleConversationKeyPress(event, conversation.id)}
               className="group relative w-full text-left rounded-3xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50"
             >
               <div className="relative flex items-start gap-3 px-6 py-5">
+                {/* Checkbox in select mode */}
+                {isSelectMode && conversation.id && (
+                  <div className="flex items-center pt-1">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(conversation.id)}
+                      onChange={() => {
+                        const newSelected = new Set(selectedIds);
+                        if (newSelected.has(conversation.id!)) {
+                          newSelected.delete(conversation.id!);
+                        } else {
+                          newSelected.add(conversation.id!);
+                        }
+                        setSelectedIds(newSelected);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-5 h-5 rounded border-2 border-white/30 bg-white/5 checked:bg-brand-accent-primary checked:border-brand-accent-primary focus:ring-2 focus:ring-brand-accent-primary/50 cursor-pointer transition-all"
+                    />
+                  </div>
+                )}
+                
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex items-start gap-3">
                     <p
@@ -383,26 +415,42 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 ml-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteClick(conversation.id!);
-                    }}
-                    className={`p-2 rounded-xl border transition-all duration-200 backdrop-blur-sm ${
-                      deleteHotId === conversation.id
-                        ? 'border-brand-status-error bg-brand-status-error/20 text-brand-status-error shadow-lg shadow-brand-status-error/50 animate-pulse'
-                        : 'border-white/10 bg-white/5 text-brand-text-muted hover:text-brand-status-error hover:border-brand-status-error/50'
-                    }`}
-                    title={deleteHotId === conversation.id ? "Click again to delete" : "Delete interaction"}
-                    aria-label="Delete interaction"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
+                {!isSelectMode && (
+                  <div className="flex items-center gap-2 ml-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (conversation.id) {
+                          handleTitleEdit(conversation.id, conversationTitle);
+                        }
+                      }}
+                      className="p-2 rounded-xl border border-white/10 bg-white/5 text-brand-text-muted hover:text-brand-accent-primary hover:border-brand-accent-primary/50 transition-all duration-200 backdrop-blur-sm"
+                      title="Rename interaction"
+                      aria-label="Rename interaction"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (conversation.id && window.confirm('Delete this interaction?')) {
+                          handleDeleteExecute(conversation.id);
+                        }
+                      }}
+                      className="p-2 rounded-xl border border-white/10 bg-white/5 text-brand-text-muted hover:text-brand-status-error hover:border-brand-status-error/50 transition-all duration-200 backdrop-blur-sm"
+                      title="Delete interaction"
+                      aria-label="Delete interaction"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -414,7 +462,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
   return (
     <div className="p-6 space-y-6">
       {onNewConversation && (
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center gap-3">
           <button
             type="button"
             onClick={onNewConversation}
@@ -423,6 +471,52 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
           >
             New Interaction
           </button>
+          
+          {!isSelectMode ? (
+            <button
+              type="button"
+              onClick={() => {
+                setIsSelectMode(true);
+                setSelectedIds(new Set());
+              }}
+              className="inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold tracking-[0.25em] uppercase text-white/70 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-accent-primary/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/30"
+            >
+              Select
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (window.confirm(`Delete ${selectedIds.size} interaction${selectedIds.size > 1 ? 's' : ''}?`)) {
+                      for (const id of Array.from(selectedIds)) {
+                        if (onDeleteConversation) {
+                          await onDeleteConversation(id);
+                        }
+                      }
+                      setSelectedIds(new Set());
+                      setIsSelectMode(false);
+                      loadConversations();
+                    }
+                  }}
+                  className="inline-flex items-center rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-1.5 text-xs font-semibold tracking-[0.25em] uppercase text-red-400 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-red-500/60 hover:bg-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
+                >
+                  Delete ({selectedIds.size})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSelectMode(false);
+                  setSelectedIds(new Set());
+                }}
+                className="inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold tracking-[0.25em] uppercase text-white/70 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-accent-primary/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/30"
+              >
+                Done
+              </button>
+            </div>
+          )}
         </div>
       )}
 
