@@ -123,36 +123,51 @@ interface GameMasterHudProps {
   questSteps: HudQuestStep[];
   playerChoices: HudPlayerChoice[];
   character: CharacterRecord | null;
+  isLoadingCharacter?: boolean;
 }
 
-function GameMasterHud({ adventure, questSteps, playerChoices, character }: GameMasterHudProps) {
+function GameMasterHud({ adventure, questSteps, playerChoices, character, isLoadingCharacter }: GameMasterHudProps) {
   const latestStep = questSteps.slice(-1)[0];
   void playerChoices;
   
-  // Use character data from database or fallback to defaults
-  const characterName = character?.name || 'Adventurer';
-  const characterLevel = character?.level || 1;
+  // Don't show placeholder data while loading
+  if (isLoadingCharacter || !character) {
+    return (
+      <div className="animate-slide-up w-full space-y-6">
+        <div className="w-full p-5 rounded-lg">
+          <div className="flex flex-col gap-4 animate-pulse">
+            <div className="h-6 bg-brand-surface-hover rounded w-3/4"></div>
+            <div className="h-4 bg-brand-surface-hover rounded w-1/2"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Use character data from database
+  const characterName = character.name;
+  const characterLevel = character.level;
   const characterHP = {
-    current: character?.currentHP || 12,
-    max: character?.maxHP || 12,
+    current: character.currentHP,
+    max: character.maxHP,
   };
   const stats = {
-    strength: character?.strength || 10,
-    dexterity: character?.dexterity || 12,
-    constitution: character?.constitution || 14,
-    intelligence: character?.intelligence || 16,
-    wisdom: character?.wisdom || 13,
-    charisma: character?.charisma || 11,
+    strength: character.strength,
+    dexterity: character.dexterity,
+    constitution: character.constitution,
+    intelligence: character.intelligence,
+    wisdom: character.wisdom,
+    charisma: character.charisma,
   };
   
   // Parse inventory JSON string to array
-  let inventory: string[] = ['Rusty Sword', 'Leather Armor', '5 Gold'];
-  if (character?.inventory) {
+  let inventory: string[] = [];
+  if (character.inventory) {
     try {
       const parsed = typeof character.inventory === 'string' 
         ? JSON.parse(character.inventory) 
         : character.inventory;
-      inventory = Array.isArray(parsed) ? parsed : inventory;
+      inventory = Array.isArray(parsed) ? parsed : [];
     } catch (e) {
       console.error('Failed to parse inventory:', e);
     }
@@ -269,6 +284,7 @@ function App() {
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [playerChoices, setPlayerChoices] = useState<PlayerChoiceRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
+  const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
   const [showCharacterCreation, setShowCharacterCreation] = useState(false);
   const characterCreationLock = useRef(false);
   const adventureFetchLock = useRef<string | null>(null);
@@ -388,6 +404,8 @@ function App() {
       return;
     }
     
+    setIsLoadingCharacter(true);
+    
     try {
       console.log('🔍 Fetching character for conversation:', convId, 'retry:', retryCount);
       
@@ -432,6 +450,7 @@ function App() {
         console.log('✅ Character exists, loading:', data[0].id);
         setCharacterState(data[0] as CharacterRecord);
         setShowCharacterCreation(false);
+        setIsLoadingCharacter(false);
         return;
       }
       
@@ -444,9 +463,11 @@ function App() {
       
       // No character exists after retries - show character creation modal
       console.log('📝 No character found after retries - showing creation modal');
+      setIsLoadingCharacter(false);
       setShowCharacterCreation(true);
     } catch (error) {
       console.error('❌ Error loading character:', error);
+      setIsLoadingCharacter(false);
       characterCreationLock.current = false;
     }
   }, []);
@@ -1522,6 +1543,7 @@ function App() {
                         questSteps={hudQuestSteps}
                         playerChoices={hudPlayerChoices}
                         character={characterState}
+                        isLoadingCharacter={isLoadingCharacter}
                       />
                     </div>
                   )}
@@ -1790,6 +1812,7 @@ function App() {
                   questSteps={hudQuestSteps}
                   playerChoices={hudPlayerChoices}
                   character={characterState}
+                  isLoadingCharacter={isLoadingCharacter}
                 />
               )}
             </div>
@@ -1924,7 +1947,7 @@ function App() {
                   </button>
 
                   {/* Expanded Character Sheet Content */}
-                  {mobileCharSheetExpanded && adventureState && (() => {
+                  {mobileCharSheetExpanded && adventureState && !isLoadingCharacter && characterState && (() => {
                     const charData = getCharacterData();
                     return (
                     <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
