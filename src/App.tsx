@@ -130,6 +130,11 @@ function GameMasterHud({ adventure, questSteps, playerChoices, character }: Game
   
   // Use character data from database or fallback to defaults
   const characterName = character?.name || 'Adventurer';
+  const characterLevel = character?.level || 1;
+  const characterHP = {
+    current: character?.currentHP || 12,
+    max: character?.maxHP || 12,
+  };
   const stats = {
     strength: character?.strength || 10,
     dexterity: character?.dexterity || 12,
@@ -263,6 +268,46 @@ function App() {
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [playerChoices, setPlayerChoices] = useState<PlayerChoiceRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
+  const characterCreationLock = useRef(false);
+  const adventureFetchLock = useRef<string | null>(null);
+  
+  // Helper to get character display data with fallbacks
+  const getCharacterData = useCallback(() => {
+    const stats = {
+      strength: characterState?.strength || 10,
+      dexterity: characterState?.dexterity || 12,
+      constitution: characterState?.constitution || 14,
+      intelligence: characterState?.intelligence || 16,
+      wisdom: characterState?.wisdom || 13,
+      charisma: characterState?.charisma || 11,
+    };
+    
+    const hp = {
+      current: characterState?.currentHP || 12,
+      max: characterState?.maxHP || 12,
+      percentage: ((characterState?.currentHP || 12) / (characterState?.maxHP || 12)) * 100,
+    };
+    
+    let inventory: string[] = ['Rusty Sword', 'Leather Armor', '5 Gold'];
+    if (characterState?.inventory) {
+      try {
+        const parsed = typeof characterState.inventory === 'string' 
+          ? JSON.parse(characterState.inventory) 
+          : characterState.inventory;
+        inventory = Array.isArray(parsed) ? parsed : inventory;
+      } catch (e) {
+        console.error('Failed to parse inventory:', e);
+      }
+    }
+    
+    return {
+      name: characterState?.name || 'Adventurer',
+      level: characterState?.level || 1,
+      stats,
+      hp,
+      inventory,
+    };
+  }, [characterState]);
   
   // Personality mode state
   const [personalityMode, setPersonalityMode] = useState<string>('default');
@@ -310,6 +355,7 @@ function App() {
       const { data } = await dataClient.models.GameMasterAdventure.list({
         filter: { conversationId: { eq: convId } },
         limit: 1,
+        authMode: 'userPool',
       });
       let adventure: AdventureRecord | null = data?.[0] ? (data[0] as AdventureRecord) : null;
       if (!adventure) {
@@ -333,93 +379,122 @@ function App() {
     }
   }, [effectivePersonality]);
 
-  const fetchCharacter = useCallback(async (adventureId: string) => {
+  const fetchCharacter = useCallback(async (convId: string) => {
+    // Prevent duplicate creation with ref-based lock
+    if (characterCreationLock.current) {
+      return;
+    }
+    
     try {
-      const { data } = await dataClient.models.GameMasterCharacter.list({
-        filter: { adventureId: { eq: adventureId } },
-        limit: 1
+      const { data, errors } = await dataClient.models.GameMasterCharacter.list({
+        filter: { conversationId: { eq: convId } },
+        limit: 1,
+        authMode: 'userPool',
       });
       
-      if (data && data[0]) {
+      if (errors && errors.length > 0) {
+        console.error('Error fetching character:', errors);
+      }
+      
+      if (data && data.length > 0 && data[0]) {
         setCharacterState(data[0] as CharacterRecord);
-        console.log('✅ Loaded existing character:', data[0].id);
-      } else {
-        console.log('📝 Creating default character for adventure:', adventureId);
-        try {
-          const created = await dataClient.models.GameMasterCharacter.create({
-            adventureId,
-            conversationId,
-            name: 'Adventurer',
-            race: 'Human',
-            characterClass: 'Wanderer',
-            level: 1,
-            experience: 0,
-            strength: 10,
-            dexterity: 12,
-            constitution: 14,
-            intelligence: 16,
-            wisdom: 13,
-            charisma: 11,
-            maxHP: 12,
-            currentHP: 12,
-            armorClass: 10,
-            inventory: JSON.stringify(['Rusty Sword', 'Leather Armor', '5 Gold']),
-            skills: JSON.stringify({}),
-            statusEffects: JSON.stringify([]),
-            version: 1,
-          });
-          
-          console.log('📋 Create result:', created);
-          if (created.data) {
-            setCharacterState(created.data as CharacterRecord);
-            console.log('✅ Created default character:', created.data.id);
-          } else {
-            console.error('❌ Character creation returned no data. Errors:', JSON.stringify(created.errors, null, 2));
-          }
-        } catch (createError) {
-          console.error('❌ Error during character creation:', createError);
+        return;
+      }
+      
+      // Only create if no character exists for this conversation
+      characterCreationLock.current = true;
+      try {
+        const created = await dataClient.models.GameMasterCharacter.create({
+          adventureId: 'placeholder', // Adventure ID doesn't matter anymore
+          conversationId: convId,
+          name: 'Adventurer',
+          race: 'Human',
+          characterClass: 'Wanderer',
+          level: 1,
+          experience: 0,
+          strength: 10,
+          dexterity: 12,
+          constitution: 14,
+          intelligence: 16,
+          wisdom: 13,
+          charisma: 11,
+          maxHP: 12,
+          currentHP: 12,
+          armorClass: 10,
+          inventory: JSON.stringify(['Rusty Sword', 'Leather Armor', '5 Gold']),
+          skills: JSON.stringify({}),
+          statusEffects: JSON.stringify([]),
+          version: 1,
+        });
+        
+        if (created.data) {
+          setCharacterState(created.data as CharacterRecord);
+          // Small delay to ensure database write propagates
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } else if (created.errors) {
+          console.error('Character creation failed:', created.errors);
         }
+      } catch (createError) {
+        console.error('❌ Error during character creation:', createError);
+      } finally {
+        characterCreationLock.current = false;
       }
     } catch (error) {
       console.error('❌ Error loading character:', error);
+      characterCreationLock.current = false;
     }
-  }, [conversationId]);
+  }, []);
 
   const fetchAdventureBundle = useCallback(async (convId: string, modeOverride?: string) => {
-    const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
-    if (activeMode !== 'game_master') {
-      setAdventureState(null);
-      setQuestSteps([]);
-      setPlayerChoices([]);
-      setCharacterState(null);
+    // Prevent duplicate fetches for the same conversation
+    if (adventureFetchLock.current === convId) {
       return;
     }
-    const adventure = await ensureAdventureState(convId, activeMode);
-    if (!adventure || !adventure.id) return;
-    const adventureId = adventure.id as string;
     
-    // Fetch character when adventure is loaded
-    await fetchCharacter(adventureId);
+    adventureFetchLock.current = convId;
     
     try {
-      const [stepsRes, choicesRes] = await Promise.all([
-        dataClient.models.GameMasterQuestStep.list({
-          filter: { adventureId: { eq: adventureId } },
-          limit: 200,
-        }),
-        dataClient.models.GameMasterPlayerChoice.list({
-          filter: { conversationId: { eq: convId } },
-          limit: 200,
-        }),
-      ]);
-      const steps = ((stepsRes.data ?? []).filter(Boolean) as QuestStepRecord[])
-        .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
-      const choices = ((choicesRes.data ?? []).filter(Boolean) as PlayerChoiceRecord[])
-        .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
-      setQuestSteps(steps);
-      setPlayerChoices(choices);
-    } catch (error) {
-      console.error('Error loading Game Master data:', error);
+      const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
+      if (activeMode !== 'game_master') {
+        setAdventureState(null);
+        setQuestSteps([]);
+        setPlayerChoices([]);
+        setCharacterState(null);
+        adventureFetchLock.current = null;
+        return;
+      }
+      const adventure = await ensureAdventureState(convId, activeMode);
+      if (!adventure || !adventure.id) {
+        adventureFetchLock.current = null;
+        return;
+      }
+      const adventureId = adventure.id as string;
+      
+      // Fetch character when adventure is loaded - pass conversationId instead
+      await fetchCharacter(convId);
+      
+      try {
+        const [stepsRes, choicesRes] = await Promise.all([
+          dataClient.models.GameMasterQuestStep.list({
+            filter: { adventureId: { eq: adventureId } },
+            limit: 200,
+          }),
+          dataClient.models.GameMasterPlayerChoice.list({
+            filter: { conversationId: { eq: convId } },
+            limit: 200,
+          }),
+        ]);
+        const steps = ((stepsRes.data ?? []).filter(Boolean) as QuestStepRecord[])
+          .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
+        const choices = ((choicesRes.data ?? []).filter(Boolean) as PlayerChoiceRecord[])
+          .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
+        setQuestSteps(steps);
+        setPlayerChoices(choices);
+      } catch (error) {
+        console.error('Error loading Game Master data:', error);
+      }
+    } finally {
+      adventureFetchLock.current = null;
     }
   }, [effectivePersonality, ensureAdventureState, fetchCharacter]);
 
@@ -528,7 +603,6 @@ function App() {
 
         const attributes = await fetchUserAttributes();
         setUserAttributes(attributes);
-        console.log('👤 Logged-in user:', attributes);
         setIsLoading(false);
       } catch (error) {
         console.error('❌ Error fetching user attributes:', error);
@@ -542,7 +616,6 @@ function App() {
   useEffect(() => {
     if (conversationId) {
       localStorage.setItem('lastConversationId', conversationId);
-      console.log('💾 Saved conversation to localStorage:', conversationId);
     }
   }, [conversationId]);
 
@@ -552,7 +625,6 @@ function App() {
       if (!userAttributes || conversationId) return; // Don't run if already have conversation or no user
       
       try {
-        console.log('🔄 Auto-loading conversation...');
         
         // For test mode, auto-select test conversation or create new one
         const urlParams = new URLSearchParams(window.location.search);
@@ -570,16 +642,13 @@ function App() {
         // Check for last conversation ID in localStorage
         const lastConversationId = localStorage.getItem('lastConversationId');
         if (lastConversationId) {
-          console.log('💾 Found last conversation in localStorage:', lastConversationId);
           try {
             // Verify the conversation still exists
             const { data: conversation } = await dataClient.models.Conversation.get({ id: lastConversationId });
             if (conversation) {
-              console.log('✅ Restoring last conversation');
               await handleSelectConversation(lastConversationId);
               return;
             } else {
-              console.log('⚠️ Last conversation no longer exists, clearing localStorage');
               localStorage.removeItem('lastConversationId');
             }
           } catch (error) {
@@ -600,11 +669,9 @@ function App() {
           });
           
           const mostRecentConversation = sortedConversations[0];
-          console.log('✅ Auto-loaded most recent conversation:', mostRecentConversation.id);
           await handleSelectConversation(mostRecentConversation.id!);
         } else {
           // No conversations exist, create a new one
-          console.log('📝 No conversations found, creating new one...');
           await handleNewConversation();
         }
       } catch (error) {
@@ -929,7 +996,6 @@ function App() {
         await recordPlayerChoice(savedMessage.id, content);
       }
 
-      console.log('Message saved to backend:', savedMessage);
     } catch (error) {
       console.error('Error sending message to backend:', error);
       setIsWaitingForResponse(false);
@@ -942,7 +1008,6 @@ function App() {
 
     // If no conversation exists, create one first
     if (!conversationId) {
-      console.log('🔄 No conversation exists, creating one...');
       await handleNewConversation();
       // Wait a bit for the conversation to be created
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -1007,7 +1072,6 @@ function App() {
           setPlayerChoices([]);
           setCharacterState(null);
         }
-        console.log('📌 Loaded personality mode:', normalizedMode);
       }
       
       const { data: conversationMessages } = await dataClient.models.Message.list({
@@ -1049,7 +1113,6 @@ function App() {
         } else {
           // This message has no response yet - mark as pending
           hasPendingMessage = true;
-          console.log('⏳ Found pending message:', msg.id);
         }
       });
       
@@ -1063,7 +1126,6 @@ function App() {
       
       // Set waiting state based on whether there's a pending message
       if (hasPendingMessage) {
-        console.log('🔒 Blocking input - pending message detected after load');
         setIsWaitingForResponse(true);
       } else {
         setIsWaitingForResponse(false);
@@ -1790,7 +1852,9 @@ function App() {
                   </button>
 
                   {/* Expanded Character Sheet Content */}
-                  {mobileCharSheetExpanded && adventureState && (
+                  {mobileCharSheetExpanded && adventureState && (() => {
+                    const charData = getCharacterData();
+                    return (
                     <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
                       {/* Stats */}
                       <div>
@@ -1798,27 +1862,27 @@ function App() {
                         <div className="grid grid-cols-3 gap-2">
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">STR</div>
-                            <div className="text-lg font-bold text-brand-text-primary">10</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.strength}</div>
                           </div>
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">DEX</div>
-                            <div className="text-lg font-bold text-brand-text-primary">12</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.dexterity}</div>
                           </div>
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">CON</div>
-                            <div className="text-lg font-bold text-brand-text-primary">14</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.constitution}</div>
                           </div>
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">INT</div>
-                            <div className="text-lg font-bold text-brand-text-primary">16</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.intelligence}</div>
                           </div>
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">WIS</div>
-                            <div className="text-lg font-bold text-brand-text-primary">13</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.wisdom}</div>
                           </div>
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
                             <div className="text-xs text-brand-text-muted">CHA</div>
-                            <div className="text-lg font-bold text-brand-text-primary">11</div>
+                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.charisma}</div>
                           </div>
                         </div>
                       </div>
@@ -1827,15 +1891,15 @@ function App() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs uppercase tracking-wider text-brand-text-muted">Level</span>
-                          <span className="text-sm font-bold text-brand-text-primary">1</span>
+                          <span className="text-sm font-bold text-brand-text-primary">{charData.level}</span>
                         </div>
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs uppercase tracking-wider text-brand-text-muted">HP</span>
-                            <span className="text-xs text-brand-text-secondary">12 / 12</span>
+                            <span className="text-xs text-brand-text-secondary">{charData.hp.current} / {charData.hp.max}</span>
                           </div>
                           <div className="h-2 bg-brand-surface-hover rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: '100%' }}></div>
+                            <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${charData.hp.percentage}%` }}></div>
                           </div>
                         </div>
                       </div>
@@ -1844,19 +1908,16 @@ function App() {
                       <div>
                         <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Inventory</h4>
                         <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-brand-text-secondary">• Rusty Sword</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-brand-text-secondary">• Leather Armor</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-brand-text-secondary">• 5 Gold</span>
-                          </div>
+                          {charData.inventory.map((item, index) => (
+                            <div key={index} className="flex items-center gap-2 text-xs">
+                              <span className="text-brand-text-secondary">• {item}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>

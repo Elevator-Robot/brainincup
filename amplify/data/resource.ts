@@ -60,6 +60,7 @@ const schema = a.schema({
     lastStepId: a.string().default(''),
     questSteps: a.hasMany('GameMasterQuestStep', 'adventureId'),
     character: a.hasOne('GameMasterCharacter', 'adventureId'),
+    owner: a.string(),
     createdAt: a.date(),
     updatedAt: a.date(),
   }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
