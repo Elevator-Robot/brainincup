@@ -270,6 +270,7 @@ function App() {
   const [playerChoices, setPlayerChoices] = useState<PlayerChoiceRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
   const characterCreationLock = useRef(false);
+  const adventureFetchLock = useRef<string | null>(null);
   
   // Helper to get character display data with fallbacks
   const getCharacterData = useCallback(() => {
@@ -353,12 +354,16 @@ function App() {
     const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
     if (activeMode !== 'game_master') return null;
     try {
+      console.log('🔍 Looking for existing adventure for conversationId:', convId);
       const { data } = await dataClient.models.GameMasterAdventure.list({
         filter: { conversationId: { eq: convId } },
         limit: 1,
+        authMode: 'userPool',
       });
+      console.log('📋 Adventure lookup result:', data);
       let adventure: AdventureRecord | null = data?.[0] ? (data[0] as AdventureRecord) : null;
       if (!adventure) {
+        console.log('📝 No existing adventure found, creating new one for:', convId);
         const created = await dataClient.models.GameMasterAdventure.create({
           conversationId: convId,
           title: 'The Shadowed Forest',
@@ -368,6 +373,8 @@ function App() {
           safetyLevel: 'User Directed',
         });
         adventure = created.data ? (created.data as AdventureRecord) : null;
+      } else {
+        console.log('✅ Found existing adventure:', adventure.id);
       }
       if (adventure) {
         setAdventureState(adventure);
@@ -380,7 +387,7 @@ function App() {
     }
   }, [effectivePersonality]);
 
-  const fetchCharacter = useCallback(async (adventureId: string) => {
+  const fetchCharacter = useCallback(async (convId: string) => {
     // Prevent duplicate creation with ref-based lock
     if (characterCreationLock.current) {
       console.log('⏸️ Character creation already in progress, skipping...');
@@ -388,97 +395,121 @@ function App() {
     }
     
     try {
-      // Look up character by conversationId instead of adventureId to ensure persistence across refreshes
-      const { data } = await dataClient.models.GameMasterCharacter.list({
-        filter: { conversationId: { eq: conversationId } },
-        limit: 1
+      console.log('🔍 Looking for existing character for conversationId:', convId);
+      // Look up character by conversationId - completely independent of adventure
+      const { data, errors } = await dataClient.models.GameMasterCharacter.list({
+        filter: { conversationId: { eq: convId } },
+        limit: 1,
+        authMode: 'userPool',
       });
       
-      if (data && data[0]) {
+      console.log('📋 Character lookup result:', data, 'errors:', errors);
+      
+      if (data && data.length > 0 && data[0]) {
         setCharacterState(data[0] as CharacterRecord);
         console.log('✅ Loaded existing character:', data[0].id);
-      } else {
-        characterCreationLock.current = true;
-        console.log('📝 Creating default character for adventure:', adventureId);
-        try {
-          const created = await dataClient.models.GameMasterCharacter.create({
-            adventureId,
-            conversationId,
-            name: 'Adventurer',
-            race: 'Human',
-            characterClass: 'Wanderer',
-            level: 1,
-            experience: 0,
-            strength: 10,
-            dexterity: 12,
-            constitution: 14,
-            intelligence: 16,
-            wisdom: 13,
-            charisma: 11,
-            maxHP: 12,
-            currentHP: 12,
-            armorClass: 10,
-            inventory: JSON.stringify(['Rusty Sword', 'Leather Armor', '5 Gold']),
-            skills: JSON.stringify({}),
-            statusEffects: JSON.stringify([]),
-            version: 1,
-          });
-          
-          console.log('📋 Create result:', created);
-          if (created.data) {
-            setCharacterState(created.data as CharacterRecord);
-            console.log('✅ Created default character:', created.data.id);
-            console.log('📊 Character data set in state:', created.data);
-          } else {
-            console.error('❌ Character creation returned no data. Errors:', JSON.stringify(created.errors, null, 2));
-          }
-        } catch (createError) {
-          console.error('❌ Error during character creation:', createError);
-        } finally {
-          characterCreationLock.current = false;
+        return; // Early return - character found, don't create
+      }
+      
+      // Only create if no character exists for this conversation
+      characterCreationLock.current = true;
+      console.log('📝 Creating default character for conversation:', convId);
+      try {
+        const created = await dataClient.models.GameMasterCharacter.create({
+          adventureId: 'placeholder', // Adventure ID doesn't matter anymore
+          conversationId: convId,
+          name: 'Adventurer',
+          race: 'Human',
+          characterClass: 'Wanderer',
+          level: 1,
+          experience: 0,
+          strength: 10,
+          dexterity: 12,
+          constitution: 14,
+          intelligence: 16,
+          wisdom: 13,
+          charisma: 11,
+          maxHP: 12,
+          currentHP: 12,
+          armorClass: 10,
+          inventory: JSON.stringify(['Rusty Sword', 'Leather Armor', '5 Gold']),
+          skills: JSON.stringify({}),
+          statusEffects: JSON.stringify([]),
+          version: 1,
+        });
+        
+        console.log('📋 Create result:', created);
+        if (created.data) {
+          setCharacterState(created.data as CharacterRecord);
+          console.log('✅ Created default character:', created.data.id);
+          console.log('📊 Character data set in state:', created.data);
+          // Small delay to ensure database write propagates before releasing lock
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } else {
+          console.error('❌ Character creation returned no data. Errors:', JSON.stringify(created.errors, null, 2));
         }
+      } catch (createError) {
+        console.error('❌ Error during character creation:', createError);
+      } finally {
+        characterCreationLock.current = false;
       }
     } catch (error) {
       console.error('❌ Error loading character:', error);
       characterCreationLock.current = false;
     }
-  }, [conversationId]);
+  }, []);
 
   const fetchAdventureBundle = useCallback(async (convId: string, modeOverride?: string) => {
-    const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
-    if (activeMode !== 'game_master') {
-      setAdventureState(null);
-      setQuestSteps([]);
-      setPlayerChoices([]);
-      setCharacterState(null);
+    // Prevent duplicate fetches for the same conversation
+    if (adventureFetchLock.current === convId) {
+      console.log('⏸️ Adventure bundle fetch already in progress for:', convId);
       return;
     }
-    const adventure = await ensureAdventureState(convId, activeMode);
-    if (!adventure || !adventure.id) return;
-    const adventureId = adventure.id as string;
     
-    // Fetch character when adventure is loaded
-    await fetchCharacter(adventureId);
+    adventureFetchLock.current = convId;
     
     try {
-      const [stepsRes, choicesRes] = await Promise.all([
-        dataClient.models.GameMasterQuestStep.list({
-          filter: { adventureId: { eq: adventureId } },
-          limit: 200,
-        }),
-        dataClient.models.GameMasterPlayerChoice.list({
-          filter: { conversationId: { eq: convId } },
-          limit: 200,
-        }),
-      ]);
-      const steps = ((stepsRes.data ?? []).filter(Boolean) as QuestStepRecord[])
-        .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
-      const choices = ((choicesRes.data ?? []).filter(Boolean) as PlayerChoiceRecord[])
-        .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
-      setQuestSteps(steps);
-      setPlayerChoices(choices);
-    } catch (error) {
-      console.error('Error loading Game Master data:', error);
+      const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
+      if (activeMode !== 'game_master') {
+        setAdventureState(null);
+        setQuestSteps([]);
+        setPlayerChoices([]);
+        setCharacterState(null);
+        adventureFetchLock.current = null;
+        return;
+      }
+      const adventure = await ensureAdventureState(convId, activeMode);
+      if (!adventure || !adventure.id) {
+        adventureFetchLock.current = null;
+        return;
+      }
+      const adventureId = adventure.id as string;
+      
+      // Fetch character when adventure is loaded - pass conversationId instead
+      await fetchCharacter(convId);
+      
+      try {
+        const [stepsRes, choicesRes] = await Promise.all([
+          dataClient.models.GameMasterQuestStep.list({
+            filter: { adventureId: { eq: adventureId } },
+            limit: 200,
+          }),
+          dataClient.models.GameMasterPlayerChoice.list({
+            filter: { conversationId: { eq: convId } },
+            limit: 200,
+          }),
+        ]);
+        const steps = ((stepsRes.data ?? []).filter(Boolean) as QuestStepRecord[])
+          .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
+        const choices = ((choicesRes.data ?? []).filter(Boolean) as PlayerChoiceRecord[])
+          .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
+        setQuestSteps(steps);
+        setPlayerChoices(choices);
+      } catch (error) {
+        console.error('Error loading Game Master data:', error);
+      }
+    } finally {
+      adventureFetchLock.current = null;
     }
   }, [effectivePersonality, ensureAdventureState, fetchCharacter]);
 
