@@ -7,6 +7,7 @@ import BrainIcon from './components/BrainIcon';
 import PersonalityIndicator from './components/PersonalityIndicator';
 import InstallPrompt from './components/InstallPrompt';
 import WipBanner from './components/WipBanner';
+import CharacterCreation from './components/CharacterCreation';
 import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import { featureFlags } from './featureFlags';
@@ -268,6 +269,7 @@ function App() {
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [playerChoices, setPlayerChoices] = useState<PlayerChoiceRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
+  const [showCharacterCreation, setShowCharacterCreation] = useState(false);
   const characterCreationLock = useRef(false);
   const adventureFetchLock = useRef<string | null>(null);
   
@@ -398,49 +400,72 @@ function App() {
       
       if (data && data.length > 0 && data[0]) {
         setCharacterState(data[0] as CharacterRecord);
+        setShowCharacterCreation(false);
         return;
       }
       
-      // Only create if no character exists for this conversation
-      characterCreationLock.current = true;
-      try {
-        const created = await dataClient.models.GameMasterCharacter.create({
-          adventureId: 'placeholder', // Adventure ID doesn't matter anymore
-          conversationId: convId,
-          name: 'Adventurer',
-          race: 'Human',
-          characterClass: 'Wanderer',
-          level: 1,
-          experience: 0,
-          strength: 10,
-          dexterity: 12,
-          constitution: 14,
-          intelligence: 16,
-          wisdom: 13,
-          charisma: 11,
-          maxHP: 12,
-          currentHP: 12,
-          armorClass: 10,
-          inventory: JSON.stringify(['Rusty Sword', 'Leather Armor', '5 Gold']),
-          skills: JSON.stringify({}),
-          statusEffects: JSON.stringify([]),
-          version: 1,
-        });
-        
-        if (created.data) {
-          setCharacterState(created.data as CharacterRecord);
-          // Small delay to ensure database write propagates
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } else if (created.errors) {
-          console.error('Character creation failed:', created.errors);
-        }
-      } catch (createError) {
-        console.error('❌ Error during character creation:', createError);
-      } finally {
-        characterCreationLock.current = false;
-      }
+      // No character exists - show character creation modal
+      setShowCharacterCreation(true);
     } catch (error) {
       console.error('❌ Error loading character:', error);
+      characterCreationLock.current = false;
+    }
+  }, []);
+
+  const createCharacter = useCallback(async (convId: string, characterData: {
+    name: string;
+    race: string;
+    characterClass: string;
+    strength?: number;
+    dexterity?: number;
+    constitution?: number;
+    intelligence?: number;
+    wisdom?: number;
+    charisma?: number;
+  }) => {
+    if (characterCreationLock.current) {
+      return;
+    }
+    
+    characterCreationLock.current = true;
+    
+    try {
+      const created = await dataClient.models.GameMasterCharacter.create({
+        adventureId: 'placeholder',
+        conversationId: convId,
+        name: characterData.name,
+        race: characterData.race,
+        characterClass: characterData.characterClass,
+        level: 1,
+        experience: 0,
+        strength: characterData.strength || 10,
+        dexterity: characterData.dexterity || 12,
+        constitution: characterData.constitution || 14,
+        intelligence: characterData.intelligence || 16,
+        wisdom: characterData.wisdom || 13,
+        charisma: characterData.charisma || 11,
+        maxHP: 12,
+        currentHP: 12,
+        armorClass: 10,
+        inventory: JSON.stringify(['Rusty Sword', 'Leather Armor', '5 Gold']),
+        skills: JSON.stringify({}),
+        statusEffects: JSON.stringify([]),
+        version: 1,
+      });
+      
+      if (created.data) {
+        setCharacterState(created.data as CharacterRecord);
+        setShowCharacterCreation(false);
+        // Small delay to ensure database write propagates
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } else if (created.errors) {
+        console.error('Character creation failed:', created.errors);
+        throw new Error('Failed to create character');
+      }
+    } catch (createError) {
+      console.error('❌ Error during character creation:', createError);
+      throw createError;
+    } finally {
       characterCreationLock.current = false;
     }
   }, []);
@@ -2219,6 +2244,23 @@ function App() {
 
       {/* WIP Banner - only show for Game Master mode when feature flag is enabled */}
       {featureFlags.showGameMasterWIPBanner && effectivePersonality === 'game_master' && <WipBanner />}
+
+      {/* Character Creation Modal */}
+      {showCharacterCreation && conversationId && (
+        <CharacterCreation
+          onComplete={(characterData) => {
+            createCharacter(conversationId, characterData);
+          }}
+          onCancel={() => {
+            // If user cancels, set a default character
+            createCharacter(conversationId, {
+              name: 'Adventurer',
+              race: 'Human',
+              characterClass: 'Wanderer',
+            });
+          }}
+        />
+      )}
 
     </div>
   );
