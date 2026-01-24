@@ -102,7 +102,11 @@ const schema = a.schema({
     owner: a.string(),
     createdAt: a.date(),
     updatedAt: a.date(),
-  }).authorization(allow => [
+  })
+  .secondaryIndexes((index) => [
+    index('conversationId'),  // GSI for looking up character by conversation
+  ])
+  .authorization(allow => [
     allow.owner(),
     allow.authenticated().to(['read']),
     allow.groups(['Admins'])

@@ -8,6 +8,7 @@ import PersonalityIndicator from './components/PersonalityIndicator';
 import InstallPrompt from './components/InstallPrompt';
 import WipBanner from './components/WipBanner';
 import CharacterCreation from './components/CharacterCreation';
+import InventoryManager, { type InventoryItem } from './components/InventoryManager';
 import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import { featureFlags } from './featureFlags';
@@ -124,9 +125,10 @@ interface GameMasterHudProps {
   playerChoices: HudPlayerChoice[];
   character: CharacterRecord | null;
   isLoadingCharacter?: boolean;
+  onUpdateInventory?: (newInventory: InventoryItem[]) => Promise<void>;
 }
 
-function GameMasterHud({ adventure, questSteps, playerChoices, character, isLoadingCharacter }: GameMasterHudProps) {
+function GameMasterHud({ adventure, questSteps, playerChoices, character, isLoadingCharacter, onUpdateInventory }: GameMasterHudProps) {
   const latestStep = questSteps.slice(-1)[0];
   void playerChoices;
   
@@ -155,14 +157,29 @@ function GameMasterHud({ adventure, questSteps, playerChoices, character, isLoad
     charisma: character.charisma,
   };
   
-  // Parse inventory JSON string to array
-  let inventory: string[] = [];
+  // Parse inventory JSON string to InventoryItem array
+  let inventory: InventoryItem[] = [];
   if (character.inventory) {
     try {
       const parsed = typeof character.inventory === 'string' 
         ? JSON.parse(character.inventory) 
         : character.inventory;
-      inventory = Array.isArray(parsed) ? parsed : [];
+      
+      // Handle legacy string array format
+      if (Array.isArray(parsed)) {
+        inventory = parsed.map((item: any) => {
+          if (typeof item === 'string') {
+            // Convert legacy string format to InventoryItem
+            return {
+              id: crypto.randomUUID(),
+              name: item,
+              type: 'consumable' as const,
+              quantity: 1,
+            };
+          }
+          return item;
+        });
+      }
     } catch (e) {
       console.error('Failed to parse inventory:', e);
     }
@@ -240,14 +257,22 @@ function GameMasterHud({ adventure, questSteps, playerChoices, character, isLoad
           </div>
 
           {/* Inventory */}
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-2">Inventory</p>
-            <div className="space-y-1">
-              {inventory.map((item, index) => (
-                <div key={index} className="text-xs text-brand-text-secondary">• {item}</div>
-              ))}
+          {onUpdateInventory ? (
+            <InventoryManager 
+              inventory={inventory}
+              onUpdateInventory={onUpdateInventory}
+              isUpdating={false}
+            />
+          ) : (
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-2">Inventory</p>
+              <div className="space-y-1">
+                {inventory.map((item) => (
+                  <div key={item.id} className="text-xs text-brand-text-secondary">• {item.name}</div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -301,13 +326,28 @@ function App() {
       percentage: ((characterState?.currentHP || 12) / (characterState?.maxHP || 12)) * 100,
     };
     
-    let inventory: string[] = ['Rusty Sword', 'Leather Armor', '5 Gold'];
+    let inventory: InventoryItem[] = [];
     if (characterState?.inventory) {
       try {
         const parsed = typeof characterState.inventory === 'string' 
           ? JSON.parse(characterState.inventory) 
           : characterState.inventory;
-        inventory = Array.isArray(parsed) ? parsed : inventory;
+        
+        // Handle legacy string array format
+        if (Array.isArray(parsed)) {
+          inventory = parsed.map((item: any) => {
+            if (typeof item === 'string') {
+              // Convert legacy string format to InventoryItem
+              return {
+                id: crypto.randomUUID(),
+                name: item,
+                type: 'consumable' as const,
+                quantity: 1,
+              };
+            }
+            return item;
+          });
+        }
       } catch (e) {
         console.error('Failed to parse inventory:', e);
       }
@@ -490,6 +530,25 @@ function App() {
       
       const startingEquipment = classData?.startingEquipment || ['Rusty Sword', 'Leather Armor', '5 Gold'];
       
+      // Convert starting equipment to InventoryItem format
+      const inventoryItems: InventoryItem[] = startingEquipment.map((itemName: string) => {
+        let type: InventoryItem['type'] = 'consumable';
+        if (itemName.toLowerCase().includes('sword') || itemName.toLowerCase().includes('dagger') || itemName.toLowerCase().includes('bow')) {
+          type = 'weapon';
+        } else if (itemName.toLowerCase().includes('armor') || itemName.toLowerCase().includes('shield')) {
+          type = 'armor';
+        } else if (itemName.toLowerCase().includes('gold') || itemName.toLowerCase().includes('coin')) {
+          type = 'currency';
+        }
+        
+        return {
+          id: crypto.randomUUID(),
+          name: itemName,
+          type,
+          quantity: 1,
+        };
+      });
+      
       const created = await dataClient.models.GameMasterCharacter.create({
         adventureId: 'placeholder',
         conversationId: convId,
@@ -507,7 +566,7 @@ function App() {
         maxHP: derivedStats.maxHP,
         currentHP: derivedStats.maxHP,
         armorClass: derivedStats.armorClass,
-        inventory: JSON.stringify(startingEquipment),
+        inventory: JSON.stringify(inventoryItems),
         skills: JSON.stringify({}),
         statusEffects: JSON.stringify([]),
         version: 1,
@@ -529,6 +588,27 @@ function App() {
       characterCreationLock.current = false;
     }
   }, []);
+
+  const updateInventory = useCallback(async (newInventory: InventoryItem[]) => {
+    if (!characterState?.id) {
+      throw new Error('No character loaded');
+    }
+    
+    // Optimistic update
+    const previousInventory = characterState.inventory;
+    setCharacterState(prev => prev ? { ...prev, inventory: JSON.stringify(newInventory) as any } : prev);
+    
+    try {
+      await dataClient.models.GameMasterCharacter.update({
+        id: characterState.id,
+        inventory: JSON.stringify(newInventory),
+      });
+    } catch (error) {
+      // Rollback on error
+      setCharacterState(prev => prev ? { ...prev, inventory: previousInventory } : prev);
+      throw error;
+    }
+  }, [characterState]);
 
   const fetchAdventureBundle = useCallback(async (convId: string, modeOverride?: string) => {
     // Prevent duplicate fetches for the same conversation
@@ -1536,6 +1616,7 @@ function App() {
                         playerChoices={hudPlayerChoices}
                         character={characterState}
                         isLoadingCharacter={isLoadingCharacter}
+                        onUpdateInventory={updateInventory}
                       />
                     </div>
                   )}
@@ -1805,6 +1886,7 @@ function App() {
                   playerChoices={hudPlayerChoices}
                   character={characterState}
                   isLoadingCharacter={isLoadingCharacter}
+                  onUpdateInventory={updateInventory}
                 />
               )}
             </div>
@@ -1992,16 +2074,11 @@ function App() {
                       </div>
 
                       {/* Inventory */}
-                      <div>
-                        <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Inventory</h4>
-                        <div className="space-y-1.5">
-                          {charData.inventory.map((item, index) => (
-                            <div key={index} className="flex items-center gap-2 text-xs">
-                              <span className="text-brand-text-secondary">• {item}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <InventoryManager 
+                        inventory={charData.inventory}
+                        onUpdateInventory={updateInventory}
+                        isUpdating={false}
+                      />
                     </div>
                     );
                   })()}

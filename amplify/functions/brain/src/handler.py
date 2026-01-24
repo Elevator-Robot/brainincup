@@ -44,10 +44,9 @@ def get_character_data(conversation_id: str) -> dict | None:
         return None
     
     try:
-        # Query by conversationId using GSI
-        response = character_table.query(
-            IndexName="byConversationId",  # Assumes GSI exists
-            KeyConditionExpression="conversationId = :cid",
+        # Scan table filtering by conversationId (GSI might not exist yet)
+        response = character_table.scan(
+            FilterExpression="conversationId = :cid",
             ExpressionAttributeValues={":cid": conversation_id},
             Limit=1
         )
