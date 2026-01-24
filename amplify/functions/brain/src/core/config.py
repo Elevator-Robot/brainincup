@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 from core.agentcore_client import AgentCoreClient
@@ -71,7 +72,7 @@ Assistant:
 
 
 def setup_agentcore_client():
-    runtime_arn = os.getenv("AGENTCORE_RUNTIME_ARN")
+    runtime_arn = os.getenv("AGENTCORE_RUNTIME_ARN", "").strip()
     if not runtime_arn:
         raise ValueError("AGENTCORE_RUNTIME_ARN environment variable must be set")
 
@@ -82,6 +83,7 @@ def setup_agentcore_client():
     except ValueError:
         trace_sample_rate = 0.0
 
+    logging.info(f"Initializing AgentCore client with runtime: {runtime_arn[:50]}...")
     return AgentCoreClient(
         runtime_arn=runtime_arn,
         region_name=region_name,
