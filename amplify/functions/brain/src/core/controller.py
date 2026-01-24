@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 class Controller:
-    def __init__(self, conversation_id, personality_mode: str = "default"):
+    def __init__(self, conversation_id, personality_mode: str = "default", character_data: dict | None = None):
         self.personality_mode = personality_mode or "default"
+        self.character_data = character_data
         prompt_template, persona_config = setup_prompt_template(self.personality_mode)
         parser = setup_parser()
         agentcore_client = setup_agentcore_client()
@@ -42,6 +43,11 @@ class Controller:
 
     def process_input(self, user_input, message_id=None, owner=None):
         context = self.memory_agent.retrieve_context(self.conversation_history, n=100)
+        
+        # Add character data to context for Game Master mode
+        if self.character_data:
+            character_context = self._format_character_context(self.character_data)
+            context = f"{character_context}\n\n{context}"
 
         # Perception Agent formats the prompt
         formatted_prompt = self.perception_agent.process_input(user_input, context)
@@ -54,6 +60,7 @@ class Controller:
                 "message_id": message_id,
                 "owner": owner,
                 "personality_mode": self.personality_mode,
+                "character_data": self.character_data,
                 "trace_id": str(uuid.uuid4()),
             },
         )
@@ -87,3 +94,33 @@ class Controller:
 
         print(final_response)
         return final_response
+    
+    def _format_character_context(self, character: dict) -> str:
+        """Format character data into a readable context string for the AI."""
+        stats = character.get("stats", {})
+        hp = character.get("hp", {})
+        inventory = character.get("inventory", [])
+        
+        context_lines = [
+            "=== PLAYER CHARACTER ===",
+            f"Name: {character.get('name', 'Unknown')}",
+            f"Race: {character.get('race', 'Unknown')}",
+            f"Class: {character.get('class', 'Unknown')}",
+            f"Level: {character.get('level', 1)}",
+            "",
+            "STATS:",
+            f"  Strength: {stats.get('strength', 10)}",
+            f"  Dexterity: {stats.get('dexterity', 10)}",
+            f"  Constitution: {stats.get('constitution', 10)}",
+            f"  Intelligence: {stats.get('intelligence', 10)}",
+            f"  Wisdom: {stats.get('wisdom', 10)}",
+            f"  Charisma: {stats.get('charisma', 10)}",
+            "",
+            f"HP: {hp.get('current', 10)}/{hp.get('max', 10)}",
+            f"Armor Class: {character.get('armorClass', 10)}",
+            "",
+            f"INVENTORY: {', '.join(inventory) if inventory else 'Empty'}",
+            "========================",
+        ]
+        
+        return "\n".join(context_lines)

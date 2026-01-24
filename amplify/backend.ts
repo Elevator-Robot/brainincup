@@ -34,20 +34,35 @@ cfnResources.amplifyDynamoDbTables['Message'].streamSpecification = {
 const conversationTable = backend.data.resources.tables['Conversation'];
 const messageTable = backend.data.resources.tables['Message'];
 const responseTable = backend.data.resources.tables['BrainResponse'];
+const characterTable = backend.data.resources.tables['GameMasterCharacter'];
 
 const brainLambda = backend.brain.resources.lambda as import('aws-cdk-lib').aws_lambda.Function;
 brainLambda.addEnvironment('CONVERSATION_TABLE_NAME', conversationTable.tableName);
 brainLambda.addEnvironment('MESSAGE_TABLE_NAME', messageTable.tableName);
 brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
+brainLambda.addEnvironment('CHARACTER_TABLE_NAME', characterTable.tableName);
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
 const agentcoreContainerUri = process.env.AGENTCORE_CONTAINER_URI;
-const defaultRuntimeName = sanitizeRuntimeName(stack.stackName.replace('amplify-brainincup-', 'Brain-'));
+// Generate unique runtime name based on stack name and account to avoid conflicts
+const baseRuntimeName = sanitizeRuntimeName(stack.stackName);
+const defaultRuntimeName = `${baseRuntimeName}-${stack.account.slice(-4)}`;
 const requestedRuntimeName = process.env.AGENTCORE_RUNTIME_NAME ?? defaultRuntimeName;
 let agentcoreRuntimeArn = process.env.AGENTCORE_RUNTIME_ARN;
 
-if (agentcoreContainerUri) {
+// If no ARN is provided, require container URI to create runtime
+if (!agentcoreRuntimeArn) {
+  if (!agentcoreContainerUri) {
+    throw new Error(
+      'AgentCore runtime is required. Please provide either:\n' +
+      '  - AGENTCORE_RUNTIME_ARN (existing runtime ARN)\n' +
+      '  - AGENTCORE_CONTAINER_URI (to create new runtime)\n' +
+      'See docs/archive/AGENTCORE_RUNTIME_SETUP.md for setup instructions.'
+    );
+  }
+
+  // Create the runtime since ARN wasn't provided
   const agentcoreRuntimeRole = new Role(stack, 'AgentCoreRuntimeRole', {
     assumedBy: new ServicePrincipal('bedrock-agentcore.amazonaws.com'),
     description: 'Execution role for Amazon Bedrock AgentCore runtime',
@@ -101,7 +116,8 @@ if (agentcoreContainerUri) {
   });
 }
 
-brainLambda.addEnvironment('AGENTCORE_RUNTIME_ARN', agentcoreRuntimeArn ?? '');
+// Now agentcoreRuntimeArn is guaranteed to be set
+brainLambda.addEnvironment('AGENTCORE_RUNTIME_ARN', agentcoreRuntimeArn);
 brainLambda.addEnvironment('AGENTCORE_TRACE_ENABLED', process.env.AGENTCORE_TRACE_ENABLED ?? 'false');
 brainLambda.addEnvironment('AGENTCORE_TRACE_SAMPLE_RATE', process.env.AGENTCORE_TRACE_SAMPLE_RATE ?? '0');
 
@@ -131,8 +147,10 @@ brainLambda.addToRolePolicy(new PolicyStatement({
     'dynamodb:ListTables',
     'dynamodb:DescribeTable',
     'dynamodb:Query',
+    'dynamodb:Scan',
     'dynamodb:GetItem',
     'dynamodb:PutItem',
+    'dynamodb:UpdateItem',
   ],
   resources: [
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${conversationTable.tableName}`,
@@ -140,7 +158,9 @@ brainLambda.addToRolePolicy(new PolicyStatement({
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${messageTable.tableName}`,
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${messageTable.tableName}/*`,
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${responseTable.tableName}`,
-    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${responseTable.tableName}/*`
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${responseTable.tableName}/*`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${characterTable.tableName}`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${characterTable.tableName}/*`
   ],
   effect: Effect.ALLOW,
 }));

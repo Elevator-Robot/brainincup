@@ -12,6 +12,10 @@ conversation_table_name = os.getenv("CONVERSATION_TABLE_NAME")
 conversation_table = (
     dynamodb.Table(conversation_table_name) if conversation_table_name else None
 )
+character_table_name = os.getenv("CHARACTER_TABLE_NAME")
+character_table = (
+    dynamodb.Table(character_table_name) if character_table_name else None
+)
 
 
 def get_personality_mode(conversation_id: str) -> str:
@@ -28,6 +32,59 @@ def get_personality_mode(conversation_id: str) -> str:
             extra={"conversation_id": conversation_id, "error": str(error)},
         )
         return "default"
+
+
+def get_character_data(conversation_id: str) -> dict | None:
+    """
+    Fetch character data for Game Master mode.
+    Returns character stats, inventory, and details if available.
+    """
+    if not character_table:
+        logger.warning("Character table not available")
+        return None
+    
+    try:
+        # Scan table filtering by conversationId (GSI might not exist yet)
+        response = character_table.scan(
+            FilterExpression="conversationId = :cid",
+            ExpressionAttributeValues={":cid": conversation_id},
+            Limit=1
+        )
+        
+        items = response.get("Items", [])
+        if not items:
+            logger.info(f"No character found for conversation {conversation_id}")
+            return None
+        
+        character = items[0]
+        
+        # Format character data for AI context
+        return {
+            "name": character.get("name", "Unknown"),
+            "race": character.get("race", "Unknown"),
+            "class": character.get("characterClass", "Unknown"),
+            "level": character.get("level", 1),
+            "stats": {
+                "strength": character.get("strength", 10),
+                "dexterity": character.get("dexterity", 10),
+                "constitution": character.get("constitution", 10),
+                "intelligence": character.get("intelligence", 10),
+                "wisdom": character.get("wisdom", 10),
+                "charisma": character.get("charisma", 10),
+            },
+            "hp": {
+                "current": character.get("currentHP", 10),
+                "max": character.get("maxHP", 10),
+            },
+            "armorClass": character.get("armorClass", 10),
+            "inventory": json.loads(character.get("inventory", "[]")),
+        }
+    except Exception as error:
+        logger.exception(
+            "Failed to fetch character data",
+            extra={"conversation_id": conversation_id, "error": str(error)},
+        )
+        return None
 
 
 @logger.inject_lambda_context
@@ -65,7 +122,17 @@ def main(event, context):
                     },
                 )
 
-                controller = Controller(conversation_id, personality_mode)
+                # Fetch character data for Game Master mode
+                character_data = None
+                if personality_mode == "game_master":
+                    character_data = get_character_data(conversation_id)
+                    if character_data:
+                        logger.info(
+                            "Character data loaded",
+                            extra={"character_name": character_data.get("name")}
+                        )
+
+                controller = Controller(conversation_id, personality_mode, character_data)
                 response = controller.process_input(
                     user_input, final_message_id, final_owner
                 )

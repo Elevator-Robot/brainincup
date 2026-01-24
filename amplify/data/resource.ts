@@ -10,8 +10,8 @@ const schema = a.schema({
     messages: a.hasMany('Message', 'conversationId'),
     brainResponses: a.hasMany('BrainResponse', 'conversationId'),
     gameMasterAdventure: a.hasOne('GameMasterAdventure', 'conversationId'),
-    createdAt: a.date(),
-    updatedAt: a.date(),
+    createdAt: a.datetime(),
+    updatedAt: a.datetime(),
   }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 
   Message: a.model({
@@ -20,7 +20,7 @@ const schema = a.schema({
     conversation: a.belongsTo('Conversation', 'conversationId'),
     senderId: a.string(),
     content: a.string(),
-    timestamp: a.date(),
+    timestamp: a.datetime(),
     brainResponses: a.hasOne('BrainResponse', 'messageId')
   }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 
@@ -39,7 +39,7 @@ const schema = a.schema({
     memories: a.string(),
     selfReflection: a.string(),
 
-    createdAt: a.date(),
+    createdAt: a.datetime(),
     owner: a.string(),
   }).authorization(allow => [
     allow.owner(),
@@ -61,8 +61,8 @@ const schema = a.schema({
     questSteps: a.hasMany('GameMasterQuestStep', 'adventureId'),
     character: a.hasOne('GameMasterCharacter', 'adventureId'),
     owner: a.string(),
-    createdAt: a.date(),
-    updatedAt: a.date(),
+    createdAt: a.datetime(),
+    updatedAt: a.datetime(),
   }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 
   GameMasterCharacter: a.model({
@@ -100,9 +100,13 @@ const schema = a.schema({
     version: a.integer().default(1),
     
     owner: a.string(),
-    createdAt: a.date(),
-    updatedAt: a.date(),
-  }).authorization(allow => [
+    createdAt: a.datetime(),
+    updatedAt: a.datetime(),
+  })
+  .secondaryIndexes((index) => [
+    index('conversationId'),  // GSI for looking up character by conversation
+  ])
+  .authorization(allow => [
     allow.owner(),
     allow.authenticated().to(['read']),
     allow.groups(['Admins'])
@@ -120,7 +124,7 @@ const schema = a.schema({
     narration: a.string(),
     dangerLevel: a.string().default('Unknown'),
     locationTag: a.string().default(''),
-    createdAt: a.date(),
+    createdAt: a.datetime(),
     playerChoices: a.hasMany('GameMasterPlayerChoice', 'questStepId'),
   }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 
@@ -132,7 +136,7 @@ const schema = a.schema({
     messageId: a.id(),
     content: a.string(),
     toneTag: a.string().default('neutral'),
-    createdAt: a.date(),
+    createdAt: a.datetime(),
   }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 });
 
