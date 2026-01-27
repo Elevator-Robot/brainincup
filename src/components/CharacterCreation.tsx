@@ -40,7 +40,8 @@ export default function CharacterCreation({ onComplete, onCancel }: CharacterCre
     }
     
     // Calculate stats using game framework
-    const raceId = race.toLowerCase().replace('-', '');
+    // Convert display names to proper IDs: "Half-Elf" → "halfElf", "Half-Orc" → "halfOrc"
+    const raceId = race.replace('-', '').replace(/^(.)/, (match) => match.toLowerCase());
     const classId = characterClass.toLowerCase();
     
     const finalStats = calculateFinalStats(classId, raceId);
