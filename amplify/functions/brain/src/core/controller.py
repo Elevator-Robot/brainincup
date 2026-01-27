@@ -98,7 +98,7 @@ class Controller:
         )
 
         # Reasoning Agent parses the response
-        parsed_response = self.reasoning_agent.analyze_input(raw_response, context)
+        parsed_response = self.reasoning_agent.analyze_input(raw_response, conversation_context)
 
         # Emotional Agent modifies the response
         emotional_response = self.emotional_agent.apply_emotions(parsed_response)
