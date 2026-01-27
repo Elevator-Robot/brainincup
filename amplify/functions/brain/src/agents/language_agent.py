@@ -14,27 +14,57 @@ class LanguageAgent:
 
     def generate_response(
         self,
-        formatted_prompt: str,
         *,
+        variables: Dict[str, Any],
         session_id: str,
+        template_name: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Send the prepared payload to the AgentCore runtime and parse the result."""
+        """
+        Send structured variables to AgentCore runtime for prompt assembly.
+        
+        Args:
+            variables: Dictionary of template variables (user_input, context, etc.)
+            session_id: Conversation/session identifier
+            template_name: AgentCore template name (optional, derived from mode if not provided)
+            metadata: Additional metadata for tracing and logging
+        
+        Returns:
+            Structured response from AgentCore/Bedrock
+        """
         metadata = metadata or {}
+        
+        # Determine template based on personality mode if not explicitly provided
+        if not template_name:
+            personality_mode = metadata.get("personality_mode", "default")
+            template_name = self._get_template_name(personality_mode)
+        
+        # Build payload with structured variables instead of formatted prompt
         payload = {
-            "prompt": formatted_prompt,
+            "template": template_name,
+            "variables": variables,
             "persona": {
                 "name": self.persona_config.get("name", "Brain"),
                 "mode": metadata.get("personality_mode"),
                 "temperature": self.persona_config.get("temperature", 1.0),
                 "top_p": self.persona_config.get("top_p", 1.0),
             },
-            "context": metadata.get("context"),
-            "message": {
-                "id": metadata.get("message_id"),
+            "metadata": {
+                "conversation_id": metadata.get("conversation_id"),
+                "message_id": metadata.get("message_id"),
                 "owner": metadata.get("owner"),
+                "trace_id": metadata.get("trace_id"),
             },
         }
+        
+        logger.info(
+            "Sending structured payload to AgentCore",
+            extra={
+                "template": template_name,
+                "variable_keys": list(variables.keys()),
+                "personality_mode": metadata.get("personality_mode")
+            }
+        )
 
         try:
             response = self.agent_client.invoke(
@@ -46,6 +76,24 @@ class LanguageAgent:
         except Exception as error:
             logger.error("AgentCore invocation failed", exc_info=error)
             return self._fallback_response()
+    
+    def _get_template_name(self, personality_mode: str) -> str:
+        """Map personality mode to AgentCore template name."""
+        import os
+        
+        # Read template names from environment variables (set in backend.ts)
+        default_template = os.getenv("AGENTCORE_DEFAULT_TEMPLATE", "brain_default_persona")
+        game_master_template = os.getenv("AGENTCORE_GAME_MASTER_TEMPLATE", "brain_game_master")
+        
+        template_mapping = {
+            "default": default_template,
+            "game_master": game_master_template,
+            # Add more modes as needed
+        }
+        
+        template = template_mapping.get(personality_mode, default_template)
+        logger.debug(f"Selected template '{template}' for mode '{personality_mode}'")
+        return template
 
     @staticmethod
     def _fallback_response() -> Dict[str, Any]:

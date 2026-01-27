@@ -44,6 +44,18 @@ brainLambda.addEnvironment('CHARACTER_TABLE_NAME', characterTable.tableName);
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
+// AgentCore template names (optional - defaults used if not provided)
+const defaultTemplate = process.env.AGENTCORE_DEFAULT_TEMPLATE || 'brain_default_persona';
+const gameMasterTemplate = process.env.AGENTCORE_GAME_MASTER_TEMPLATE || 'brain_game_master';
+brainLambda.addEnvironment('AGENTCORE_DEFAULT_TEMPLATE', defaultTemplate);
+brainLambda.addEnvironment('AGENTCORE_GAME_MASTER_TEMPLATE', gameMasterTemplate);
+
+// AgentCore Memory ID (optional - set via environment variable if using memory features)
+const agentcoreMemoryId = process.env.AGENTCORE_MEMORY_ID;
+if (agentcoreMemoryId) {
+  brainLambda.addEnvironment('AGENTCORE_MEMORY_ID', agentcoreMemoryId);
+}
+
 const agentcoreContainerUri = process.env.AGENTCORE_CONTAINER_URI;
 // Generate unique runtime name based on stack name and account to avoid conflicts
 const baseRuntimeName = sanitizeRuntimeName(stack.stackName);

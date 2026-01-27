@@ -42,25 +42,57 @@ class Controller:
         self.conversation_history = self.memory_agent.load_conversation_history()
 
     def process_input(self, user_input, message_id=None, owner=None):
-        context = self.memory_agent.retrieve_context(self.conversation_history, n=100)
+        # Gather context from conversation history
+        conversation_context = self.memory_agent.retrieve_context(self.conversation_history, n=100)
         
-        # Add character data to context for Game Master mode
+        # Build variables dictionary for AgentCore template
+        variables = {
+            "user_input": user_input,
+            "context": conversation_context,
+            "persona_name": "Brain",
+        }
+        
+        # Add character data variables for Game Master mode
         if self.character_data:
-            character_context = self._format_character_context(self.character_data)
-            context = f"{character_context}\n\n{context}"
+            variables["character_name"] = self.character_data.get("name", "Adventurer")
+            variables["character_race"] = self.character_data.get("race", "Unknown")
+            variables["character_class"] = self.character_data.get("characterClass", "Wanderer")
+            variables["character_level"] = self.character_data.get("level", 1)
+            
+            # Format stats
+            variables["character_stats"] = {
+                "strength": self.character_data.get("strength", 10),
+                "dexterity": self.character_data.get("dexterity", 10),
+                "constitution": self.character_data.get("constitution", 10),
+                "intelligence": self.character_data.get("intelligence", 10),
+                "wisdom": self.character_data.get("wisdom", 10),
+                "charisma": self.character_data.get("charisma", 10),
+            }
+            
+            # Format HP
+            variables["character_hp"] = {
+                "current": self.character_data.get("currentHP", 12),
+                "max": self.character_data.get("maxHP", 12),
+            }
+            
+            # Add inventory if available
+            if self.character_data.get("inventory"):
+                try:
+                    import json
+                    inventory_data = json.loads(self.character_data["inventory"]) if isinstance(self.character_data["inventory"], str) else self.character_data["inventory"]
+                    variables["character_inventory"] = inventory_data
+                except:
+                    variables["character_inventory"] = []
 
-        # Perception Agent formats the prompt
-        formatted_prompt = self.perception_agent.process_input(user_input, context)
-        # Language Agent invokes AgentCore runtime
+        # Language Agent invokes AgentCore runtime with structured variables
         raw_response = self.language_agent.generate_response(
-            formatted_prompt,
+            variables=variables,
             session_id=self.conversation_id,
             metadata={
-                "context": context,
+                "conversation_id": self.conversation_id,
                 "message_id": message_id,
                 "owner": owner,
                 "personality_mode": self.personality_mode,
-                "character_data": self.character_data,
                 "trace_id": str(uuid.uuid4()),
             },
         )
