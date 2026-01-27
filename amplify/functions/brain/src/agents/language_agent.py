@@ -62,19 +62,31 @@ class LanguageAgent:
             extra={
                 "template": template_name,
                 "variable_keys": list(variables.keys()),
-                "personality_mode": metadata.get("personality_mode")
+                "personality_mode": metadata.get("personality_mode"),
+                "full_payload": payload  # Log full payload for debugging
             }
         )
 
         try:
+            logger.info(f"Invoking AgentCore with session_id: {session_id}")
             response = self.agent_client.invoke(
                 session_id=session_id,
                 payload=payload,
                 trace_metadata=metadata.get("trace_id"),
             )
+            logger.info(f"AgentCore response received: {response}")
             return response or self._fallback_response()
         except Exception as error:
-            logger.error("AgentCore invocation failed", exc_info=error)
+            logger.error(
+                "AgentCore invocation failed",
+                exc_info=error,
+                extra={
+                    "error_type": type(error).__name__,
+                    "error_message": str(error),
+                    "session_id": session_id,
+                    "template": template_name
+                }
+            )
             return self._fallback_response()
     
     def _get_template_name(self, personality_mode: str) -> str:
