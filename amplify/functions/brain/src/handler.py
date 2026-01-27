@@ -77,7 +77,8 @@ def get_character_data(conversation_id: str) -> dict | None:
                 "max": character.get("maxHP", 10),
             },
             "armorClass": character.get("armorClass", 10),
-            "inventory": json.loads(character.get("inventory", "[]")),
+            # Inventory might already be a list or a JSON string
+            "inventory": character.get("inventory") if isinstance(character.get("inventory"), list) else json.loads(character.get("inventory", "[]")),
         }
     except Exception as error:
         logger.exception(
