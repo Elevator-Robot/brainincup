@@ -432,10 +432,10 @@ function App() {
     }
   }, [effectivePersonality]);
 
-  const fetchCharacter = useCallback(async (convId: string, retryCount = 0) => {
+  const fetchCharacter = useCallback(async (convId: string, retryCount = 0): Promise<CharacterRecord | null> => {
     // Prevent duplicate creation with ref-based lock
     if (characterCreationLock.current) {
-      return;
+      return null;
     }
     
     setIsLoadingCharacter(true);
@@ -474,10 +474,11 @@ function App() {
       }
       
       if (data && data.length > 0 && data[0]) {
-        setCharacterState(data[0] as CharacterRecord);
+        const character = data[0] as CharacterRecord;
+        setCharacterState(character);
         setShowCharacterCreation(false);
         setIsLoadingCharacter(false);
-        return;
+        return character;
       }
       
       // Retry up to 2 times with delay if no character found (database propagation)
@@ -489,10 +490,12 @@ function App() {
       // No character exists after retries - show character creation modal
       setIsLoadingCharacter(false);
       setShowCharacterCreation(true);
+      return null;
     } catch (error) {
       console.error('❌ Error loading character:', error);
       setIsLoadingCharacter(false);
       characterCreationLock.current = false;
+      return null;
     }
   }, []);
 
@@ -628,15 +631,21 @@ function App() {
         adventureFetchLock.current = null;
         return;
       }
+      const character = await fetchCharacter(convId);
+      if (!character) {
+        setAdventureState(null);
+        setQuestSteps([]);
+        setPlayerChoices([]);
+        adventureFetchLock.current = null;
+        return;
+      }
+
       const adventure = await ensureAdventureState(convId, activeMode);
       if (!adventure || !adventure.id) {
         adventureFetchLock.current = null;
         return;
       }
       const adventureId = adventure.id as string;
-      
-      // Fetch character when adventure is loaded - pass conversationId instead
-      await fetchCharacter(convId);
       
       try {
         const [stepsRes, choicesRes] = await Promise.all([
@@ -1169,7 +1178,11 @@ function App() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || isWaitingForResponse) return;
+    if (
+      !inputMessage.trim() ||
+      isWaitingForResponse ||
+      (effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState)
+    ) return;
 
     // If no conversation exists, create one first
     if (!conversationId) {
@@ -1189,7 +1202,11 @@ function App() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (inputMessage.trim() && !isWaitingForResponse) {
+      if (
+        inputMessage.trim() &&
+        !isWaitingForResponse &&
+        !(effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState)
+      ) {
         handleSubmit(e as React.FormEvent);
       }
     }
@@ -1230,6 +1247,12 @@ function App() {
         }
         setPersonalityMode(normalizedMode);
         if (normalizedMode === 'game_master') {
+          const character = await fetchCharacter(selectedConversationId);
+          if (!character) {
+            setMessages([]);
+            setIsWaitingForResponse(false);
+            return;
+          }
           await fetchAdventureBundle(selectedConversationId);
         } else {
           setAdventureState(null);
@@ -1437,8 +1460,13 @@ function App() {
     }
   };
 
+  const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState;
+  const isInputLocked = isWaitingForResponse || isGameMasterCharacterRequired;
+  const gameMasterInputPlaceholder = isGameMasterCharacterRequired
+    ? 'Create your character to begin your adventure...'
+    : 'What do you do next?';
   const hasPersonalityPanel = effectivePersonality !== 'default';
-  const hasAdventurePanel = effectivePersonality === 'game_master' && Boolean(adventureState);
+  const hasAdventurePanel = effectivePersonality === 'game_master' && Boolean(adventureState) && Boolean(characterState);
   const hasSidebarContent = Boolean(
     conversationId && (hasPersonalityPanel || hasAdventurePanel)
   );
@@ -1815,11 +1843,11 @@ function App() {
                             isWaitingForResponse
                               ? 'Brain is thinking...'
                               : conversationId 
-                                ? (effectivePersonality === 'game_master' ? 'What do you do next?' : 'Message Brain...') 
+                                ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...') 
                                 : 'Start a new conversation...'
                           }
                           className="w-full px-3 py-3 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
-                          disabled={isWaitingForResponse}
+                          disabled={isInputLocked}
                           rows={1}
                           style={{ 
                             maxHeight: '160px',
@@ -1838,12 +1866,12 @@ function App() {
                       <button
                         type="submit"
                         className={`flex-shrink-0 p-3 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 focus:ring-offset-2 focus:ring-offset-brand-bg-primary
-                    ${!inputMessage.trim() || isWaitingForResponse
+                    ${!inputMessage.trim() || isInputLocked
       ? 'bg-brand-surface-hover text-brand-text-muted cursor-not-allowed opacity-50' 
       : 'bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95'
     }`}
-                        disabled={!inputMessage.trim() || isWaitingForResponse}
-                        aria-label={isWaitingForResponse ? 'Sending message' : 'Send message'}
+                        disabled={!inputMessage.trim() || isInputLocked}
+                        aria-label={isInputLocked ? 'Sending message' : 'Send message'}
                       >
                         {isWaitingForResponse ? (
                           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -1856,7 +1884,7 @@ function App() {
                     </div>
 
                     {/* Keyboard hint */}
-                    {!isWaitingForResponse && (
+                    {!isInputLocked && (
                       <div className="mt-2 text-center">
                         <p className="text-xs text-brand-text-muted/50">
                       Press <kbd className="px-1.5 py-0.5 rounded bg-brand-surface-elevated/50 border border-brand-surface-border/30 text-[10px] font-mono">Enter</kbd> to send, <kbd className="px-1.5 py-0.5 rounded bg-brand-surface-elevated/50 border border-brand-surface-border/30 text-[10px] font-mono">Shift+Enter</kbd> for new line
@@ -1925,7 +1953,7 @@ function App() {
         </nav>
 
         {/* Floating Expandable Header Bars - Side by Side - Only for Game Master mode */}
-        {effectivePersonality === 'game_master' && (
+        {effectivePersonality === 'game_master' && characterState && (
           <div className="lg:hidden sticky top-0 z-40 pt-safe">
             <div className="flex gap-2 mx-4 mt-4 items-start">
               {/* First Bar - Quest Log */}
@@ -2286,11 +2314,11 @@ function App() {
                         isWaitingForResponse
                           ? 'Brain is thinking...'
                           : conversationId
-                            ? (effectivePersonality === 'game_master' ? 'What do you do next?' : 'Message Brain...')
+                            ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
                             : 'Start a new conversation...'
                       }
                       className="w-full px-3 py-2.5 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-sm leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
-                      disabled={isWaitingForResponse}
+                      disabled={isInputLocked}
                       rows={1}
                       style={{ 
                         maxHeight: '120px',
@@ -2309,12 +2337,12 @@ function App() {
                   <button
                     type="submit"
                     className={`flex-shrink-0 p-2.5 rounded-xl transition-all duration-200 focus:outline-none active:scale-95
-                    ${!inputMessage.trim() || isWaitingForResponse
+                    ${!inputMessage.trim() || isInputLocked
       ? 'bg-brand-surface-hover text-brand-text-muted cursor-not-allowed opacity-50' 
       : 'bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg active:shadow-xl'
     }`}
-                    disabled={!inputMessage.trim() || isWaitingForResponse}
-                    aria-label={isWaitingForResponse ? 'Sending message' : 'Send message'}
+                    disabled={!inputMessage.trim() || isInputLocked}
+                    aria-label={isInputLocked ? 'Sending message' : 'Send message'}
                   >
                     {isWaitingForResponse ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
