@@ -57,6 +57,16 @@ def get_character_data(conversation_id: str) -> dict | None:
             return None
         
         character = items[0]
+        inventory_value = character.get("inventory", "[]")
+        if isinstance(inventory_value, str):
+            try:
+                inventory = json.loads(inventory_value)
+            except json.JSONDecodeError:
+                inventory = [inventory_value] if inventory_value else []
+        elif isinstance(inventory_value, list):
+            inventory = inventory_value
+        else:
+            inventory = []
         
         # Format character data for AI context
         return {
@@ -77,7 +87,7 @@ def get_character_data(conversation_id: str) -> dict | None:
                 "max": character.get("maxHP", 10),
             },
             "armorClass": character.get("armorClass", 10),
-            "inventory": json.loads(character.get("inventory", "[]")),
+            "inventory": inventory,
         }
     except Exception as error:
         logger.exception(

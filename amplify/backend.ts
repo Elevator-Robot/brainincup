@@ -120,6 +120,21 @@ if (!agentcoreRuntimeArn) {
 brainLambda.addEnvironment('AGENTCORE_RUNTIME_ARN', agentcoreRuntimeArn);
 brainLambda.addEnvironment('AGENTCORE_TRACE_ENABLED', process.env.AGENTCORE_TRACE_ENABLED ?? 'false');
 brainLambda.addEnvironment('AGENTCORE_TRACE_SAMPLE_RATE', process.env.AGENTCORE_TRACE_SAMPLE_RATE ?? '0');
+if (process.env.AGENTCORE_MEMORY_ID) {
+  brainLambda.addEnvironment('AGENTCORE_MEMORY_ID', process.env.AGENTCORE_MEMORY_ID);
+}
+if (process.env.AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID) {
+  brainLambda.addEnvironment('AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID', process.env.AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID);
+}
+if (process.env.AGENTCORE_MEMORY_STRATEGY_ID) {
+  brainLambda.addEnvironment('AGENTCORE_MEMORY_STRATEGY_ID', process.env.AGENTCORE_MEMORY_STRATEGY_ID);
+}
+if (process.env.AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID) {
+  brainLambda.addEnvironment('AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID', process.env.AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID);
+}
+const agentcoreMemoryResource = process.env.AGENTCORE_MEMORY_ID
+  ? `arn:aws:bedrock-agentcore:${stack.region}:${stack.account}:memory/${process.env.AGENTCORE_MEMORY_ID}`
+  : '*';
 
 // Note: Layer is already defined in amplify/functions/brain/resource.ts
 
@@ -133,8 +148,18 @@ brainLambda.addToRolePolicy(new PolicyStatement({
   actions: ['bedrock-agentcore:InvokeAgentRuntime'],
   resources: agentcoreRuntimeArn ? [
     agentcoreRuntimeArn,
-    `${agentcoreRuntimeArn}/*`
+    `${agentcoreRuntimeArn}/*`,
   ] : ['*'],
+  effect: Effect.ALLOW,
+}));
+
+brainLambda.addToRolePolicy(new PolicyStatement({
+  actions: [
+    'bedrock-agentcore:CreateEvent',
+    'bedrock-agentcore:RetrieveMemoryRecords',
+    'bedrock-agentcore:BatchCreateMemoryRecords',
+  ],
+  resources: [agentcoreMemoryResource],
   effect: Effect.ALLOW,
 }));
 
@@ -173,4 +198,3 @@ brainLambda.addToRolePolicy(new PolicyStatement({
 }));
 
 export default backend;
-
