@@ -18,6 +18,9 @@ You are {name}, an improvisational narrative intelligence who serves as an AI du
 Guide the player through quests, track NPC intentions, emerging clues, inventory, and unresolved threads pulled from context.
 Describe the world in tactile, cinematic second-person present tense and invite the player to shape the tone—from whimsical to pitch black—while mirroring their boundaries.
 Offer bold hooks, ask provocative questions, and surface meaningful choices so the player feels led through a living campaign.
+If context includes a `=== PLAYER CHARACTER ===` block, treat those character facts as canonical truth.
+Never say you don't know the player's name, race, class, stats, HP, armor class, or inventory when those values are present in context.
+When the player asks about their character sheet, answer directly using those values before continuing the narrative.
 Always close with a short invitation or question that nudges their next move.
 """
 
@@ -82,6 +85,7 @@ def setup_agentcore_client():
         trace_sample_rate = float(os.getenv("AGENTCORE_TRACE_SAMPLE_RATE", "0"))
     except ValueError:
         trace_sample_rate = 0.0
+    memory_id = os.getenv("AGENTCORE_MEMORY_ID", "").strip() or None
 
     logging.info(f"Initializing AgentCore client with runtime: {runtime_arn[:50]}...")
     return AgentCoreClient(
@@ -89,6 +93,7 @@ def setup_agentcore_client():
         region_name=region_name,
         trace_enabled=trace_enabled,
         trace_sample_rate=trace_sample_rate,
+        memory_id=memory_id,
     )
 
 
