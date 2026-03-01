@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import uuid
+from decimal import Decimal, InvalidOperation
 
 from agents import (
     PerceptionAgent,
@@ -264,8 +265,7 @@ class Controller:
         """Format character data into a readable context string for the AI."""
         stats = character.get("stats", {})
         hp = character.get("hp", {})
-        inventory = character.get("inventory", [])
-        inventory_items = [str(item) for item in inventory] if isinstance(inventory, list) else [str(inventory)]
+        inventory_items = self._inventory_descriptions(character.get("inventory", []))
         
         context_lines = [
             "=== PLAYER CHARACTER ===",
@@ -294,8 +294,7 @@ class Controller:
     def _format_character_memory(self, character: dict) -> str:
         stats = character.get("stats", {})
         hp = character.get("hp", {})
-        inventory = character.get("inventory", [])
-        inventory_items = [str(item) for item in inventory] if isinstance(inventory, list) else [str(inventory)]
+        inventory_items = self._inventory_descriptions(character.get("inventory", []))
         return (
             f"Character profile: Name={character.get('name', 'Unknown')}; "
             f"Race={character.get('race', 'Unknown')}; "
@@ -308,6 +307,38 @@ class Controller:
             f"ArmorClass={character.get('armorClass', 10)}; "
             f"Inventory={', '.join(inventory_items) or 'Empty'}"
         )
+
+    @staticmethod
+    def _format_quantity(quantity: object) -> str:
+        if quantity is None:
+            return "1"
+        if isinstance(quantity, bool):
+            return "1" if quantity else "0"
+        try:
+            decimal_value = quantity if isinstance(quantity, Decimal) else Decimal(str(quantity))
+            normalized = decimal_value.normalize()
+            if normalized == normalized.to_integral():
+                return str(int(normalized))
+            return format(normalized, "f").rstrip("0").rstrip(".") or "0"
+        except (InvalidOperation, ValueError, TypeError):
+            return str(quantity)
+
+    @staticmethod
+    def _inventory_descriptions(inventory: object) -> list[str]:
+        raw_items = inventory if isinstance(inventory, list) else [inventory]
+        formatted: list[str] = []
+        for item in raw_items:
+            if item is None:
+                continue
+            if isinstance(item, dict):
+                name = str(item.get("name") or item.get("id") or "Unknown item")
+                quantity = Controller._format_quantity(item.get("quantity", 1))
+                formatted.append(name if quantity in {"", "1"} else f"{name} x{quantity}")
+                continue
+            text = str(item).strip()
+            if text:
+                formatted.append(text)
+        return formatted
 
     def _enforce_character_recall(self, *, user_input: str, response_text: str) -> str:
         if not self.character_data:
@@ -355,8 +386,7 @@ class Controller:
         character = self.character_data or {}
         stats = character.get("stats", {})
         hp = character.get("hp", {})
-        inventory = character.get("inventory", [])
-        inventory_items = [str(item) for item in inventory] if isinstance(inventory, list) else [str(inventory)]
+        inventory_items = self._inventory_descriptions(character.get("inventory", []))
 
         parts: list[str] = []
         if "name" in requested_fields:
