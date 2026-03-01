@@ -6,12 +6,10 @@ import ConversationList from './components/ConversationList';
 import BrainIcon from './components/BrainIcon';
 import PersonalityIndicator from './components/PersonalityIndicator';
 import InstallPrompt from './components/InstallPrompt';
-import WipBanner from './components/WipBanner';
 import CharacterCreation from './components/CharacterCreation';
 import InventoryManager, { type InventoryItem } from './components/InventoryManager';
 import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
-import { featureFlags } from './featureFlags';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -2408,9 +2406,6 @@ function App() {
 
       {/* Install Prompt */}
       <InstallPrompt />
-
-      {/* WIP Banner - only show for Game Master mode when feature flag is enabled */}
-      {featureFlags.showGameMasterWIPBanner && effectivePersonality === 'game_master' && <WipBanner />}
 
       {/* Character Creation Modal */}
       {showCharacterCreation && conversationId && effectivePersonality === 'game_master' && (
