@@ -7,6 +7,8 @@ import PersonalityIndicator from './components/PersonalityIndicator';
 import InstallPrompt from './components/InstallPrompt';
 import CharacterCreation from './components/CharacterCreation';
 import InventoryManager, { type InventoryItem } from './components/InventoryManager';
+import Panel from './components/ui/Panel';
+import { RPGLayout, LeftSidebar, CenterNarrative, RightStatus, BottomInput } from './components/ui/RPGLayout';
 import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 const dataClient = generateClient<Schema>();
@@ -1543,529 +1545,535 @@ function App() {
             {messages.length > 0 && `Interaction has ${messages.length} messages`}
           </div>
 
-          <div className="retro-layout-grid flex flex-1 min-h-0 gap-4 px-4 pb-4">
+          <RPGLayout>
             {conversationId && (
-              <aside className="retro-frame retro-left-panel hidden lg:flex w-72 shrink-0 flex-col rounded-lg border border-brand-surface-border/40 bg-brand-surface-elevated/45 backdrop-blur-sm">
-                <div
-                  ref={desktopModeDropdownRef}
-                  className={`retro-mode-header relative border-b px-5 py-4 ${isGameMasterMode ? 'border-amber-700/30' : 'border-brand-surface-border/40'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setIsModeDropdownOpen((prev) => !prev)}
-                      className={`retro-mode-trigger flex h-11 w-11 items-center justify-center rounded-full border transition-colors ${
-                        isGameMasterMode
-                          ? 'border-amber-500/50 bg-[#2f1e11]/70 hover:border-amber-400/70'
-                          : 'border-brand-surface-border/60 bg-brand-bg-secondary/75 hover:border-brand-accent-primary/60'
-                      }`}
-                      aria-label="Select Brain or Game Master"
-                    >
-                      {isGameMasterMode ? (
-                        <img src="/game-master.svg" alt="" aria-hidden="true" className="h-6 w-10 object-contain" />
-                      ) : (
-                        <BrainIcon className="h-6 w-6 text-brand-text-accent" />
-                      )}
-                    </button>
-                    <div className="min-w-0">
-                      <p className={`retro-mode-title text-sm font-medium ${isGameMasterMode ? 'text-amber-100' : 'text-brand-text-primary'}`}>
-                        {isGameMasterMode ? 'Game Master' : 'Brain'}
-                      </p>
+              <LeftSidebar>
+                <Panel className="flex-1 flex flex-col backdrop-blur-sm">
+                  <div
+                    ref={desktopModeDropdownRef}
+                    className={`retro-mode-header relative border-b px-5 py-4 ${isGameMasterMode ? 'border-amber-700/30' : 'border-brand-surface-border/40'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsModeDropdownOpen((prev) => !prev)}
+                        className={`retro-mode-trigger flex h-11 w-11 items-center justify-center rounded-full border transition-colors ${
+                          isGameMasterMode
+                            ? 'border-amber-500/50 bg-[#2f1e11]/70 hover:border-amber-400/70'
+                            : 'border-brand-surface-border/60 bg-brand-bg-secondary/75 hover:border-brand-accent-primary/60'
+                        }`}
+                        aria-label="Select Brain or Game Master"
+                      >
+                        {isGameMasterMode ? (
+                          <img src="/game-master.svg" alt="" aria-hidden="true" className="h-6 w-10 object-contain" />
+                        ) : (
+                          <BrainIcon className="h-6 w-6 text-brand-text-accent" />
+                        )}
+                      </button>
+                      <div className="min-w-0">
+                        <p className={`retro-mode-title text-sm font-medium ${isGameMasterMode ? 'text-amber-100' : 'text-brand-text-primary'}`}>
+                          {isGameMasterMode ? 'Game Master' : 'Brain'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  {isModeDropdownOpen && (
-                    <div className="retro-dropdown absolute left-4 top-[calc(100%-6px)] z-30 w-64 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
-                      <p className="px-2 pb-1 text-[10px] uppercase tracking-[0.26em] text-brand-text-muted">Brain / Game Master</p>
-                      {MODE_OPTIONS.map((option) => {
-                        const isActive = option.id === effectivePersonality;
-                        const isGameMasterOption = option.id === 'game_master';
+                    {isModeDropdownOpen && (
+                      <div className="retro-dropdown absolute left-4 top-[calc(100%-6px)] z-30 w-64 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
+                        <p className="px-2 pb-1 text-[10px] uppercase tracking-[0.26em] text-brand-text-muted">Brain / Game Master</p>
+                        {MODE_OPTIONS.map((option) => {
+                          const isActive = option.id === effectivePersonality;
+                          const isGameMasterOption = option.id === 'game_master';
 
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => handleModeSelected(option.id)}
-                            className={`retro-dropdown-item flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
-                              isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover'
-                            }`}
-                          >
-                            <span
-                              className={`flex h-10 w-10 items-center justify-center rounded-full border ${
-                                isGameMasterOption
-                                  ? 'border-amber-400/60 bg-amber-500/15 text-amber-100'
-                                  : 'border-violet-400/60 bg-violet-500/15 text-violet-100'
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => handleModeSelected(option.id)}
+                              className={`retro-dropdown-item flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
+                                isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover'
                               }`}
                             >
-                              {isGameMasterOption ? (
-                                <img src="/game-master.svg" alt="" aria-hidden="true" className="h-5 w-8 object-contain" />
-                              ) : (
-                                <BrainIcon className="h-5 w-5" />
+                              <span
+                                className={`flex h-10 w-10 items-center justify-center rounded-full border ${
+                                  isGameMasterOption
+                                    ? 'border-amber-400/60 bg-amber-500/15 text-amber-100'
+                                    : 'border-violet-400/60 bg-violet-500/15 text-violet-100'
+                                }`}
+                              >
+                                {isGameMasterOption ? (
+                                  <img src="/game-master.svg" alt="" aria-hidden="true" className="h-5 w-8 object-contain" />
+                                ) : (
+                                  <BrainIcon className="h-5 w-5" />
+                                )}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-brand-text-primary">{option.shortLabel}</p>
+                                <p className="text-[11px] text-brand-text-muted">{option.badge}</p>
+                              </div>
+                              {isActive && (
+                                <svg className="h-4 w-4 text-brand-accent-primary" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8.5 12.086 5.707 9.293a1 1 0 00-1.414 1.414l3.5 3.5a1 1 0 001.414 0l7.5-7.5a1 1 0 000-1.414z" clipRule="evenodd" />
+                                </svg>
                               )}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-brand-text-primary">{option.shortLabel}</p>
-                              <p className="text-[11px] text-brand-text-muted">{option.badge}</p>
-                            </div>
-                            {isActive && (
-                              <svg className="h-4 w-4 text-brand-accent-primary" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8.5 12.086 5.707 9.293a1 1 0 00-1.414 1.414l3.5 3.5a1 1 0 001.414 0l7.5-7.5a1 1 0 000-1.414z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {isGameMasterMode ? (
-                  <>
-                    <div className="flex-1 px-4 py-5 text-amber-50">
-                      <p className="text-center text-[11px] uppercase tracking-[0.26em] text-amber-200/75">Character Sheet</p>
-                      <div className="mt-4 flex justify-center">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-amber-500/60 bg-[#2f1e11]/70 text-2xl font-semibold text-amber-200">
-                          {(characterDisplay.name || 'A').slice(0, 1).toUpperCase()}
-                        </div>
+                            </button>
+                          );
+                        })}
                       </div>
+                    )}
+                  </div>
 
-                      <div className="mt-5 space-y-3">
-                        {['🎒', '📘', '❓', '⚙️'].map((icon) => (
-                          <div
-                            key={icon}
-                            className="mx-auto flex h-12 w-12 items-center justify-center rounded-md border border-amber-700/45 bg-[#24170e]/70 text-xl"
-                          >
-                            <span aria-hidden="true">{icon}</span>
+                  {isGameMasterMode ? (
+                    <>
+                      <div className="flex-1 px-4 py-5 text-amber-50">
+                        <p className="text-center text-[11px] uppercase tracking-[0.26em] text-amber-200/75">Character Sheet</p>
+                        <div className="mt-4 flex justify-center">
+                          <div className="flex h-16 w-16 items-center justify-center rounded-full border border-amber-500/60 bg-[#2f1e11]/70 text-2xl font-semibold text-amber-200">
+                            {(characterDisplay.name || 'A').slice(0, 1).toUpperCase()}
                           </div>
-                        ))}
-                      </div>
-
-                      <p className="mt-5 text-center text-sm text-amber-300">Gold: {goldPieces} gp</p>
-
-                      <div className="mt-4 rounded-md border border-amber-700/45 bg-[#19110b]/80 p-3 text-center">
-                        <p className="text-6xl font-semibold leading-none text-amber-100">{characterDisplay.level}</p>
-                        <p className="mt-2 text-sm text-amber-100/90">{characterDisplay.name || 'Adventurer'}</p>
-                        <p className="text-xs uppercase tracking-[0.18em] text-amber-200/70">
-                          {characterDisplay.characterClass || 'Wanderer'} • Level {characterDisplay.level}
-                        </p>
-                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/35">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-amber-600 to-yellow-400 transition-all duration-500"
-                            style={{ width: `${levelProgress}%` }}
-                          />
                         </div>
-                        <p className="mt-2 text-[11px] text-amber-100/70">Next Level: {Number(characterState?.experience ?? 0)} / {levelTarget}</p>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex-1 space-y-5 px-5 py-5 text-brand-text-primary">
-                      <p className="text-[11px] uppercase tracking-[0.26em] text-brand-text-muted">Mind Profile</p>
 
-                      <div className="space-y-2 text-sm">
-                        <div className="rounded-md border border-brand-surface-border/50 bg-brand-bg-secondary/50 p-3">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-brand-text-muted">Current State</p>
-                          <p className="mt-1 font-medium text-brand-text-primary">{mentalStateLabel}</p>
-                        </div>
-                        <div className="rounded-md border border-brand-surface-border/50 bg-brand-bg-secondary/50 p-3">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-brand-text-muted">Resonance</p>
-                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
+                        <div className="mt-5 space-y-3">
+                          {['🎒', '📘', '❓', '⚙️'].map((icon) => (
                             <div
-                              className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 transition-all duration-500"
-                              style={{ width: `${mentalStateIntensity}%` }}
+                              key={icon}
+                              className="mx-auto flex h-12 w-12 items-center justify-center rounded-md border border-amber-700/45 bg-[#24170e]/70 text-xl"
+                            >
+                              <span aria-hidden="true">{icon}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <p className="mt-5 text-center text-sm text-amber-300">Gold: {goldPieces} gp</p>
+
+                        <div className="mt-4 rounded-md border border-amber-700/45 bg-[#19110b]/80 p-3 text-center">
+                          <p className="text-6xl font-semibold leading-none text-amber-100">{characterDisplay.level}</p>
+                          <p className="mt-2 text-sm text-amber-100/90">{characterDisplay.name || 'Adventurer'}</p>
+                          <p className="text-xs uppercase tracking-[0.18em] text-amber-200/70">
+                            {characterDisplay.characterClass || 'Wanderer'} • Level {characterDisplay.level}
+                          </p>
+                          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/35">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-amber-600 to-yellow-400 transition-all duration-500"
+                              style={{ width: `${levelProgress}%` }}
                             />
                           </div>
-                          <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
+                          <p className="mt-2 text-[11px] text-amber-100/70">Next Level: {Number(characterState?.experience ?? 0)} / {levelTarget}</p>
                         </div>
                       </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex-1 space-y-5 px-5 py-5 text-brand-text-primary">
+                        <p className="text-[11px] uppercase tracking-[0.26em] text-brand-text-muted">Mind Profile</p>
 
-                      {effectivePersonality !== 'default' && (
+                        <div className="space-y-2 text-sm">
+                          <div className="rounded-md border border-brand-surface-border/50 bg-brand-bg-secondary/50 p-3">
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-brand-text-muted">Current State</p>
+                            <p className="mt-1 font-medium text-brand-text-primary">{mentalStateLabel}</p>
+                          </div>
+                          <div className="rounded-md border border-brand-surface-border/50 bg-brand-bg-secondary/50 p-3">
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-brand-text-muted">Resonance</p>
+                            <div className="mt-2 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 transition-all duration-500"
+                                style={{ width: `${mentalStateIntensity}%` }}
+                              />
+                            </div>
+                            <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
+                          </div>
+                        </div>
+
+                        {effectivePersonality !== 'default' && (
+                          <PersonalityIndicator personality={effectivePersonality} />
+                        )}
+                      </div>
+                    </>
+                  )}
+                </Panel>
+              </LeftSidebar>
+            )}
+
+            <CenterNarrative>
+              {/* Enhanced Chat Area with glass morphism design */}
+              {/* Messages with improved styling and animations */}
+              <Panel variant="inset" className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-surface-tertiary ${
+                isGameMasterMode
+                  ? 'px-6 py-6'
+                  : 'px-6 py-6'
+              }`}>
+                <div
+                  ref={desktopScrollContainerRef}
+                  className="h-full overflow-y-auto"
+                >
+                  <div className={`mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300 ${isGameMasterMode ? 'font-serif' : ''}`}>
+                    {showInlineCharacterCreation && (
+                      <div className="mx-auto w-full max-w-xl">
+                        <CharacterCreation
+                          inline
+                          onComplete={handleCharacterCreationComplete}
+                          onCancel={handleCharacterCreationQuickStart}
+                        />
+                      </div>
+                    )}
+                    {conversationId && isGameMasterMode && (
+                      <Panel variant="header" className="retro-status-strip bg-gradient-to-r from-[#2b1711]/70 via-[#531916]/40 to-[#2b1711]/70 !px-4 !py-3 !rounded-md">
+                        <div className="grid grid-cols-3 items-end text-center">
+                          <div className="text-left">
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300/75">Day</p>
+                            <p className="text-lg text-amber-100">{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300/75">Location</p>
+                            <p className="text-lg text-amber-100">{currentLocation}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300/75">Act</p>
+                            <p className="text-lg text-amber-100">{characterDisplay.level >= 5 ? 'II' : 'I'}</p>
+                          </div>
+                        </div>
+                      </Panel>
+                    )}
+
+                    {/* Personality Indicator (mobile only) */}
+                    {conversationId && effectivePersonality !== 'default' && (
+                      <div className="lg:hidden">
+                        <PersonalityIndicator personality={effectivePersonality} />
+                      </div>
+                    )}
+
+                    {conversationId && effectivePersonality === 'game_master' && adventureState && (
+                      <div className="lg:hidden">
+                        <GameMasterHud
+                          adventure={adventureState}
+                          questSteps={hudQuestSteps}
+                          playerChoices={hudPlayerChoices}
+                          character={characterState}
+                          isLoadingCharacter={isLoadingCharacter}
+                          onUpdateInventory={updateInventory}
+                        />
+                      </div>
+                    )}
+              
+                    {messages.length === 0 && !isLoading && conversationId && (
+                      <div className="flex justify-center items-center h-full min-h-[300px]">
+                        <div className="text-center space-y-3 mt-64">
+                          <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
+                          <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
+                        </div>
+                      </div>
+                    )}
+              
+                    {isLoading && (
+                      <div className="flex justify-center items-center h-full min-h-[200px]">
+                        <div className="text-slate-400 flex items-center gap-2">
+                          <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+                    Loading...
+                        </div>
+                      </div>
+                    )}
+              
+                    {messages.map((message, index) => (
+                      <div
+                        key={index}
+                        className={`retro-message-row flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        {message.role === 'assistant' && (
+                          <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm animate-float">
+                            <BrainIcon className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                  
+                        <div 
+                          ref={(el) => {
+                            if (el && message.role === 'assistant') {
+                              messageContainerRefs.current.set(index, el);
+                            }
+                          }}
+                          className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]"
+                        >
+                          <div
+                            className={`retro-message message-bubble backdrop-blur-sm transition-all duration-300 animate-slide-up ${
+                              `rounded-2xl px-4 py-3 hover:scale-[1.02] ${
+                                message.role === 'user'
+                                  ? 'retro-message-user bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple hover:shadow-glow-lg'
+                                  : isGameMasterMode
+                                    ? 'retro-message-assistant-gm border border-amber-700/40 bg-[#24180d]/75 text-amber-100 shadow-glass-lg hover:shadow-neon-blue'
+                                    : 'retro-message-assistant glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg hover:shadow-neon-blue'
+                              } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`
+                            }`}
+                            onClick={() => {
+                              if (message.role === 'assistant' && !isGameMasterMode) {
+                                setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
+                              }
+                            }}
+                          >
+                            <p className="leading-relaxed whitespace-pre-wrap break-words">
+                              {isGameMasterMode && (
+                                <span className={`mb-1 block text-[11px] uppercase tracking-[0.22em] ${
+                                  message.role === 'user' ? 'text-cyan-300/75' : 'text-amber-300/75'
+                                }`}>
+                                  {message.role === 'user' ? 'Player Action' : 'Narrator'}
+                                </span>
+                              )}
+                              {message.content}
+                              {message.isTyping && (
+                                <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
+                              )}
+                            </p>
+                          </div>
+                    
+                          {/* Show additional details when expanded */}
+                          {message.role === 'assistant' && expandedMessageIndex === index && !isGameMasterMode && (
+                            <div className="mt-4 space-y-3 animate-slide-up">
+                              {/* Sensations */}
+                              {message.sensations && message.sensations.length > 0 && (
+                                <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                  <div className="font-medium text-purple-300 mb-2 flex items-center gap-2 text-sm">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                              Sensations
+                                  </div>
+                                  <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
+                                    {message.sensations.map((sensation, i) => (
+                                      <li key={i} className="leading-relaxed">• {sensation}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                        
+                              {/* Thoughts */}
+                              {message.thoughts && message.thoughts.length > 0 && (
+                                <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                  <div className="font-medium text-blue-300 mb-2 flex items-center gap-2 text-sm">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                    </svg>
+                              Thoughts
+                                  </div>
+                                  <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
+                                    {message.thoughts.map((thought, i) => (
+                                      <li key={i} className="leading-relaxed">• {thought}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                        
+                              {/* Memories */}
+                              {message.memories && message.memories.trim() && (
+                                <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                  <div className="font-medium text-green-300 mb-2 flex items-center gap-2 text-sm">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                    </svg>
+                              Memories
+                                  </div>
+                                  <p className="text-brand-text-muted text-sm leading-relaxed">{message.memories}</p>
+                                </div>
+                              )}
+                        
+                              {/* Self Reflection */}
+                              {message.selfReflection && message.selfReflection.trim() && (
+                                <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                  <div className="font-medium text-violet-300 mb-2 flex items-center gap-2 text-sm">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                        d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                              Self Reflection
+                                  </div>
+                                  <p className="text-brand-text-muted text-sm leading-relaxed">{message.selfReflection}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                  
+                        {message.role === 'user' && (
+                          <div className="retro-avatar retro-avatar-user w-8 h-8 rounded-xl glass flex items-center justify-center flex-shrink-0 mt-1 border border-brand-surface-border shadow-glass hover:shadow-glow-sm transition-all duration-300">
+                            <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+              
+                    {isWaitingForResponse && (
+                      <div className="retro-waiting-row flex gap-4 justify-start animate-slide-up">
+                        <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-neon-purple animate-glow-pulse">
+                          <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
+                        </div>
+                        <div className={`retro-message retro-waiting-bubble glass border border-brand-surface-border rounded-2xl px-4 py-3 shadow-neon-blue backdrop-blur-lg ${isGameMasterMode ? 'text-amber-100' : 'text-brand-text-primary'}`}>
+                          <div className="flex items-center gap-2">
+                            <div className="flex space-x-1">
+                              <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
+                              <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
+                              <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
+                            </div>
+                            <span className={`text-sm ${isGameMasterMode ? 'text-amber-200/80' : 'text-brand-text-muted'}`}>
+                              {isGameMasterMode ? 'The world shifts around your decision...' : 'Brain is thinking...'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+              
+                    {/* Enhanced Debug info - now toggleable */}
+                    {showDebugInfo && (
+                      <div className="mt-6 glass rounded-2xl p-4 animate-fade-in">
+                        <h3 className="text-sm font-medium text-brand-text-primary mb-2">Debug Information</h3>
+                        <div className="text-xs text-brand-text-muted space-y-1">
+                          <p>Interaction ID: {conversationId || 'None'}</p>
+                          <p>User: {userAttributes?.sub || 'Unknown'}</p>
+                          <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
+                          <p>Messages count: {messages.length}</p>
+                        </div>
+                      </div>
+                    )}
+                  
+                    {/* Invisible element to scroll to - at the bottom */}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </div>
+
+                {/* Modern Input Area */}
+                <BottomInput>
+                  <div className="mx-auto max-w-4xl transition-all duration-300">
+                    <form onSubmit={handleSubmit} className="relative">
+                      <div className={`retro-input-shell flex gap-2 items-end p-2 transition-all duration-200 ${
+                        isGameMasterMode
+                          ? 'rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/80 backdrop-blur-xl shadow-lg focus-within:border-amber-500/50 focus-within:shadow-xl'
+                          : 'rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/80 backdrop-blur-xl shadow-lg focus-within:border-brand-accent-primary/50 focus-within:shadow-xl'
+                      }`}>
+                        {/* Textarea */}
+                        <div className="flex-1 min-w-0">
+                          <textarea
+                            ref={inputRef}
+                            value={inputMessage}
+                            onChange={(e) => setInputMessage(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder={
+                              isWaitingForResponse
+                                ? 'Brain is thinking...'
+                                : conversationId 
+                                  ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...') 
+                                  : 'Start a new conversation...'
+                            }
+                            className="retro-input-textarea w-full px-3 py-3 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
+                            disabled={isInputLocked}
+                            rows={1}
+                            style={{ 
+                              maxHeight: '160px',
+                              minHeight: '48px',
+                              height: 'auto'
+                            }}
+                            onInput={(e) => {
+                              const target = e.target as HTMLTextAreaElement;
+                              target.style.height = 'auto';
+                              target.style.height = Math.min(target.scrollHeight, 160) + 'px';
+                            }}
+                          />
+                        </div>
+
+                        {/* Send Button */}
+                        <button
+                          type="submit"
+                          className={`retro-send-button flex-shrink-0 rounded-xl p-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                            isGameMasterMode ? 'focus:ring-amber-500/50 focus:ring-offset-brand-bg-primary' : 'focus:ring-brand-accent-primary/50 focus:ring-offset-brand-bg-primary'
+                          }
+                        ${sendButtonStateClass}`}
+                          disabled={!inputMessage.trim() || isInputLocked}
+                          aria-label={isInputLocked ? 'Sending message' : 'Send message'}
+                        >
+                          {isWaitingForResponse ? (
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Keyboard hint */}
+                      {!isInputLocked && (
+                        <div className="mt-2 text-center">
+                          <p className="text-xs text-brand-text-muted/50">
+                      Press <kbd className={keyboardHintKeyClass}>Enter</kbd> to send, <kbd className={keyboardHintKeyClass}>Shift+Enter</kbd> for new line
+                          </p>
+                        </div>
+                      )}
+                    </form>
+                  </div>
+                </BottomInput>
+              </Panel>
+            </CenterNarrative>
+
+            {conversationId && (
+              <RightStatus>
+                <Panel className="flex-1 flex flex-col text-brand-text-primary">
+                  {isGameMasterMode ? (
+                    <div className="flex h-full flex-col gap-4 p-4 retro-right-stack">
+                      <Panel variant="inset" className="overflow-hidden">
+                        <div className="h-56 bg-cover bg-center" style={{ backgroundImage: 'url(/fantasy-location.svg)' }} />
+                        <div className="border-t border-amber-700/35 bg-[#281b10]/90 px-3 py-2">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300/75">Current Location</p>
+                          <p className="mt-1 font-serif text-lg text-amber-100">{currentLocation}</p>
+                        </div>
+                      </Panel>
+
+                      <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center">
+                        <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-amber-100/8">
+                        ROLL
+                        </p>
+                        <p className="relative text-[10px] uppercase tracking-[0.24em] text-amber-300/75">Latest Roll</p>
+                        <div className="relative mt-2 text-7xl font-semibold leading-none text-amber-100 drop-shadow-[0_0_18px_rgba(251,191,36,0.45)]">
+                          {latestDiceRoll || '—'}
+                        </div>
+                        <p className="relative mt-2 text-xs text-amber-100/70">
+                          {adventureState?.title ? `Thread: ${adventureState.title}` : 'Fortune favors the bold.'}
+                        </p>
+                      </Panel>
+                    </div>
+                  ) : (
+                    <div className="flex h-full flex-col gap-4 p-4">
+                      <Panel variant="inset" className="p-4 text-center">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Cognitive Projection</p>
+                        <img
+                          src="/brain.svg"
+                          alt="Floating brain icon"
+                          className="mx-auto mt-4 h-32 w-32 animate-float opacity-95"
+                        />
+                      </Panel>
+
+                      <Panel variant="inset" className="p-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
+                        <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
+                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 transition-all duration-500"
+                            style={{ width: `${mentalStateIntensity}%` }}
+                          />
+                        </div>
+                        <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
+                      </Panel>
+
+                      {conversationId && effectivePersonality !== 'default' && (
                         <PersonalityIndicator personality={effectivePersonality} />
                       )}
                     </div>
-                  </>
-                )}
-              </aside>
+                  )}
+                </Panel>
+              </RightStatus>
             )}
-
-            <div className="flex-1 flex flex-col min-h-0">
-              {/* Enhanced Chat Area with glass morphism design */}
-              {/* Messages with improved styling and animations */}
-                <div
-                  ref={desktopScrollContainerRef}
-                  className={`retro-frame retro-scroll-panel flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-surface-tertiary ${
-                    isGameMasterMode
-                      ? 'rounded-lg border border-amber-700/30 bg-[#1d140d]/70 px-6 py-6'
-                      : 'rounded-lg border border-brand-surface-border/35 bg-brand-surface-elevated/30 px-6 py-6'
-                  }`}
-                >
-                <div className={`mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300 ${isGameMasterMode ? 'font-serif' : ''}`}>
-                  {showInlineCharacterCreation && (
-                    <div className="mx-auto w-full max-w-xl">
-                      <CharacterCreation
-                        inline
-                        onComplete={handleCharacterCreationComplete}
-                        onCancel={handleCharacterCreationQuickStart}
-                      />
-                    </div>
-                  )}
-                  {conversationId && isGameMasterMode && (
-                    <div className="retro-status-strip rounded-md border border-amber-700/40 bg-gradient-to-r from-[#2b1711]/70 via-[#531916]/40 to-[#2b1711]/70 px-4 py-3">
-                      <div className="grid grid-cols-3 items-end text-center">
-                        <div className="text-left">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300/75">Day</p>
-                          <p className="text-lg text-amber-100">{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300/75">Location</p>
-                          <p className="text-lg text-amber-100">{currentLocation}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300/75">Act</p>
-                          <p className="text-lg text-amber-100">{characterDisplay.level >= 5 ? 'II' : 'I'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Personality Indicator (mobile only) */}
-                  {conversationId && effectivePersonality !== 'default' && (
-                    <div className="lg:hidden">
-                      <PersonalityIndicator personality={effectivePersonality} />
-                    </div>
-                  )}
-
-                  {conversationId && effectivePersonality === 'game_master' && adventureState && (
-                    <div className="lg:hidden">
-                      <GameMasterHud
-                        adventure={adventureState}
-                        questSteps={hudQuestSteps}
-                        playerChoices={hudPlayerChoices}
-                        character={characterState}
-                        isLoadingCharacter={isLoadingCharacter}
-                        onUpdateInventory={updateInventory}
-                      />
-                    </div>
-                  )}
-              
-                  {messages.length === 0 && !isLoading && conversationId && (
-                    <div className="flex justify-center items-center h-full min-h-[300px]">
-                      <div className="text-center space-y-3 mt-64">
-                        <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
-                        <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
-                      </div>
-                    </div>
-                  )}
-              
-                  {isLoading && (
-                    <div className="flex justify-center items-center h-full min-h-[200px]">
-                      <div className="text-slate-400 flex items-center gap-2">
-                        <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                    Loading...
-                      </div>
-                    </div>
-                  )}
-              
-                  {messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`retro-message-row flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      {message.role === 'assistant' && (
-                        <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm animate-float">
-                          <BrainIcon className="w-4 h-4 text-white" />
-                        </div>
-                      )}
-                  
-                      <div 
-                        ref={(el) => {
-                          if (el && message.role === 'assistant') {
-                            messageContainerRefs.current.set(index, el);
-                          }
-                        }}
-                        className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]"
-                      >
-                        <div
-                          className={`retro-message message-bubble backdrop-blur-sm transition-all duration-300 animate-slide-up ${
-                            `rounded-2xl px-4 py-3 hover:scale-[1.02] ${
-                              message.role === 'user'
-                                ? 'retro-message-user bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple hover:shadow-glow-lg'
-                                : isGameMasterMode
-                                  ? 'retro-message-assistant-gm border border-amber-700/40 bg-[#24180d]/75 text-amber-100 shadow-glass-lg hover:shadow-neon-blue'
-                                  : 'retro-message-assistant glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg hover:shadow-neon-blue'
-                            } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`
-                          }`}
-                          onClick={() => {
-                            if (message.role === 'assistant' && !isGameMasterMode) {
-                              setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
-                            }
-                          }}
-                        >
-                          <p className="leading-relaxed whitespace-pre-wrap break-words">
-                            {isGameMasterMode && (
-                              <span className={`mb-1 block text-[11px] uppercase tracking-[0.22em] ${
-                                message.role === 'user' ? 'text-cyan-300/75' : 'text-amber-300/75'
-                              }`}>
-                                {message.role === 'user' ? 'Player Action' : 'Narrator'}
-                              </span>
-                            )}
-                            {message.content}
-                            {message.isTyping && (
-                              <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
-                            )}
-                          </p>
-                        </div>
-                    
-                        {/* Show additional details when expanded */}
-                        {message.role === 'assistant' && expandedMessageIndex === index && !isGameMasterMode && (
-                          <div className="mt-4 space-y-3 animate-slide-up">
-                            {/* Sensations */}
-                            {message.sensations && message.sensations.length > 0 && (
-                              <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                <div className="font-medium text-purple-300 mb-2 flex items-center gap-2 text-sm">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                  </svg>
-                              Sensations
-                                </div>
-                                <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
-                                  {message.sensations.map((sensation, i) => (
-                                    <li key={i} className="leading-relaxed">• {sensation}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                        
-                            {/* Thoughts */}
-                            {message.thoughts && message.thoughts.length > 0 && (
-                              <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                <div className="font-medium text-blue-300 mb-2 flex items-center gap-2 text-sm">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                  </svg>
-                              Thoughts
-                                </div>
-                                <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
-                                  {message.thoughts.map((thought, i) => (
-                                    <li key={i} className="leading-relaxed">• {thought}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                        
-                            {/* Memories */}
-                            {message.memories && message.memories.trim() && (
-                              <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                <div className="font-medium text-green-300 mb-2 flex items-center gap-2 text-sm">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                  </svg>
-                              Memories
-                                </div>
-                                <p className="text-brand-text-muted text-sm leading-relaxed">{message.memories}</p>
-                              </div>
-                            )}
-                        
-                            {/* Self Reflection */}
-                            {message.selfReflection && message.selfReflection.trim() && (
-                              <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                <div className="font-medium text-violet-300 mb-2 flex items-center gap-2 text-sm">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                      d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                              Self Reflection
-                                </div>
-                                <p className="text-brand-text-muted text-sm leading-relaxed">{message.selfReflection}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                  
-                      {message.role === 'user' && (
-                        <div className="retro-avatar retro-avatar-user w-8 h-8 rounded-xl glass flex items-center justify-center flex-shrink-0 mt-1 border border-brand-surface-border shadow-glass hover:shadow-glow-sm transition-all duration-300">
-                          <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              
-                  {isWaitingForResponse && (
-                    <div className="retro-waiting-row flex gap-4 justify-start animate-slide-up">
-                      <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-neon-purple animate-glow-pulse">
-                        <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
-                      </div>
-                      <div className={`retro-message retro-waiting-bubble glass border border-brand-surface-border rounded-2xl px-4 py-3 shadow-neon-blue backdrop-blur-lg ${isGameMasterMode ? 'text-amber-100' : 'text-brand-text-primary'}`}>
-                        <div className="flex items-center gap-2">
-                          <div className="flex space-x-1">
-                            <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
-                            <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
-                            <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
-                          </div>
-                          <span className={`text-sm ${isGameMasterMode ? 'text-amber-200/80' : 'text-brand-text-muted'}`}>
-                            {isGameMasterMode ? 'The world shifts around your decision...' : 'Brain is thinking...'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-              
-                  {/* Enhanced Debug info - now toggleable */}
-                  {showDebugInfo && (
-                    <div className="mt-6 glass rounded-2xl p-4 animate-fade-in">
-                      <h3 className="text-sm font-medium text-brand-text-primary mb-2">Debug Information</h3>
-                      <div className="text-xs text-brand-text-muted space-y-1">
-                        <p>Interaction ID: {conversationId || 'None'}</p>
-                        <p>User: {userAttributes?.sub || 'Unknown'}</p>
-                        <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
-                        <p>Messages count: {messages.length}</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Invisible element to scroll to - at the bottom */}
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
-
-              {/* Modern Input Area */}
-              <div className="retro-input-dock sticky bottom-0 left-0 right-0 bg-gradient-to-t from-brand-bg-primary via-brand-bg-primary to-transparent pt-6 pb-4 px-4 sm:px-6">
-                <div className="mx-auto max-w-4xl transition-all duration-300">
-                  <form onSubmit={handleSubmit} className="relative">
-                    <div className={`retro-input-shell flex gap-2 items-end p-2 transition-all duration-200 ${
-                      isGameMasterMode
-                        ? 'rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/80 backdrop-blur-xl shadow-lg focus-within:border-amber-500/50 focus-within:shadow-xl'
-                        : 'rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/80 backdrop-blur-xl shadow-lg focus-within:border-brand-accent-primary/50 focus-within:shadow-xl'
-                    }`}>
-                      {/* Textarea */}
-                      <div className="flex-1 min-w-0">
-                        <textarea
-                          ref={inputRef}
-                          value={inputMessage}
-                          onChange={(e) => setInputMessage(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          placeholder={
-                            isWaitingForResponse
-                              ? 'Brain is thinking...'
-                              : conversationId 
-                                ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...') 
-                                : 'Start a new conversation...'
-                          }
-                          className="retro-input-textarea w-full px-3 py-3 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
-                          disabled={isInputLocked}
-                          rows={1}
-                          style={{ 
-                            maxHeight: '160px',
-                            minHeight: '48px',
-                            height: 'auto'
-                          }}
-                          onInput={(e) => {
-                            const target = e.target as HTMLTextAreaElement;
-                            target.style.height = 'auto';
-                            target.style.height = Math.min(target.scrollHeight, 160) + 'px';
-                          }}
-                        />
-                      </div>
-
-                      {/* Send Button */}
-                      <button
-                        type="submit"
-                        className={`retro-send-button flex-shrink-0 rounded-xl p-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                          isGameMasterMode ? 'focus:ring-amber-500/50 focus:ring-offset-brand-bg-primary' : 'focus:ring-brand-accent-primary/50 focus:ring-offset-brand-bg-primary'
-                        }
-                        ${sendButtonStateClass}`}
-                        disabled={!inputMessage.trim() || isInputLocked}
-                        aria-label={isInputLocked ? 'Sending message' : 'Send message'}
-                      >
-                        {isWaitingForResponse ? (
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Keyboard hint */}
-                    {!isInputLocked && (
-                      <div className="mt-2 text-center">
-                        <p className="text-xs text-brand-text-muted/50">
-                      Press <kbd className={keyboardHintKeyClass}>Enter</kbd> to send, <kbd className={keyboardHintKeyClass}>Shift+Enter</kbd> for new line
-                        </p>
-                      </div>
-                    )}
-                  </form>
-                </div>
-              </div>
-            </div>
-
-            {conversationId && (
-              <aside className="retro-frame retro-right-panel hidden lg:flex w-80 shrink-0 flex-col rounded-lg border border-brand-surface-border/40 bg-brand-surface-elevated/45 backdrop-blur-sm text-brand-text-primary">
-                {isGameMasterMode ? (
-                  <div className="flex h-full flex-col gap-4 p-4 retro-right-stack">
-                    <div className="retro-location-card overflow-hidden rounded-md border border-amber-700/35">
-                      <div className="h-56 bg-cover bg-center" style={{ backgroundImage: 'url(/fantasy-location.svg)' }} />
-                      <div className="border-t border-amber-700/35 bg-[#281b10]/90 px-3 py-2">
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300/75">Current Location</p>
-                        <p className="mt-1 font-serif text-lg text-amber-100">{currentLocation}</p>
-                      </div>
-                    </div>
-
-                    <div className="retro-dice-panel mt-auto relative overflow-hidden rounded-md border border-amber-700/45 bg-gradient-to-b from-[#0f0f13] to-[#1a130c] p-4 text-center">
-                      <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-amber-100/8">
-                        ROLL
-                      </p>
-                      <p className="relative text-[10px] uppercase tracking-[0.24em] text-amber-300/75">Latest Roll</p>
-                      <div className="relative mt-2 text-7xl font-semibold leading-none text-amber-100 drop-shadow-[0_0_18px_rgba(251,191,36,0.45)]">
-                        {latestDiceRoll || '—'}
-                      </div>
-                      <p className="relative mt-2 text-xs text-amber-100/70">
-                        {adventureState?.title ? `Thread: ${adventureState.title}` : 'Fortune favors the bold.'}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex h-full flex-col gap-4 p-4">
-                    <div className="rounded-md border border-brand-surface-border/50 bg-brand-bg-secondary/60 p-4 text-center">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Cognitive Projection</p>
-                      <img
-                        src="/brain.svg"
-                        alt="Floating brain icon"
-                        className="mx-auto mt-4 h-32 w-32 animate-float opacity-95"
-                      />
-                    </div>
-
-                    <div className="rounded-md border border-brand-surface-border/50 bg-brand-bg-secondary/60 p-4">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
-                      <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 transition-all duration-500"
-                          style={{ width: `${mentalStateIntensity}%` }}
-                        />
-                      </div>
-                      <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
-                    </div>
-
-                    {conversationId && effectivePersonality !== 'default' && (
-                      <PersonalityIndicator personality={effectivePersonality} />
-                    )}
-                  </div>
-                )}
-              </aside>
-            )}
-          </div>
+          </RPGLayout>
           
         </main>
       </div>
@@ -2282,62 +2290,62 @@ function App() {
                   {mobileCharSheetExpanded && adventureState && !isLoadingCharacter && characterState && (() => {
                     const charData = getCharacterData();
                     return (
-                    <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
-                      {/* Stats */}
-                      <div>
-                        <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Attributes</h4>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                            <div className="text-xs text-brand-text-muted">STR</div>
-                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.strength}</div>
-                          </div>
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                            <div className="text-xs text-brand-text-muted">DEX</div>
-                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.dexterity}</div>
-                          </div>
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                            <div className="text-xs text-brand-text-muted">CON</div>
-                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.constitution}</div>
-                          </div>
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                            <div className="text-xs text-brand-text-muted">INT</div>
-                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.intelligence}</div>
-                          </div>
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                            <div className="text-xs text-brand-text-muted">WIS</div>
-                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.wisdom}</div>
-                          </div>
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                            <div className="text-xs text-brand-text-muted">CHA</div>
-                            <div className="text-lg font-bold text-brand-text-primary">{charData.stats.charisma}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Health & Level */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs uppercase tracking-wider text-brand-text-muted">Level</span>
-                          <span className="text-sm font-bold text-brand-text-primary">{charData.level}</span>
-                        </div>
+                      <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
+                        {/* Stats */}
                         <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs uppercase tracking-wider text-brand-text-muted">HP</span>
-                            <span className="text-xs text-brand-text-secondary">{charData.hp.current} / {charData.hp.max}</span>
-                          </div>
-                          <div className="h-2 bg-brand-surface-hover rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${charData.hp.percentage}%` }}></div>
+                          <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Attributes</h4>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                              <div className="text-xs text-brand-text-muted">STR</div>
+                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.strength}</div>
+                            </div>
+                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                              <div className="text-xs text-brand-text-muted">DEX</div>
+                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.dexterity}</div>
+                            </div>
+                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                              <div className="text-xs text-brand-text-muted">CON</div>
+                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.constitution}</div>
+                            </div>
+                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                              <div className="text-xs text-brand-text-muted">INT</div>
+                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.intelligence}</div>
+                            </div>
+                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                              <div className="text-xs text-brand-text-muted">WIS</div>
+                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.wisdom}</div>
+                            </div>
+                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                              <div className="text-xs text-brand-text-muted">CHA</div>
+                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.charisma}</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Inventory */}
-                      <InventoryManager 
-                        inventory={charData.inventory}
-                        onUpdateInventory={updateInventory}
-                        isUpdating={false}
-                      />
-                    </div>
+                        {/* Health & Level */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs uppercase tracking-wider text-brand-text-muted">Level</span>
+                            <span className="text-sm font-bold text-brand-text-primary">{charData.level}</span>
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs uppercase tracking-wider text-brand-text-muted">HP</span>
+                              <span className="text-xs text-brand-text-secondary">{charData.hp.current} / {charData.hp.max}</span>
+                            </div>
+                            <div className="h-2 bg-brand-surface-hover rounded-full overflow-hidden">
+                              <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${charData.hp.percentage}%` }}></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Inventory */}
+                        <InventoryManager 
+                          inventory={charData.inventory}
+                          onUpdateInventory={updateInventory}
+                          isUpdating={false}
+                        />
+                      </div>
                     );
                   })()}
                 </div>
