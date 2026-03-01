@@ -45,18 +45,27 @@ def get_character_data(conversation_id: str) -> dict | None:
     
     try:
         # Scan table filtering by conversationId (GSI might not exist yet)
-        response = character_table.scan(
-            FilterExpression="conversationId = :cid",
-            ExpressionAttributeValues={":cid": conversation_id},
-            Limit=1
-        )
-        
-        items = response.get("Items", [])
-        if not items:
+        # Note: Scan Limit applies before FilterExpression, so we must paginate to avoid false "not found" results.
+        scan_kwargs = {
+            "FilterExpression": "conversationId = :cid",
+            "ExpressionAttributeValues": {":cid": conversation_id},
+        }
+        character = None
+        while True:
+            response = character_table.scan(**scan_kwargs)
+            items = response.get("Items", [])
+            if items:
+                character = items[0]
+                break
+            last_evaluated_key = response.get("LastEvaluatedKey")
+            if not last_evaluated_key:
+                break
+            scan_kwargs["ExclusiveStartKey"] = last_evaluated_key
+
+        if not character:
             logger.info(f"No character found for conversation {conversation_id}")
             return None
-        
-        character = items[0]
+
         inventory_value = character.get("inventory", "[]")
         if isinstance(inventory_value, str):
             try:
