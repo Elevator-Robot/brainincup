@@ -353,6 +353,8 @@ function App() {
     
     return {
       name: characterState?.name || 'Adventurer',
+      race: characterState?.race || 'Wanderer',
+      characterClass: characterState?.characterClass || 'Wanderer',
       level: characterState?.level || 1,
       stats,
       hp,
@@ -1463,11 +1465,7 @@ function App() {
   const gameMasterInputPlaceholder = isGameMasterCharacterRequired
     ? 'Create your character to begin your adventure...'
     : 'What do you do next?';
-  const hasPersonalityPanel = effectivePersonality !== 'default';
-  const hasAdventurePanel = effectivePersonality === 'game_master' && Boolean(adventureState) && Boolean(characterState);
-  const hasSidebarContent = Boolean(
-    conversationId && (hasPersonalityPanel || hasAdventurePanel)
-  );
+  const isGameMasterMode = effectivePersonality === 'game_master';
 
   const normalizedQuestSteps = useMemo(() => mapQuestStepsToHud(questSteps), [questSteps]);
   const normalizedPlayerChoices = useMemo(() => mapPlayerChoicesToHud(playerChoices), [playerChoices]);
@@ -1484,9 +1482,76 @@ function App() {
 
   const hudQuestSteps = normalizedQuestSteps.length > 0 ? normalizedQuestSteps : derivedQuestSteps;
   const hudPlayerChoices = normalizedPlayerChoices.length > 0 ? normalizedPlayerChoices : derivedPlayerChoices;
+  const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
+  const currentLocation = adventureState?.lastLocation || adventureState?.title || 'The Shrouded Vale';
+  const goldPieces = useMemo(() => {
+    return characterDisplay.inventory.reduce((total, item) => {
+      if ((item.type === 'currency' || item.name.toLowerCase().includes('gold'))) {
+        const quantity = Number(item.quantity ?? 0);
+        if (Number.isFinite(quantity)) return total + quantity;
+      }
+      const parsed = item.name.match(/(\d+)\s*gold/i);
+      if (parsed) return total + Number(parsed[1]);
+      return total;
+    }, 0);
+  }, [characterDisplay.inventory]);
+  const levelTarget = Math.max(characterDisplay.level * 100, 100);
+  const levelProgress = Math.min(
+    100,
+    Math.max(0, ((Number(characterState?.experience ?? 0) % levelTarget) / levelTarget) * 100),
+  );
+  const latestDiceRoll = useMemo(() => {
+    const patterns = [
+      /\bd20\b[^0-9]*(\d{1,2})/i,
+      /\broll(?:ed)?\b[^0-9]*(\d{1,2})/i,
+      /\b(\d{1,2})\s*\/\s*20\b/i,
+    ];
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const text = messages[i]?.fullContent || messages[i]?.content || '';
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match?.[1]) return match[1];
+      }
+    }
+    return null;
+  }, [messages]);
+  const latestAssistantMessage = useMemo(
+    () => [...messages].reverse().find((message) => message.role === 'assistant' && Boolean(message.content || message.fullContent)),
+    [messages],
+  );
+  const mentalStateLabel = useMemo(() => {
+    const source = `${latestAssistantMessage?.selfReflection || ''} ${latestAssistantMessage?.memories || ''}`.toLowerCase();
+    if (isWaitingForResponse) return 'Neural Activity Rising';
+    if (source.includes('calm') || source.includes('serene')) return 'Calm Resonance';
+    if (source.includes('fear') || source.includes('anxious') || source.includes('panic')) return 'Anxious Interference';
+    if (source.includes('curious') || source.includes('wonder')) return 'Curious Drift';
+    if (source.includes('focused') || source.includes('clarity')) return 'Focused Coherence';
+    return 'Reflective Drift';
+  }, [isWaitingForResponse, latestAssistantMessage]);
+  const mentalStateIntensity = useMemo(() => {
+    const sensationCount = latestAssistantMessage?.sensations?.length ?? 0;
+    const thoughtCount = latestAssistantMessage?.thoughts?.length ?? 0;
+    return Math.min(100, 25 + sensationCount * 14 + thoughtCount * 8 + (isWaitingForResponse ? 12 : 0));
+  }, [isWaitingForResponse, latestAssistantMessage]);
+  const sendButtonStateClass = !inputMessage.trim() || isInputLocked
+    ? isGameMasterMode
+      ? 'cursor-not-allowed bg-[#3a2818] text-amber-200/45 opacity-60'
+      : 'bg-brand-surface-hover text-brand-text-muted cursor-not-allowed opacity-50'
+    : isGameMasterMode
+      ? 'bg-gradient-to-br from-amber-600 to-orange-700 text-white shadow-lg hover:scale-105 hover:shadow-xl active:scale-95'
+      : 'bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg hover:scale-105 hover:shadow-xl active:scale-95';
+  const keyboardHintKeyClass = `px-1.5 py-0.5 rounded border text-[10px] font-mono ${
+    isGameMasterMode
+      ? 'bg-[#291b10] border-amber-700/40'
+      : 'bg-brand-surface-elevated/50 border-brand-surface-border/30'
+  }`;
 
   return (
-    <div className="h-screen bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary overflow-hidden relative">
+    <div className={`h-screen overflow-hidden relative ${
+      isGameMasterMode
+        ? 'bg-gradient-to-br from-[#140f07] via-[#0d0905] to-[#1b1209]'
+        : 'bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary'
+    }`}>
 
 
       {/* Mobile: Full-screen Overlay Menu */}
@@ -1621,12 +1686,69 @@ function App() {
             {messages.length > 0 && `Interaction has ${messages.length} messages`}
           </div>
 
-          <div className="flex flex-1 min-h-0">
+          <div className="flex flex-1 min-h-0 gap-4 px-4 pb-4">
+            {isGameMasterMode && conversationId && (
+              <aside className="hidden lg:flex w-72 shrink-0 flex-col rounded-lg border border-amber-700/35 bg-[#20150c]/85 shadow-[0_0_0_1px_rgba(255,192,120,0.06)] backdrop-blur-sm">
+                <div className="border-b border-amber-700/30 px-5 py-4">
+                  <p className="text-[11px] uppercase tracking-[0.26em] text-amber-200/75">Character Sheet</p>
+                </div>
+                <div className="flex-1 space-y-5 px-5 py-5 text-amber-50">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-amber-500/50 bg-[#2f1e11] text-xl font-semibold text-amber-200">
+                      {(characterDisplay.name || 'A').slice(0, 1).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-serif text-lg leading-tight text-amber-100">{characterDisplay.name || 'Unknown Wanderer'}</p>
+                      <p className="text-xs uppercase tracking-[0.2em] text-amber-200/70">{characterDisplay.race || 'Adventurer'}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-md border border-amber-700/35 bg-[#281b10]/80 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-amber-200/70">Class</p>
+                      <p className="mt-1 font-medium text-amber-100">{characterDisplay.characterClass || 'Wanderer'}</p>
+                    </div>
+                    <div className="rounded-md border border-amber-700/35 bg-[#281b10]/80 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-amber-200/70">Level</p>
+                      <p className="mt-1 text-xl font-semibold text-amber-100">{characterDisplay.level}</p>
+                    </div>
+                    <div className="col-span-2 rounded-md border border-amber-700/35 bg-[#281b10]/80 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-amber-200/70">Gold</p>
+                      <p className="mt-1 text-lg font-semibold text-amber-100">{goldPieces}</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-amber-700/35 bg-[#281b10]/80 p-3">
+                    <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-amber-200/70">
+                      <span>Next Level</span>
+                      <span>{Math.round(levelProgress)}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-black/35">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-amber-600 to-yellow-400 transition-all duration-500"
+                        style={{ width: `${levelProgress}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-amber-100/80">
+                      XP toward next level target ({levelTarget}): {Number(characterState?.experience ?? 0)}
+                    </p>
+                  </div>
+                </div>
+              </aside>
+            )}
+
             <div className="flex-1 flex flex-col min-h-0">
               {/* Enhanced Chat Area with glass morphism design */}
               {/* Messages with improved styling and animations */}
-              <div ref={desktopScrollContainerRef} className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-brand-surface-tertiary">
-                <div className={`mx-auto space-y-6 flex flex-col transition-all duration-300 ${hasSidebarContent ? 'max-w-4xl' : 'max-w-5xl'}`}>
+              <div
+                ref={desktopScrollContainerRef}
+                className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-surface-tertiary ${
+                  isGameMasterMode
+                    ? 'rounded-lg border border-amber-700/35 bg-[#171008]/88 px-7 py-7'
+                    : 'px-6 py-6'
+                }`}
+              >
+                <div className={`mx-auto space-y-6 flex flex-col transition-all duration-300 ${isGameMasterMode ? 'max-w-3xl font-serif' : 'max-w-5xl'}`}>
                   {/* Personality Indicator (mobile only) */}
                   {conversationId && effectivePersonality !== 'default' && (
                     <div className="lg:hidden">
@@ -1668,9 +1790,9 @@ function App() {
                   {messages.map((message, index) => (
                     <div
                       key={index}
-                      className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      className={`flex gap-4 ${isGameMasterMode ? 'justify-start' : message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      {message.role === 'assistant' && (
+                      {message.role === 'assistant' && !isGameMasterMode && (
                         <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-glow-sm animate-float">
                           <BrainIcon className="w-4 h-4 text-white" />
                         </div>
@@ -1682,23 +1804,36 @@ function App() {
                             messageContainerRefs.current.set(index, el);
                           }
                         }}
-                        className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]"
+                        className={isGameMasterMode ? 'flex w-full flex-col gap-2' : 'flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]'}
                       >
                         <div
-                          className={`message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm
-                      transition-all duration-300 hover:scale-[1.02] animate-slide-up
-                      ${message.role === 'assistant' ? 'cursor-pointer' : ''}
-                      ${message.role === 'user' 
-                      ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple hover:shadow-glow-lg' 
-                      : 'glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg hover:shadow-neon-blue'
-                    }`}
+                          className={`message-bubble backdrop-blur-sm transition-all duration-300 animate-slide-up ${
+                            isGameMasterMode
+                              ? `rounded-md border px-5 py-4 ${
+                                message.role === 'user'
+                                  ? 'border-cyan-700/40 bg-[#101925]/90 text-cyan-100'
+                                  : 'border-amber-700/45 bg-[#24180d]/88 text-amber-100'
+                              }`
+                              : `rounded-2xl px-4 py-3 hover:scale-[1.02] ${
+                                message.role === 'user'
+                                  ? 'bg-gradient-to-r from-brand-accent-primary to-brand-accent-secondary text-white shadow-glow-purple hover:shadow-glow-lg'
+                                  : 'glass text-brand-text-primary border border-brand-surface-border shadow-glass-lg hover:shadow-neon-blue'
+                              } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`
+                          }`}
                           onClick={() => {
-                            if (message.role === 'assistant') {
+                            if (message.role === 'assistant' && !isGameMasterMode) {
                               setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
                             }
                           }}
                         >
                           <p className="leading-relaxed whitespace-pre-wrap break-words">
+                            {isGameMasterMode && (
+                              <span className={`mb-1 block text-[11px] uppercase tracking-[0.22em] ${
+                                message.role === 'user' ? 'text-cyan-300/75' : 'text-amber-300/75'
+                              }`}>
+                                {message.role === 'user' ? 'Player Action' : 'Narrator'}
+                              </span>
+                            )}
                             {message.content}
                             {message.isTyping && (
                               <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
@@ -1707,7 +1842,7 @@ function App() {
                         </div>
                     
                         {/* Show additional details when expanded */}
-                        {message.role === 'assistant' && expandedMessageIndex === index && (
+                        {message.role === 'assistant' && expandedMessageIndex === index && !isGameMasterMode && (
                           <div className="mt-4 space-y-3 animate-slide-up">
                             {/* Sensations */}
                             {message.sensations && message.sensations.length > 0 && (
@@ -1778,7 +1913,7 @@ function App() {
                         )}
                       </div>
                   
-                      {message.role === 'user' && (
+                      {message.role === 'user' && !isGameMasterMode && (
                         <div className="w-8 h-8 rounded-xl glass flex items-center justify-center flex-shrink-0 mt-1 border border-brand-surface-border shadow-glass hover:shadow-glow-sm transition-all duration-300">
                           <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -1791,17 +1926,25 @@ function App() {
               
                   {isWaitingForResponse && (
                     <div className="flex gap-4 justify-start animate-slide-up">
-                      <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-neon-purple animate-glow-pulse">
-                        <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
-                      </div>
-                      <div className="glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-neon-blue backdrop-blur-lg">
+                      {!isGameMasterMode && (
+                        <div className="w-8 h-8 rounded-xl bg-gradient-mesh flex items-center justify-center flex-shrink-0 mt-1 shadow-neon-purple animate-glow-pulse">
+                          <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
+                        </div>
+                      )}
+                      <div
+                        className={isGameMasterMode
+                          ? 'rounded-md border border-amber-700/45 bg-[#24180d]/88 px-5 py-4 text-amber-100'
+                          : 'glass text-brand-text-primary border border-brand-surface-border rounded-2xl px-4 py-3 shadow-neon-blue backdrop-blur-lg'}
+                      >
                         <div className="flex items-center gap-2">
                           <div className="flex space-x-1">
                             <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
                             <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
                             <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
                           </div>
-                          <span className="text-sm text-brand-text-muted">Brain is thinking...</span>
+                          <span className={`text-sm ${isGameMasterMode ? 'text-amber-200/80' : 'text-brand-text-muted'}`}>
+                            {isGameMasterMode ? 'The world shifts around your decision...' : 'Brain is thinking...'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1826,10 +1969,18 @@ function App() {
               </div>
 
               {/* Modern Input Area */}
-              <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t from-brand-bg-primary via-brand-bg-primary to-transparent pt-6 pb-4 px-4 sm:px-6">
-                <div className={`mx-auto transition-all duration-300 ${hasSidebarContent ? 'max-w-4xl' : 'max-w-5xl'}`}>
+              <div className={`sticky bottom-0 left-0 right-0 px-4 sm:px-6 ${
+                isGameMasterMode
+                  ? 'border-t border-amber-700/30 bg-[#140f0a]/95 pb-4 pt-4'
+                  : 'bg-gradient-to-t from-brand-bg-primary via-brand-bg-primary to-transparent pb-4 pt-6'
+              }`}>
+                <div className={`mx-auto transition-all duration-300 ${isGameMasterMode ? 'max-w-3xl' : 'max-w-5xl'}`}>
                   <form onSubmit={handleSubmit} className="relative">
-                    <div className="flex gap-2 items-end bg-brand-surface-elevated/80 backdrop-blur-xl rounded-2xl border border-brand-surface-border/50 p-2 shadow-lg transition-all duration-200 focus-within:border-brand-accent-primary/50 focus-within:shadow-xl">
+                    <div className={`flex gap-2 items-end p-2 transition-all duration-200 ${
+                      isGameMasterMode
+                        ? 'rounded-md border border-amber-700/45 bg-[#261a10]/85 focus-within:border-amber-500/60'
+                        : 'rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/80 backdrop-blur-xl shadow-lg focus-within:border-brand-accent-primary/50 focus-within:shadow-xl'
+                    }`}>
                       {/* Textarea */}
                       <div className="flex-1 min-w-0">
                         <textarea
@@ -1844,7 +1995,11 @@ function App() {
                                 ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...') 
                                 : 'Start a new conversation...'
                           }
-                          className="w-full px-3 py-3 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
+                          className={`w-full resize-none border-0 bg-transparent px-3 py-3 text-[15px] leading-relaxed transition-all duration-200 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50 scrollbar-thin ${
+                            isGameMasterMode
+                              ? 'text-amber-50 placeholder-amber-200/45 scrollbar-thumb-amber-700/40'
+                              : 'text-brand-text-primary placeholder-brand-text-muted/60 scrollbar-thumb-brand-surface-tertiary'
+                          }`}
                           disabled={isInputLocked}
                           rows={1}
                           style={{ 
@@ -1863,11 +2018,10 @@ function App() {
                       {/* Send Button */}
                       <button
                         type="submit"
-                        className={`flex-shrink-0 p-3 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/50 focus:ring-offset-2 focus:ring-offset-brand-bg-primary
-                    ${!inputMessage.trim() || isInputLocked
-      ? 'bg-brand-surface-hover text-brand-text-muted cursor-not-allowed opacity-50' 
-      : 'bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95'
-    }`}
+                        className={`flex-shrink-0 rounded-xl p-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                          isGameMasterMode ? 'focus:ring-amber-500/50 focus:ring-offset-[#1b1209]' : 'focus:ring-brand-accent-primary/50 focus:ring-offset-brand-bg-primary'
+                        }
+                        ${sendButtonStateClass}`}
                         disabled={!inputMessage.trim() || isInputLocked}
                         aria-label={isInputLocked ? 'Sending message' : 'Send message'}
                       >
@@ -1884,8 +2038,8 @@ function App() {
                     {/* Keyboard hint */}
                     {!isInputLocked && (
                       <div className="mt-2 text-center">
-                        <p className="text-xs text-brand-text-muted/50">
-                      Press <kbd className="px-1.5 py-0.5 rounded bg-brand-surface-elevated/50 border border-brand-surface-border/30 text-[10px] font-mono">Enter</kbd> to send, <kbd className="px-1.5 py-0.5 rounded bg-brand-surface-elevated/50 border border-brand-surface-border/30 text-[10px] font-mono">Shift+Enter</kbd> for new line
+                        <p className={`text-xs ${isGameMasterMode ? 'text-amber-200/55' : 'text-brand-text-muted/50'}`}>
+                      Press <kbd className={keyboardHintKeyClass}>Enter</kbd> to send, <kbd className={keyboardHintKeyClass}>Shift+Enter</kbd> for new line
                         </p>
                       </div>
                     )}
@@ -1893,31 +2047,71 @@ function App() {
                 </div>
               </div>
             </div>
+
+            {conversationId && (
+              <aside className={`hidden lg:flex w-80 shrink-0 flex-col rounded-lg border backdrop-blur-sm ${
+                isGameMasterMode
+                  ? 'border-amber-700/35 bg-[#1e140c]/85 text-amber-100'
+                  : 'border-brand-surface-border/40 bg-brand-surface-elevated/45 text-brand-text-primary'
+              }`}>
+                {isGameMasterMode ? (
+                  <div className="flex h-full flex-col gap-4 p-4">
+                    <div className="overflow-hidden rounded-md border border-amber-700/35">
+                      <div className="h-44 bg-cover bg-center" style={{ backgroundImage: 'url(/fantasy-location.svg)' }} />
+                      <div className="border-t border-amber-700/35 bg-[#281b10]/90 px-3 py-2">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300/75">Current Location</p>
+                        <p className="mt-1 font-serif text-lg text-amber-100">{currentLocation}</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-md border border-amber-700/35 bg-[#281b10]/80 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300/75">Adventure Status</p>
+                      <p className="mt-2 text-sm text-amber-50/85">
+                        {adventureState?.title ? `Current thread: ${adventureState.title}` : 'Awaiting the next turn in your journey.'}
+                      </p>
+                    </div>
+
+                    <div className="mt-auto rounded-md border border-amber-700/45 bg-gradient-to-b from-[#2f1f11] to-[#1d1208] p-4 text-center">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-amber-300/75">Latest Dice Roll</p>
+                      <div className="mt-2 text-6xl font-semibold leading-none text-amber-100 drop-shadow-[0_0_16px_rgba(251,191,36,0.45)]">
+                        {latestDiceRoll || '—'}
+                      </div>
+                      <p className="mt-2 text-xs text-amber-100/70">Fortune favors the bold.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-full flex-col gap-4 p-4">
+                    <div className="rounded-md border border-brand-surface-border/50 bg-brand-bg-secondary/60 p-4 text-center">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Cognitive Projection</p>
+                      <img
+                        src="/brain.svg"
+                        alt="Floating brain icon"
+                        className="mx-auto mt-4 h-32 w-32 animate-float opacity-95"
+                      />
+                    </div>
+
+                    <div className="rounded-md border border-brand-surface-border/50 bg-brand-bg-secondary/60 p-4">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
+                      <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 transition-all duration-500"
+                          style={{ width: `${mentalStateIntensity}%` }}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
+                    </div>
+
+                    {conversationId && effectivePersonality !== 'default' && (
+                      <PersonalityIndicator personality={effectivePersonality} />
+                    )}
+                  </div>
+                )}
+              </aside>
+            )}
           </div>
           
         </main>
-
-        {/* Desktop HUD Sidebar */}
-        {hasSidebarContent && (
-          <aside className="hidden lg:flex w-96 flex-col border-l border-brand-surface-border/30 px-6 py-6 bg-gradient-to-t from-brand-bg-primary via-brand-bg-primary/50 to-transparent">
-            <div className="sticky top-10 space-y-6 w-full">
-              {conversationId && effectivePersonality !== 'default' && (
-                <PersonalityIndicator personality={effectivePersonality} />
-              )}
-
-              {conversationId && effectivePersonality === 'game_master' && adventureState && (
-                <GameMasterHud
-                  adventure={adventureState}
-                  questSteps={hudQuestSteps}
-                  playerChoices={hudPlayerChoices}
-                  character={characterState}
-                  isLoadingCharacter={isLoadingCharacter}
-                  onUpdateInventory={updateInventory}
-                />
-              )}
-            </div>
-          </aside>
-        )}
       </div>
 
       {/* Mobile: Main Content Area */}
