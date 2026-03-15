@@ -376,6 +376,15 @@ textarea.w-full:focus {
   --rpg-text-gold:       #f1d9a3;
   --rpg-text-muted:      rgba(230, 193, 132, 0.65);
   --rpg-tracking-label:  0.22em;
+
+  /* Panel detail tokens (mode-overridable) */
+  --rpg-panel-inner-border: rgba(255, 215, 146, 0.06);
+  --rpg-panel-corner-glow: rgba(198, 155, 78, 0.18);
+  --rpg-header-bg:       linear-gradient(180deg, rgba(44, 30, 20, 0.85), rgba(29, 20, 15, 0.55));
+  --rpg-header-inner-glow: rgba(235, 195, 119, 0.08);
+  --rpg-highlight-border: rgba(198, 155, 78, 0.62);
+  --rpg-highlight-inset-glow: rgba(255, 177, 84, 0.10);
+  --rpg-highlight-corner-glow: rgba(198, 155, 78, 0.28);
 }
 
 /* ─── RPG Panel Component ─── */
@@ -390,6 +399,7 @@ textarea.w-full:focus {
     var(--rpg-shadow-outer);
   color: var(--rpg-text-parchment);
   overflow: hidden;
+  transition: color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, background 320ms ease;
 }
 
 /* Inner edge highlight via pseudo-element */
@@ -397,10 +407,11 @@ textarea.w-full:focus {
   content: "";
   position: absolute;
   inset: 2px;
-  border: 1px solid rgba(255, 215, 146, 0.06);
+  border: 1px solid var(--rpg-panel-inner-border);
   border-radius: 4px;
   pointer-events: none;
   z-index: 1;
+  transition: border-color 260ms ease;
 }
 
 /* Corner accents via pseudo-element */
@@ -412,29 +423,31 @@ textarea.w-full:focus {
   z-index: 2;
   background:
     /* top-left corner */
-    radial-gradient(circle at 0 0, rgba(198,155,78,0.18) 0%, transparent var(--rpg-corner-size)),
+    radial-gradient(circle at 0 0, var(--rpg-panel-corner-glow) 0%, transparent var(--rpg-corner-size)),
     /* top-right corner */
-    radial-gradient(circle at 100% 0, rgba(198,155,78,0.18) 0%, transparent var(--rpg-corner-size)),
+    radial-gradient(circle at 100% 0, var(--rpg-panel-corner-glow) 0%, transparent var(--rpg-corner-size)),
     /* bottom-left corner */
-    radial-gradient(circle at 0 100%, rgba(198,155,78,0.18) 0%, transparent var(--rpg-corner-size)),
+    radial-gradient(circle at 0 100%, var(--rpg-panel-corner-glow) 0%, transparent var(--rpg-corner-size)),
     /* bottom-right corner */
-    radial-gradient(circle at 100% 100%, rgba(198,155,78,0.18) 0%, transparent var(--rpg-corner-size));
+    radial-gradient(circle at 100% 100%, var(--rpg-panel-corner-glow) 0%, transparent var(--rpg-corner-size));
+  transition: background 320ms ease;
 }
 
 /* Header variant — slim strip */
 .rpg-panel--header {
   padding: var(--rpg-space-sm) var(--rpg-space-md);
   background:
-    linear-gradient(180deg, rgba(44, 30, 20, 0.85), rgba(29, 20, 15, 0.55)),
+    var(--rpg-header-bg),
     var(--rpg-panel-texture);
   border-bottom: 1px solid var(--rpg-gold-dim);
   border-radius: 6px 6px 0 0;
-  box-shadow: inset 0 -1px 0 rgba(235, 195, 119, 0.08);
+  box-shadow: inset 0 -1px 0 var(--rpg-header-inner-glow);
   font-family: var(--rpg-font-display);
   letter-spacing: var(--rpg-tracking-label);
   text-transform: uppercase;
   font-size: 0.7rem;
   color: var(--rpg-text-gold);
+  transition: color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, background 320ms ease;
 }
 
 .rpg-panel--header::before,
@@ -444,20 +457,21 @@ textarea.w-full:focus {
 
 /* Highlight / accent variant — glowing border */
 .rpg-panel--highlight {
-  border-color: rgba(198, 155, 78, 0.62);
+  border-color: var(--rpg-highlight-border);
   box-shadow:
     inset 0 0 0 1px var(--rpg-gold-highlight),
-    inset 0 0 24px rgba(255, 177, 84, 0.10),
+    inset 0 0 24px var(--rpg-highlight-inset-glow),
     var(--rpg-shadow-glow-gold),
     0 10px 22px rgba(0, 0, 0, 0.45);
+  transition: border-color 260ms ease, box-shadow 260ms ease;
 }
 
 .rpg-panel--highlight::after {
   background:
-    radial-gradient(circle at 0 0, rgba(198,155,78,0.28) 0%, transparent 18px),
-    radial-gradient(circle at 100% 0, rgba(198,155,78,0.28) 0%, transparent 18px),
-    radial-gradient(circle at 0 100%, rgba(198,155,78,0.28) 0%, transparent 18px),
-    radial-gradient(circle at 100% 100%, rgba(198,155,78,0.28) 0%, transparent 18px);
+    radial-gradient(circle at 0 0, var(--rpg-highlight-corner-glow) 0%, transparent 18px),
+    radial-gradient(circle at 100% 0, var(--rpg-highlight-corner-glow) 0%, transparent 18px),
+    radial-gradient(circle at 0 100%, var(--rpg-highlight-corner-glow) 0%, transparent 18px),
+    radial-gradient(circle at 100% 100%, var(--rpg-highlight-corner-glow) 0%, transparent 18px);
 }
 
 /* Inset scroll variant */
@@ -467,6 +481,7 @@ textarea.w-full:focus {
     inset 0 0 0 1px var(--rpg-gold-highlight),
     inset 0 2px 8px rgba(0, 0, 0, 0.5),
     0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: border-color 260ms ease, box-shadow 260ms ease, background 320ms ease;
 }
 
 /* ─── RPG Grid Layout ─── */
@@ -508,6 +523,7 @@ textarea.w-full:focus {
     radial-gradient(circle at 50% 100%, rgba(43, 24, 13, 0.95), rgba(18, 12, 9, 0.98));
   color: #f4e7c4;
   font-family: "Palatino Linotype", "Book Antiqua", Palatino, "Times New Roman", serif;
+  transition: color 260ms ease, background 320ms ease;
 }
 
 .retro-rpg-ui::before,
@@ -530,8 +546,8 @@ textarea.w-full:focus {
   z-index: 0;
 }
 
-.retro-rpg-ui > *,
-.retro-app > * {
+.retro-rpg-ui > *:not(.fixed),
+.retro-app > *:not(.fixed) {
   position: relative;
   z-index: 1;
 }
@@ -556,10 +572,62 @@ textarea.w-full:focus {
 
 .retro-rpg-ui--gm {
   --retro-accent: #c68a3b;
+  --rpg-gold: #c69b4e;
+  --rpg-gold-light: #e8c982;
+  --rpg-gold-dim: rgba(198, 155, 78, 0.45);
+  --rpg-gold-glow: rgba(198, 155, 78, 0.25);
+  --rpg-gold-border: rgba(170, 123, 61, 0.50);
+  --rpg-gold-highlight: rgba(255, 215, 146, 0.10);
+  --rpg-panel-bg: linear-gradient(180deg, rgba(41, 28, 20, 0.96), rgba(26, 18, 14, 0.94));
+  --rpg-panel-bg-inset: linear-gradient(180deg, rgba(32, 21, 15, 0.95), rgba(22, 15, 12, 0.92));
+  --rpg-shadow-glow-gold: 0 0 12px rgba(198, 155, 78, 0.20);
+  --rpg-text-parchment: #f4e7c4;
+  --rpg-text-gold: #f1d9a3;
+  --rpg-text-muted: rgba(230, 193, 132, 0.65);
+  --rpg-panel-inner-border: rgba(255, 215, 146, 0.06);
+  --rpg-panel-corner-glow: rgba(198, 155, 78, 0.18);
+  --rpg-header-bg: linear-gradient(180deg, rgba(44, 30, 20, 0.85), rgba(29, 20, 15, 0.55));
+  --rpg-header-inner-glow: rgba(235, 195, 119, 0.08);
+  --rpg-highlight-border: rgba(198, 155, 78, 0.62);
+  --rpg-highlight-inset-glow: rgba(255, 177, 84, 0.10);
+  --rpg-highlight-corner-glow: rgba(198, 155, 78, 0.28);
 }
 
 .retro-rpg-ui--brain {
   --retro-accent: #9369d8;
+  --rpg-gold: #9971e3;
+  --rpg-gold-light: #dcc7ff;
+  --rpg-gold-dim: rgba(153, 113, 227, 0.46);
+  --rpg-gold-glow: rgba(153, 113, 227, 0.25);
+  --rpg-gold-border: rgba(136, 101, 214, 0.50);
+  --rpg-gold-highlight: rgba(223, 201, 255, 0.10);
+  --rpg-panel-bg: linear-gradient(180deg, rgba(37, 27, 58, 0.96), rgba(24, 18, 40, 0.94));
+  --rpg-panel-bg-inset: linear-gradient(180deg, rgba(33, 24, 52, 0.95), rgba(23, 16, 39, 0.92));
+  --rpg-shadow-glow-gold: 0 0 12px rgba(153, 113, 227, 0.24);
+  --rpg-text-parchment: #ede3ff;
+  --rpg-text-gold: #dcc7ff;
+  --rpg-text-muted: rgba(211, 189, 252, 0.72);
+  --rpg-panel-inner-border: rgba(223, 201, 255, 0.08);
+  --rpg-panel-corner-glow: rgba(149, 110, 228, 0.22);
+  --rpg-header-bg: linear-gradient(180deg, rgba(46, 31, 73, 0.84), rgba(30, 20, 49, 0.52));
+  --rpg-header-inner-glow: rgba(211, 186, 255, 0.12);
+  --rpg-highlight-border: rgba(149, 110, 228, 0.64);
+  --rpg-highlight-inset-glow: rgba(169, 125, 247, 0.14);
+  --rpg-highlight-corner-glow: rgba(149, 110, 228, 0.32);
+}
+
+.retro-rpg-ui .retro-nav,
+.retro-rpg-ui .retro-shell,
+.retro-rpg-ui .retro-mode-header,
+.retro-rpg-ui .retro-frame,
+.retro-rpg-ui .retro-scroll-panel,
+.retro-rpg-ui .retro-right-panel,
+.retro-rpg-ui .retro-input-shell,
+.retro-rpg-ui .retro-mode-trigger,
+.retro-rpg-ui .retro-icon-button,
+.retro-rpg-ui .retro-dropdown,
+.retro-rpg-ui .retro-mobile-card {
+  transition: color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, background 320ms ease;
 }
 
 .retro-shell {
@@ -703,13 +771,21 @@ textarea.w-full:focus {
 }
 
 .retro-input-dock {
-  background: linear-gradient(180deg, rgba(20, 14, 10, 0), rgba(20, 14, 10, 0.82) 34%, rgba(19, 13, 10, 0.96));
+  background: transparent;
 }
 
 .retro-input-shell {
   border-color: rgba(168, 119, 59, 0.44) !important;
   background: linear-gradient(180deg, rgba(44, 30, 23, 0.95), rgba(29, 20, 16, 0.95)) !important;
   box-shadow: inset 0 0 10px rgba(255, 207, 141, 0.09), 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+.retro-input-shell:focus-within {
+  border-color: rgba(221, 162, 75, 0.62) !important;
+  box-shadow:
+    inset 0 0 10px rgba(255, 207, 141, 0.12),
+    0 10px 22px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(221, 162, 75, 0.32);
 }
 
 .retro-input-textarea {
@@ -723,6 +799,15 @@ textarea.w-full:focus {
 .retro-send-button {
   border: 1px solid rgba(206, 154, 83, 0.5);
   box-shadow: 0 0 10px rgba(222, 162, 70, 0.2), inset 0 0 10px rgba(255, 220, 170, 0.2);
+}
+
+.retro-send-button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(221, 162, 75, 0.58),
+    0 0 0 4px rgba(18, 12, 9, 0.92),
+    0 0 12px rgba(222, 162, 70, 0.25),
+    inset 0 0 10px rgba(255, 220, 170, 0.2);
 }
 
 .retro-send-button-disabled {
@@ -807,6 +892,193 @@ textarea.w-full:focus {
 
 .retro-empty-state {
   color: rgba(230, 193, 132, 0.78);
+}
+
+/* Brain mode keeps layout but swaps to a cohesive purple palette */
+.retro-rpg-ui--brain {
+  background:
+    radial-gradient(circle at 15% 15%, rgba(170, 126, 255, 0.18), transparent 42%),
+    radial-gradient(circle at 85% 0%, rgba(109, 70, 196, 0.26), transparent 44%),
+    radial-gradient(circle at 50% 100%, rgba(29, 19, 48, 0.95), rgba(14, 10, 25, 0.98));
+  color: #ede3ff;
+}
+
+.retro-rpg-ui--brain .retro-title {
+  color: #d9c2ff;
+  text-shadow: 0 0 14px rgba(130, 88, 224, 0.5);
+}
+
+.retro-rpg-ui--brain .retro-nav {
+  background: linear-gradient(180deg, rgba(33, 24, 52, 0.96), rgba(20, 14, 33, 0.92));
+  border-bottom-color: rgba(154, 118, 232, 0.4);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.52), inset 0 -1px 0 rgba(211, 187, 255, 0.12);
+}
+
+.retro-rpg-ui--brain .retro-shell {
+  background: linear-gradient(180deg, rgba(20, 15, 34, 0.96), rgba(12, 9, 23, 0.98));
+}
+
+.retro-rpg-ui--brain .retro-main::after {
+  border-color: rgba(149, 111, 228, 0.22);
+}
+
+.retro-rpg-ui--brain .retro-left-panel {
+  border-color: rgba(140, 102, 223, 0.5) !important;
+}
+
+.retro-rpg-ui--brain .retro-mode-header {
+  background: linear-gradient(180deg, rgba(46, 31, 73, 0.78), rgba(30, 20, 49, 0.45));
+}
+
+.retro-rpg-ui--brain .retro-keycap {
+  border-color: rgba(156, 121, 230, 0.4) !important;
+  background: rgba(32, 23, 53, 0.86) !important;
+  color: #d7c4fb;
+}
+
+.retro-rpg-ui--brain .retro-frame {
+  background:
+    linear-gradient(180deg, rgba(37, 27, 58, 0.96), rgba(24, 18, 40, 0.94)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03) 0px,
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  border-color: rgba(136, 101, 214, 0.45);
+  box-shadow:
+    inset 0 0 0 1px rgba(223, 201, 255, 0.09),
+    inset 0 0 36px rgba(12, 9, 19, 0.45),
+    0 14px 30px rgba(0, 0, 0, 0.48);
+}
+
+.retro-rpg-ui--brain .retro-scroll-panel {
+  background:
+    linear-gradient(180deg, rgba(33, 24, 52, 0.95), rgba(23, 16, 39, 0.92)),
+    radial-gradient(circle at top, rgba(151, 108, 232, 0.13), transparent 65%);
+  border-color: rgba(135, 98, 214, 0.46);
+}
+
+.retro-rpg-ui--brain .retro-status-strip {
+  background: linear-gradient(90deg, rgba(36, 23, 56, 0.92), rgba(98, 58, 162, 0.34), rgba(36, 23, 56, 0.92));
+  box-shadow: inset 0 0 14px rgba(173, 127, 255, 0.12);
+}
+
+.retro-rpg-ui--brain .retro-avatar {
+  border-color: rgba(166, 127, 237, 0.46);
+  box-shadow: inset 0 0 8px rgba(223, 203, 255, 0.2), 0 0 8px rgba(0, 0, 0, 0.35);
+}
+
+.retro-rpg-ui--brain .retro-avatar-assistant {
+  background: radial-gradient(circle at 30% 28%, rgba(196, 155, 255, 0.72), rgba(97, 57, 171, 0.95));
+}
+
+.retro-rpg-ui--brain .retro-message {
+  border-color: rgba(145, 104, 222, 0.46);
+  background: linear-gradient(180deg, rgba(47, 33, 73, 0.9), rgba(30, 22, 49, 0.9));
+  box-shadow: inset 0 0 14px rgba(208, 180, 255, 0.1), 0 7px 16px rgba(0, 0, 0, 0.35);
+}
+
+.retro-rpg-ui--brain .retro-waiting-bubble {
+  border-color: rgba(144, 108, 219, 0.5);
+  background: linear-gradient(180deg, rgba(44, 31, 68, 0.9), rgba(29, 22, 46, 0.92));
+}
+
+.retro-rpg-ui--brain .retro-input-dock {
+  background: transparent;
+}
+
+.retro-rpg-ui--brain .retro-input-shell {
+  border-color: rgba(144, 106, 223, 0.46) !important;
+  background: linear-gradient(180deg, rgba(39, 28, 63, 0.95), rgba(26, 19, 43, 0.95)) !important;
+  box-shadow: inset 0 0 10px rgba(210, 184, 255, 0.12), 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+.retro-rpg-ui--brain .retro-input-shell:focus-within {
+  border-color: rgba(160, 115, 234, 0.62) !important;
+  box-shadow:
+    inset 0 0 10px rgba(210, 184, 255, 0.14),
+    0 10px 22px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(160, 115, 234, 0.34);
+}
+
+.retro-rpg-ui--brain .retro-input-textarea {
+  color: #efe6ff !important;
+}
+
+.retro-rpg-ui--brain .retro-input-textarea::placeholder {
+  color: rgba(191, 165, 237, 0.66) !important;
+}
+
+.retro-rpg-ui--brain .retro-send-button {
+  border-color: rgba(160, 115, 234, 0.56);
+  box-shadow: 0 0 10px rgba(154, 106, 231, 0.24), inset 0 0 10px rgba(219, 194, 255, 0.2);
+}
+
+.retro-rpg-ui--brain .retro-send-button:focus-visible {
+  box-shadow:
+    0 0 0 2px rgba(160, 115, 234, 0.62),
+    0 0 0 4px rgba(14, 10, 24, 0.92),
+    0 0 12px rgba(154, 106, 231, 0.3),
+    inset 0 0 10px rgba(219, 194, 255, 0.2);
+}
+
+.retro-rpg-ui--brain .retro-send-button-disabled {
+  border-color: rgba(108, 84, 152, 0.4);
+  background: linear-gradient(180deg, rgba(56, 45, 79, 0.9), rgba(38, 30, 56, 0.9));
+}
+
+.retro-rpg-ui--brain .retro-right-panel {
+  background: linear-gradient(180deg, rgba(31, 22, 49, 0.95), rgba(22, 16, 36, 0.95));
+}
+
+.retro-rpg-ui--brain .retro-mode-trigger {
+  border-color: rgba(147, 109, 227, 0.54) !important;
+  background: linear-gradient(180deg, rgba(44, 32, 70, 0.95), rgba(29, 21, 46, 0.95)) !important;
+  box-shadow: inset 0 0 10px rgba(207, 181, 255, 0.12), 0 6px 14px rgba(0, 0, 0, 0.36);
+}
+
+.retro-rpg-ui--brain .retro-icon-button {
+  border-color: rgba(152, 114, 229, 0.48);
+  background: linear-gradient(180deg, rgba(46, 33, 72, 0.9), rgba(30, 22, 47, 0.9));
+  box-shadow: inset 0 0 8px rgba(217, 196, 255, 0.1), 0 5px 10px rgba(0, 0, 0, 0.35);
+}
+
+.retro-rpg-ui--brain .retro-dropdown {
+  border-color: rgba(147, 108, 226, 0.55) !important;
+  background: linear-gradient(180deg, rgba(43, 31, 67, 0.97), rgba(26, 19, 42, 0.97)) !important;
+  box-shadow: inset 0 0 12px rgba(211, 187, 255, 0.1), 0 12px 26px rgba(0, 0, 0, 0.48);
+}
+
+.retro-rpg-ui--brain .retro-dropdown-item:hover {
+  background: rgba(141, 101, 219, 0.2) !important;
+}
+
+.retro-rpg-ui--brain .retro-mobile-card {
+  border-color: rgba(143, 104, 221, 0.46);
+  background: linear-gradient(180deg, rgba(41, 29, 64, 0.95), rgba(29, 21, 46, 0.95));
+}
+
+.retro-rpg-ui--brain .retro-mobile-nav {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.42), inset 0 -1px 0 rgba(211, 186, 255, 0.12);
+}
+
+.retro-rpg-ui--brain .retro-chat-area {
+  background: radial-gradient(circle at 50% 0%, rgba(163, 123, 243, 0.14), transparent 45%);
+}
+
+.retro-rpg-ui--brain .retro-empty-state {
+  color: rgba(211, 189, 252, 0.8);
+}
+
+.retro-rpg-ui.retro-rpg-ui--brain *::-webkit-scrollbar-track {
+  background: rgba(14, 10, 24, 0.92);
+}
+
+.retro-rpg-ui.retro-rpg-ui--brain *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(149, 110, 228, 0.9), rgba(85, 59, 141, 0.95));
+  border: 2px solid rgba(14, 10, 24, 0.92);
 }
 
 .retro-rpg-ui *::-webkit-scrollbar,
