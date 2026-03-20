@@ -1476,7 +1476,15 @@ function App() {
   const hudQuestSteps = normalizedQuestSteps.length > 0 ? normalizedQuestSteps : derivedQuestSteps;
   const hudPlayerChoices = normalizedPlayerChoices.length > 0 ? normalizedPlayerChoices : derivedPlayerChoices;
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
-  const currentLocation = adventureState?.lastLocation || adventureState?.title || 'The Shrouded Vale';
+  const currentLocation = useMemo(() => {
+    const candidates = [adventureState?.lastLocation, adventureState?.title];
+    const validLocation = candidates.find((value) => {
+      if (typeof value !== 'string') return false;
+      const normalized = value.trim().toLowerCase();
+      return normalized.length > 0 && normalized !== 'unknown' && normalized !== 'n/a';
+    });
+    return validLocation?.trim() || 'The Shrouded Vale';
+  }, [adventureState?.lastLocation, adventureState?.title]);
   const latestDiceRoll = useMemo(() => {
     const patterns = [
       /\bd20\b[^0-9]*(\d{1,2})/i,
@@ -1512,9 +1520,7 @@ function App() {
   }, [isWaitingForResponse, latestAssistantMessage]);
   const sendButtonStateClass = !inputMessage.trim() || isInputLocked
     ? 'retro-send-button-disabled cursor-not-allowed opacity-60'
-    : isGameMasterMode
-      ? 'retro-send-button-active-gm text-white hover:-translate-y-0.5 active:translate-y-0'
-      : 'retro-send-button-active-brain text-white hover:-translate-y-0.5 active:translate-y-0';
+    : 'retro-send-button-active-brain text-white hover:-translate-y-0.5 active:translate-y-0';
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
   const toggleLeftSidebar = useCallback(() => {
     setIsLeftSidebarCollapsed((prev) => !prev);
@@ -1526,7 +1532,7 @@ function App() {
   }, []);
 
   return (
-    <div className={`retro-rpg-ui h-screen overflow-hidden relative ${isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain'}`}>
+    <div className="retro-rpg-ui retro-rpg-ui--brain h-screen overflow-hidden relative">
 
 
       {/* Desktop: Main Layout */}
@@ -1557,15 +1563,6 @@ function App() {
                   >
                     <svg className="h-4 w-4 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8h.01M11 12h1v4h1m-1-13a9 9 0 100 18 9 9 0 000-18z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={handleSignOut}
-                    className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
-                    aria-label="Sign out"
-                  >
-                    <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
                   </button>
                 </div>
@@ -1727,7 +1724,7 @@ function App() {
                         ref={desktopScrollContainerRef}
                         className="h-full overflow-y-auto pr-2 pb-4"
                       >
-                        <div className={`mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300 ${isGameMasterMode ? 'font-serif' : ''}`}>
+                        <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
                         {showInlineCharacterCreation && (
                           <div className="mx-auto w-full max-w-xl">
                             <CharacterCreation
@@ -1818,9 +1815,7 @@ function App() {
                                   `rounded-2xl px-4 py-3 hover:scale-[1.02] ${
                                     message.role === 'user'
                                       ? 'retro-message-user text-white'
-                                      : isGameMasterMode
-                                        ? 'retro-message-assistant-gm text-brand-text-primary'
-                                        : 'retro-message-assistant text-brand-text-primary'
+                                      : 'retro-message-assistant text-brand-text-primary'
                                   } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`
                                 }`}
                                 onClick={() => {
@@ -2048,14 +2043,6 @@ function App() {
                         </div>
                       </Panel>
 
-                      <Panel variant="inset" className="overflow-hidden">
-                        <div className="h-56 bg-cover bg-center" style={{ backgroundImage: 'url(/fantasy-location.svg)' }} />
-                        <div className="border-t border-brand-surface-border/45 bg-brand-surface-primary/55 px-4 py-3">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Current Location</p>
-                          <p className="mt-1 text-lg font-light text-brand-text-primary">{currentLocation}</p>
-                        </div>
-                      </Panel>
-
                       <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center">
                         <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-brand-text-primary/10">
                         ROLL
@@ -2069,17 +2056,6 @@ function App() {
                         </p>
                       </Panel>
 
-                      <Panel variant="inset" className="p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Actions</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="retro-status-pill">
-                            Live
-                          </span>
-                          <span className="retro-status-pill">
-                            Mode: GM
-                          </span>
-                        </div>
-                      </Panel>
                     </div>
                   ) : (
                     <div className="flex h-full flex-col gap-4 p-5">
@@ -2123,17 +2099,6 @@ function App() {
                         <PersonalityIndicator personality={effectivePersonality} />
                       )}
 
-                      <Panel variant="inset" className="p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Actions</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="retro-status-pill">
-                            Live
-                          </span>
-                          <span className="retro-status-pill">
-                            Mode: Brain
-                          </span>
-                        </div>
-                      </Panel>
                     </div>
                   )}
                 </Panel>
@@ -2171,15 +2136,6 @@ function App() {
                 >
                   <svg className="h-4 w-4 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8h.01M11 12h1v4h1m-1-13a9 9 0 100 18 9 9 0 000-18z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={handleSignOut}
-                  className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
-                  aria-label="Sign out"
-                >
-                  <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
                 </button>
               </div>
@@ -2485,9 +2441,7 @@ function App() {
                       className={`retro-message message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] animate-slide-up ${
                         message.role === 'user'
                           ? 'retro-message-user text-white'
-                          : isGameMasterMode
-                            ? 'retro-message-assistant-gm text-brand-text-primary'
-                            : 'retro-message-assistant text-brand-text-primary'
+                          : 'retro-message-assistant text-brand-text-primary'
                       } ${message.role === 'assistant' && !isGameMasterMode ? 'cursor-pointer' : ''}`}
                       onClick={() => {
                         if (message.role === 'assistant' && !isGameMasterMode) {
