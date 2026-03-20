@@ -1418,7 +1418,23 @@ function App() {
 
   const handleModeSelected = async (modeId: string) => {
     setIsModeDropdownOpen(false);
-    await createConversationWithMode(modeId);
+    const normalized = normalizePersonalityMode(modeId);
+    if (normalized === effectivePersonality) return;
+
+    setPersonalityMode(normalized);
+
+    if (!conversationId || isTestModeEnabled()) {
+      return;
+    }
+
+    try {
+      await dataClient.models.Conversation.update({
+        id: conversationId,
+        personalityMode: normalized,
+      });
+    } catch (error) {
+      console.error('Error updating conversation mode:', error);
+    }
   };
 
 
@@ -1960,66 +1976,64 @@ function App() {
                         </div>
                       </div>
                     </div>
-                    <BottomInput className="px-0 pt-3 shrink-0">
-                      <div className="mx-auto max-w-4xl transition-all duration-300">
-                        <form onSubmit={handleSubmit} className="relative">
-                          <div className="retro-input-shell flex gap-2 items-end rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/80 backdrop-blur-xl p-2 shadow-lg transition-all duration-200">
-                            {/* Textarea */}
-                            <div className="flex-1 min-w-0">
-                              <textarea
-                                ref={inputRef}
-                                value={inputMessage}
-                                onChange={(e) => setInputMessage(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                placeholder={
-                                  isWaitingForResponse
-                                    ? 'Brain is thinking...'
-                                    : conversationId
-                                      ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
-                                      : 'Start a new conversation...'
-                                }
-                                className="retro-input-textarea w-full px-3 py-2.5 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
-                                disabled={isInputLocked}
-                                rows={1}
-                                style={{
-                                  maxHeight: '140px',
-                                  minHeight: '44px',
-                                  height: 'auto'
-                                }}
-                                onInput={(e) => {
-                                  const target = e.target as HTMLTextAreaElement;
-                                  target.style.height = 'auto';
-                                  target.style.height = Math.min(target.scrollHeight, 140) + 'px';
-                                }}
-                              />
+                    {!isInputLocked && (
+                      <BottomInput className="px-0 pt-3 shrink-0">
+                        <div className="mx-auto max-w-4xl transition-all duration-300">
+                          <form onSubmit={handleSubmit} className="relative">
+                            <div className="retro-input-shell flex gap-2 items-end rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/80 backdrop-blur-xl p-2 shadow-lg transition-all duration-200">
+                              {/* Textarea */}
+                              <div className="flex-1 min-w-0">
+                                <textarea
+                                  ref={inputRef}
+                                  value={inputMessage}
+                                  onChange={(e) => setInputMessage(e.target.value)}
+                                  onKeyDown={handleKeyDown}
+                                  placeholder={
+                                    isWaitingForResponse
+                                      ? 'Brain is thinking...'
+                                      : conversationId
+                                        ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
+                                        : 'Start a new conversation...'
+                                  }
+                                  className="retro-input-textarea w-full px-3 py-2.5 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
+                                  rows={1}
+                                  style={{
+                                    maxHeight: '140px',
+                                    minHeight: '44px',
+                                    height: 'auto'
+                                  }}
+                                  onInput={(e) => {
+                                    const target = e.target as HTMLTextAreaElement;
+                                    target.style.height = 'auto';
+                                    target.style.height = Math.min(target.scrollHeight, 140) + 'px';
+                                  }}
+                                />
+                              </div>
+
+                              {/* Send Button */}
+                              <button
+                                type="submit"
+                                className={`retro-send-button flex-shrink-0 rounded-xl p-2.5 transition-all duration-200 focus:outline-none ${sendButtonStateClass}`}
+                                disabled={!inputMessage.trim()}
+                                aria-label="Send message"
+                              >
+                                {isWaitingForResponse ? (
+                                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                ) : (
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                  </svg>
+                                )}
+                              </button>
                             </div>
 
-                            {/* Send Button */}
-                            <button
-                              type="submit"
-                              className={`retro-send-button flex-shrink-0 rounded-xl p-2.5 transition-all duration-200 focus:outline-none ${sendButtonStateClass}`}
-                              disabled={!inputMessage.trim() || isInputLocked}
-                              aria-label={isInputLocked ? 'Sending message' : 'Send message'}
-                            >
-                              {isWaitingForResponse ? (
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                              ) : (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                </svg>
-                              )}
-                            </button>
-                          </div>
-
-                          {/* Keyboard hint */}
-                          {!isInputLocked && (
                             <p className="mt-1.5 text-center text-[11px] text-brand-text-muted/45">
                               Press <kbd className={keyboardHintKeyClass}>Enter</kbd> to send, <kbd className={keyboardHintKeyClass}>Shift+Enter</kbd> for new line
                             </p>
-                          )}
-                        </form>
-                      </div>
-                    </BottomInput>
+                          </form>
+                        </div>
+                      </BottomInput>
+                    )}
                   </section>
                 </div>
               </Panel>
@@ -2072,15 +2086,6 @@ function App() {
                             <p className="text-xs text-brand-text-muted">Reflective mode active</p>
                           </div>
                         </div>
-                      </Panel>
-
-                      <Panel variant="inset" className="p-4 text-center">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Cognitive Projection</p>
-                        <img
-                          src="/brain.svg"
-                          alt="Floating brain icon"
-                          className="mx-auto mt-4 h-32 w-32 animate-float opacity-95"
-                        />
                       </Panel>
 
                       <Panel variant="inset" className="p-4">
@@ -2573,59 +2578,63 @@ function App() {
           </div>
 
           {/* Mobile Input Area */}
-          <div className="retro-input-dock pt-3 pb-3 px-3 pb-safe">
-            <div className="max-w-4xl mx-auto">
-              <form onSubmit={handleSubmit} className="relative">
-                <div className="retro-input-shell flex gap-2 items-end bg-brand-surface-elevated/80 backdrop-blur-xl rounded-2xl border border-brand-surface-border/50 p-2.5 transition-all duration-200">
-                  {/* Textarea */}
-                  <div className="flex-1 min-w-0">
-                    <textarea
-                      ref={inputRef}
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={
-                        isWaitingForResponse
-                          ? 'Brain is thinking...'
-                          : conversationId
-                            ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
-                            : 'Start a new conversation...'
-                      }
-                      className="retro-input-textarea w-full px-3 py-2 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-sm leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
-                      disabled={isInputLocked}
-                      rows={1}
-                      style={{ 
-                        maxHeight: '112px',
-                        minHeight: '40px',
-                        height: 'auto'
-                      }}
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement;
-                        target.style.height = 'auto';
-                        target.style.height = Math.min(target.scrollHeight, 112) + 'px';
-                      }}
-                    />
-                  </div>
+          {!isInputLocked && (
+            <div className="retro-input-dock pt-3 pb-3 px-3 pb-safe">
+              <div className="max-w-4xl mx-auto">
+                <form onSubmit={handleSubmit} className="relative">
+                  <div className="retro-input-shell flex gap-2 items-end bg-brand-surface-elevated/80 backdrop-blur-xl rounded-2xl border border-brand-surface-border/50 p-2.5 transition-all duration-200">
+                    {/* Textarea */}
+                    <div className="flex-1 min-w-0">
+                      <textarea
+                        ref={inputRef}
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder={
+                          isWaitingForResponse
+                            ? 'Brain is thinking...'
+                            : conversationId
+                              ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
+                              : 'Start a new conversation...'
+                        }
+                        className="retro-input-textarea w-full px-3 py-2 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-sm leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
+                        rows={1}
+                        style={{ 
+                          maxHeight: '112px',
+                          minHeight: '40px',
+                          height: 'auto'
+                        }}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = Math.min(target.scrollHeight, 112) + 'px';
+                        }}
+                      />
+                    </div>
 
-                  {/* Send Button */}
-                  <button
-                    type="submit"
-                    className={`retro-send-button flex-shrink-0 p-2 rounded-xl transition-all duration-200 focus:outline-none active:scale-95 ${sendButtonStateClass}`}
-                    disabled={!inputMessage.trim() || isInputLocked}
-                    aria-label={isInputLocked ? 'Sending message' : 'Send message'}
-                  >
-                    {isWaitingForResponse ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </form>
+                    {/* Send Button */}
+                    <button
+                      type="submit"
+                      className={`retro-send-button flex-shrink-0 p-2 rounded-xl transition-all duration-200 focus:outline-none active:scale-95 ${sendButtonStateClass}`}
+                      disabled={!inputMessage.trim()}
+                      aria-label="Send message"
+                    >
+                      {isWaitingForResponse ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-center text-[11px] text-brand-text-muted/45">
+                    Press <kbd className={keyboardHintKeyClass}>Enter</kbd> to send, <kbd className={keyboardHintKeyClass}>Shift+Enter</kbd> for new line
+                  </p>
+                </form>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
       </main>
