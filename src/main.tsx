@@ -45,6 +45,10 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 function AuthWrapper() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [initialModeTheme, setInitialModeTheme] = useState<'default' | 'game_master'>(() => {
+    if (typeof window === 'undefined') return 'default';
+    return window.localStorage.getItem('lastPersonalityMode') === 'game_master' ? 'game_master' : 'default';
+  });
 
   useEffect(() => {
     checkAuthState();
@@ -89,12 +93,13 @@ function AuthWrapper() {
 
   const handleAuthSuccess = () => {
     console.log('Auth success callback triggered');
+    setInitialModeTheme(window.localStorage.getItem('lastPersonalityMode') === 'game_master' ? 'game_master' : 'default');
     checkAuthState();
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-bg-dark via-brand-bg-light to-brand-bg-dark">
+      <div className={`retro-rpg-ui ${initialModeTheme === 'game_master' ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain'} min-h-screen flex items-center justify-center`}>
         <div className="text-brand-text-primary">Loading...</div>
       </div>
     );
