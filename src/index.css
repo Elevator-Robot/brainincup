@@ -487,10 +487,18 @@ textarea.w-full:focus {
 .rpg-grid__center { grid-column: 2; min-height: 0; display: flex; flex-direction: column; }
 .rpg-grid__right  { grid-column: 3; min-height: 0; display: flex; flex-direction: column; }
 
+.rpg-grid--left-collapsed {
+  grid-template-columns: 4rem minmax(0, 1fr) minmax(16.5rem, 19rem);
+}
+
 .retro-nav-align-grid {
   display: grid;
   grid-template-columns: minmax(17rem, 20rem) minmax(0, 1fr) minmax(16.5rem, 19rem);
   gap: var(--rpg-space-lg);
+}
+
+.retro-nav-align-grid--left-collapsed {
+  grid-template-columns: 4rem minmax(0, 1fr) minmax(16.5rem, 19rem);
 }
 
 .retro-nav-align-grid > .retro-nav {
@@ -749,22 +757,22 @@ textarea.w-full:focus {
 }
 
 .retro-input-shell {
-  border-color: rgba(170, 247, 233, 0.36) !important;
-  background: linear-gradient(160deg, rgba(18, 47, 42, 0.58), rgba(10, 27, 24, 0.56)) !important;
+  border-color: rgba(176, 248, 236, 0.32) !important;
+  background: linear-gradient(160deg, rgba(18, 47, 42, 0.46), rgba(10, 27, 24, 0.42)) !important;
   box-shadow:
-    inset 0 1px 0 rgba(230, 255, 250, 0.2),
-    0 20px 40px rgba(1, 8, 8, 0.45),
-    0 0 0 1px rgba(130, 226, 209, 0.12);
-  backdrop-filter: blur(26px);
-  -webkit-backdrop-filter: blur(26px);
+    inset 0 1px 0 rgba(230, 255, 250, 0.16),
+    0 14px 26px rgba(1, 8, 8, 0.34),
+    0 0 0 1px rgba(130, 226, 209, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .retro-input-shell:focus-within {
-  border-color: rgba(191, 255, 244, 0.52) !important;
+  border-color: rgba(191, 255, 244, 0.46) !important;
   box-shadow:
-    inset 0 1px 0 rgba(230, 255, 250, 0.24),
-    0 24px 44px rgba(1, 8, 8, 0.52),
-    0 0 0 1px rgba(191, 255, 244, 0.28);
+    inset 0 1px 0 rgba(230, 255, 250, 0.2),
+    0 18px 34px rgba(1, 8, 8, 0.42),
+    0 0 0 1px rgba(191, 255, 244, 0.24);
 }
 
 .retro-input-textarea {
@@ -776,8 +784,8 @@ textarea.w-full:focus {
 }
 
 .retro-send-button {
-  border: 1px solid rgba(170, 247, 233, 0.38);
-  box-shadow: inset 0 1px 0 rgba(240, 255, 251, 0.2), 0 12px 22px rgba(1, 8, 8, 0.34);
+  border: 1px solid rgba(170, 247, 233, 0.34);
+  box-shadow: inset 0 1px 0 rgba(240, 255, 251, 0.18), 0 8px 14px rgba(1, 8, 8, 0.26);
 }
 
 .retro-send-button:focus-visible {
@@ -798,7 +806,7 @@ textarea.w-full:focus {
   border-color: rgba(170, 248, 233, 0.52);
   background: linear-gradient(160deg, rgba(34, 152, 128, 0.9), rgba(19, 104, 95, 0.94));
   color: #f3fffb;
-  box-shadow: inset 0 1px 0 rgba(237, 255, 252, 0.24), 0 14px 26px rgba(1, 8, 8, 0.42);
+  box-shadow: inset 0 1px 0 rgba(237, 255, 252, 0.24), 0 10px 18px rgba(1, 8, 8, 0.34);
 }
 
 .retro-right-panel {
@@ -906,13 +914,29 @@ textarea.w-full:focus {
   gap: 1rem;
 }
 
+.retro-center-split--list-collapsed {
+  grid-template-columns: 3rem minmax(0, 1fr);
+}
+
 .retro-interactions-pane {
   border-right: 1px solid rgba(177, 248, 236, 0.24);
   padding-right: 0.75rem;
 }
 
+.retro-interactions-pane-collapsed {
+  border-right: 1px solid rgba(177, 248, 236, 0.24);
+  padding-right: 0.25rem;
+}
+
 .retro-chat-pane {
   padding-left: 0.25rem;
+  min-height: 0;
+}
+
+.retro-chat-isolated-window {
+  position: relative;
+  border-radius: 1.1rem;
+  background: transparent;
 }
 
 .retro-sidebar-action,
@@ -926,6 +950,31 @@ textarea.w-full:focus {
 .retro-profile-trigger:hover {
   border-color: rgba(197, 255, 246, 0.46);
   background: rgba(144, 232, 215, 0.16);
+}
+
+.retro-left-panel-collapsed {
+  min-width: 0;
+}
+
+.retro-collapse-button {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(171, 248, 234, 0.36);
+  background: linear-gradient(160deg, rgba(17, 45, 40, 0.66), rgba(10, 27, 24, 0.56));
+  color: rgba(232, 255, 249, 0.88);
+  font-size: 0.9rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(230, 255, 250, 0.16), 0 8px 18px rgba(1, 8, 8, 0.32);
+  transition: all 200ms ease;
+}
+
+.retro-collapse-button:hover {
+  border-color: rgba(197, 255, 246, 0.5);
+  background: rgba(144, 232, 215, 0.2);
 }
 
 .retro-rpg-ui *::-webkit-scrollbar,

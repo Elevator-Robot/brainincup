@@ -45,7 +45,7 @@ export function RightStatus({ children, className = '', ...rest }: SlotProps) {
 export function BottomInput({ children, className = '', ...rest }: SlotProps) {
   return (
     <div
-      className={`retro-input-dock sticky bottom-0 left-0 right-0 pt-6 pb-4 px-4 sm:px-6 ${className}`}
+      className={`retro-input-dock pt-4 pb-3 px-4 sm:px-6 ${className}`}
       {...rest}
     >
       {children}
