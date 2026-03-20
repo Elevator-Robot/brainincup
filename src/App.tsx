@@ -338,7 +338,11 @@ function App() {
   }, [characterState]);
   
   // Personality mode state
-  const [personalityMode, setPersonalityMode] = useState<string>('default');
+  const [personalityMode, setPersonalityMode] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'default';
+    const cached = window.localStorage.getItem('lastPersonalityMode') || 'default';
+    return normalizePersonalityMode(cached);
+  });
   const effectivePersonality = normalizePersonalityMode(personalityMode);
 
   const ensureAdventureState = useCallback(async (convId: string, modeOverride?: string): Promise<AdventureRecord | null> => {
@@ -583,6 +587,7 @@ function App() {
         setAdventureState(null);
         setQuestSteps([]);
         setCharacterState(null);
+        setShowCharacterCreation(false);
         adventureFetchLock.current = null;
         return;
       }
@@ -681,6 +686,7 @@ function App() {
       setAdventureState(null);
       setQuestSteps([]);
       setCharacterState(null);
+      setShowCharacterCreation(false);
       return;
     }
     if (effectivePersonality === 'game_master') {
@@ -754,6 +760,11 @@ function App() {
       localStorage.setItem('lastConversationId', conversationId);
     }
   }, [conversationId]);
+
+  // Persist current mode to avoid Brain->Game Master flicker on initial app boot.
+  useEffect(() => {
+    localStorage.setItem('lastPersonalityMode', normalizePersonalityMode(personalityMode));
+  }, [personalityMode]);
 
   // Auto-load most recent conversation or create new one on app start
   useEffect(() => {
@@ -1183,6 +1194,7 @@ function App() {
       setAdventureState(null);
       setQuestSteps([]);
       setCharacterState(null);
+      setShowCharacterCreation(false);
       return;
     }
     
@@ -1207,6 +1219,7 @@ function App() {
         }
         setPersonalityMode(normalizedMode);
         if (normalizedMode === 'game_master') {
+          setShowCharacterCreation(true);
           const character = await fetchCharacter(selectedConversationId);
           if (!character) {
             setMessages([]);
@@ -1218,6 +1231,7 @@ function App() {
           setAdventureState(null);
           setQuestSteps([]);
           setCharacterState(null);
+          setShowCharacterCreation(false);
         }
       }
       
@@ -1281,6 +1295,12 @@ function App() {
 
   const handleNewConversation = async () => {
     setIsModeDropdownOpen(false);
+    if (effectivePersonality === 'game_master') {
+      setShowCharacterCreation(true);
+      setCharacterState(null);
+      setAdventureState(null);
+      setQuestSteps([]);
+    }
     await createConversationWithMode(effectivePersonality);
   };
 
@@ -1308,6 +1328,7 @@ function App() {
         setAdventureState(null);
         setQuestSteps([]);
         setCharacterState(null);
+        setShowCharacterCreation(normalized === 'game_master');
         setConversationListRefreshKey((prev) => prev + 1);
         return;
       }
@@ -1333,6 +1354,7 @@ function App() {
         setConversationId(createdId);
         setMessages([]);
         setPersonalityMode(normalized);
+        setShowCharacterCreation(normalized === 'game_master');
         console.log('✅ Created new conversation:', createdId);
         
         if (normalized === 'game_master') {
@@ -1341,6 +1363,7 @@ function App() {
           setAdventureState(null);
           setQuestSteps([]);
           setCharacterState(null);
+          setShowCharacterCreation(false);
         }
         setConversationListRefreshKey((prev) => prev + 1);
 
@@ -1357,6 +1380,18 @@ function App() {
     setIsModeDropdownOpen(false);
     const normalized = normalizePersonalityMode(modeId);
     if (normalized === effectivePersonality) return;
+
+    if (normalized === 'game_master') {
+      setShowCharacterCreation(true);
+      setCharacterState(null);
+      setAdventureState(null);
+      setQuestSteps([]);
+    } else {
+      setShowCharacterCreation(false);
+      setAdventureState(null);
+      setQuestSteps([]);
+      setCharacterState(null);
+    }
 
     setPersonalityMode(normalized);
 
@@ -1408,7 +1443,7 @@ function App() {
   const isGameMasterMode = effectivePersonality === 'game_master';
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState;
   const showMobileInlineCharacterCreation = showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master';
-  const showRightPanelCharacterCreation = isGameMasterMode && Boolean(conversationId) && showCharacterCreation && !characterState;
+  const showRightPanelCharacterCreation = showCharacterCreation && !characterState;
   const isInputLocked = isWaitingForResponse || isGameMasterCharacterRequired;
   const gameMasterInputPlaceholder = isGameMasterCharacterRequired
     ? 'Create your character to begin your adventure...'
@@ -1992,88 +2027,86 @@ function App() {
               </Panel>
             </CenterNarrative>
 
-            {conversationId && (
-              <RightStatus>
-                <Panel className="flex-1 flex flex-col text-brand-text-primary">
-                  {isGameMasterMode ? (
-                    showRightPanelCharacterCreation ? (
-                      <div className="flex h-full flex-col p-5 overflow-y-auto">
-                        <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
-                        <CharacterCreation
-                          inline
-                          embedded
-                          onComplete={handleCharacterCreationComplete}
-                          onCancel={handleCharacterCreationQuickStart}
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                        <Panel variant="inset" className="p-4">
-                          <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
-                          <div className="mt-3 flex items-center gap-3">
-                            <div className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center text-brand-text-primary">
-                              {(characterDisplay.name || 'A').slice(0, 1).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
-                              <p className="text-xs text-brand-text-muted">{characterDisplay.characterClass || 'Wanderer'} • Lv {characterDisplay.level}</p>
-                            </div>
-                          </div>
-                        </Panel>
-
-                        <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center">
-                          <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-brand-text-primary/10">
-                          ROLL
-                          </p>
-                          <p className="relative text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Latest Roll</p>
-                          <div className="relative mt-2 text-7xl font-semibold leading-none text-brand-text-primary">
-                            {latestDiceRoll || '—'}
-                          </div>
-                          <p className="relative mt-2 text-xs text-brand-text-muted">
-                            {adventureState?.title ? `Thread: ${adventureState.title}` : 'Fortune favors the bold.'}
-                          </p>
-                        </Panel>
-
-                      </div>
-                    )
+            <RightStatus>
+              <Panel className="flex-1 flex flex-col text-brand-text-primary">
+                {isGameMasterMode ? (
+                  showRightPanelCharacterCreation ? (
+                    <div className="flex h-full flex-col p-5 overflow-y-auto">
+                      <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
+                      <CharacterCreation
+                        inline
+                        embedded
+                        onComplete={handleCharacterCreationComplete}
+                        onCancel={handleCharacterCreationQuickStart}
+                      />
+                    </div>
                   ) : (
-                    <div className="flex h-full flex-col gap-4 p-5">
+                    <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
                       <Panel variant="inset" className="p-4">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
                         <div className="mt-3 flex items-center gap-3">
-                          <div className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
-                            <svg className="h-5 w-5 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
+                          <div className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center text-brand-text-primary">
+                            {(characterDisplay.name || 'A').slice(0, 1).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-brand-text-primary truncate">Brain Workspace</p>
-                            <p className="text-xs text-brand-text-muted">Reflective mode active</p>
+                            <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
+                            <p className="text-xs text-brand-text-muted">{characterDisplay.characterClass || 'Wanderer'} • Lv {characterDisplay.level}</p>
                           </div>
                         </div>
                       </Panel>
 
-                      <Panel variant="inset" className="p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
-                        <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
-                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 transition-all duration-500"
-                            style={{ width: `${mentalStateIntensity}%` }}
-                          />
+                      <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center">
+                        <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-brand-text-primary/10">
+                        ROLL
+                        </p>
+                        <p className="relative text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Latest Roll</p>
+                        <div className="relative mt-2 text-7xl font-semibold leading-none text-brand-text-primary">
+                          {latestDiceRoll || '—'}
                         </div>
-                        <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
+                        <p className="relative mt-2 text-xs text-brand-text-muted">
+                          {adventureState?.title ? `Thread: ${adventureState.title}` : 'Fortune favors the bold.'}
+                        </p>
                       </Panel>
 
-                      {conversationId && effectivePersonality !== 'default' && (
-                        <PersonalityIndicator personality={effectivePersonality} />
-                      )}
-
                     </div>
-                  )}
-                </Panel>
-              </RightStatus>
-            )}
+                  )
+                ) : (
+                  <div className="flex h-full flex-col gap-4 p-5">
+                    <Panel variant="inset" className="p-4">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
+                      <div className="mt-3 flex items-center gap-3">
+                        <div className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
+                          <svg className="h-5 w-5 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-brand-text-primary truncate">Brain Workspace</p>
+                          <p className="text-xs text-brand-text-muted">Reflective mode active</p>
+                        </div>
+                      </div>
+                    </Panel>
+
+                    <Panel variant="inset" className="p-4">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
+                      <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 transition-all duration-500"
+                          style={{ width: `${mentalStateIntensity}%` }}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
+                    </Panel>
+
+                    {conversationId && effectivePersonality !== 'default' && (
+                      <PersonalityIndicator personality={effectivePersonality} />
+                    )}
+
+                  </div>
+                )}
+              </Panel>
+            </RightStatus>
           </RPGLayout>
           
         </main>
