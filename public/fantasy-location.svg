@@ -1,0 +1,23 @@
+<svg width="800" height="480" viewBox="0 0 800 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="400" y1="0" x2="400" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#402818" />
+      <stop offset="0.5" stop-color="#26170D" />
+      <stop offset="1" stop-color="#120C06" />
+    </linearGradient>
+    <linearGradient id="mist" x1="400" y1="220" x2="400" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DCA364" stop-opacity="0.35" />
+      <stop offset="1" stop-color="#DCA364" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="480" fill="url(#sky)" />
+  <circle cx="620" cy="120" r="44" fill="#F9C58A" fill-opacity="0.68" />
+  <path d="M0 330L110 250L180 290L250 220L360 300L430 260L530 320L640 230L740 300L800 260V480H0V330Z" fill="#2A1A11" />
+  <path d="M120 480V290L180 250L250 290V480H120Z" fill="#1B120B" />
+  <path d="M145 320H165V480H145V320Z" fill="#2D1C12" />
+  <path d="M215 330H235V480H215V330Z" fill="#2D1C12" />
+  <path d="M560 480V275L610 245L665 275V480H560Z" fill="#1A110A" />
+  <path d="M600 290H625V480H600V290Z" fill="#2D1B11" />
+  <rect y="220" width="800" height="260" fill="url(#mist)" />
+</svg>

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { getCurrentUser } from 'aws-amplify/auth';
 import App from './App';
 import CustomAuth from './components/CustomAuth';
+import { isTestModeEnabled } from './utils/testMode';
 import './index.css';
 import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
@@ -38,6 +40,8 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   });
 }
 
+// Entry file intentionally hosts auth gate + app mount.
+// eslint-disable-next-line react-refresh/only-export-components
 function AuthWrapper() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,9 +69,7 @@ function AuthWrapper() {
   const checkAuthState = async () => {
     console.log('Checking auth state...');
     try {
-      // For development testing, allow bypass with URL parameter
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('testmode') === 'true') {
+      if (isTestModeEnabled()) {
         console.log('✅ Test mode enabled, bypassing auth');
         setIsAuthenticated(true);
         setIsLoading(false);
@@ -105,7 +107,20 @@ function AuthWrapper() {
   return <App />;
 }
 
-createRoot(document.getElementById('root')!).render(
+interface RootElementWithCache extends HTMLElement {
+  __brainInCupRoot?: Root;
+}
+
+const rootElement = document.getElementById('root') as RootElementWithCache | null;
+
+if (!rootElement) {
+  throw new Error('Root element not found');
+}
+
+const root = rootElement.__brainInCupRoot ?? createRoot(rootElement);
+rootElement.__brainInCupRoot = root;
+
+root.render(
   <React.StrictMode>
     <AuthWrapper />
   </React.StrictMode>,

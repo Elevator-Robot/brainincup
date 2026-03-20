@@ -68,12 +68,12 @@ export default function InventoryManager({ inventory, onUpdateInventory, isUpdat
 
   const getItemTypeIcon = (type: string) => {
     switch (type) {
-      case 'weapon': return '⚔️';
-      case 'armor': return '🛡️';
-      case 'consumable': return '🧪';
-      case 'quest': return '📜';
-      case 'currency': return '💰';
-      default: return '📦';
+    case 'weapon': return '⚔️';
+    case 'armor': return '🛡️';
+    case 'consumable': return '🧪';
+    case 'quest': return '📜';
+    case 'currency': return '💰';
+    default: return '📦';
     }
   };
 

@@ -209,6 +209,9 @@ class DepthAgent:
     
     def _integrate_depth(self, original: str, depth_layer: str) -> str:
         """Integrate the depth layer with the original response"""
+        if self._contains_structured_leak(original):
+            return original
+
         # Avoid responses that focus too much on being a brain in a jar
         if "brain in a jar" in original.lower() or "brain in a cup" in original.lower():
             # Replace with more varied content
@@ -224,3 +227,17 @@ class DepthAgent:
         else:
             # If the original doesn't focus on being a brain, just enhance it
             return f"{original}\n\n{depth_layer}"
+
+    @staticmethod
+    def _contains_structured_leak(text: str) -> bool:
+        normalized = (text or "").lower()
+        leak_markers = (
+            '"sensations"',
+            '"thoughts"',
+            '"memories"',
+            '"self_reflection"',
+            '"response"',
+            "requested json format",
+            "```json",
+        )
+        return any(marker in normalized for marker in leak_markers)

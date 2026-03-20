@@ -55,12 +55,14 @@ export const auth = defineAuth({
         scopes: ['email', 'public_profile']
       },
       callbackUrls: [
-        'http://localhost:5173/',
-        'https://brainincup.com/'
+        'https://brainincup.com/',
+        'https://www.brainincup.com/',
+        'http://localhost:5173/'
       ],
       logoutUrls: [
-        'http://localhost:5173/',
-        'https://brainincup.com/'
+        'https://brainincup.com/',
+        'https://www.brainincup.com/',
+        'http://localhost:5173/'
       ]
     }
   },

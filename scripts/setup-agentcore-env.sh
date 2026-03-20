@@ -13,6 +13,9 @@ AWS_REGION="${AWS_REGION:-us-east-1}"
 ACCOUNT_ID="${ACCOUNT_ID:-431515038332}"
 REPO="${REPO:-brain-agent}"
 STACK_NAME_PATTERN="amplify-brainincup-*-sandbox-*"
+export AWS_PROFILE="${AWS_PROFILE:-brain}"
+TRACE_ENABLED_VALUE="${AGENTCORE_TRACE_ENABLED:-true}"
+TRACE_SAMPLE_RATE_VALUE="${AGENTCORE_TRACE_SAMPLE_RATE:-1.0}"
 
 echo "📍 Region: $AWS_REGION"
 echo "🔢 Account: $ACCOUNT_ID"
@@ -24,13 +27,13 @@ if ! command -v aws &> /dev/null; then
   exit 1
 fi
 
-# Get the latest deployed stack name
+# Get the latest deployed root stack name
 echo "🔍 Finding Amplify stack..."
 STACK_NAME=$(aws cloudformation list-stacks \
   --region "$AWS_REGION" \
   --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE \
   --query "StackSummaries[?starts_with(StackName, 'amplify-brainincup-')].StackName" \
-  --output text | head -n 1)
+  --output text | tr '\t' '\n' | grep -E '^amplify-brainincup-.*-sandbox-[A-Za-z0-9]+$' | head -n 1 || true)
 
 if [ -z "$STACK_NAME" ]; then
   echo "⚠️  No deployed Amplify stack found"
@@ -81,8 +84,8 @@ else
   echo "✅ Using container URI to provision new runtime"
 fi
 
-echo "export AGENTCORE_TRACE_ENABLED='false'"
-echo "export AGENTCORE_TRACE_SAMPLE_RATE='0.0'"
+echo "export AGENTCORE_TRACE_ENABLED='${TRACE_ENABLED_VALUE}'"
+echo "export AGENTCORE_TRACE_SAMPLE_RATE='${TRACE_SAMPLE_RATE_VALUE}'"
 echo ""
 
 # Option to automatically export
@@ -100,8 +103,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     export AGENTCORE_NETWORK_MODE="PUBLIC"
   fi
   
-  export AGENTCORE_TRACE_ENABLED="false"
-  export AGENTCORE_TRACE_SAMPLE_RATE="0.0"
+  export AGENTCORE_TRACE_ENABLED="${TRACE_ENABLED_VALUE}"
+  export AGENTCORE_TRACE_SAMPLE_RATE="${TRACE_SAMPLE_RATE_VALUE}"
   
   echo "✅ Variables exported to current shell"
   echo ""

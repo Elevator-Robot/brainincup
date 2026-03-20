@@ -41,6 +41,7 @@ class LanguageAgent:
                 session_id=session_id,
                 payload=payload,
                 trace_metadata=metadata.get("trace_id"),
+                runtime_user_id=metadata.get("owner"),
             )
             return response or self._fallback_response()
         except Exception as error:
