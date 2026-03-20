@@ -40,6 +40,8 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   });
 }
 
+// Entry file intentionally hosts auth gate + app mount.
+// eslint-disable-next-line react-refresh/only-export-components
 function AuthWrapper() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);

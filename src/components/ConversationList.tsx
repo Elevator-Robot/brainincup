@@ -161,7 +161,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
     }
   }, []);
 
-  // Reload conversations when key changes or when a new conversation is created
+  // Load conversations initially and when refreshKey changes
   useEffect(() => {
     loadConversations();
   }, [loadConversations, refreshKey]);
@@ -279,16 +279,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
       console.error('Error deleting conversation:', error);
     }
   };
-
-  useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
-
-  useEffect(() => {
-    if (refreshKey !== undefined) {
-      loadConversations();
-    }
-  }, [refreshKey, loadConversations]);
 
   const conversationsToShow = conversations.filter((conv) => {
     if (modeFilter && normalizePersonalityMode(conv.personalityMode) !== modeFilter) {

@@ -103,14 +103,14 @@ const schema = a.schema({
     createdAt: a.datetime(),
     updatedAt: a.datetime(),
   })
-  .secondaryIndexes((index) => [
-    index('conversationId'),  // GSI for looking up character by conversation
-  ])
-  .authorization(allow => [
-    allow.owner(),
-    allow.authenticated().to(['read']),
-    allow.groups(['Admins'])
-  ]),
+    .secondaryIndexes((index) => [
+      index('conversationId'),  // GSI for looking up character by conversation
+    ])
+    .authorization(allow => [
+      allow.owner(),
+      allow.authenticated().to(['read']),
+      allow.groups(['Admins'])
+    ]),
 
   GameMasterQuestStep: a.model({
     id: a.id(),

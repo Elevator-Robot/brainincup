@@ -192,7 +192,7 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
                 Pick a personality, drop into a universe. Meditative mentor, playful DM, midnight diarist; each mode reshapes the conversation instantly.
               </p>
               <ul className="space-y-3 text-left max-w-2xl mx-auto lg:mx-0">
-                {['Dungeon Master for collaborative campaigns','Night Owl Journaler for honest brain dumps','Meditative Guide for calm reflections'].map((item) => (
+                {['Dungeon Master for collaborative campaigns', 'Night Owl Journaler for honest brain dumps', 'Meditative Guide for calm reflections'].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-brand-text-secondary/90">
                     <span className="mt-1 h-2 w-2 rounded-full bg-brand-accent-primary"></span>
                     <span>{item}</span>

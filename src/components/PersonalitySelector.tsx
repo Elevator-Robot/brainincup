@@ -161,9 +161,9 @@ export default function PersonalitySelector({
                     onClick={() => handleSelect(personality)}
                     className={`w-full text-left px-4 py-3 transition-all duration-200 group relative
                       ${isSelected 
-                        ? 'bg-brand-accent-primary/10 border-l-2 border-brand-accent-primary' 
-                        : 'hover:bg-brand-surface-hover border-l-2 border-transparent'
-                      }
+                    ? 'bg-brand-accent-primary/10 border-l-2 border-brand-accent-primary' 
+                    : 'hover:bg-brand-surface-hover border-l-2 border-transparent'
+                  }
                     `}
                   >
                     <div className="flex items-start gap-3">

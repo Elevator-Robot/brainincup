@@ -17,7 +17,6 @@ const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
 type QuestStepRecord = Schema['GameMasterQuestStep']['type'];
-type PlayerChoiceRecord = Schema['GameMasterPlayerChoice']['type'];
 type CharacterRecord = Schema['GameMasterCharacter']['type'];
 type CharacterCreationInput = {
   name: string;
@@ -38,13 +37,6 @@ interface HudQuestStep {
   createdAt?: string | null;
 }
 
-interface HudPlayerChoice {
-  id: string;
-  content: string;
-  toneTag?: string | null;
-  createdAt?: string | null;
-}
-
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -60,6 +52,52 @@ interface Message {
 const summarizeText = (text: string, max = 220) => {
   if (!text) return '';
   return text.length > max ? `${text.slice(0, max).trim()}…` : text.trim();
+};
+
+const inventoryTypes = new Set<InventoryItem['type']>(['weapon', 'armor', 'consumable', 'quest', 'currency']);
+
+const parseInventoryItems = (rawInventory: unknown): InventoryItem[] => {
+  if (!rawInventory) return [];
+
+  let parsedValue: unknown = rawInventory;
+  if (typeof rawInventory === 'string') {
+    try {
+      parsedValue = JSON.parse(rawInventory);
+    } catch (error) {
+      console.error('Failed to parse inventory:', error);
+      return [];
+    }
+  }
+
+  if (!Array.isArray(parsedValue)) return [];
+
+  return parsedValue.flatMap((item): InventoryItem[] => {
+    if (typeof item === 'string') {
+      return [{
+        id: crypto.randomUUID(),
+        name: item,
+        type: 'consumable',
+        quantity: 1,
+      }];
+    }
+
+    if (!item || typeof item !== 'object') return [];
+
+    const candidate = item as Partial<InventoryItem>;
+    if (!candidate.name || typeof candidate.name !== 'string') return [];
+
+    const type: InventoryItem['type'] = inventoryTypes.has(candidate.type as InventoryItem['type'])
+      ? (candidate.type as InventoryItem['type'])
+      : 'consumable';
+
+    return [{
+      ...candidate,
+      id: typeof candidate.id === 'string' && candidate.id ? candidate.id : crypto.randomUUID(),
+      name: candidate.name,
+      type,
+      quantity: typeof candidate.quantity === 'number' && candidate.quantity > 0 ? candidate.quantity : 1,
+    }];
+  });
 };
 
 const inferDangerLevel = (text: string) => {
@@ -96,16 +134,6 @@ const mapQuestStepsToHud = (steps: QuestStepRecord[]): HudQuestStep[] =>
       createdAt: step.createdAt,
     }));
 
-const mapPlayerChoicesToHud = (choices: PlayerChoiceRecord[]): HudPlayerChoice[] =>
-  choices
-    .filter((choice): choice is PlayerChoiceRecord & { id: string } => Boolean(choice && choice.id))
-    .map((choice) => ({
-      id: choice.id!,
-      content: choice.content || '',
-      toneTag: choice.toneTag || inferToneTag(choice.content || ''),
-      createdAt: choice.createdAt,
-    }));
-
 const deriveHudQuestStepsFromMessages = (messages: Message[]): HudQuestStep[] =>
   messages
     .map((message, index) => ({ message, index }))
@@ -120,29 +148,16 @@ const deriveHudQuestStepsFromMessages = (messages: Message[]): HudQuestStep[] =>
       };
     });
 
-const deriveHudPlayerChoicesFromMessages = (messages: Message[]): HudPlayerChoice[] =>
-  messages
-    .map((message, index) => ({ message, index }))
-    .filter(({ message }) => message.role === 'user' && Boolean(message.content?.trim()))
-    .map(({ message, index }) => ({
-      id: `derived-choice-${index}`,
-      content: message.content,
-      toneTag: inferToneTag(message.content),
-      createdAt: null,
-    }));
-
 interface GameMasterHudProps {
   adventure: AdventureRecord;
   questSteps: HudQuestStep[];
-  playerChoices: HudPlayerChoice[];
   character: CharacterRecord | null;
   isLoadingCharacter?: boolean;
   onUpdateInventory?: (newInventory: InventoryItem[]) => Promise<void>;
 }
 
-function GameMasterHud({ adventure, questSteps, playerChoices, character, isLoadingCharacter, onUpdateInventory }: GameMasterHudProps) {
+function GameMasterHud({ adventure, questSteps, character, isLoadingCharacter, onUpdateInventory }: GameMasterHudProps) {
   const latestStep = questSteps.slice(-1)[0];
-  void playerChoices;
   
   // Don't show placeholder data while loading
   if (isLoadingCharacter || !character) {
@@ -169,33 +184,7 @@ function GameMasterHud({ adventure, questSteps, playerChoices, character, isLoad
     charisma: character.charisma,
   };
   
-  // Parse inventory JSON string to InventoryItem array
-  let inventory: InventoryItem[] = [];
-  if (character.inventory) {
-    try {
-      const parsed = typeof character.inventory === 'string' 
-        ? JSON.parse(character.inventory) 
-        : character.inventory;
-      
-      // Handle legacy string array format
-      if (Array.isArray(parsed)) {
-        inventory = parsed.map((item: any) => {
-          if (typeof item === 'string') {
-            // Convert legacy string format to InventoryItem
-            return {
-              id: crypto.randomUUID(),
-              name: item,
-              type: 'consumable' as const,
-              quantity: 1,
-            };
-          }
-          return item;
-        });
-      }
-    } catch (e) {
-      console.error('Failed to parse inventory:', e);
-    }
-  }
+  const inventory = parseInventoryItems(character.inventory);
   
   return (
     <div className="animate-slide-up w-full space-y-6">
@@ -312,7 +301,6 @@ function App() {
   // Game Master data state
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
-  const [playerChoices, setPlayerChoices] = useState<PlayerChoiceRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
   const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
   const [showCharacterCreation, setShowCharacterCreation] = useState(false);
@@ -336,32 +324,7 @@ function App() {
       percentage: ((characterState?.currentHP || 12) / (characterState?.maxHP || 12)) * 100,
     };
     
-    let inventory: InventoryItem[] = [];
-    if (characterState?.inventory) {
-      try {
-        const parsed = typeof characterState.inventory === 'string' 
-          ? JSON.parse(characterState.inventory) 
-          : characterState.inventory;
-        
-        // Handle legacy string array format
-        if (Array.isArray(parsed)) {
-          inventory = parsed.map((item: any) => {
-            if (typeof item === 'string') {
-              // Convert legacy string format to InventoryItem
-              return {
-                id: crypto.randomUUID(),
-                name: item,
-                type: 'consumable' as const,
-                quantity: 1,
-              };
-            }
-            return item;
-          });
-        }
-      } catch (e) {
-        console.error('Failed to parse inventory:', e);
-      }
-    }
+    const inventory = parseInventoryItems(characterState?.inventory);
     
     return {
       name: characterState?.name || 'Adventurer',
@@ -592,7 +555,7 @@ function App() {
     
     // Optimistic update
     const previousInventory = characterState.inventory;
-    setCharacterState(prev => prev ? { ...prev, inventory: JSON.stringify(newInventory) as any } : prev);
+    setCharacterState(prev => prev ? { ...prev, inventory: JSON.stringify(newInventory) } : prev);
     
     try {
       await dataClient.models.GameMasterCharacter.update({
@@ -619,7 +582,6 @@ function App() {
       if (activeMode !== 'game_master') {
         setAdventureState(null);
         setQuestSteps([]);
-        setPlayerChoices([]);
         setCharacterState(null);
         adventureFetchLock.current = null;
         return;
@@ -628,7 +590,6 @@ function App() {
       if (!character) {
         setAdventureState(null);
         setQuestSteps([]);
-        setPlayerChoices([]);
         adventureFetchLock.current = null;
         return;
       }
@@ -641,22 +602,13 @@ function App() {
       const adventureId = adventure.id as string;
       
       try {
-        const [stepsRes, choicesRes] = await Promise.all([
-          dataClient.models.GameMasterQuestStep.list({
-            filter: { adventureId: { eq: adventureId } },
-            limit: 200,
-          }),
-          dataClient.models.GameMasterPlayerChoice.list({
-            filter: { conversationId: { eq: convId } },
-            limit: 200,
-          }),
-        ]);
+        const stepsRes = await dataClient.models.GameMasterQuestStep.list({
+          filter: { adventureId: { eq: adventureId } },
+          limit: 200,
+        });
         const steps = ((stepsRes.data ?? []).filter(Boolean) as QuestStepRecord[])
           .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
-        const choices = ((choicesRes.data ?? []).filter(Boolean) as PlayerChoiceRecord[])
-          .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
         setQuestSteps(steps);
-        setPlayerChoices(choices);
       } catch (error) {
         console.error('Error loading Game Master data:', error);
       }
@@ -711,7 +663,7 @@ function App() {
       return;
     }
     try {
-      const created = await dataClient.models.GameMasterPlayerChoice.create({
+      await dataClient.models.GameMasterPlayerChoice.create({
         questStepId: adventure.lastStepId,
         conversationId,
         messageId,
@@ -719,10 +671,6 @@ function App() {
         toneTag: inferToneTag(content),
         createdAt: new Date().toISOString(),
       });
-      const playerChoice = (created.data as PlayerChoiceRecord | null) ?? null;
-      if (playerChoice) {
-        setPlayerChoices(prev => [...prev, playerChoice]);
-      }
     } catch (error) {
       console.error('Error recording player choice:', error);
     }
@@ -732,7 +680,6 @@ function App() {
     if (!conversationId) {
       setAdventureState(null);
       setQuestSteps([]);
-      setPlayerChoices([]);
       setCharacterState(null);
       return;
     }
@@ -1235,7 +1182,6 @@ function App() {
       setIsWaitingForResponse(false);
       setAdventureState(null);
       setQuestSteps([]);
-      setPlayerChoices([]);
       setCharacterState(null);
       return;
     }
@@ -1271,7 +1217,6 @@ function App() {
         } else {
           setAdventureState(null);
           setQuestSteps([]);
-          setPlayerChoices([]);
           setCharacterState(null);
         }
       }
@@ -1327,13 +1272,7 @@ function App() {
       }, 100);
       
       // Set waiting state based on whether there's a pending message
-      if (hasPendingMessage) {
-        setIsWaitingForResponse(true);
-      } else {
-        setIsWaitingForResponse(false);
-      }
-      
-      setMessages(timeline);
+      setIsWaitingForResponse(hasPendingMessage);
     } catch (error) {
       console.error('Error loading conversation messages:', error);
       setIsWaitingForResponse(false);
@@ -1368,7 +1307,6 @@ function App() {
         setPersonalityMode(normalized);
         setAdventureState(null);
         setQuestSteps([]);
-        setPlayerChoices([]);
         setCharacterState(null);
         setConversationListRefreshKey((prev) => prev + 1);
         return;
@@ -1402,7 +1340,6 @@ function App() {
         } else {
           setAdventureState(null);
           setQuestSteps([]);
-          setPlayerChoices([]);
           setCharacterState(null);
         }
         setConversationListRefreshKey((prev) => prev + 1);
@@ -1478,20 +1415,13 @@ function App() {
     : 'What do you do next?';
 
   const normalizedQuestSteps = useMemo(() => mapQuestStepsToHud(questSteps), [questSteps]);
-  const normalizedPlayerChoices = useMemo(() => mapPlayerChoicesToHud(playerChoices), [playerChoices]);
 
   const derivedQuestSteps = useMemo(() => {
     if (normalizedQuestSteps.length > 0 || effectivePersonality !== 'game_master') return [];
     return deriveHudQuestStepsFromMessages(messages);
   }, [normalizedQuestSteps, messages, effectivePersonality]);
 
-  const derivedPlayerChoices = useMemo(() => {
-    if (normalizedPlayerChoices.length > 0 || effectivePersonality !== 'game_master') return [];
-    return deriveHudPlayerChoicesFromMessages(messages);
-  }, [normalizedPlayerChoices, messages, effectivePersonality]);
-
   const hudQuestSteps = normalizedQuestSteps.length > 0 ? normalizedQuestSteps : derivedQuestSteps;
-  const hudPlayerChoices = normalizedPlayerChoices.length > 0 ? normalizedPlayerChoices : derivedPlayerChoices;
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
   const currentLocation = useMemo(() => {
     const candidates = [adventureState?.lastLocation, adventureState?.title];
@@ -1598,111 +1528,140 @@ function App() {
           </div>
 
           <RPGLayout className={isLeftSidebarCollapsed ? 'rpg-grid--left-collapsed' : ''}>
-            {conversationId && (
-              <LeftSidebar>
-                <Panel className={`retro-left-panel relative flex h-full flex-col overflow-hidden ${isLeftSidebarCollapsed ? 'retro-left-panel-collapsed' : ''}`}>
-                  <button
-                    type="button"
-                    onClick={toggleLeftSidebar}
-                    className="retro-collapse-button absolute right-3 top-3 z-20"
-                    aria-label={isLeftSidebarCollapsed ? 'Expand left panel' : 'Collapse left panel'}
-                  >
-                    {isLeftSidebarCollapsed ? '>' : '<'}
-                  </button>
+            <LeftSidebar>
+              <Panel className={`retro-left-panel relative flex h-full flex-col overflow-hidden ${isLeftSidebarCollapsed ? 'retro-left-panel-collapsed' : ''}`}>
+                <button
+                  type="button"
+                  onClick={toggleLeftSidebar}
+                  className="retro-collapse-button absolute right-3 top-3 z-20"
+                  aria-label={isLeftSidebarCollapsed ? 'Expand left panel' : 'Collapse left panel'}
+                >
+                  {isLeftSidebarCollapsed ? '>' : '<'}
+                </button>
 
-                  {!isLeftSidebarCollapsed && (
-                    <>
-                      <div className="px-5 pt-5 pb-3">
-                        <p className="text-[11px] uppercase tracking-[0.24em] text-brand-text-muted">Main Menu</p>
+                {!isLeftSidebarCollapsed ? (
+                  <>
+                    <div className="px-5 pt-5 pb-3">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-brand-text-muted">Main Menu</p>
+                    </div>
+
+                    <div className="px-5 space-y-2">
+                      <div ref={desktopModeDropdownRef} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsModeDropdownOpen((prev) => !prev)}
+                          className="retro-sidebar-action w-full flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm text-brand-text-primary transition-colors"
+                        >
+                          <span>{isGameMasterMode ? 'Game Master' : 'Brain'} Mode</span>
+                          <svg className={`h-4 w-4 transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {isModeDropdownOpen && (
+                          <div className="retro-dropdown mt-2 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
+                            {MODE_OPTIONS.map((option) => {
+                              const isActive = option.id === effectivePersonality;
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  onClick={() => handleModeSelected(option.id)}
+                                  className={`retro-dropdown-item flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
+                                    isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover'
+                                  }`}
+                                >
+                                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
+                                    {option.id === 'game_master' ? (
+                                      <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
+                                    ) : (
+                                      <BrainIcon className="h-4 w-4" />
+                                    )}
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-brand-text-primary">{option.shortLabel}</p>
+                                    <p className="text-[11px] text-brand-text-muted">{option.badge}</p>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
+                    </div>
 
-                      <div className="px-5 space-y-2">
-                        <div ref={desktopModeDropdownRef} className="relative">
-                          <button
-                            type="button"
-                            onClick={() => setIsModeDropdownOpen((prev) => !prev)}
-                            className="retro-sidebar-action w-full flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm text-brand-text-primary transition-colors"
-                          >
-                            <span>{isGameMasterMode ? 'Game Master' : 'Brain'} Mode</span>
-                            <svg className={`h-4 w-4 transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
-                          {isModeDropdownOpen && (
-                            <div className="retro-dropdown mt-2 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
-                              {MODE_OPTIONS.map((option) => {
-                                const isActive = option.id === effectivePersonality;
-                                return (
-                                  <button
-                                    key={option.id}
-                                    type="button"
-                                    onClick={() => handleModeSelected(option.id)}
-                                    className={`retro-dropdown-item flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
-                                      isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover'
-                                    }`}
-                                  >
-                                    <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                                      {option.id === 'game_master' ? (
-                                        <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
-                                      ) : (
-                                        <BrainIcon className="h-4 w-4" />
-                                      )}
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm font-medium text-brand-text-primary">{option.shortLabel}</p>
-                                      <p className="text-[11px] text-brand-text-muted">{option.badge}</p>
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-auto border-t border-brand-surface-border/35 p-4">
-                        <div ref={profileMenuRef} className="relative">
-                          <button
-                            type="button"
-                            onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-                            className="retro-profile-trigger w-full flex items-center justify-between rounded-xl border px-3 py-2 text-left transition-colors"
-                            aria-label="Open profile menu"
-                          >
-                            <span className="flex items-center gap-3 min-w-0">
-                              <span className="h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center">
-                                <img src="/brain-icon-192.png" alt="Brain in Cup profile" className="h-full w-full object-cover" />
-                              </span>
-                              <span className="min-w-0">
-                                <span className="block text-sm font-medium text-brand-text-primary truncate">Brain in Cup</span>
-                                <span className="block text-xs text-brand-text-muted truncate">Application</span>
-                              </span>
+                    <div className="mt-auto border-t border-brand-surface-border/35 p-4">
+                      <div ref={profileMenuRef} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                          className="retro-profile-trigger w-full flex items-center justify-between rounded-xl border px-3 py-2 text-left transition-colors"
+                          aria-label="Open profile menu"
+                        >
+                          <span className="flex items-center gap-3 min-w-0">
+                            <span className="h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center">
+                              <img src="/brain-icon-192.png" alt="Brain in Cup profile" className="h-full w-full object-cover" />
                             </span>
-                            <svg className={`h-4 w-4 text-brand-text-muted transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
+                            <span className="min-w-0">
+                              <span className="block text-sm font-medium text-brand-text-primary truncate">Brain in Cup</span>
+                              <span className="block text-xs text-brand-text-muted truncate">Application</span>
+                            </span>
+                          </span>
+                          <svg className={`h-4 w-4 text-brand-text-muted transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
 
-                          {isProfileMenuOpen && (
-                            <div className="retro-dropdown absolute bottom-[calc(100%+8px)] left-0 right-0 z-30 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
-                              <button
-                                type="button"
-                                onClick={handleSignOut}
-                                className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-primary"
-                              >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                </svg>
+                        {isProfileMenuOpen && (
+                          <div className="retro-dropdown absolute bottom-[calc(100%+8px)] left-0 right-0 z-30 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
+                            <button
+                              type="button"
+                              onClick={handleSignOut}
+                              className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-primary"
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                              </svg>
                             Sign out
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    </>
-                  )}
-                </Panel>
-              </LeftSidebar>
-            )}
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    className="flex h-full flex-col items-center justify-between px-2 pb-4 pt-14 cursor-pointer"
+                    onClick={() => {
+                      setIsLeftSidebarCollapsed(false);
+                      setIsModeDropdownOpen(false);
+                      setIsProfileMenuOpen(false);
+                    }}
+                  >
+                    <div className="relative">
+                      <div
+                        className="retro-icon-button h-10 w-10 rounded-xl flex items-center justify-center"
+                        aria-hidden="true"
+                      >
+                        {isGameMasterMode ? (
+                          <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
+                        ) : (
+                          <BrainIcon className="h-4 w-4" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <div
+                        className="retro-icon-button h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center"
+                        aria-hidden="true"
+                      >
+                        <img src="/brain-icon-192.png" alt="Brain in Cup profile" className="h-full w-full object-cover" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Panel>
+            </LeftSidebar>
 
             <CenterNarrative>
               <Panel variant="inset" className="flex-1 min-h-0 p-4">
@@ -1716,23 +1675,26 @@ function App() {
                     >
                       {isCenterListCollapsed ? '>' : '<'}
                     </button>
-                    {!isCenterListCollapsed && (
-                      <>
-                        <div className="px-3 pb-2 pt-1 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">
-                          Interactions
-                        </div>
-                        <div className="h-full overflow-y-auto pr-2">
-                          <ConversationList
-                            onSelectConversation={(selectedConversationId) => {
-                              void handleSelectConversation(selectedConversationId);
-                            }}
-                            disableNewConversation={isWaitingForResponse}
-                            selectedConversationId={conversationId}
-                            refreshKey={conversationListRefreshKey}
-                          />
-                        </div>
-                      </>
-                    )}
+                    <div
+                      aria-hidden={isCenterListCollapsed}
+                      className={`h-full transition-opacity duration-200 ${
+                        isCenterListCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
+                      }`}
+                    >
+                      <div className="px-3 pb-2 pt-1 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">
+                        Interactions
+                      </div>
+                      <div className="h-full overflow-y-auto pr-2">
+                        <ConversationList
+                          onSelectConversation={(selectedConversationId) => {
+                            void handleSelectConversation(selectedConversationId);
+                          }}
+                          disableNewConversation={isWaitingForResponse}
+                          selectedConversationId={conversationId}
+                          refreshKey={conversationListRefreshKey}
+                        />
+                      </div>
+                    </div>
                   </aside>
 
                   <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
@@ -1742,226 +1704,225 @@ function App() {
                         className="h-full overflow-y-auto pr-2 pb-4"
                       >
                         <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
-                        {conversationId && isGameMasterMode && (
-                          <Panel variant="header" className="retro-status-strip !px-5 !py-3.5 !rounded-2xl">
-                            <div className="grid grid-cols-3 items-end text-center">
-                              <div className="text-left">
-                                <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Day</p>
-                                <p className="text-lg font-light text-brand-text-primary">{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
+                          {conversationId && isGameMasterMode && (
+                            <Panel variant="header" className="retro-status-strip !px-5 !py-3.5 !rounded-2xl">
+                              <div className="grid grid-cols-3 items-end text-center">
+                                <div className="text-left">
+                                  <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Day</p>
+                                  <p className="text-lg font-light text-brand-text-primary">{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Location</p>
+                                  <p className="text-lg font-light text-brand-text-primary">{currentLocation}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Act</p>
+                                  <p className="text-lg font-light text-brand-text-primary">{characterDisplay.level >= 5 ? 'II' : 'I'}</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Location</p>
-                                <p className="text-lg font-light text-brand-text-primary">{currentLocation}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Act</p>
-                                <p className="text-lg font-light text-brand-text-primary">{characterDisplay.level >= 5 ? 'II' : 'I'}</p>
+                            </Panel>
+                          )}
+
+                          {/* Personality Indicator (mobile only) */}
+                          {conversationId && effectivePersonality !== 'default' && (
+                            <div className="lg:hidden">
+                              <PersonalityIndicator personality={effectivePersonality} />
+                            </div>
+                          )}
+
+                          {conversationId && effectivePersonality === 'game_master' && adventureState && (
+                            <div className="lg:hidden">
+                              <GameMasterHud
+                                adventure={adventureState}
+                                questSteps={hudQuestSteps}
+                                character={characterState}
+                                isLoadingCharacter={isLoadingCharacter}
+                                onUpdateInventory={updateInventory}
+                              />
+                            </div>
+                          )}
+              
+                          {messages.length === 0 && !isLoading && conversationId && (
+                            <div className="flex justify-center items-center h-full min-h-[300px]">
+                              <div className="text-center space-y-3 mt-64">
+                                <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
+                                <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
                               </div>
                             </div>
-                          </Panel>
-                        )}
-
-                        {/* Personality Indicator (mobile only) */}
-                        {conversationId && effectivePersonality !== 'default' && (
-                          <div className="lg:hidden">
-                            <PersonalityIndicator personality={effectivePersonality} />
-                          </div>
-                        )}
-
-                        {conversationId && effectivePersonality === 'game_master' && adventureState && (
-                          <div className="lg:hidden">
-                            <GameMasterHud
-                              adventure={adventureState}
-                              questSteps={hudQuestSteps}
-                              playerChoices={hudPlayerChoices}
-                              character={characterState}
-                              isLoadingCharacter={isLoadingCharacter}
-                              onUpdateInventory={updateInventory}
-                            />
-                          </div>
-                        )}
+                          )}
               
-                        {messages.length === 0 && !isLoading && conversationId && (
-                          <div className="flex justify-center items-center h-full min-h-[300px]">
-                            <div className="text-center space-y-3 mt-64">
-                              <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
-                              <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
-                            </div>
-                          </div>
-                        )}
-              
-                        {isLoading && (
-                          <div className="flex justify-center items-center h-full min-h-[200px]">
-                            <div className="text-slate-400 flex items-center gap-2">
-                              <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+                          {isLoading && (
+                            <div className="flex justify-center items-center h-full min-h-[200px]">
+                              <div className="text-slate-400 flex items-center gap-2">
+                                <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
                     Loading...
-                            </div>
-                          </div>
-                        )}
-              
-                        {messages.map((message, index) => (
-                          <div
-                            key={index}
-                            className={`retro-message-row flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
-                            {message.role === 'assistant' && (
-                              <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 animate-float">
-                                <BrainIcon className="w-4 h-4 text-white" />
                               </div>
-                            )}
-                  
-                            <div 
-                              ref={(el) => {
-                                if (el && message.role === 'assistant') {
-                                  messageContainerRefs.current.set(index, el);
-                                }
-                              }}
-                              className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]"
+                            </div>
+                          )}
+              
+                          {messages.map((message, index) => (
+                            <div
+                              key={index}
+                              className={`retro-message-row flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
-                              <div
-                                className={`retro-message message-bubble backdrop-blur-sm transition-all duration-300 animate-slide-up ${
-                                  `rounded-2xl px-4 py-3 hover:scale-[1.02] ${
-                                    message.role === 'user'
-                                      ? 'retro-message-user text-white'
-                                      : 'retro-message-assistant text-brand-text-primary'
-                                  } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`
-                                }`}
-                                onClick={() => {
-                                  if (message.role === 'assistant' && !isGameMasterMode) {
-                                    setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
+                              {message.role === 'assistant' && (
+                                <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 animate-float">
+                                  <BrainIcon className="w-4 h-4 text-white" />
+                                </div>
+                              )}
+                  
+                              <div 
+                                ref={(el) => {
+                                  if (el && message.role === 'assistant') {
+                                    messageContainerRefs.current.set(index, el);
                                   }
                                 }}
+                                className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]"
                               >
-                                <p className="leading-relaxed whitespace-pre-wrap break-words">
-                                  {isGameMasterMode && (
-                                    <span className={`mb-1 block text-[11px] uppercase tracking-[0.22em] ${
-                                      message.role === 'user' ? 'text-teal-200/75' : 'text-brand-text-muted'
-                                    }`}>
-                                      {message.role === 'user' ? 'Player Action' : 'Narrator'}
-                                    </span>
-                                  )}
-                                  {message.content}
-                                  {message.isTyping && (
-                                    <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
-                                  )}
-                                </p>
-                              </div>
+                                <div
+                                  className={`retro-message message-bubble backdrop-blur-sm transition-all duration-300 animate-slide-up ${
+                                    `rounded-2xl px-4 py-3 hover:scale-[1.02] ${
+                                      message.role === 'user'
+                                        ? 'retro-message-user text-white'
+                                        : 'retro-message-assistant text-brand-text-primary'
+                                    } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`
+                                  }`}
+                                  onClick={() => {
+                                    if (message.role === 'assistant' && !isGameMasterMode) {
+                                      setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
+                                    }
+                                  }}
+                                >
+                                  <p className="leading-relaxed whitespace-pre-wrap break-words">
+                                    {isGameMasterMode && (
+                                      <span className={`mb-1 block text-[11px] uppercase tracking-[0.22em] ${
+                                        message.role === 'user' ? 'text-teal-200/75' : 'text-brand-text-muted'
+                                      }`}>
+                                        {message.role === 'user' ? 'Player Action' : 'Narrator'}
+                                      </span>
+                                    )}
+                                    {message.content}
+                                    {message.isTyping && (
+                                      <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
+                                    )}
+                                  </p>
+                                </div>
                     
-                              {/* Show additional details when expanded */}
-                              {message.role === 'assistant' && expandedMessageIndex === index && !isGameMasterMode && (
-                                <div className="mt-4 space-y-3 animate-slide-up">
-                                  {/* Sensations */}
-                                  {message.sensations && message.sensations.length > 0 && (
-                                    <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                      <div className="font-medium text-purple-300 mb-2 flex items-center gap-2 text-sm">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
+                                {/* Show additional details when expanded */}
+                                {message.role === 'assistant' && expandedMessageIndex === index && !isGameMasterMode && (
+                                  <div className="mt-4 space-y-3 animate-slide-up">
+                                    {/* Sensations */}
+                                    {message.sensations && message.sensations.length > 0 && (
+                                      <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                        <div className="font-medium text-purple-300 mb-2 flex items-center gap-2 text-sm">
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                          </svg>
                               Sensations
+                                        </div>
+                                        <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
+                                          {message.sensations.map((sensation, i) => (
+                                            <li key={i} className="leading-relaxed">• {sensation}</li>
+                                          ))}
+                                        </ul>
                                       </div>
-                                      <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
-                                        {message.sensations.map((sensation, i) => (
-                                          <li key={i} className="leading-relaxed">• {sensation}</li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
+                                    )}
                         
-                                  {/* Thoughts */}
-                                  {message.thoughts && message.thoughts.length > 0 && (
-                                    <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                      <div className="font-medium text-blue-300 mb-2 flex items-center gap-2 text-sm">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                        </svg>
+                                    {/* Thoughts */}
+                                    {message.thoughts && message.thoughts.length > 0 && (
+                                      <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                        <div className="font-medium text-blue-300 mb-2 flex items-center gap-2 text-sm">
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                          </svg>
                               Thoughts
+                                        </div>
+                                        <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
+                                          {message.thoughts.map((thought, i) => (
+                                            <li key={i} className="leading-relaxed">• {thought}</li>
+                                          ))}
+                                        </ul>
                                       </div>
-                                      <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
-                                        {message.thoughts.map((thought, i) => (
-                                          <li key={i} className="leading-relaxed">• {thought}</li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
+                                    )}
                         
-                                  {/* Memories */}
-                                  {message.memories && message.memories.trim() && (
-                                    <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                      <div className="font-medium text-green-300 mb-2 flex items-center gap-2 text-sm">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                        </svg>
+                                    {/* Memories */}
+                                    {message.memories && message.memories.trim() && (
+                                      <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                        <div className="font-medium text-green-300 mb-2 flex items-center gap-2 text-sm">
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                          </svg>
                               Memories
+                                        </div>
+                                        <p className="text-brand-text-muted text-sm leading-relaxed">{message.memories}</p>
                                       </div>
-                                      <p className="text-brand-text-muted text-sm leading-relaxed">{message.memories}</p>
-                                    </div>
-                                  )}
+                                    )}
                         
-                                  {/* Self Reflection */}
-                                  {message.selfReflection && message.selfReflection.trim() && (
-                                    <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                      <div className="font-medium text-violet-300 mb-2 flex items-center gap-2 text-sm">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                            d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
+                                    {/* Self Reflection */}
+                                    {message.selfReflection && message.selfReflection.trim() && (
+                                      <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                        <div className="font-medium text-violet-300 mb-2 flex items-center gap-2 text-sm">
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                              d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
                               Self Reflection
+                                        </div>
+                                        <p className="text-brand-text-muted text-sm leading-relaxed">{message.selfReflection}</p>
                                       </div>
-                                      <p className="text-brand-text-muted text-sm leading-relaxed">{message.selfReflection}</p>
-                                    </div>
-                                  )}
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                  
+                              {message.role === 'user' && (
+                                <div className="retro-avatar retro-avatar-user w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 transition-all duration-300">
+                                  <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                  </svg>
                                 </div>
                               )}
                             </div>
-                  
-                            {message.role === 'user' && (
-                              <div className="retro-avatar retro-avatar-user w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 transition-all duration-300">
-                                <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                          ))}
               
-                        {isWaitingForResponse && (
-                          <div className="retro-waiting-row flex gap-4 justify-start animate-slide-up">
-                            <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 animate-glow-pulse">
-                              <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
-                            </div>
-                            <div className="retro-message retro-waiting-bubble rounded-2xl px-4 py-3 backdrop-blur-lg text-brand-text-primary">
-                              <div className="flex items-center gap-2">
-                                <div className="flex space-x-1">
-                                  <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
-                                  <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
-                                  <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
+                          {isWaitingForResponse && (
+                            <div className="retro-waiting-row flex gap-4 justify-start animate-slide-up">
+                              <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 animate-glow-pulse">
+                                <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
+                              </div>
+                              <div className="retro-message retro-waiting-bubble rounded-2xl px-4 py-3 backdrop-blur-lg text-brand-text-primary">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex space-x-1">
+                                    <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
+                                    <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
+                                    <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
+                                  </div>
+                                  <span className="text-sm text-brand-text-muted">
+                                    {isGameMasterMode ? 'The world shifts around your decision...' : 'Brain is thinking...'}
+                                  </span>
                                 </div>
-                                <span className="text-sm text-brand-text-muted">
-                                  {isGameMasterMode ? 'The world shifts around your decision...' : 'Brain is thinking...'}
-                                </span>
                               </div>
                             </div>
-                          </div>
-                        )}
+                          )}
               
-                        {/* Enhanced Debug info - now toggleable */}
-                        {showDebugInfo && (
-                          <div className="mt-6 glass rounded-2xl p-4 animate-fade-in">
-                            <h3 className="text-sm font-medium text-brand-text-primary mb-2">Debug Information</h3>
-                            <div className="text-xs text-brand-text-muted space-y-1">
-                              <p>Interaction ID: {conversationId || 'None'}</p>
-                              <p>User: {userAttributes?.sub || 'Unknown'}</p>
-                              <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
-                              <p>Messages count: {messages.length}</p>
+                          {/* Enhanced Debug info - now toggleable */}
+                          {showDebugInfo && (
+                            <div className="mt-6 glass rounded-2xl p-4 animate-fade-in">
+                              <h3 className="text-sm font-medium text-brand-text-primary mb-2">Debug Information</h3>
+                              <div className="text-xs text-brand-text-muted space-y-1">
+                                <p>Interaction ID: {conversationId || 'None'}</p>
+                                <p>User: {userAttributes?.sub || 'Unknown'}</p>
+                                <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
+                                <p>Messages count: {messages.length}</p>
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                   
                           {/* Invisible element to scroll to - at the bottom */}
                           <div ref={messagesEndRef} />
@@ -2395,9 +2356,9 @@ function App() {
         </div>
 
         {/* Enhanced Chat Area with glass morphism design */}
-          <div className="retro-chat-area flex-1 flex flex-col min-h-0 mt-2">
-            {/* Messages with improved styling and animations */}
-            <div className="retro-scroll-panel flex-1 overflow-y-auto px-4 py-5 pb-3 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col rounded-3xl">
+        <div className="retro-chat-area flex-1 flex flex-col min-h-0 mt-2">
+          {/* Messages with improved styling and animations */}
+          <div className="retro-scroll-panel flex-1 overflow-y-auto px-4 py-5 pb-3 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col rounded-3xl">
             <div className="max-w-4xl mx-auto space-y-4 flex flex-col">
               {showMobileInlineCharacterCreation && (
                 <div className="mx-auto w-full max-w-xl pb-2">
