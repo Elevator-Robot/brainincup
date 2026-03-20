@@ -12,6 +12,11 @@ import Panel from './components/ui/Panel';
 import { RPGLayout, LeftSidebar, CenterNarrative, RightStatus, BottomInput } from './components/ui/RPGLayout';
 import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
+import {
+  chooseAutoAvatarId,
+  getAvatarOptionById,
+  getAvatarSrcById,
+} from './constants/gameMasterAvatars';
 import { isNoConversationsTestMode, isTestModeEnabled } from './utils/testMode';
 const dataClient = generateClient<Schema>();
 
@@ -22,12 +27,33 @@ type CharacterCreationInput = {
   name: string;
   race: string;
   characterClass: string;
+  avatarId: string;
   strength: number;
   dexterity: number;
   constitution: number;
   intelligence: number;
   wisdom: number;
   charisma: number;
+};
+
+const formatModelErrors = (errors: unknown): string => {
+  if (!Array.isArray(errors)) return '';
+  return errors
+    .map((error) => {
+      if (!error) return '';
+      if (typeof error === 'string') return error;
+      if (typeof error === 'object' && 'message' in error) {
+        const message = (error as { message?: unknown }).message;
+        return typeof message === 'string' ? message : '';
+      }
+      try {
+        return JSON.stringify(error);
+      } catch {
+        return '';
+      }
+    })
+    .filter(Boolean)
+    .join(' | ');
 };
 
 interface HudQuestStep {
@@ -325,12 +351,21 @@ function App() {
     };
     
     const inventory = parseInventoryItems(characterState?.inventory);
+    const computedAvatarId = chooseAutoAvatarId({
+      name: characterState?.name,
+      race: characterState?.race,
+      characterClass: characterState?.characterClass,
+    });
+    const avatarId = getAvatarOptionById(characterState?.avatarId ?? '')?.id ?? computedAvatarId;
+    const avatarSrc = getAvatarSrcById(avatarId);
     
     return {
       name: characterState?.name || 'Adventurer',
       race: characterState?.race || 'Wanderer',
       characterClass: characterState?.characterClass || 'Wanderer',
       level: characterState?.level || 1,
+      avatarId,
+      avatarSrc,
       stats,
       hp,
       inventory,
@@ -445,10 +480,27 @@ function App() {
       const character = await findCharacterByConversation(convId);
 
       if (character) {
-        setCharacterState(character);
+        const generatedAvatarId = chooseAutoAvatarId({
+          name: character.name,
+          race: character.race,
+          characterClass: character.characterClass,
+        });
+        const avatarId = getAvatarOptionById(character.avatarId ?? '')?.id ?? generatedAvatarId;
+        const hydratedCharacter = character.avatarId === avatarId ? character : { ...character, avatarId };
+        setCharacterState(hydratedCharacter);
+        if (!character.avatarId) {
+          try {
+            await dataClient.models.GameMasterCharacter.update({
+              id: character.id,
+              avatarId,
+            });
+          } catch (avatarPersistError) {
+            console.warn('Unable to persist auto-selected avatar, using local fallback:', avatarPersistError);
+          }
+        }
         setShowCharacterCreation(false);
         setIsLoadingCharacter(false);
-        return character;
+        return hydratedCharacter;
       }
       
       // Retry up to 2 times with delay if no character found (database propagation)
@@ -492,6 +544,11 @@ function App() {
       }, classId, 1);
       
       const startingEquipment = classData?.startingEquipment || ['Rusty Sword', 'Leather Armor', '5 Gold'];
+      const avatarId = getAvatarOptionById(characterData.avatarId ?? '')?.id ?? chooseAutoAvatarId({
+        name: characterData.name,
+        race: characterData.race,
+        characterClass: characterData.characterClass,
+      });
       
       // Convert starting equipment to InventoryItem format
       const inventoryItems: InventoryItem[] = startingEquipment.map((itemName: string) => {
@@ -512,7 +569,7 @@ function App() {
         };
       });
       
-      const created = await dataClient.models.GameMasterCharacter.create({
+      const baseCharacterPayload = {
         adventureId: 'placeholder',
         conversationId: convId,
         name: characterData.name,
@@ -533,16 +590,33 @@ function App() {
         skills: JSON.stringify({}),
         statusEffects: JSON.stringify([]),
         version: 1,
+      };
+      const createdWithAvatar = await dataClient.models.GameMasterCharacter.create({
+        ...baseCharacterPayload,
+        avatarId,
       });
+      let created = createdWithAvatar;
+
+      if (!createdWithAvatar.data) {
+        console.warn('Primary character create failed; retrying without avatarId.', createdWithAvatar.errors);
+        created = await dataClient.models.GameMasterCharacter.create(baseCharacterPayload);
+      }
       
       if (created.data) {
-        setCharacterState(created.data as CharacterRecord);
+        setCharacterState({ ...(created.data as CharacterRecord), avatarId });
         setShowCharacterCreation(false);
         // Small delay to ensure database write propagates
         await new Promise(resolve => setTimeout(resolve, 2000));
       } else if (created.errors) {
-        console.error('Character creation failed:', created.errors);
-        throw new Error('Failed to create character');
+        const primaryErrorText = formatModelErrors(createdWithAvatar.errors);
+        const fallbackErrorText = formatModelErrors(created.errors);
+        const combinedErrorText = [primaryErrorText, fallbackErrorText].filter(Boolean).join(' | ');
+        console.error('Character creation failed:', {
+          primaryErrors: createdWithAvatar.errors,
+          fallbackErrors: created.errors,
+          combinedErrorText,
+        });
+        throw new Error(combinedErrorText ? `Failed to create character: ${combinedErrorText}` : 'Failed to create character');
       }
     } catch (createError) {
       console.error('Error during character creation:', createError);
@@ -910,6 +984,7 @@ function App() {
         e.preventDefault();
         setShowDebugInfo(prev => !prev);
       }
+
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -1436,6 +1511,11 @@ function App() {
       name: 'Adventurer',
       race: 'Human',
       characterClass: 'Wanderer',
+      avatarId: chooseAutoAvatarId({
+        name: 'Adventurer',
+        race: 'Human',
+        characterClass: 'Wanderer',
+      }),
       ...stats,
     });
   }, [conversationId, createCharacter]);
@@ -2043,17 +2123,68 @@ function App() {
                     </div>
                   ) : (
                     <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                      <Panel variant="inset" className="p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
+                      <div className="relative">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
                         <div className="mt-3 flex items-center gap-3">
-                          <div className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center text-brand-text-primary">
-                            {(characterDisplay.name || 'A').slice(0, 1).toUpperCase()}
-                          </div>
+                          <img
+                            src={characterDisplay.avatarSrc}
+                            alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                            className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/40 object-cover"
+                          />
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
                             <p className="text-xs text-brand-text-muted">{characterDisplay.characterClass || 'Wanderer'} • Lv {characterDisplay.level}</p>
                           </div>
                         </div>
+                      </div>
+
+                      <Panel variant="inset" className="p-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Stats & Health</p>
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-[10px] text-brand-text-muted">STR</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.strength}</div>
+                          </div>
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-[10px] text-brand-text-muted">DEX</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.dexterity}</div>
+                          </div>
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-[10px] text-brand-text-muted">CON</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.constitution}</div>
+                          </div>
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-[10px] text-brand-text-muted">INT</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.intelligence}</div>
+                          </div>
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-[10px] text-brand-text-muted">WIS</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.wisdom}</div>
+                          </div>
+                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                            <div className="text-[10px] text-brand-text-muted">CHA</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.charisma}</div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">HP</span>
+                            <span className="text-xs text-brand-text-secondary">{characterDisplay.hp.current} / {characterDisplay.hp.max}</span>
+                          </div>
+                          <div className="h-2 bg-brand-surface-hover rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${characterDisplay.hp.percentage}%` }} />
+                          </div>
+                        </div>
+                      </Panel>
+
+                      <Panel variant="inset" className="p-4">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted mb-3">Inventory</p>
+                        <InventoryManager
+                          inventory={characterDisplay.inventory}
+                          onUpdateInventory={updateInventory}
+                          isUpdating={false}
+                        />
                       </Panel>
 
                       <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center">
@@ -2288,11 +2419,11 @@ function App() {
                     className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
+                      <img
+                        src={characterDisplay.avatarSrc}
+                        alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                        className="w-8 h-8 rounded-lg border border-brand-surface-border/60 bg-brand-surface-secondary/40 object-cover flex-shrink-0"
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
                         <p className="text-sm text-brand-text-primary font-medium truncate">Stats & Inventory</p>

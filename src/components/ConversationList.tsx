@@ -2,8 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import type React from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
-import { getModeMeta, MODE_OPTIONS, normalizePersonalityMode } from '../constants/personalityModes';
-import type { PersonalityModeId } from '../constants/personalityModes';
+import { getModeMeta } from '../constants/personalityModes';
 import { isNoConversationsTestMode, isTestModeEnabled } from '../utils/testMode';
 
 const dataClient = generateClient<Schema>();
@@ -58,7 +57,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
-  const [modeFilter, setModeFilter] = useState<PersonalityModeId | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -281,10 +279,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
   };
 
   const conversationsToShow = conversations.filter((conv) => {
-    if (modeFilter && normalizePersonalityMode(conv.personalityMode) !== modeFilter) {
-      return false;
-    }
-
     if (!searchQuery.trim()) {
       return true;
     }
@@ -294,8 +288,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
     const preview = (conv.id ? latestMessageByConversation[conv.id] || '' : '').toLowerCase();
     return title.includes(query) || preview.includes(query);
   });
-
-  const isFilteredEmpty = !!modeFilter && !isLoading && conversations.length > 0 && conversationsToShow.length === 0;
 
   const groupedConversations = useMemo(() => {
     const groups: Array<{ label: string; items: ConversationType[] }> = [];
@@ -311,12 +303,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
     return groups;
   }, [conversationsToShow]);
 
-  const conversationContent = isFilteredEmpty ? (
-    <div className="text-center py-10 rounded-2xl border border-dashed border-white/10 text-white/60">
-      <p className="text-sm font-semibold mb-1">No interactions of this mode yet</p>
-      <p className="text-xs text-white/40">Start a new interaction to spin one up.</p>
-    </div>
-  ) : (
+  const conversationContent = (
     groupedConversations.map((group) => (
       <div key={group.label} className="space-y-2.5">
         <div className="flex justify-center">
@@ -544,41 +531,6 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
           placeholder="Search interactions..."
           className="w-full rounded-full border border-white/12 bg-white/[0.05] py-2 pl-10 pr-3 text-sm text-brand-text-primary placeholder-brand-text-muted/70 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/40"
         />
-      </div>
-
-      {/* Mode Filters */}
-      <div className="flex justify-center">
-        <div
-          className="inline-flex rounded-xl p-1 gap-px border border-white/10 bg-white/[0.03] backdrop-blur-lg"
-          role="group"
-          aria-label="Filter interactions by mode"
-        >
-          {MODE_OPTIONS.map((mode, index) => {
-            const isActive = modeFilter === mode.id;
-            const roundedClass =
-              index === 0 ? 'rounded-l-2xl' : index === MODE_OPTIONS.length - 1 ? 'rounded-r-2xl' : '';
-
-            return (
-              <button
-                key={mode.id}
-                type="button"
-                onClick={() => setModeFilter((current) => (current === mode.id ? null : mode.id))}
-                aria-pressed={isActive}
-                className={`relative inline-flex items-center justify-center border align-middle select-none font-sans text-xs font-semibold text-center tracking-tight px-4 py-2 duration-200 ease-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/30 ${
-                  roundedClass
-                } ${
-                  index < MODE_OPTIONS.length - 1 ? '-mr-px' : ''
-                } after:absolute after:inset-0 after:rounded-[inherit] after:pointer-events-none after:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-2px_0_rgba(0,0,0,0.35)] ${
-                  isActive
-                    ? 'text-white bg-gradient-to-b from-emerald-500/60 to-teal-500/60 border-white/20 shadow-[0_8px_16px_rgba(4,16,14,0.35)]'
-                    : 'text-white/70 bg-transparent border-white/20 hover:text-white hover:border-white/50 hover:bg-white/10'
-                }`}
-              >
-                <span>{mode.shortLabel}</span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Conversations List */}
