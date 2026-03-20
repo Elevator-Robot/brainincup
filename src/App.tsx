@@ -1550,6 +1550,16 @@ function App() {
                     </svg>
                   </button>
                   <button
+                    type="button"
+                    onClick={() => setShowDebugInfo((prev) => !prev)}
+                    className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
+                    aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
+                  >
+                    <svg className="h-4 w-4 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8h.01M11 12h1v4h1m-1-13a9 9 0 100 18 9 9 0 000-18z" />
+                    </svg>
+                  </button>
+                  <button
                     onClick={handleSignOut}
                     className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
                     aria-label="Sign out"
@@ -1588,23 +1598,7 @@ function App() {
 
                   {!isLeftSidebarCollapsed && (
                     <>
-                      <div className="retro-mode-header border-b px-5 py-5">
-                        <button
-                          type="button"
-                          onClick={handleNewConversation}
-                          className="retro-sidebar-action w-full flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium text-brand-text-primary transition-colors"
-                          disabled={isWaitingForResponse}
-                        >
-                          <span className="flex items-center gap-2">
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.4} d="M12 4v16m8-8H4" />
-                            </svg>
-                        New Interaction
-                          </span>
-                        </button>
-                      </div>
-
-                      <div className="px-5 pt-4 pb-3">
+                      <div className="px-5 pt-5 pb-3">
                         <p className="text-[11px] uppercase tracking-[0.24em] text-brand-text-muted">Main Menu</p>
                       </div>
 
@@ -2077,22 +2071,6 @@ function App() {
 
                       <Panel variant="inset" className="p-4">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Actions</p>
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={handleNewConversation}
-                            className="retro-side-action"
-                          >
-                            New Chat
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowDebugInfo((prev) => !prev)}
-                            className="retro-side-action"
-                          >
-                            {showDebugInfo ? 'Hide Debug' : 'Show Debug'}
-                          </button>
-                        </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <span className="retro-status-pill">
                             Live
@@ -2147,22 +2125,6 @@ function App() {
 
                       <Panel variant="inset" className="p-4">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Actions</p>
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={handleNewConversation}
-                            className="retro-side-action"
-                          >
-                            New Chat
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowDebugInfo((prev) => !prev)}
-                            className="retro-side-action"
-                          >
-                            {showDebugInfo ? 'Hide Debug' : 'Show Debug'}
-                          </button>
-                        </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <span className="retro-status-pill">
                             Live
@@ -2199,6 +2161,16 @@ function App() {
                 >
                   <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDebugInfo((prev) => !prev)}
+                  className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
+                  aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
+                >
+                  <svg className="h-4 w-4 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8h.01M11 12h1v4h1m-1-13a9 9 0 100 18 9 9 0 000-18z" />
                   </svg>
                 </button>
                 <button

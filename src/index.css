@@ -118,21 +118,19 @@
     -webkit-touch-callout: none;
   }
   
-  /* Hide browser UI elements in standalone mode */
+  /* Hide scrollbars in standalone mode */
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 0;
+    height: 0;
+    display: none;
   }
   
   ::-webkit-scrollbar-track {
-    @apply bg-transparent;
+    background: transparent;
   }
   
   ::-webkit-scrollbar-thumb {
-    @apply bg-brand-surface-tertiary rounded-full;
-  }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-brand-surface-hover;
+    background: transparent;
   }
 }
 
@@ -979,19 +977,27 @@ textarea.w-full:focus {
 
 .retro-rpg-ui *::-webkit-scrollbar,
 .retro-app *::-webkit-scrollbar {
-  width: 10px;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .retro-rpg-ui *::-webkit-scrollbar-track,
 .retro-app *::-webkit-scrollbar-track {
-  background: rgba(4, 16, 14, 0.76);
+  background: transparent;
 }
 
 .retro-rpg-ui *::-webkit-scrollbar-thumb,
 .retro-app *::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(122, 219, 203, 0.9), rgba(63, 151, 136, 0.94));
-  border-radius: 9999px;
-  border: 2px solid rgba(4, 16, 14, 0.76);
+  background: transparent;
+}
+
+.retro-rpg-ui,
+.retro-app,
+.retro-rpg-ui *,
+.retro-app * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 @media (max-width: 1024px) {
