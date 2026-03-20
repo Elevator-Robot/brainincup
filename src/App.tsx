@@ -15,7 +15,6 @@ import type { PersonalityModeId } from './constants/personalityModes';
 import {
   chooseAutoAvatarId,
   getAvatarOptionById,
-  getAvatarSrcById,
 } from './constants/gameMasterAvatars';
 import { isNoConversationsTestMode, isTestModeEnabled } from './utils/testMode';
 const dataClient = generateClient<Schema>();
@@ -54,6 +53,44 @@ const formatModelErrors = (errors: unknown): string => {
     })
     .filter(Boolean)
     .join(' | ');
+};
+
+const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
+
+const readStoredConversationAvatarMap = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(GM_CONVERSATION_AVATAR_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    return Object.entries(parsed as Record<string, unknown>).reduce<Record<string, string>>((acc, [key, value]) => {
+      if (typeof value === 'string' && value.trim()) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+  } catch (error) {
+    console.warn('Failed to read stored Game Master conversation avatars:', error);
+    return {};
+  }
+};
+
+const writeStoredConversationAvatar = (conversationId: string, avatarId: string) => {
+  if (typeof window === 'undefined') return;
+  if (!conversationId || !avatarId) return;
+  const existing = readStoredConversationAvatarMap();
+  existing[conversationId] = avatarId;
+  try {
+    window.localStorage.setItem(GM_CONVERSATION_AVATAR_STORAGE_KEY, JSON.stringify(existing));
+  } catch (error) {
+    console.warn('Failed to persist Game Master conversation avatar:', error);
+  }
+};
+
+const getStoredConversationAvatarId = (conversationId?: string | null): string => {
+  if (!conversationId) return '';
+  return readStoredConversationAvatarMap()[conversationId] ?? '';
 };
 
 interface HudQuestStep {
@@ -144,10 +181,7 @@ const inferToneTag = (text: string) => {
 
 const generateDefaultConversationTitle = (mode: PersonalityModeId) => {
   const base = mode === 'game_master' ? 'Quest' : 'Brain';
-  const now = new Date();
-  const date = now.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  return `${base} • ${date} ${time}`;
+  return base;
 };
 
 const mapQuestStepsToHud = (steps: QuestStepRecord[]): HudQuestStep[] =>
@@ -318,7 +352,6 @@ function App() {
   const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
-  const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
   const [isCenterListCollapsed, setIsCenterListCollapsed] = useState(false);
@@ -329,6 +362,7 @@ function App() {
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
   const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
+  const [isSelectingConversation, setIsSelectingConversation] = useState(false);
   const [showCharacterCreation, setShowCharacterCreation] = useState(false);
   const characterCreationLock = useRef(false);
   const adventureFetchLock = useRef<string | null>(null);
@@ -351,13 +385,10 @@ function App() {
     };
     
     const inventory = parseInventoryItems(characterState?.inventory);
-    const computedAvatarId = chooseAutoAvatarId({
-      name: characterState?.name,
-      race: characterState?.race,
-      characterClass: characterState?.characterClass,
-    });
-    const avatarId = getAvatarOptionById(characterState?.avatarId ?? '')?.id ?? computedAvatarId;
-    const avatarSrc = getAvatarSrcById(avatarId);
+    const avatarId = getAvatarOptionById(characterState?.avatarId ?? '')?.id
+      ?? getAvatarOptionById(getStoredConversationAvatarId(conversationId))?.id
+      ?? '';
+    const avatarSrc = avatarId ? (getAvatarOptionById(avatarId)?.src ?? '') : '';
     
     return {
       name: characterState?.name || 'Adventurer',
@@ -370,7 +401,7 @@ function App() {
       hp,
       inventory,
     };
-  }, [characterState]);
+  }, [characterState, conversationId]);
   
   // Personality mode state
   const [personalityMode, setPersonalityMode] = useState<string>(() => {
@@ -480,15 +511,16 @@ function App() {
       const character = await findCharacterByConversation(convId);
 
       if (character) {
-        const generatedAvatarId = chooseAutoAvatarId({
-          name: character.name,
-          race: character.race,
-          characterClass: character.characterClass,
-        });
-        const avatarId = getAvatarOptionById(character.avatarId ?? '')?.id ?? generatedAvatarId;
-        const hydratedCharacter = character.avatarId === avatarId ? character : { ...character, avatarId };
+        const storedAvatarId = getStoredConversationAvatarId(convId);
+        const avatarId = getAvatarOptionById(character.avatarId ?? '')?.id
+          ?? getAvatarOptionById(storedAvatarId)?.id
+          ?? '';
+        const hydratedCharacter = avatarId ? { ...character, avatarId } : character;
         setCharacterState(hydratedCharacter);
-        if (!character.avatarId) {
+        if (avatarId) {
+          writeStoredConversationAvatar(convId, avatarId);
+        }
+        if (!character.avatarId && avatarId) {
           try {
             await dataClient.models.GameMasterCharacter.update({
               id: character.id,
@@ -604,6 +636,19 @@ function App() {
       
       if (created.data) {
         setCharacterState({ ...(created.data as CharacterRecord), avatarId });
+        writeStoredConversationAvatar(convId, avatarId);
+        const conversationTitle = (characterData.name || '').trim();
+        if (conversationTitle) {
+          try {
+            await dataClient.models.Conversation.update({
+              id: convId,
+              title: conversationTitle,
+            });
+            setConversationListRefreshKey((prev) => prev + 1);
+          } catch (titleError) {
+            console.error('Character created, but failed to update conversation title:', titleError);
+          }
+        }
         setShowCharacterCreation(false);
         // Small delay to ensure database write propagates
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -782,19 +827,14 @@ function App() {
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const messageContainerRefs = useRef<Map<number, HTMLDivElement>>(new Map()); // Track individual message container refs (bubble + details)
   const desktopScrollContainerRef = useRef<HTMLDivElement>(null); // Desktop scroll container
-  const desktopModeDropdownRef = useRef<HTMLDivElement>(null);
-  const mobileModeDropdownRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isModeDropdownOpen && !isProfileMenuOpen) return;
+    if (!isProfileMenuOpen) return;
     const handleOutsideClick = (event: Event) => {
       const target = event.target as Node;
-      const clickedDesktopDropdown = desktopModeDropdownRef.current?.contains(target);
-      const clickedMobileDropdown = mobileModeDropdownRef.current?.contains(target);
       const clickedProfileDropdown = profileMenuRef.current?.contains(target);
-      if (!clickedDesktopDropdown && !clickedMobileDropdown && !clickedProfileDropdown) {
-        setIsModeDropdownOpen(false);
+      if (!clickedProfileDropdown) {
         setIsProfileMenuOpen(false);
       }
     };
@@ -804,7 +844,7 @@ function App() {
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('touchstart', handleOutsideClick);
     };
-  }, [isModeDropdownOpen, isProfileMenuOpen]);
+  }, [isProfileMenuOpen]);
 
   useEffect(() => {
     async function getUserAttributes() {
@@ -879,10 +919,14 @@ function App() {
 
         // Load existing conversations
         const { data: conversations } = await dataClient.models.Conversation.list();
+        const modeFilteredConversations = (conversations || []).filter((conversation) => {
+          const mode = normalizePersonalityMode(conversation.personalityMode || 'default');
+          return mode === effectivePersonality;
+        });
         
-        if (conversations && conversations.length > 0) {
+        if (modeFilteredConversations.length > 0) {
           // Sort by most recent and select the first one
-          const sortedConversations = conversations.sort((a, b) => {
+          const sortedConversations = modeFilteredConversations.sort((a, b) => {
             const aDate = new Date(a.updatedAt || a.createdAt || 0);
             const bDate = new Date(b.updatedAt || b.createdAt || 0);
             return bDate.getTime() - aDate.getTime();
@@ -906,7 +950,7 @@ function App() {
     }
 
     autoLoadConversation();
-  }, [userAttributes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userAttributes, effectivePersonality]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ensure scroll to bottom on initial load and page refresh
   useEffect(() => {
@@ -1263,6 +1307,7 @@ function App() {
     
     // If empty string, clear the conversation
     if (!selectedConversationId) {
+      setIsSelectingConversation(false);
       setConversationId(null);
       setMessages([]);
       setIsWaitingForResponse(false);
@@ -1273,8 +1318,10 @@ function App() {
       return;
     }
     
+    setIsSelectingConversation(true);
     setConversationId(selectedConversationId);
     setMessages([]); // Clear current messages
+    setShowCharacterCreation(false);
     
     // Load conversation data and messages
     try {
@@ -1294,7 +1341,7 @@ function App() {
         }
         setPersonalityMode(normalizedMode);
         if (normalizedMode === 'game_master') {
-          setShowCharacterCreation(true);
+          setShowCharacterCreation(false);
           const character = await fetchCharacter(selectedConversationId);
           if (!character) {
             setMessages([]);
@@ -1365,11 +1412,12 @@ function App() {
     } catch (error) {
       console.error('Error loading conversation messages:', error);
       setIsWaitingForResponse(false);
+    } finally {
+      setIsSelectingConversation(false);
     }
   };
 
   const handleNewConversation = async () => {
-    setIsModeDropdownOpen(false);
     if (effectivePersonality === 'game_master') {
       setShowCharacterCreation(true);
       setCharacterState(null);
@@ -1452,7 +1500,6 @@ function App() {
   };
 
   const handleModeSelected = async (modeId: string) => {
-    setIsModeDropdownOpen(false);
     const normalized = normalizePersonalityMode(modeId);
     if (normalized === effectivePersonality) return;
 
@@ -1523,8 +1570,10 @@ function App() {
   const isGameMasterMode = effectivePersonality === 'game_master';
   const appThemeClass = isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain';
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState;
-  const showMobileInlineCharacterCreation = showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master';
-  const showRightPanelCharacterCreation = showCharacterCreation && !characterState;
+  const showMobileInlineCharacterCreation =
+    showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master' && !isLoadingCharacter && !isSelectingConversation;
+  const showRightPanelCharacterCreation =
+    showCharacterCreation && !characterState && !isLoadingCharacter && !isSelectingConversation;
   const isInputLocked = isWaitingForResponse || isGameMasterCharacterRequired;
   const gameMasterInputPlaceholder = isGameMasterCharacterRequired
     ? 'Create your character to begin your adventure...'
@@ -1587,7 +1636,6 @@ function App() {
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
   const toggleLeftSidebar = useCallback(() => {
     setIsLeftSidebarCollapsed((prev) => !prev);
-    setIsModeDropdownOpen(false);
     setIsProfileMenuOpen(false);
   }, []);
   const toggleCenterList = useCallback(() => {
@@ -1662,47 +1710,29 @@ function App() {
                     </div>
 
                     <div className="px-5 space-y-2">
-                      <div ref={desktopModeDropdownRef} className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setIsModeDropdownOpen((prev) => !prev)}
-                          className="retro-sidebar-action w-full flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm text-brand-text-primary transition-colors"
-                        >
-                          <span>{isGameMasterMode ? 'Game Master' : 'Brain'} Mode</span>
-                          <svg className={`h-4 w-4 transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {isModeDropdownOpen && (
-                          <div className="retro-dropdown mt-2 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
-                            {MODE_OPTIONS.map((option) => {
-                              const isActive = option.id === effectivePersonality;
-                              return (
-                                <button
-                                  key={option.id}
-                                  type="button"
-                                  onClick={() => handleModeSelected(option.id)}
-                                  className={`retro-dropdown-item flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
-                                    isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover'
-                                  }`}
-                                >
-                                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                                    {option.id === 'game_master' ? (
-                                      <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
-                                    ) : (
-                                      <BrainIcon className="h-4 w-4" />
-                                    )}
-                                  </span>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-brand-text-primary">{option.shortLabel}</p>
-                                    <p className="text-[11px] text-brand-text-muted">{option.badge}</p>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
+                      {MODE_OPTIONS.map((option) => {
+                        const isActive = option.id === effectivePersonality;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => handleModeSelected(option.id)}
+                            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                              isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover/80'
+                            }`}
+                            aria-label={`Switch to ${option.shortLabel}`}
+                          >
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
+                              {option.id === 'game_master' ? (
+                                <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
+                              ) : (
+                                <BrainIcon className="h-4 w-4" />
+                              )}
+                            </span>
+                            <span className="min-w-0 flex-1 text-sm font-medium text-brand-text-primary">{option.shortLabel}</span>
+                          </button>
+                        );
+                      })}
                     </div>
 
                     <div className="mt-auto border-t border-brand-surface-border/35 p-4">
@@ -1749,7 +1779,6 @@ function App() {
                     className="flex h-full flex-col items-center justify-between px-2 pb-4 pt-14 cursor-pointer"
                     onClick={() => {
                       setIsLeftSidebarCollapsed(false);
-                      setIsModeDropdownOpen(false);
                       setIsProfileMenuOpen(false);
                     }}
                   >
@@ -1808,6 +1837,7 @@ function App() {
                           disableNewConversation={isWaitingForResponse}
                           selectedConversationId={conversationId}
                           refreshKey={conversationListRefreshKey}
+                          activeMode={effectivePersonality}
                         />
                       </div>
                     </div>
@@ -1861,7 +1891,9 @@ function App() {
                           {messages.length === 0 && !isLoading && conversationId && (
                             <div className="flex justify-center items-center h-full min-h-[300px]">
                               <div className="text-center space-y-3 mt-64">
-                                <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
+                                <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
+                                  {isGameMasterCharacterRequired ? 'Create Your Character' : 'No Conversation'}
+                                </div>
                                 <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
                               </div>
                             </div>
@@ -2138,7 +2170,7 @@ function App() {
                         </div>
                       </div>
 
-                      <Panel variant="inset" className="p-4">
+                      <div>
                         <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Stats & Health</p>
                         <div className="mt-3 grid grid-cols-3 gap-2">
                           <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
@@ -2176,16 +2208,16 @@ function App() {
                             <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${characterDisplay.hp.percentage}%` }} />
                           </div>
                         </div>
-                      </Panel>
+                      </div>
 
-                      <Panel variant="inset" className="p-4">
+                      <div>
                         <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted mb-3">Inventory</p>
                         <InventoryManager
                           inventory={characterDisplay.inventory}
                           onUpdateInventory={updateInventory}
                           isUpdating={false}
                         />
-                      </Panel>
+                      </div>
 
                       <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center">
                         <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-brand-text-primary/10">
@@ -2276,71 +2308,31 @@ function App() {
               </div>
             </div>
 
-            <div ref={mobileModeDropdownRef} className="retro-mobile-mode relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsModeDropdownOpen((prev) => !prev);
-                }}
-                className="retro-mode-trigger w-full flex items-center justify-between rounded-xl border px-3 py-2 transition-colors"
-                aria-label="Select Brain or Game Master"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                    {isGameMasterMode ? (
-                      <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-7 object-contain" />
-                    ) : (
-                      <BrainIcon className="h-5 w-5" />
-                    )}
-                  </span>
-                  <div className="text-left">
-                    <p className="text-sm text-brand-text-primary">
-                      {isGameMasterMode ? 'Game Master' : 'Brain'}
-                    </p>
-                  </div>
-                </div>
-                <svg className={`w-4 h-4 text-brand-text-muted transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {isModeDropdownOpen && (
-                <div className="retro-dropdown retro-dropdown-mobile absolute left-0 right-0 top-[calc(100%+8px)] z-30 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
-                  <p className="px-2 pb-1 text-[10px] uppercase tracking-[0.26em] text-brand-text-muted">Brain / Game Master</p>
-                  {MODE_OPTIONS.map((option) => {
-                    const isActive = option.id === effectivePersonality;
-                    const isGameMasterOption = option.id === 'game_master';
-
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => handleModeSelected(option.id)}
-                        className={`retro-dropdown-item flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
-                          isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover'
-                        }`}
-                      >
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                          {isGameMasterOption ? (
-                            <img src="/game-master.svg" alt="" aria-hidden="true" className="h-5 w-8 object-contain" />
-                          ) : (
-                            <BrainIcon className="h-5 w-5" />
-                          )}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-brand-text-primary">{option.shortLabel}</p>
-                          <p className="text-[11px] text-brand-text-muted">{option.badge}</p>
-                        </div>
-                        {isActive && (
-                          <svg className="h-4 w-4 text-brand-accent-primary" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8.5 12.086 5.707 9.293a1 1 0 00-1.414 1.414l3.5 3.5a1 1 0 001.414 0l7.5-7.5a1 1 0 000-1.414z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+            <div>
+              {MODE_OPTIONS.map((option) => {
+                const isActive = option.id === effectivePersonality;
+                const isGameMasterOption = option.id === 'game_master';
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleModeSelected(option.id)}
+                    className={`w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${
+                      isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover/80'
+                    }`}
+                    aria-label={`Switch to ${option.shortLabel}`}
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
+                      {isGameMasterOption ? (
+                        <img src="/game-master.svg" alt="" aria-hidden="true" className="h-5 w-7 object-contain" />
+                      ) : (
+                        <BrainIcon className="h-5 w-5" />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 text-sm font-medium text-brand-text-primary">{option.shortLabel}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </nav>
@@ -2538,7 +2530,9 @@ function App() {
               {messages.length === 0 && !isLoading && conversationId && !showMobileInlineCharacterCreation && (
                 <div className="flex justify-center items-center h-full min-h-[300px]">
                   <div className="retro-empty-state text-center space-y-3 px-4 mt-64">
-                    <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
+                    <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
+                      {isGameMasterCharacterRequired ? 'Create Your Character' : 'No Conversation'}
+                    </div>
                     <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
                   </div>
                 </div>

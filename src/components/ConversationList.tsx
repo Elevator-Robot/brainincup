@@ -3,12 +3,15 @@ import type React from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { getModeMeta } from '../constants/personalityModes';
+import { getAvatarOptionById } from '../constants/gameMasterAvatars';
 import { isNoConversationsTestMode, isTestModeEnabled } from '../utils/testMode';
 
 const dataClient = generateClient<Schema>();
+const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
 
 type ConversationType = Schema['Conversation']['type'] & { personalityMode?: string | null };
 type MessageType = Schema['Message']['type'];
+type CharacterType = Schema['GameMasterCharacter']['type'];
 
 interface ConversationListProps {
   onSelectConversation: (conversationId: string) => void;
@@ -17,6 +20,7 @@ interface ConversationListProps {
   disableNewConversation?: boolean;
   selectedConversationId: string | null;
   refreshKey?: number;
+  activeMode?: string;
 }
 
 const getConversationTimestamp = (conversation: ConversationType) =>
@@ -52,7 +56,47 @@ const formatTimestamp = (dateString?: string) => {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-export default function ConversationList({ onSelectConversation, onDeleteConversation, onNewConversation, disableNewConversation, selectedConversationId, refreshKey }: ConversationListProps) {
+const sanitizeConversationTitle = (rawTitle?: string | null): string => {
+  const withoutBlockedWords = (rawTitle ?? '')
+    .replace(/\b(?:brain|quest)\b/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return withoutBlockedWords || 'Untitled Interaction';
+};
+
+const normalizeConversationModeForFilter = (mode?: string | null): string => {
+  if (!mode) return 'default';
+  if (mode === 'rpg_dm') return 'game_master';
+  return mode;
+};
+
+const readStoredConversationAvatarMap = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(GM_CONVERSATION_AVATAR_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    return Object.entries(parsed as Record<string, unknown>).reduce<Record<string, string>>((acc, [key, value]) => {
+      if (typeof value === 'string' && value.trim()) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+  } catch {
+    return {};
+  }
+};
+
+export default function ConversationList({
+  onSelectConversation,
+  onDeleteConversation,
+  onNewConversation,
+  disableNewConversation,
+  selectedConversationId,
+  refreshKey,
+  activeMode = 'default',
+}: ConversationListProps) {
   const [conversations, setConversations] = useState<ConversationType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -61,6 +105,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [latestMessageByConversation, setLatestMessageByConversation] = useState<Record<string, string>>({});
+  const [avatarByConversation, setAvatarByConversation] = useState<Record<string, string>>({});
   const newConversationDisabled = Boolean(disableNewConversation);
 
   const loadConversations = useCallback(async () => {
@@ -75,6 +120,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
         if (isNoConversationsTestMode()) {
           console.log('✅ Test mode: No conversations (testing auto-creation)');
           setConversations([]);
+          setAvatarByConversation({});
           setIsLoading(false);
           return;
         }
@@ -83,12 +129,14 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
           {
             id: 'test-conversation-1',
             title: 'My AI Discussion',
+            personalityMode: 'default',
             createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
             updatedAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
           },
           {
             id: 'test-conversation-2', 
             title: 'Learning Session',
+            personalityMode: 'game_master',
             createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
             updatedAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
           }
@@ -117,6 +165,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
         }
 
         setConversations(mockConversations);
+        setAvatarByConversation({});
         setIsLoading(false);
         return;
       }
@@ -131,9 +180,12 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
       setConversations(sortedConversations);
 
       const latestMessages: Record<string, string> = {};
+      const gmAvatars: Record<string, string> = {};
+      const storedAvatarMap = readStoredConversationAvatarMap();
       await Promise.all(
         sortedConversations.map(async (conversation) => {
           if (!conversation.id) return;
+          const conversationMode = normalizeConversationModeForFilter(conversation.personalityMode);
           try {
             const { data: messageData } = await dataClient.models.Message.list({
               filter: { conversationId: { eq: conversation.id } }
@@ -149,9 +201,41 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
           } catch (messageError) {
             console.error('Error loading conversation messages:', messageError);
           }
+
+          if (conversationMode !== 'game_master') return;
+          try {
+            let characters: CharacterType[] | undefined;
+            try {
+              const userPoolResult = await dataClient.models.GameMasterCharacter.list({
+                filter: { conversationId: { eq: conversation.id } },
+                limit: 1,
+                authMode: 'userPool',
+              });
+              characters = userPoolResult.data as CharacterType[] | undefined;
+            } catch {
+              const fallbackResult = await dataClient.models.GameMasterCharacter.list({
+                filter: { conversationId: { eq: conversation.id } },
+                limit: 1,
+              });
+              characters = fallbackResult.data as CharacterType[] | undefined;
+            }
+
+            const character = characters?.[0];
+            const storedAvatarId = storedAvatarMap[conversation.id];
+            const avatarId = getAvatarOptionById(character?.avatarId ?? '')?.id
+              ?? getAvatarOptionById(storedAvatarId ?? '')?.id
+              ?? '';
+            const avatarSrc = avatarId ? (getAvatarOptionById(avatarId)?.src ?? '') : '';
+            if (avatarSrc) {
+              gmAvatars[conversation.id] = avatarSrc;
+            }
+          } catch (characterError) {
+            console.error('Error loading conversation character avatar:', characterError);
+          }
         })
       );
       setLatestMessageByConversation(latestMessages);
+      setAvatarByConversation(gmAvatars);
     } catch (error) {
       console.error('Error loading conversations:', error);
     } finally {
@@ -279,6 +363,12 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
   };
 
   const conversationsToShow = conversations.filter((conv) => {
+    const conversationMode = normalizeConversationModeForFilter(conv.personalityMode);
+    const targetMode = normalizeConversationModeForFilter(activeMode);
+    if (conversationMode !== targetMode) {
+      return false;
+    }
+
     if (!searchQuery.trim()) {
       return true;
     }
@@ -313,7 +403,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
         </div>
         {group.items.map((conversation) => {
           const dateText = formatTimestamp(getConversationTimestamp(conversation));
-          const conversationTitle = conversation.title?.trim() || 'Untitled Interaction';
+          const conversationTitle = sanitizeConversationTitle(conversation.title);
           const modeMeta = getModeMeta(conversation.personalityMode);
           const isEditing = editingId === conversation.id;
           const isSelected = selectedConversationId === conversation.id;
@@ -322,6 +412,11 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
             : modeMeta.description;
 
           const isGameMasterConversation = modeMeta.id === 'game_master';
+          const conversationAvatar = conversation.id ? avatarByConversation[conversation.id] : undefined;
+          const hasGameMasterAvatar = Boolean(conversationAvatar);
+          const rowGridClass = isSelectMode
+            ? (isGameMasterConversation && hasGameMasterAvatar ? 'grid-cols-[auto,auto,1fr]' : 'grid-cols-[auto,1fr]')
+            : (isGameMasterConversation && hasGameMasterAvatar ? 'grid-cols-[auto,1fr,auto]' : 'grid-cols-[1fr,auto]');
 
           return (
             <div
@@ -366,7 +461,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                     }
                   }}
                   onKeyDown={(event) => conversation.id && handleConversationKeyPress(event, conversation.id)}
-                  className="grid grid-cols-[auto,1fr,auto] items-center gap-3 px-3.5 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50 rounded-2xl"
+                  className={`grid ${rowGridClass} items-center gap-3 px-3.5 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50 rounded-2xl`}
                 >
                   {isSelectMode && conversation.id && (
                     <input
@@ -386,19 +481,14 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                     />
                   )}
 
-                  <span className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border ${
-                    isGameMasterConversation
-                      ? 'border-emerald-300/35 bg-emerald-500/10 text-emerald-100'
-                      : 'border-teal-300/35 bg-teal-500/10 text-teal-100'
-                  }`}>
-                    {isGameMasterConversation ? (
-                      <img src="/game-master.svg" alt="" aria-hidden="true" className="h-3.5 w-6 object-contain" />
-                    ) : (
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.5 4a2.5 2.5 0 00-2.5 2.5v11A2.5 2.5 0 009.5 20h5a2.5 2.5 0 002.5-2.5v-11A2.5 2.5 0 0014.5 4h-5z" />
-                      </svg>
-                    )}
-                  </span>
+                  {isGameMasterConversation && hasGameMasterAvatar && (
+                    <img
+                      src={conversationAvatar}
+                      alt=""
+                      aria-hidden="true"
+                      className="h-9 w-9 flex-shrink-0 rounded-full border border-emerald-300/35 bg-emerald-500/10 object-cover"
+                    />
+                  )}
 
                   <div className="min-w-0">
                     <div className="flex items-center justify-between gap-2">
@@ -541,7 +631,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
             Loading interactions...
           </div>
         </div>
-      ) : conversations.length === 0 ? (
+      ) : conversationsToShow.length === 0 ? (
         <div className="text-center py-12">
           <div className="w-12 h-12 mx-auto mb-4 bg-slate-800/50 rounded-xl flex items-center justify-center">
             <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
