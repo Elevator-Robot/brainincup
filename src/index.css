@@ -12,7 +12,10 @@
   }
 
   body {
-    @apply bg-gradient-to-br from-brand-bg-primary via-brand-bg-secondary to-brand-bg-tertiary;
+    background:
+      radial-gradient(circle at 12% 8%, rgba(37, 101, 112, 0.32), transparent 42%),
+      radial-gradient(circle at 84% 0%, rgba(27, 80, 109, 0.26), transparent 46%),
+      radial-gradient(circle at 50% 100%, rgba(5, 15, 23, 0.96), rgba(2, 8, 12, 0.99));
     @apply text-brand-text-primary leading-relaxed;
     min-height: 100vh;
     position: relative;
@@ -26,10 +29,9 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: 
-      radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 80% 20%, rgba(118, 75, 162, 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 40% 40%, rgba(240, 147, 251, 0.08) 0%, transparent 50%);
+    background:
+      radial-gradient(circle at 20% 80%, rgba(116, 215, 226, 0.08) 0%, transparent 52%),
+      radial-gradient(circle at 80% 20%, rgba(169, 247, 255, 0.06) 0%, transparent 54%);
     z-index: -1;
     animation: float 20s ease-in-out infinite;
   }
@@ -526,9 +528,9 @@ textarea.w-full:focus {
 .retro-app {
   min-height: 100dvh;
   background:
-    radial-gradient(circle at 12% 8%, rgba(68, 131, 92, 0.28), transparent 42%),
-    radial-gradient(circle at 84% 0%, rgba(45, 109, 93, 0.24), transparent 46%),
-    radial-gradient(circle at 50% 100%, rgba(5, 19, 17, 0.96), rgba(2, 9, 8, 0.99));
+    radial-gradient(circle at 12% 8%, rgba(37, 101, 112, 0.32), transparent 42%),
+    radial-gradient(circle at 84% 0%, rgba(27, 80, 109, 0.26), transparent 46%),
+    radial-gradient(circle at 50% 100%, rgba(5, 15, 23, 0.96), rgba(2, 8, 12, 0.99));
   color: #eaf4f1;
   font-family: var(--rpg-font-body);
   transition: color 260ms ease, background 320ms ease;
@@ -595,10 +597,6 @@ textarea.w-full:focus {
   --rpg-header-bg: linear-gradient(145deg, rgba(15, 44, 50, 0.6), rgba(8, 24, 30, 0.38));
   --rpg-highlight-border: rgba(116, 215, 226, 0.5);
   --rpg-highlight-inset-glow: rgba(169, 247, 255, 0.16);
-  background:
-    radial-gradient(circle at 12% 8%, rgba(37, 101, 112, 0.32), transparent 42%),
-    radial-gradient(circle at 84% 0%, rgba(27, 80, 109, 0.26), transparent 46%),
-    radial-gradient(circle at 50% 100%, rgba(5, 15, 23, 0.96), rgba(2, 8, 12, 0.99));
 }
 
 .retro-rpg-ui--gm {
@@ -614,10 +612,6 @@ textarea.w-full:focus {
   --rpg-header-bg: linear-gradient(145deg, rgba(17, 42, 37, 0.58), rgba(10, 26, 24, 0.36));
   --rpg-highlight-border: rgba(137, 230, 213, 0.46);
   --rpg-highlight-inset-glow: rgba(153, 255, 230, 0.14);
-  background:
-    radial-gradient(circle at 12% 8%, rgba(68, 131, 92, 0.28), transparent 42%),
-    radial-gradient(circle at 84% 0%, rgba(45, 109, 93, 0.24), transparent 46%),
-    radial-gradient(circle at 50% 100%, rgba(5, 19, 17, 0.96), rgba(2, 9, 8, 0.99));
 }
 
 .retro-rpg-ui .retro-nav,
