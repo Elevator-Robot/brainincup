@@ -6,6 +6,52 @@ import { PolicyStatement, Effect, ManagedPolicy, Role, ServicePrincipal } from '
 import { EventSourceMapping, StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import { StreamViewType } from 'aws-cdk-lib/aws-dynamodb';
 import { Tags, CfnResource, CfnOutput } from 'aws-cdk-lib';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const readAgentCoreConfigFile = (): Record<string, string> => {
+  const fileDir = dirname(fileURLToPath(import.meta.url));
+  const candidatePaths = [
+    resolve(process.cwd(), '.env.agentcore'),
+    resolve(fileDir, '../.env.agentcore'),
+  ];
+
+  const filePath = candidatePaths.find((candidate) => existsSync(candidate));
+  if (!filePath) {
+    return {};
+  }
+
+  const values: Record<string, string> = {};
+  const lines = readFileSync(filePath, 'utf-8').split(/\r?\n/);
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const separator = line.indexOf('=');
+    if (separator <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, separator).trim();
+    const rawValue = line.slice(separator + 1).trim();
+    const value = rawValue.replace(/^['"]|['"]$/g, '');
+    if (key) {
+      values[key] = value;
+    }
+  }
+
+  return values;
+};
+
+const agentCoreConfigFileValues = readAgentCoreConfigFile();
+const getAgentCoreConfig = (key: string): string | undefined => {
+  const value = process.env[key] ?? agentCoreConfigFileValues[key];
+  const normalized = value?.trim();
+  return normalized ? normalized : undefined;
+};
 
 const backend = defineBackend({
   auth,
@@ -44,12 +90,12 @@ brainLambda.addEnvironment('CHARACTER_TABLE_NAME', characterTable.tableName);
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
-const agentcoreContainerUri = process.env.AGENTCORE_CONTAINER_URI;
+const agentcoreContainerUri = getAgentCoreConfig('AGENTCORE_CONTAINER_URI');
 // Generate unique runtime name based on stack name and account to avoid conflicts
 const baseRuntimeName = sanitizeRuntimeName(stack.stackName);
 const defaultRuntimeName = `${baseRuntimeName}-${stack.account.slice(-4)}`;
-const requestedRuntimeName = process.env.AGENTCORE_RUNTIME_NAME ?? defaultRuntimeName;
-let agentcoreRuntimeArn = process.env.AGENTCORE_RUNTIME_ARN;
+const requestedRuntimeName = getAgentCoreConfig('AGENTCORE_RUNTIME_NAME') ?? defaultRuntimeName;
+let agentcoreRuntimeArn = getAgentCoreConfig('AGENTCORE_RUNTIME_ARN');
 
 // If no ARN is provided, require container URI to create runtime
 if (!agentcoreRuntimeArn) {
@@ -93,11 +139,13 @@ if (!agentcoreRuntimeArn) {
         },
       },
       NetworkConfiguration: {
-        NetworkMode: process.env.AGENTCORE_NETWORK_MODE ?? 'PUBLIC',
+        NetworkMode: getAgentCoreConfig('AGENTCORE_NETWORK_MODE') ?? 'PUBLIC',
       },
       EnvironmentVariables: {
-        LOG_LEVEL: process.env.AGENTCORE_RUNTIME_LOG_LEVEL ?? 'INFO',
+        LOG_LEVEL: getAgentCoreConfig('AGENTCORE_RUNTIME_LOG_LEVEL') ?? 'INFO',
         AWS_REGION: stack.region,
+        OTEL_SERVICE_NAME: getAgentCoreConfig('OTEL_SERVICE_NAME') ?? 'brain-in-cup-agentcore-runtime',
+        OTEL_PROPAGATORS: getAgentCoreConfig('OTEL_PROPAGATORS') ?? 'xray,tracecontext,baggage',
       },
       RoleArn: agentcoreRuntimeRole.roleArn,
       Description: 'Amazon Bedrock AgentCore runtime managed by Amplify Gen2 backend',
@@ -118,22 +166,26 @@ if (!agentcoreRuntimeArn) {
 
 // Now agentcoreRuntimeArn is guaranteed to be set
 brainLambda.addEnvironment('AGENTCORE_RUNTIME_ARN', agentcoreRuntimeArn);
-brainLambda.addEnvironment('AGENTCORE_TRACE_ENABLED', process.env.AGENTCORE_TRACE_ENABLED ?? 'false');
-brainLambda.addEnvironment('AGENTCORE_TRACE_SAMPLE_RATE', process.env.AGENTCORE_TRACE_SAMPLE_RATE ?? '0');
-if (process.env.AGENTCORE_MEMORY_ID) {
-  brainLambda.addEnvironment('AGENTCORE_MEMORY_ID', process.env.AGENTCORE_MEMORY_ID);
+brainLambda.addEnvironment('AGENTCORE_TRACE_ENABLED', getAgentCoreConfig('AGENTCORE_TRACE_ENABLED') ?? 'true');
+brainLambda.addEnvironment('AGENTCORE_TRACE_SAMPLE_RATE', getAgentCoreConfig('AGENTCORE_TRACE_SAMPLE_RATE') ?? '1.0');
+const agentcoreMemoryId = getAgentCoreConfig('AGENTCORE_MEMORY_ID');
+if (agentcoreMemoryId) {
+  brainLambda.addEnvironment('AGENTCORE_MEMORY_ID', agentcoreMemoryId);
 }
-if (process.env.AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID) {
-  brainLambda.addEnvironment('AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID', process.env.AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID);
+const agentcoreMemorySemanticStrategyId = getAgentCoreConfig('AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID');
+if (agentcoreMemorySemanticStrategyId) {
+  brainLambda.addEnvironment('AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID', agentcoreMemorySemanticStrategyId);
 }
-if (process.env.AGENTCORE_MEMORY_STRATEGY_ID) {
-  brainLambda.addEnvironment('AGENTCORE_MEMORY_STRATEGY_ID', process.env.AGENTCORE_MEMORY_STRATEGY_ID);
+const agentcoreMemoryStrategyId = getAgentCoreConfig('AGENTCORE_MEMORY_STRATEGY_ID');
+if (agentcoreMemoryStrategyId) {
+  brainLambda.addEnvironment('AGENTCORE_MEMORY_STRATEGY_ID', agentcoreMemoryStrategyId);
 }
-if (process.env.AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID) {
-  brainLambda.addEnvironment('AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID', process.env.AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID);
+const agentcoreMemoryCharacterStrategyId = getAgentCoreConfig('AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID');
+if (agentcoreMemoryCharacterStrategyId) {
+  brainLambda.addEnvironment('AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID', agentcoreMemoryCharacterStrategyId);
 }
-const agentcoreMemoryResource = process.env.AGENTCORE_MEMORY_ID
-  ? `arn:aws:bedrock-agentcore:${stack.region}:${stack.account}:memory/${process.env.AGENTCORE_MEMORY_ID}`
+const agentcoreMemoryResource = agentcoreMemoryId
+  ? `arn:aws:bedrock-agentcore:${stack.region}:${stack.account}:memory/${agentcoreMemoryId}`
   : '*';
 
 // Note: Layer is already defined in amplify/functions/brain/resource.ts
@@ -145,7 +197,7 @@ new EventSourceMapping(stack, 'BrainMessageMapping', {
 });
 
 brainLambda.addToRolePolicy(new PolicyStatement({
-  actions: ['bedrock-agentcore:InvokeAgentRuntime'],
+  actions: ['bedrock-agentcore:InvokeAgentRuntime', 'bedrock-agentcore:InvokeAgentRuntimeForUser'],
   resources: agentcoreRuntimeArn ? [
     agentcoreRuntimeArn,
     `${agentcoreRuntimeArn}/*`,

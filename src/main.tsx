@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { getCurrentUser } from 'aws-amplify/auth';
 import App from './App';
 import CustomAuth from './components/CustomAuth';
+import { isTestModeEnabled } from './utils/testMode';
 import './index.css';
 import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
@@ -65,9 +66,7 @@ function AuthWrapper() {
   const checkAuthState = async () => {
     console.log('Checking auth state...');
     try {
-      // For development testing, allow bypass with URL parameter
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('testmode') === 'true') {
+      if (isTestModeEnabled()) {
         console.log('✅ Test mode enabled, bypassing auth');
         setIsAuthenticated(true);
         setIsLoading(false);

@@ -41,6 +41,7 @@ class AgentCoreClient:
         session_id: str,
         payload: Dict[str, Any],
         trace_metadata: Optional[str] = None,
+        runtime_user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         if not session_id:
             raise ValueError("session_id must be provided")
@@ -54,6 +55,8 @@ class AgentCoreClient:
 
         if self._should_send_trace() and trace_metadata:
             request["traceId"] = trace_metadata
+        if runtime_user_id:
+            request["runtimeUserId"] = runtime_user_id
 
         response = self.client.invoke_agent_runtime(**request)
         decoded = self._decode_response(response)

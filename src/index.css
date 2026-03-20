@@ -338,77 +338,65 @@ textarea.w-full:focus {
 
 /* ─── RPG Theme Tokens ─── */
 :root {
-  /* Gold accent family */
-  --rpg-gold:            #c69b4e;
-  --rpg-gold-light:      #e8c982;
-  --rpg-gold-dim:        rgba(198, 155, 78, 0.45);
-  --rpg-gold-glow:       rgba(198, 155, 78, 0.25);
-  --rpg-gold-border:     rgba(170, 123, 61, 0.50);
-  --rpg-gold-highlight:  rgba(255, 215, 146, 0.10);
-
-  /* Panel surfaces */
-  --rpg-panel-bg:        linear-gradient(180deg, rgba(41, 28, 20, 0.96), rgba(26, 18, 14, 0.94));
-  --rpg-panel-bg-inset:  linear-gradient(180deg, rgba(32, 21, 15, 0.95), rgba(22, 15, 12, 0.92));
-  --rpg-panel-texture:   repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 3px);
-
-  /* Shadows */
-  --rpg-shadow-inset:    inset 0 0 36px rgba(0, 0, 0, 0.35);
-  --rpg-shadow-outer:    0 14px 30px rgba(0, 0, 0, 0.45);
-  --rpg-shadow-deep:     inset 0 0 24px rgba(0, 0, 0, 0.5), 0 10px 22px rgba(0, 0, 0, 0.45);
-  --rpg-shadow-glow-gold: 0 0 12px rgba(198, 155, 78, 0.20);
-
-  /* Spacing */
-  --rpg-space-xs: 0.25rem;
-  --rpg-space-sm: 0.5rem;
-  --rpg-space-md: 1rem;
-  --rpg-space-lg: 1.5rem;
-  --rpg-space-xl: 2rem;
-
-  /* Borders */
-  --rpg-border-width:    1px;
-  --rpg-border-inner:    1px solid var(--rpg-gold-highlight);
-  --rpg-corner-size:     12px;
-
-  /* Typography */
-  --rpg-font-display:    Georgia, "Times New Roman", serif;
-  --rpg-font-body:       "Palatino Linotype", "Book Antiqua", Palatino, "Times New Roman", serif;
-  --rpg-text-parchment:  #f4e7c4;
-  --rpg-text-gold:       #f1d9a3;
-  --rpg-text-muted:      rgba(230, 193, 132, 0.65);
-  --rpg-tracking-label:  0.22em;
-
-  /* Panel detail tokens (mode-overridable) */
-  --rpg-panel-inner-border: rgba(255, 215, 146, 0.06);
-  --rpg-panel-corner-glow: rgba(198, 155, 78, 0.18);
-  --rpg-header-bg:       linear-gradient(180deg, rgba(44, 30, 20, 0.85), rgba(29, 20, 15, 0.55));
-  --rpg-header-inner-glow: rgba(235, 195, 119, 0.08);
-  --rpg-highlight-border: rgba(198, 155, 78, 0.62);
-  --rpg-highlight-inset-glow: rgba(255, 177, 84, 0.10);
-  --rpg-highlight-corner-glow: rgba(198, 155, 78, 0.28);
+  --rpg-accent: #79d7c2;
+  --rpg-accent-strong: #44bda2;
+  --rpg-accent-soft: rgba(121, 215, 194, 0.2);
+  --rpg-accent-border: rgba(121, 215, 194, 0.36);
+  --rpg-accent-highlight: rgba(196, 255, 242, 0.28);
+  --rpg-surface-primary: rgba(12, 28, 24, 0.58);
+  --rpg-surface-secondary: rgba(8, 22, 20, 0.44);
+  --rpg-surface-tertiary: rgba(7, 17, 16, 0.28);
+  --rpg-panel-texture: linear-gradient(140deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  --rpg-shadow-soft: 0 18px 40px rgba(1, 10, 9, 0.46);
+  --rpg-shadow-elevated: 0 26px 56px rgba(1, 8, 7, 0.52);
+  --rpg-shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  --rpg-panel-inner-border: rgba(255, 255, 255, 0.12);
+  --rpg-panel-corner-glow: rgba(141, 237, 221, 0.18);
+  --rpg-header-bg: linear-gradient(145deg, rgba(17, 42, 37, 0.58), rgba(10, 26, 24, 0.36));
+  --rpg-header-inner-glow: rgba(219, 255, 248, 0.18);
+  --rpg-highlight-border: rgba(137, 230, 213, 0.46);
+  --rpg-highlight-inset-glow: rgba(153, 255, 230, 0.14);
+  --rpg-highlight-corner-glow: rgba(153, 255, 233, 0.28);
+  --rpg-border-width: 1px;
+  --rpg-corner-size: 18px;
+  --rpg-radius-panel: 22px;
+  --rpg-space-xs: 0.4rem;
+  --rpg-space-sm: 0.75rem;
+  --rpg-space-md: 1.1rem;
+  --rpg-space-lg: 1.6rem;
+  --rpg-space-xl: 2.25rem;
+  --rpg-font-display: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --rpg-font-body: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --rpg-text-parchment: #eaf4f1;
+  --rpg-text-gold: #f4fffb;
+  --rpg-text-muted: rgba(207, 222, 218, 0.72);
+  --rpg-tracking-label: 0.16em;
 }
 
 /* ─── RPG Panel Component ─── */
 .rpg-panel {
   position: relative;
-  background: var(--rpg-panel-bg), var(--rpg-panel-texture);
-  border: var(--rpg-border-width) solid var(--rpg-gold-border);
-  border-radius: 6px;
+  background: var(--rpg-surface-primary), var(--rpg-panel-texture);
+  border: var(--rpg-border-width) solid var(--rpg-accent-border);
+  border-radius: var(--rpg-radius-panel);
   box-shadow:
-    inset 0 0 0 1px var(--rpg-gold-highlight),
-    var(--rpg-shadow-inset),
-    var(--rpg-shadow-outer);
+    inset 0 0 0 1px var(--rpg-panel-inner-border),
+    var(--rpg-shadow-inner),
+    var(--rpg-shadow-soft);
   color: var(--rpg-text-parchment);
   overflow: hidden;
-  transition: color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, background 320ms ease;
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
+  transition: color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, background 320ms ease, transform 260ms ease;
 }
 
 /* Inner edge highlight via pseudo-element */
 .rpg-panel::before {
   content: "";
   position: absolute;
-  inset: 2px;
+  inset: 1px;
   border: 1px solid var(--rpg-panel-inner-border);
-  border-radius: 4px;
+  border-radius: calc(var(--rpg-radius-panel) - 3px);
   pointer-events: none;
   z-index: 1;
   transition: border-color 260ms ease;
@@ -439,8 +427,8 @@ textarea.w-full:focus {
   background:
     var(--rpg-header-bg),
     var(--rpg-panel-texture);
-  border-bottom: 1px solid var(--rpg-gold-dim);
-  border-radius: 6px 6px 0 0;
+  border-bottom: 1px solid var(--rpg-accent-soft);
+  border-radius: var(--rpg-radius-panel) var(--rpg-radius-panel) 0 0;
   box-shadow: inset 0 -1px 0 var(--rpg-header-inner-glow);
   font-family: var(--rpg-font-display);
   letter-spacing: var(--rpg-tracking-label);
@@ -459,10 +447,10 @@ textarea.w-full:focus {
 .rpg-panel--highlight {
   border-color: var(--rpg-highlight-border);
   box-shadow:
-    inset 0 0 0 1px var(--rpg-gold-highlight),
+    inset 0 0 0 1px var(--rpg-panel-inner-border),
     inset 0 0 24px var(--rpg-highlight-inset-glow),
-    var(--rpg-shadow-glow-gold),
-    0 10px 22px rgba(0, 0, 0, 0.45);
+    0 0 24px rgba(132, 227, 211, 0.2),
+    var(--rpg-shadow-soft);
   transition: border-color 260ms ease, box-shadow 260ms ease;
 }
 
@@ -476,23 +464,23 @@ textarea.w-full:focus {
 
 /* Inset scroll variant */
 .rpg-panel--inset {
-  background: var(--rpg-panel-bg-inset), var(--rpg-panel-texture);
+  background: var(--rpg-surface-secondary), var(--rpg-panel-texture);
   box-shadow:
-    inset 0 0 0 1px var(--rpg-gold-highlight),
-    inset 0 2px 8px rgba(0, 0, 0, 0.5),
-    0 4px 12px rgba(0, 0, 0, 0.3);
+    inset 0 0 0 1px var(--rpg-panel-inner-border),
+    inset 0 2px 10px rgba(1, 8, 8, 0.5),
+    0 10px 24px rgba(1, 10, 9, 0.34);
   transition: border-color 260ms ease, box-shadow 260ms ease, background 320ms ease;
 }
 
 /* ─── RPG Grid Layout ─── */
 .rpg-grid {
   display: grid;
-  grid-template-columns: 18rem 1fr 20rem;
+  grid-template-columns: minmax(17rem, 20rem) minmax(0, 1fr) minmax(16.5rem, 19rem);
   grid-template-rows: 1fr;
-  gap: var(--rpg-space-md);
+  gap: var(--rpg-space-lg);
   min-height: 0;
   flex: 1;
-  padding: 0 var(--rpg-space-md) var(--rpg-space-md);
+  padding: 0 var(--rpg-space-xs) var(--rpg-space-xs);
 }
 
 .rpg-grid__left   { grid-column: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -518,11 +506,11 @@ textarea.w-full:focus {
 .retro-app {
   min-height: 100dvh;
   background:
-    radial-gradient(circle at 15% 15%, rgba(199, 153, 86, 0.12), transparent 42%),
-    radial-gradient(circle at 85% 0%, rgba(130, 67, 33, 0.2), transparent 44%),
-    radial-gradient(circle at 50% 100%, rgba(43, 24, 13, 0.95), rgba(18, 12, 9, 0.98));
-  color: #f4e7c4;
-  font-family: "Palatino Linotype", "Book Antiqua", Palatino, "Times New Roman", serif;
+    radial-gradient(circle at 12% 8%, rgba(68, 131, 92, 0.28), transparent 42%),
+    radial-gradient(circle at 84% 0%, rgba(45, 109, 93, 0.24), transparent 46%),
+    radial-gradient(circle at 50% 100%, rgba(5, 19, 17, 0.96), rgba(2, 9, 8, 0.99));
+  color: #eaf4f1;
+  font-family: var(--rpg-font-body);
   transition: color 260ms ease, background 320ms ease;
 }
 
@@ -532,9 +520,10 @@ textarea.w-full:focus {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  opacity: 0.16;
+  opacity: 0.2;
   background-image:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.1) 0%, transparent 35%),
+    linear-gradient(120deg, rgba(255, 255, 255, 0.12) 0%, transparent 36%),
+    radial-gradient(circle at 30% 20%, rgba(173, 241, 231, 0.08), transparent 46%),
     repeating-linear-gradient(
       0deg,
       rgba(255, 255, 255, 0.06) 0px,
@@ -553,17 +542,20 @@ textarea.w-full:focus {
 }
 
 .retro-title {
-  font-family: Georgia, "Times New Roman", serif;
-  letter-spacing: 0.16em;
+  font-family: var(--rpg-font-display);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #f1d9a3;
-  text-shadow: 0 0 12px rgba(143, 93, 47, 0.45);
+  color: #ebf9f5;
+  text-shadow: 0 1px 18px rgba(123, 240, 217, 0.22);
 }
 
 .retro-nav {
-  background: linear-gradient(180deg, rgba(35, 23, 16, 0.96), rgba(23, 16, 12, 0.92));
-  border-bottom-color: rgba(181, 131, 67, 0.35);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(235, 195, 119, 0.1);
+  background: linear-gradient(150deg, rgba(16, 39, 35, 0.66), rgba(7, 24, 22, 0.52));
+  border: 1px solid rgba(156, 236, 221, 0.18);
+  border-bottom-color: rgba(156, 236, 221, 0.2);
+  box-shadow: 0 20px 44px rgba(1, 10, 9, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 .retro-desktop-shell {
@@ -571,49 +563,41 @@ textarea.w-full:focus {
 }
 
 .retro-rpg-ui--gm {
-  --retro-accent: #c68a3b;
-  --rpg-gold: #c69b4e;
-  --rpg-gold-light: #e8c982;
-  --rpg-gold-dim: rgba(198, 155, 78, 0.45);
-  --rpg-gold-glow: rgba(198, 155, 78, 0.25);
-  --rpg-gold-border: rgba(170, 123, 61, 0.50);
-  --rpg-gold-highlight: rgba(255, 215, 146, 0.10);
-  --rpg-panel-bg: linear-gradient(180deg, rgba(41, 28, 20, 0.96), rgba(26, 18, 14, 0.94));
-  --rpg-panel-bg-inset: linear-gradient(180deg, rgba(32, 21, 15, 0.95), rgba(22, 15, 12, 0.92));
-  --rpg-shadow-glow-gold: 0 0 12px rgba(198, 155, 78, 0.20);
-  --rpg-text-parchment: #f4e7c4;
-  --rpg-text-gold: #f1d9a3;
-  --rpg-text-muted: rgba(230, 193, 132, 0.65);
-  --rpg-panel-inner-border: rgba(255, 215, 146, 0.06);
-  --rpg-panel-corner-glow: rgba(198, 155, 78, 0.18);
-  --rpg-header-bg: linear-gradient(180deg, rgba(44, 30, 20, 0.85), rgba(29, 20, 15, 0.55));
-  --rpg-header-inner-glow: rgba(235, 195, 119, 0.08);
-  --rpg-highlight-border: rgba(198, 155, 78, 0.62);
-  --rpg-highlight-inset-glow: rgba(255, 177, 84, 0.10);
-  --rpg-highlight-corner-glow: rgba(198, 155, 78, 0.28);
+  --rpg-accent: #89dcb7;
+  --rpg-accent-strong: #44c196;
+  --rpg-accent-soft: rgba(137, 220, 183, 0.22);
+  --rpg-accent-border: rgba(137, 220, 183, 0.38);
+  --rpg-accent-highlight: rgba(214, 255, 239, 0.28);
+  --rpg-surface-primary: rgba(13, 34, 29, 0.58);
+  --rpg-surface-secondary: rgba(8, 24, 21, 0.46);
+  --rpg-surface-tertiary: rgba(7, 17, 15, 0.3);
+  --rpg-panel-corner-glow: rgba(148, 236, 198, 0.2);
+  --rpg-header-bg: linear-gradient(145deg, rgba(20, 48, 41, 0.6), rgba(10, 28, 24, 0.38));
+  --rpg-highlight-border: rgba(137, 220, 183, 0.5);
+  --rpg-highlight-inset-glow: rgba(172, 255, 219, 0.16);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(68, 131, 92, 0.28), transparent 42%),
+    radial-gradient(circle at 84% 0%, rgba(48, 128, 112, 0.22), transparent 46%),
+    radial-gradient(circle at 50% 100%, rgba(5, 19, 17, 0.96), rgba(2, 9, 8, 0.99));
 }
 
 .retro-rpg-ui--brain {
-  --retro-accent: #9369d8;
-  --rpg-gold: #9971e3;
-  --rpg-gold-light: #dcc7ff;
-  --rpg-gold-dim: rgba(153, 113, 227, 0.46);
-  --rpg-gold-glow: rgba(153, 113, 227, 0.25);
-  --rpg-gold-border: rgba(136, 101, 214, 0.50);
-  --rpg-gold-highlight: rgba(223, 201, 255, 0.10);
-  --rpg-panel-bg: linear-gradient(180deg, rgba(37, 27, 58, 0.96), rgba(24, 18, 40, 0.94));
-  --rpg-panel-bg-inset: linear-gradient(180deg, rgba(33, 24, 52, 0.95), rgba(23, 16, 39, 0.92));
-  --rpg-shadow-glow-gold: 0 0 12px rgba(153, 113, 227, 0.24);
-  --rpg-text-parchment: #ede3ff;
-  --rpg-text-gold: #dcc7ff;
-  --rpg-text-muted: rgba(211, 189, 252, 0.72);
-  --rpg-panel-inner-border: rgba(223, 201, 255, 0.08);
-  --rpg-panel-corner-glow: rgba(149, 110, 228, 0.22);
-  --rpg-header-bg: linear-gradient(180deg, rgba(46, 31, 73, 0.84), rgba(30, 20, 49, 0.52));
-  --rpg-header-inner-glow: rgba(211, 186, 255, 0.12);
-  --rpg-highlight-border: rgba(149, 110, 228, 0.64);
-  --rpg-highlight-inset-glow: rgba(169, 125, 247, 0.14);
-  --rpg-highlight-corner-glow: rgba(149, 110, 228, 0.32);
+  --rpg-accent: #74d7e2;
+  --rpg-accent-strong: #42b6c8;
+  --rpg-accent-soft: rgba(116, 215, 226, 0.22);
+  --rpg-accent-border: rgba(116, 215, 226, 0.38);
+  --rpg-accent-highlight: rgba(198, 251, 255, 0.28);
+  --rpg-surface-primary: rgba(10, 30, 35, 0.58);
+  --rpg-surface-secondary: rgba(7, 22, 28, 0.46);
+  --rpg-surface-tertiary: rgba(5, 17, 22, 0.3);
+  --rpg-panel-corner-glow: rgba(132, 229, 237, 0.2);
+  --rpg-header-bg: linear-gradient(145deg, rgba(15, 44, 50, 0.6), rgba(8, 24, 30, 0.38));
+  --rpg-highlight-border: rgba(116, 215, 226, 0.5);
+  --rpg-highlight-inset-glow: rgba(169, 247, 255, 0.16);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(37, 101, 112, 0.32), transparent 42%),
+    radial-gradient(circle at 84% 0%, rgba(27, 80, 109, 0.26), transparent 46%),
+    radial-gradient(circle at 50% 100%, rgba(5, 15, 23, 0.96), rgba(2, 8, 12, 0.99));
 }
 
 .retro-rpg-ui .retro-nav,
@@ -626,12 +610,13 @@ textarea.w-full:focus {
 .retro-rpg-ui .retro-mode-trigger,
 .retro-rpg-ui .retro-icon-button,
 .retro-rpg-ui .retro-dropdown,
-.retro-rpg-ui .retro-mobile-card {
-  transition: color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, background 320ms ease;
+.retro-rpg-ui .retro-mobile-card,
+.retro-rpg-ui .retro-message {
+  transition: color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, background 320ms ease, transform 220ms ease;
 }
 
 .retro-shell {
-  background: linear-gradient(180deg, rgba(18, 13, 10, 0.95), rgba(12, 10, 8, 0.98));
+  background: transparent;
 }
 
 .retro-main {
@@ -643,8 +628,8 @@ textarea.w-full:focus {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border: 1px solid rgba(185, 139, 72, 0.15);
-  border-radius: 0.25rem;
+  border: 1px solid rgba(188, 254, 241, 0.08);
+  border-radius: 1.25rem;
 }
 
 .retro-layout-grid {
@@ -652,7 +637,7 @@ textarea.w-full:focus {
 }
 
 .retro-left-panel {
-  border-color: rgba(176, 129, 63, 0.45) !important;
+  border-color: rgba(160, 243, 227, 0.2) !important;
 }
 
 .retro-right-stack {
@@ -660,70 +645,42 @@ textarea.w-full:focus {
 }
 
 .retro-mode-header {
-  background: linear-gradient(180deg, rgba(44, 30, 20, 0.75), rgba(29, 20, 15, 0.4));
+  background: linear-gradient(155deg, rgba(19, 46, 40, 0.56), rgba(10, 28, 25, 0.3));
+  border-color: rgba(180, 255, 244, 0.16);
 }
 
 .retro-mode-title {
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
 }
 
 .retro-keycap {
-  border-color: rgba(188, 140, 70, 0.35) !important;
-  background: rgba(38, 28, 22, 0.85) !important;
-  color: #e9cd95;
+  border-color: rgba(174, 244, 230, 0.28) !important;
+  background: rgba(12, 37, 33, 0.58) !important;
+  color: rgba(232, 255, 249, 0.88);
 }
 
 .retro-frame {
-  background:
-    linear-gradient(180deg, rgba(41, 28, 20, 0.96), rgba(26, 18, 14, 0.94)),
-    repeating-linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.03) 0px,
-      rgba(255, 255, 255, 0.03) 1px,
-      transparent 1px,
-      transparent 3px
-    );
-  border: 1px solid rgba(170, 123, 61, 0.42);
+  background: var(--rpg-surface-primary), var(--rpg-panel-texture);
+  border: 1px solid var(--rpg-accent-border);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 215, 146, 0.08),
-    inset 0 0 36px rgba(0, 0, 0, 0.35),
-    0 14px 30px rgba(0, 0, 0, 0.45);
+    inset 0 0 0 1px var(--rpg-panel-inner-border),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 18px 38px rgba(1, 10, 9, 0.42);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
 }
 
 .retro-scroll-panel {
   background:
-    linear-gradient(180deg, rgba(32, 21, 15, 0.95), rgba(22, 15, 12, 0.92)),
-    radial-gradient(circle at top, rgba(165, 118, 57, 0.08), transparent 65%);
-  border-color: rgba(165, 118, 57, 0.42);
+    linear-gradient(180deg, var(--rpg-surface-secondary), var(--rpg-surface-tertiary)),
+    radial-gradient(circle at top, var(--rpg-accent-soft), transparent 68%);
+  border: 1px solid var(--rpg-accent-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 36px rgba(1, 8, 9, 0.4);
 }
 
 .retro-status-strip {
-  background: linear-gradient(90deg, rgba(40, 22, 15, 0.92), rgba(88, 35, 22, 0.38), rgba(40, 22, 15, 0.92));
-  box-shadow: inset 0 0 14px rgba(255, 177, 84, 0.08);
-}
-
-.retro-brain-panel {
-  background: linear-gradient(180deg, rgba(31, 21, 40, 0.92), rgba(20, 13, 29, 0.92));
-  border-color: rgba(124, 89, 201, 0.42);
-}
-
-.retro-brain-core {
-  background: radial-gradient(circle at 35% 35%, rgba(231, 196, 255, 0.48), rgba(119, 72, 173, 0.85));
-  border-color: rgba(229, 204, 255, 0.5);
-  box-shadow: 0 0 20px rgba(169, 97, 255, 0.55), inset 0 0 18px rgba(255, 236, 255, 0.25);
-}
-
-.retro-brain-ring {
-  border-color: rgba(164, 113, 246, 0.5);
-}
-
-.retro-state-card {
-  border: 1px solid rgba(139, 102, 220, 0.38);
-  background: linear-gradient(180deg, rgba(42, 27, 58, 0.84), rgba(31, 21, 42, 0.86));
-}
-
-.retro-state-dot {
-  box-shadow: 0 0 10px rgba(197, 153, 255, 0.7);
+  background: linear-gradient(95deg, rgba(14, 42, 36, 0.68), rgba(38, 92, 82, 0.36), rgba(14, 42, 36, 0.68));
+  box-shadow: inset 0 1px 0 rgba(203, 255, 246, 0.14);
 }
 
 .retro-message-row {
@@ -731,43 +688,46 @@ textarea.w-full:focus {
 }
 
 .retro-avatar {
-  border: 1px solid rgba(214, 163, 91, 0.4);
-  box-shadow: inset 0 0 8px rgba(255, 223, 163, 0.22), 0 0 8px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(168, 244, 229, 0.36);
+  box-shadow: inset 0 1px 0 rgba(234, 255, 250, 0.24), 0 10px 20px rgba(1, 8, 8, 0.34);
 }
 
 .retro-avatar-assistant {
-  background: radial-gradient(circle at 30% 28%, rgba(245, 189, 99, 0.7), rgba(133, 71, 35, 0.96));
+  background: radial-gradient(circle at 30% 25%, rgba(178, 250, 242, 0.95), rgba(54, 154, 145, 0.94));
 }
 
 .retro-avatar-user {
-  background: radial-gradient(circle at 30% 28%, rgba(188, 138, 245, 0.6), rgba(74, 43, 125, 0.95));
+  background: radial-gradient(circle at 30% 25%, rgba(139, 214, 196, 0.92), rgba(26, 95, 89, 0.95));
 }
 
 .retro-message {
-  border-radius: 12px;
-  border: 1px solid rgba(173, 124, 61, 0.42);
-  background: linear-gradient(180deg, rgba(53, 34, 24, 0.9), rgba(36, 24, 18, 0.9));
-  box-shadow: inset 0 0 14px rgba(255, 209, 137, 0.08), 0 7px 16px rgba(0, 0, 0, 0.35);
+  border-radius: 18px;
+  border: 1px solid rgba(178, 246, 232, 0.26);
+  background: linear-gradient(155deg, rgba(16, 46, 41, 0.62), rgba(9, 24, 22, 0.52));
+  box-shadow: inset 0 1px 0 rgba(229, 255, 249, 0.14), 0 12px 26px rgba(1, 8, 8, 0.34);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.retro-message:hover {
+  border-color: rgba(194, 255, 246, 0.4);
+  box-shadow: inset 0 1px 0 rgba(229, 255, 249, 0.18), 0 16px 32px rgba(1, 8, 8, 0.42);
 }
 
 .retro-message-user {
-  border-color: rgba(154, 104, 222, 0.46);
-  background: linear-gradient(160deg, rgba(93, 45, 145, 0.92), rgba(57, 29, 94, 0.94));
+  border-color: rgba(133, 233, 216, 0.44);
+  background: linear-gradient(160deg, rgba(30, 140, 121, 0.78), rgba(16, 93, 84, 0.88));
 }
 
-.retro-message-assistant {
-  border-color: rgba(124, 105, 188, 0.44);
-  background: linear-gradient(180deg, rgba(37, 27, 53, 0.86), rgba(26, 19, 38, 0.9));
-}
-
+.retro-message-assistant,
 .retro-message-assistant-gm {
-  border-color: rgba(178, 123, 57, 0.5);
-  background: linear-gradient(180deg, rgba(54, 36, 24, 0.93), rgba(37, 24, 18, 0.95));
+  border-color: rgba(169, 244, 230, 0.26);
+  background: linear-gradient(160deg, rgba(18, 51, 45, 0.58), rgba(10, 27, 24, 0.5));
 }
 
 .retro-waiting-bubble {
-  border-color: rgba(160, 126, 71, 0.46);
-  background: linear-gradient(180deg, rgba(42, 29, 21, 0.9), rgba(28, 21, 18, 0.92));
+  border-color: rgba(176, 245, 232, 0.34);
+  background: linear-gradient(155deg, rgba(17, 46, 41, 0.64), rgba(10, 28, 24, 0.56));
 }
 
 .retro-input-dock {
@@ -775,99 +735,91 @@ textarea.w-full:focus {
 }
 
 .retro-input-shell {
-  border-color: rgba(168, 119, 59, 0.44) !important;
-  background: linear-gradient(180deg, rgba(44, 30, 23, 0.95), rgba(29, 20, 16, 0.95)) !important;
-  box-shadow: inset 0 0 10px rgba(255, 207, 141, 0.09), 0 8px 20px rgba(0, 0, 0, 0.5);
+  border-color: rgba(170, 247, 233, 0.36) !important;
+  background: linear-gradient(160deg, rgba(18, 47, 42, 0.58), rgba(10, 27, 24, 0.56)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(230, 255, 250, 0.2),
+    0 20px 40px rgba(1, 8, 8, 0.45),
+    0 0 0 1px rgba(130, 226, 209, 0.12);
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
 }
 
 .retro-input-shell:focus-within {
-  border-color: rgba(221, 162, 75, 0.62) !important;
+  border-color: rgba(191, 255, 244, 0.52) !important;
   box-shadow:
-    inset 0 0 10px rgba(255, 207, 141, 0.12),
-    0 10px 22px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(221, 162, 75, 0.32);
+    inset 0 1px 0 rgba(230, 255, 250, 0.24),
+    0 24px 44px rgba(1, 8, 8, 0.52),
+    0 0 0 1px rgba(191, 255, 244, 0.28);
 }
 
 .retro-input-textarea {
-  color: #f6e3b8 !important;
+  color: #ecf8f5 !important;
 }
 
 .retro-input-textarea::placeholder {
-  color: rgba(211, 170, 110, 0.64) !important;
+  color: rgba(205, 231, 225, 0.62) !important;
 }
 
 .retro-send-button {
-  border: 1px solid rgba(206, 154, 83, 0.5);
-  box-shadow: 0 0 10px rgba(222, 162, 70, 0.2), inset 0 0 10px rgba(255, 220, 170, 0.2);
+  border: 1px solid rgba(170, 247, 233, 0.38);
+  box-shadow: inset 0 1px 0 rgba(240, 255, 251, 0.2), 0 12px 22px rgba(1, 8, 8, 0.34);
 }
 
 .retro-send-button:focus-visible {
   outline: none;
   box-shadow:
-    0 0 0 2px rgba(221, 162, 75, 0.58),
-    0 0 0 4px rgba(18, 12, 9, 0.92),
-    0 0 12px rgba(222, 162, 70, 0.25),
-    inset 0 0 10px rgba(255, 220, 170, 0.2);
+    0 0 0 2px rgba(179, 250, 237, 0.52),
+    0 0 0 4px rgba(3, 14, 12, 0.92),
+    0 12px 24px rgba(2, 10, 9, 0.42);
 }
 
 .retro-send-button-disabled {
-  border-color: rgba(126, 102, 74, 0.4);
-  background: linear-gradient(180deg, rgba(61, 49, 40, 0.9), rgba(42, 32, 26, 0.9));
+  border-color: rgba(132, 174, 166, 0.32);
+  background: linear-gradient(160deg, rgba(34, 52, 48, 0.8), rgba(21, 34, 31, 0.82));
 }
 
-.retro-send-button-active-gm {
-  border-color: rgba(221, 162, 75, 0.62);
-  background: linear-gradient(160deg, rgba(182, 109, 43, 0.95), rgba(99, 54, 23, 0.96));
-  color: #fff4dc;
-}
-
+.retro-send-button-active-gm,
 .retro-send-button-active-brain {
-  border-color: rgba(156, 108, 226, 0.62);
-  background: linear-gradient(160deg, rgba(121, 76, 195, 0.95), rgba(69, 44, 116, 0.96));
-  color: #f4ebff;
+  border-color: rgba(170, 248, 233, 0.52);
+  background: linear-gradient(160deg, rgba(34, 152, 128, 0.9), rgba(19, 104, 95, 0.94));
+  color: #f3fffb;
+  box-shadow: inset 0 1px 0 rgba(237, 255, 252, 0.24), 0 14px 26px rgba(1, 8, 8, 0.42);
 }
 
 .retro-right-panel {
-  background: linear-gradient(180deg, rgba(34, 24, 18, 0.95), rgba(24, 18, 15, 0.95));
-}
-
-.retro-location-card {
-  box-shadow: inset 0 0 18px rgba(255, 198, 125, 0.08), 0 8px 16px rgba(0, 0, 0, 0.36);
-}
-
-.retro-dice-panel {
-  box-shadow: inset 0 0 24px rgba(255, 130, 45, 0.12), 0 10px 22px rgba(0, 0, 0, 0.45);
+  background: linear-gradient(160deg, rgba(11, 30, 26, 0.56), rgba(8, 20, 19, 0.5));
 }
 
 .retro-mode-trigger {
-  border-color: rgba(168, 122, 64, 0.52) !important;
-  background: linear-gradient(180deg, rgba(44, 31, 23, 0.95), rgba(30, 21, 16, 0.95)) !important;
-  box-shadow: inset 0 0 10px rgba(255, 198, 120, 0.1), 0 6px 14px rgba(0, 0, 0, 0.35);
+  border-color: rgba(171, 248, 234, 0.34) !important;
+  background: linear-gradient(160deg, rgba(17, 45, 40, 0.56), rgba(10, 27, 24, 0.46)) !important;
+  box-shadow: inset 0 1px 0 rgba(230, 255, 250, 0.16), 0 10px 20px rgba(1, 8, 8, 0.3);
 }
 
 .retro-icon-button {
-  border: 1px solid rgba(177, 126, 63, 0.46);
-  background: linear-gradient(180deg, rgba(49, 33, 24, 0.9), rgba(30, 22, 17, 0.9));
-  box-shadow: inset 0 0 8px rgba(255, 214, 147, 0.08), 0 5px 10px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(174, 247, 234, 0.28);
+  background: linear-gradient(160deg, rgba(17, 45, 40, 0.54), rgba(9, 24, 22, 0.44));
+  box-shadow: inset 0 1px 0 rgba(230, 255, 250, 0.14), 0 8px 18px rgba(1, 8, 8, 0.28);
 }
 
 .retro-dropdown {
-  border-color: rgba(183, 137, 71, 0.52) !important;
-  background: linear-gradient(180deg, rgba(46, 31, 24, 0.97), rgba(27, 19, 15, 0.97)) !important;
-  box-shadow: inset 0 0 12px rgba(255, 205, 132, 0.08), 0 12px 26px rgba(0, 0, 0, 0.48);
+  border-color: rgba(180, 253, 241, 0.32) !important;
+  background: linear-gradient(165deg, rgba(14, 42, 37, 0.78), rgba(9, 25, 24, 0.7)) !important;
+  box-shadow: inset 0 1px 0 rgba(230, 255, 250, 0.18), 0 24px 44px rgba(1, 8, 8, 0.5);
 }
 
 .retro-dropdown-item:hover {
-  background: rgba(178, 125, 54, 0.2) !important;
+  background: rgba(138, 227, 208, 0.18) !important;
 }
 
 .retro-mobile-card {
-  border-color: rgba(164, 118, 60, 0.44);
-  background: linear-gradient(180deg, rgba(39, 27, 20, 0.95), rgba(28, 20, 16, 0.95));
+  border-color: rgba(171, 249, 234, 0.26);
+  background: linear-gradient(160deg, rgba(14, 42, 37, 0.66), rgba(9, 25, 24, 0.56));
 }
 
 .retro-mobile-nav {
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4), inset 0 -1px 0 rgba(236, 196, 118, 0.1);
+  box-shadow: 0 18px 36px rgba(1, 8, 8, 0.38), inset 0 -1px 0 rgba(214, 255, 247, 0.12);
 }
 
 .retro-mobile-mode {
@@ -879,11 +831,11 @@ textarea.w-full:focus {
 }
 
 .retro-mobile-bars {
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(10px);
 }
 
 .retro-chat-area {
-  background: radial-gradient(circle at 50% 0%, rgba(167, 120, 62, 0.05), transparent 45%);
+  background: radial-gradient(circle at 50% 0%, rgba(143, 232, 215, 0.1), transparent 50%);
 }
 
 .retro-waiting-row {
@@ -891,194 +843,47 @@ textarea.w-full:focus {
 }
 
 .retro-empty-state {
-  color: rgba(230, 193, 132, 0.78);
+  color: rgba(214, 236, 231, 0.78);
 }
 
-/* Brain mode keeps layout but swaps to a cohesive purple palette */
-.retro-rpg-ui--brain {
-  background:
-    radial-gradient(circle at 15% 15%, rgba(170, 126, 255, 0.18), transparent 42%),
-    radial-gradient(circle at 85% 0%, rgba(109, 70, 196, 0.26), transparent 44%),
-    radial-gradient(circle at 50% 100%, rgba(29, 19, 48, 0.95), rgba(14, 10, 25, 0.98));
-  color: #ede3ff;
+.retro-input-action {
+  border: 1px solid rgba(175, 248, 235, 0.28);
+  background: linear-gradient(160deg, rgba(17, 45, 40, 0.5), rgba(10, 27, 24, 0.42));
+  color: rgba(222, 248, 243, 0.88);
+  transition: all 220ms ease;
 }
 
-.retro-rpg-ui--brain .retro-title {
-  color: #d9c2ff;
-  text-shadow: 0 0 14px rgba(130, 88, 224, 0.5);
+.retro-input-action:hover {
+  border-color: rgba(197, 255, 246, 0.42);
+  background: rgba(145, 234, 217, 0.16);
 }
 
-.retro-rpg-ui--brain .retro-nav {
-  background: linear-gradient(180deg, rgba(33, 24, 52, 0.96), rgba(20, 14, 33, 0.92));
-  border-bottom-color: rgba(154, 118, 232, 0.4);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.52), inset 0 -1px 0 rgba(211, 187, 255, 0.12);
+.retro-side-action {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(175, 248, 235, 0.3);
+  background: linear-gradient(160deg, rgba(16, 45, 40, 0.52), rgba(10, 28, 24, 0.42));
+  color: rgba(227, 248, 243, 0.9);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all 220ms ease;
 }
 
-.retro-rpg-ui--brain .retro-shell {
-  background: linear-gradient(180deg, rgba(20, 15, 34, 0.96), rgba(12, 9, 23, 0.98));
+.retro-side-action:hover {
+  border-color: rgba(197, 255, 246, 0.46);
+  background: rgba(144, 232, 215, 0.16);
 }
 
-.retro-rpg-ui--brain .retro-main::after {
-  border-color: rgba(149, 111, 228, 0.22);
-}
-
-.retro-rpg-ui--brain .retro-left-panel {
-  border-color: rgba(140, 102, 223, 0.5) !important;
-}
-
-.retro-rpg-ui--brain .retro-mode-header {
-  background: linear-gradient(180deg, rgba(46, 31, 73, 0.78), rgba(30, 20, 49, 0.45));
-}
-
-.retro-rpg-ui--brain .retro-keycap {
-  border-color: rgba(156, 121, 230, 0.4) !important;
-  background: rgba(32, 23, 53, 0.86) !important;
-  color: #d7c4fb;
-}
-
-.retro-rpg-ui--brain .retro-frame {
-  background:
-    linear-gradient(180deg, rgba(37, 27, 58, 0.96), rgba(24, 18, 40, 0.94)),
-    repeating-linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.03) 0px,
-      rgba(255, 255, 255, 0.03) 1px,
-      transparent 1px,
-      transparent 3px
-    );
-  border-color: rgba(136, 101, 214, 0.45);
-  box-shadow:
-    inset 0 0 0 1px rgba(223, 201, 255, 0.09),
-    inset 0 0 36px rgba(12, 9, 19, 0.45),
-    0 14px 30px rgba(0, 0, 0, 0.48);
-}
-
-.retro-rpg-ui--brain .retro-scroll-panel {
-  background:
-    linear-gradient(180deg, rgba(33, 24, 52, 0.95), rgba(23, 16, 39, 0.92)),
-    radial-gradient(circle at top, rgba(151, 108, 232, 0.13), transparent 65%);
-  border-color: rgba(135, 98, 214, 0.46);
-}
-
-.retro-rpg-ui--brain .retro-status-strip {
-  background: linear-gradient(90deg, rgba(36, 23, 56, 0.92), rgba(98, 58, 162, 0.34), rgba(36, 23, 56, 0.92));
-  box-shadow: inset 0 0 14px rgba(173, 127, 255, 0.12);
-}
-
-.retro-rpg-ui--brain .retro-avatar {
-  border-color: rgba(166, 127, 237, 0.46);
-  box-shadow: inset 0 0 8px rgba(223, 203, 255, 0.2), 0 0 8px rgba(0, 0, 0, 0.35);
-}
-
-.retro-rpg-ui--brain .retro-avatar-assistant {
-  background: radial-gradient(circle at 30% 28%, rgba(196, 155, 255, 0.72), rgba(97, 57, 171, 0.95));
-}
-
-.retro-rpg-ui--brain .retro-message {
-  border-color: rgba(145, 104, 222, 0.46);
-  background: linear-gradient(180deg, rgba(47, 33, 73, 0.9), rgba(30, 22, 49, 0.9));
-  box-shadow: inset 0 0 14px rgba(208, 180, 255, 0.1), 0 7px 16px rgba(0, 0, 0, 0.35);
-}
-
-.retro-rpg-ui--brain .retro-waiting-bubble {
-  border-color: rgba(144, 108, 219, 0.5);
-  background: linear-gradient(180deg, rgba(44, 31, 68, 0.9), rgba(29, 22, 46, 0.92));
-}
-
-.retro-rpg-ui--brain .retro-input-dock {
-  background: transparent;
-}
-
-.retro-rpg-ui--brain .retro-input-shell {
-  border-color: rgba(144, 106, 223, 0.46) !important;
-  background: linear-gradient(180deg, rgba(39, 28, 63, 0.95), rgba(26, 19, 43, 0.95)) !important;
-  box-shadow: inset 0 0 10px rgba(210, 184, 255, 0.12), 0 8px 20px rgba(0, 0, 0, 0.5);
-}
-
-.retro-rpg-ui--brain .retro-input-shell:focus-within {
-  border-color: rgba(160, 115, 234, 0.62) !important;
-  box-shadow:
-    inset 0 0 10px rgba(210, 184, 255, 0.14),
-    0 10px 22px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(160, 115, 234, 0.34);
-}
-
-.retro-rpg-ui--brain .retro-input-textarea {
-  color: #efe6ff !important;
-}
-
-.retro-rpg-ui--brain .retro-input-textarea::placeholder {
-  color: rgba(191, 165, 237, 0.66) !important;
-}
-
-.retro-rpg-ui--brain .retro-send-button {
-  border-color: rgba(160, 115, 234, 0.56);
-  box-shadow: 0 0 10px rgba(154, 106, 231, 0.24), inset 0 0 10px rgba(219, 194, 255, 0.2);
-}
-
-.retro-rpg-ui--brain .retro-send-button:focus-visible {
-  box-shadow:
-    0 0 0 2px rgba(160, 115, 234, 0.62),
-    0 0 0 4px rgba(14, 10, 24, 0.92),
-    0 0 12px rgba(154, 106, 231, 0.3),
-    inset 0 0 10px rgba(219, 194, 255, 0.2);
-}
-
-.retro-rpg-ui--brain .retro-send-button-disabled {
-  border-color: rgba(108, 84, 152, 0.4);
-  background: linear-gradient(180deg, rgba(56, 45, 79, 0.9), rgba(38, 30, 56, 0.9));
-}
-
-.retro-rpg-ui--brain .retro-right-panel {
-  background: linear-gradient(180deg, rgba(31, 22, 49, 0.95), rgba(22, 16, 36, 0.95));
-}
-
-.retro-rpg-ui--brain .retro-mode-trigger {
-  border-color: rgba(147, 109, 227, 0.54) !important;
-  background: linear-gradient(180deg, rgba(44, 32, 70, 0.95), rgba(29, 21, 46, 0.95)) !important;
-  box-shadow: inset 0 0 10px rgba(207, 181, 255, 0.12), 0 6px 14px rgba(0, 0, 0, 0.36);
-}
-
-.retro-rpg-ui--brain .retro-icon-button {
-  border-color: rgba(152, 114, 229, 0.48);
-  background: linear-gradient(180deg, rgba(46, 33, 72, 0.9), rgba(30, 22, 47, 0.9));
-  box-shadow: inset 0 0 8px rgba(217, 196, 255, 0.1), 0 5px 10px rgba(0, 0, 0, 0.35);
-}
-
-.retro-rpg-ui--brain .retro-dropdown {
-  border-color: rgba(147, 108, 226, 0.55) !important;
-  background: linear-gradient(180deg, rgba(43, 31, 67, 0.97), rgba(26, 19, 42, 0.97)) !important;
-  box-shadow: inset 0 0 12px rgba(211, 187, 255, 0.1), 0 12px 26px rgba(0, 0, 0, 0.48);
-}
-
-.retro-rpg-ui--brain .retro-dropdown-item:hover {
-  background: rgba(141, 101, 219, 0.2) !important;
-}
-
-.retro-rpg-ui--brain .retro-mobile-card {
-  border-color: rgba(143, 104, 221, 0.46);
-  background: linear-gradient(180deg, rgba(41, 29, 64, 0.95), rgba(29, 21, 46, 0.95));
-}
-
-.retro-rpg-ui--brain .retro-mobile-nav {
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.42), inset 0 -1px 0 rgba(211, 186, 255, 0.12);
-}
-
-.retro-rpg-ui--brain .retro-chat-area {
-  background: radial-gradient(circle at 50% 0%, rgba(163, 123, 243, 0.14), transparent 45%);
-}
-
-.retro-rpg-ui--brain .retro-empty-state {
-  color: rgba(211, 189, 252, 0.8);
-}
-
-.retro-rpg-ui.retro-rpg-ui--brain *::-webkit-scrollbar-track {
-  background: rgba(14, 10, 24, 0.92);
-}
-
-.retro-rpg-ui.retro-rpg-ui--brain *::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(149, 110, 228, 0.9), rgba(85, 59, 141, 0.95));
-  border: 2px solid rgba(14, 10, 24, 0.92);
+.retro-status-pill {
+  border-radius: 9999px;
+  border: 1px solid rgba(177, 248, 236, 0.34);
+  background: rgba(143, 232, 215, 0.12);
+  color: rgba(230, 251, 246, 0.9);
+  padding: 0.2rem 0.65rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .retro-rpg-ui *::-webkit-scrollbar,
@@ -1088,14 +893,14 @@ textarea.w-full:focus {
 
 .retro-rpg-ui *::-webkit-scrollbar-track,
 .retro-app *::-webkit-scrollbar-track {
-  background: rgba(20, 14, 10, 0.9);
+  background: rgba(4, 16, 14, 0.76);
 }
 
 .retro-rpg-ui *::-webkit-scrollbar-thumb,
 .retro-app *::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(171, 120, 61, 0.9), rgba(104, 68, 34, 0.95));
+  background: linear-gradient(180deg, rgba(122, 219, 203, 0.9), rgba(63, 151, 136, 0.94));
   border-radius: 9999px;
-  border: 2px solid rgba(20, 14, 10, 0.9);
+  border: 2px solid rgba(4, 16, 14, 0.76);
 }
 
 @media (max-width: 1024px) {
@@ -1104,8 +909,6 @@ textarea.w-full:focus {
   }
 
   .retro-mobile-main .retro-scroll-panel {
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
+    border-radius: 1.15rem;
   }
 }

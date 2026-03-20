@@ -8,8 +8,11 @@
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "sandbox": "NODE_OPTIONS=--no-experimental-webstorage npx ampx sandbox --once",
-    "sandbox:local": "AMPLIFY_EXTERNAL_PROVIDERS=false NODE_OPTIONS=--no-experimental-webstorage npx ampx sandbox --once"
+    "sandbox": "bash ./scripts/run-sandbox.sh",
+    "sandbox:local": "AMPLIFY_EXTERNAL_PROVIDERS=false bash ./scripts/run-sandbox.sh",
+    "sandbox:delete": "bash ./scripts/delete-sandbox.sh",
+    "deploy:sandbox": "bash ./scripts/deploy-sandbox.sh",
+    "observability:enable": "bash ./scripts/enable-genai-observability.sh"
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.5.5",

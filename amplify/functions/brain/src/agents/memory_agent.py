@@ -114,11 +114,13 @@ class MemoryAgent:
         }
         """
 
-        # Use provided message_id or get the last message ID as fallback
         final_message_id = message_id or self.get_last_message_id()
-        
-        # Use provided owner or fallback to hardcoded value
-        final_owner = owner or "f4e87478-d071-709a-9f5d-115e1e1562df"
+        if not final_message_id:
+            raise ValueError("message_id is required to persist BrainResponse")
+
+        final_owner = owner.strip() if isinstance(owner, str) else ""
+        if not final_owner:
+            raise ValueError("owner is required to persist BrainResponse")
 
         variables = {
             "input": {
@@ -134,6 +136,9 @@ class MemoryAgent:
             }
         }
 
+        self._execute_graphql(query=mutation, variables=variables)
+
+    def _execute_graphql(self, *, query: str, variables: dict) -> dict:
         headers = {"Content-Type": "application/json"}
 
         auth = AWSV4Auth(
@@ -142,13 +147,18 @@ class MemoryAgent:
 
         response = requests.post(
             self.appsync_api_url,
-            json={"query": mutation, "variables": variables},
+            json={"query": query, "variables": variables},
             headers=headers,
             auth=auth,
         )
 
         if response.status_code != 200:
             raise Exception(f"GraphQL mutation failed: {response.text}")
+
+        payload = response.json()
+        if payload.get("errors"):
+            raise Exception(f"GraphQL returned errors: {payload['errors']}")
+        return payload.get("data", {})
 
     def retrieve_context(self, conversation_history, n=5):
         """Get the last n interactions from history."""

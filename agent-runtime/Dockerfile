@@ -4,7 +4,8 @@ WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    LOG_LEVEL=INFO
+    LOG_LEVEL=INFO \
+    OTEL_SERVICE_NAME=brain-in-cup-agentcore-runtime
 
 # Copy application code
 COPY app/ ./app/
@@ -17,5 +18,5 @@ RUN pip install --upgrade pip && \
 # Expose port if needed (optional, depends on protocol configuration)
 # EXPOSE 8080
 
-# Run the agent entrypoint
-CMD ["python", "-m", "app.main"]
+# Run the agent entrypoint with OpenTelemetry auto-instrumentation
+CMD ["opentelemetry-instrument", "python", "-m", "app.main"]

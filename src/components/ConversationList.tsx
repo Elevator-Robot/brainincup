@@ -4,6 +4,7 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { getModeMeta, MODE_OPTIONS, normalizePersonalityMode } from '../constants/personalityModes';
 import type { PersonalityModeId } from '../constants/personalityModes';
+import { isNoConversationsTestMode, isTestModeEnabled } from '../utils/testMode';
 
 const dataClient = generateClient<Schema>();
 
@@ -33,12 +34,11 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
       setIsLoading(true);
       
       // For development testing, return mock conversations
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('testmode') === 'true') {
+      if (isTestModeEnabled()) {
         console.log('✅ Test mode: Loading mock conversations');
         
         // If noconversations=true, return empty array to test auto-creation
-        if (urlParams.get('noconversations') === 'true') {
+        if (isNoConversationsTestMode()) {
           console.log('✅ Test mode: No conversations (testing auto-creation)');
           setConversations([]);
           setIsLoading(false);
@@ -120,8 +120,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
 
     try {
       // For test mode, just update local state
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('testmode') === 'true') {
+      if (isTestModeEnabled()) {
         setConversations(prevConversations =>
           prevConversations.map(conv =>
             conv.id === conversationId
@@ -195,8 +194,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
       }
 
       // For test mode or standalone usage, fall back to client-side deletion
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('testmode') === 'true') {
+      if (isTestModeEnabled()) {
         setConversations(prevConversations =>
           prevConversations.filter(conv => conv.id !== conversationId)
         );
@@ -272,13 +270,15 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
       const isEditing = editingId === conversation.id;
       const isSelected = selectedConversationId === conversation.id;
 
+      const isGameMasterConversation = modeMeta.id === 'game_master';
+
       return (
         <div
           key={conversation.id}
-          className={`group relative w-full rounded-2xl transition-all duration-300 animate-slide-up
+          className={`group relative w-full rounded-2xl border border-white/[0.06] bg-white/[0.02] transition-all duration-300 animate-slide-up
           ${isSelected 
-          ? 'bg-white/[0.08] ring-1 ring-brand-accent-primary/45 shadow-[0_25px_60px_rgba(6,4,24,0.55)]'
-          : 'hover:bg-white/[0.04]'}
+          ? 'bg-white/[0.1] ring-1 ring-emerald-300/45 shadow-[0_16px_34px_rgba(3,8,8,0.4)]'
+          : 'hover:bg-white/[0.05] hover:border-white/[0.12]'}
         `}
         >
           <span
@@ -306,7 +306,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
             <div
               role="button"
               tabIndex={0}
-              title={isSelectMode ? "Select conversation" : "Click to open"}
+              title={isSelectMode ? 'Select conversation' : 'Click to open'}
               onClick={() => {
                 if (!conversation.id) return;
                 
@@ -326,7 +326,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
               onKeyDown={(event) => conversation.id && handleConversationKeyPress(event, conversation.id)}
               className="group relative w-full text-left rounded-3xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50"
             >
-              <div className="relative flex items-start gap-3 px-6 py-5">
+              <div className="relative flex items-start gap-3 px-5 py-4">
                 {/* Checkbox in select mode */}
                 {isSelectMode && conversation.id && (
                   <div className="flex items-center pt-1">
@@ -350,6 +350,19 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                 
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex items-start gap-3">
+                    <span className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border ${
+                      isGameMasterConversation
+                        ? 'border-emerald-300/35 bg-emerald-500/12 text-emerald-100'
+                        : 'border-teal-300/35 bg-teal-500/12 text-teal-100'
+                    }`}>
+                      {isGameMasterConversation ? (
+                        <img src="/game-master.svg" alt="" aria-hidden="true" className="h-3.5 w-6 object-contain" />
+                      ) : (
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.5 4a2.5 2.5 0 00-2.5 2.5v11A2.5 2.5 0 009.5 20h5a2.5 2.5 0 002.5-2.5v-11A2.5 2.5 0 0014.5 4h-5z" />
+                        </svg>
+                      )}
+                    </span>
                     <p
                       className={`flex-1 text-sm font-semibold tracking-tight truncate ${
                         isSelected
@@ -424,14 +437,14 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 space-y-5">
       {onNewConversation && (
         <div className="flex justify-between items-center gap-3">
           <button
             type="button"
             onClick={onNewConversation}
             disabled={newConversationDisabled}
-            className="inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold tracking-[0.25em] uppercase text-white/70 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-accent-primary/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/30 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold tracking-[0.2em] uppercase text-white/70 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-300/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
             New Interaction
           </button>
@@ -443,9 +456,9 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                 setIsSelectMode(true);
                 setSelectedIds(new Set());
               }}
-              className="inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold tracking-[0.25em] uppercase text-white/70 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-accent-primary/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/30"
+              className="inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold tracking-[0.2em] uppercase text-white/70 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-300/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/30"
             >
-              Select
+                Select
             </button>
           ) : (
             <div className="flex items-center gap-2">
@@ -464,7 +477,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                       loadConversations();
                     }
                   }}
-                  className="inline-flex items-center rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-1.5 text-xs font-semibold tracking-[0.25em] uppercase text-red-400 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-red-500/60 hover:bg-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
+                  className="inline-flex items-center rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-1.5 text-xs font-semibold tracking-[0.2em] uppercase text-red-400 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-red-500/60 hover:bg-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
                 >
                   Delete ({selectedIds.size})
                 </button>
@@ -475,7 +488,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                   setIsSelectMode(false);
                   setSelectedIds(new Set());
                 }}
-                className="inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold tracking-[0.25em] uppercase text-white/70 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-accent-primary/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/30"
+                className="inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold tracking-[0.2em] uppercase text-white/70 backdrop-blur-lg transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-300/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/30"
               >
                 Done
               </button>
@@ -508,7 +521,7 @@ export default function ConversationList({ onSelectConversation, onDeleteConvers
                   index < MODE_OPTIONS.length - 1 ? '-mr-px' : ''
                 } after:absolute after:inset-0 after:rounded-[inherit] after:pointer-events-none after:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-2px_0_rgba(0,0,0,0.35)] ${
                   isActive
-                    ? `text-white bg-gradient-to-b ${mode.accent} border-white/20 shadow-[0_20px_45px_rgba(6,4,24,0.55)]`
+                    ? 'text-white bg-gradient-to-b from-emerald-500/70 to-teal-500/70 border-white/20 shadow-[0_12px_24px_rgba(4,16,14,0.45)]'
                     : 'text-white/70 bg-transparent border-white/20 hover:text-white hover:border-white/50 hover:bg-white/10'
                 }`}
               >

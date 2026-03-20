@@ -1,6 +1,8 @@
 import json
 import os
+from datetime import datetime, timezone
 import boto3
+from botocore.exceptions import ClientError
 from core import Controller
 from aws_lambda_powertools import Logger
 
@@ -32,6 +34,103 @@ def get_personality_mode(conversation_id: str) -> str:
             extra={"conversation_id": conversation_id, "error": str(error)},
         )
         return "default"
+
+
+def is_default_conversation_title(title: str | None, personality_mode: str) -> bool:
+    normalized = (title or "").strip()
+    if not normalized:
+        return True
+    lowered = normalized.lower()
+    if lowered in {"new interaction", "untitled interaction"}:
+        return True
+    expected_prefix = "Quest •" if personality_mode == "game_master" else "Brain •"
+    return normalized.startswith(expected_prefix)
+
+
+def maybe_auto_name_conversation(
+    *,
+    controller: Controller,
+    conversation_id: str,
+    personality_mode: str,
+    user_input: str,
+    model_response: dict | str,
+) -> None:
+    if not conversation_table:
+        logger.warning("Conversation table unavailable; skipping auto-title generation.")
+        return
+
+    try:
+        response = conversation_table.get_item(Key={"id": conversation_id})
+        conversation = response.get("Item", {})
+    except Exception as error:  # pragma: no cover - defensive logging
+        logger.exception(
+            "Unable to fetch conversation while attempting auto-title generation.",
+            extra={"conversation_id": conversation_id, "error": str(error)},
+        )
+        return
+
+    current_title = conversation.get("title")
+    if not is_default_conversation_title(current_title, personality_mode):
+        logger.info(
+            "Skipping auto-title generation because conversation title is already custom.",
+            extra={"conversation_id": conversation_id, "title": current_title},
+        )
+        return
+
+    generated_title = controller.generate_conversation_title(
+        user_input=user_input,
+        final_response=model_response,
+    )
+    if not generated_title:
+        logger.warning(
+            "Title generation returned empty output.",
+            extra={"conversation_id": conversation_id},
+        )
+        return
+
+    try:
+        conversation_table.update_item(
+            Key={"id": conversation_id},
+            UpdateExpression="SET title = :title, updatedAt = :updatedAt",
+            ConditionExpression="title = :currentTitle",
+            ExpressionAttributeValues={
+                ":title": generated_title,
+                ":updatedAt": datetime.now(timezone.utc).isoformat(),
+                ":currentTitle": current_title,
+            },
+        )
+        logger.info(
+            "Auto-generated conversation title from first interaction.",
+            extra={
+                "conversation_id": conversation_id,
+                "generated_title": generated_title,
+            },
+        )
+    except ClientError as error:  # pragma: no cover - defensive logging
+        error_code = error.response.get("Error", {}).get("Code")
+        if error_code == "ConditionalCheckFailedException":
+            logger.info(
+                "Skipped auto-title update because conversation title changed before write.",
+                extra={"conversation_id": conversation_id},
+            )
+            return
+        logger.exception(
+            "Failed to persist generated conversation title.",
+            extra={
+                "conversation_id": conversation_id,
+                "generated_title": generated_title,
+                "error": str(error),
+            },
+        )
+    except Exception as error:  # pragma: no cover - defensive logging
+        logger.exception(
+            "Failed to persist generated conversation title.",
+            extra={
+                "conversation_id": conversation_id,
+                "generated_title": generated_title,
+                "error": str(error),
+            },
+        )
 
 
 def get_character_data(conversation_id: str) -> dict | None:
@@ -111,7 +210,8 @@ def main(event, context):
     responses = []
 
     for record in event.get("Records", []):
-        if record["eventName"] in ["INSERT", "MODIFY"]:
+        event_name = record.get("eventName")
+        if event_name in ["INSERT", "MODIFY"]:
             new_image = record["dynamodb"].get("NewImage", {})
             user_input = new_image.get("content", {}).get(
                 "S"
@@ -125,7 +225,7 @@ def main(event, context):
             logger.debug(f"Message ID: {message_id}")
             logger.debug(f"Owner: {owner}")
 
-            if user_input and conversation_id:
+            if user_input and conversation_id and owner:
                 # Use provided values or None as fallback
                 final_message_id = message_id
                 final_owner = owner
@@ -152,16 +252,26 @@ def main(event, context):
                         )
 
                 controller = Controller(conversation_id, personality_mode, character_data)
+                is_first_interaction = event_name == "INSERT" and len(controller.conversation_history) == 1
                 response = controller.process_input(
                     user_input, final_message_id, final_owner
                 )
                 responses.append({"user_input": user_input, "response": response})
+                if is_first_interaction:
+                    maybe_auto_name_conversation(
+                        controller=controller,
+                        conversation_id=conversation_id,
+                        personality_mode=personality_mode,
+                        user_input=user_input,
+                        model_response=response,
+                    )
             else:
                 logger.warning(
                     "Missing required fields",
                     extra={
                         "has_user_input": bool(user_input),
                         "has_conversation_id": bool(conversation_id),
+                        "has_owner": bool(owner),
                     },
                 )
 
