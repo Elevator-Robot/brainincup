@@ -304,7 +304,6 @@ function App() {
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [conversationListRefreshKey, setConversationListRefreshKey] = useState(0);
   
   // Game Master data state
@@ -755,20 +754,15 @@ function App() {
   const desktopScrollContainerRef = useRef<HTMLDivElement>(null); // Desktop scroll container
   const desktopModeDropdownRef = useRef<HTMLDivElement>(null);
   const mobileModeDropdownRef = useRef<HTMLDivElement>(null);
-  const desktopHistoryDropdownRef = useRef<HTMLDivElement>(null);
-  const mobileHistoryDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isModeDropdownOpen && !isHistoryOpen) return;
+    if (!isModeDropdownOpen) return;
     const handleOutsideClick = (event: Event) => {
       const target = event.target as Node;
       const clickedDesktopDropdown = desktopModeDropdownRef.current?.contains(target);
       const clickedMobileDropdown = mobileModeDropdownRef.current?.contains(target);
-      const clickedDesktopHistoryDropdown = desktopHistoryDropdownRef.current?.contains(target);
-      const clickedMobileHistoryDropdown = mobileHistoryDropdownRef.current?.contains(target);
-      if (!clickedDesktopDropdown && !clickedMobileDropdown && !clickedDesktopHistoryDropdown && !clickedMobileHistoryDropdown) {
+      if (!clickedDesktopDropdown && !clickedMobileDropdown) {
         setIsModeDropdownOpen(false);
-        setIsHistoryOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -777,20 +771,7 @@ function App() {
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('touchstart', handleOutsideClick);
     };
-  }, [isModeDropdownOpen, isHistoryOpen]);
-
-  useEffect(() => {
-    if (!isHistoryOpen) return;
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsHistoryOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleEscape);
-    return () => {
-      window.removeEventListener('keydown', handleEscape);
-    };
-  }, [isHistoryOpen]);
+  }, [isModeDropdownOpen]);
 
   useEffect(() => {
     async function getUserAttributes() {
@@ -1353,18 +1334,8 @@ function App() {
     }
   };
 
-  const handleSelectConversationFromHistory = async (selectedConversationId: string) => {
-    setIsHistoryOpen(false);
-    await handleSelectConversation(selectedConversationId);
-  };
-  const openHistoryDrawer = () => {
-    setIsModeDropdownOpen(false);
-    setIsHistoryOpen((prev) => !prev);
-  };
-
   const handleNewConversation = async () => {
     setIsModeDropdownOpen(false);
-    setIsHistoryOpen(false);
     await createConversationWithMode(effectivePersonality);
   };
 
@@ -1550,71 +1521,33 @@ function App() {
         <main 
           className="retro-main flex-1 flex flex-col min-w-0 overflow-hidden relative px-4 pb-4 pt-4"
         >
-          <nav className="retro-nav sticky top-0 z-40 bg-brand-surface-elevated/90 backdrop-blur-xl border-b border-brand-surface-border/40 rounded-3xl mb-4">
-            <div className="flex items-center justify-between px-6 py-4">
-              <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
-              <div className="flex items-center gap-2">
-                <div ref={desktopHistoryDropdownRef} className="relative">
+          <div className="retro-nav-align-grid">
+            <nav className="retro-nav sticky top-0 z-40 bg-brand-surface-elevated/90 backdrop-blur-xl border-b border-brand-surface-border/40 rounded-3xl mb-4">
+              <div className="flex items-center justify-between px-6 py-4">
+                <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={openHistoryDrawer}
-                    className={`retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
-                      isHistoryOpen ? 'ring-1 ring-brand-accent-primary/40' : ''
-                    }`}
-                    aria-label={isHistoryOpen ? 'Close interaction history' : 'Open interaction history'}
-                    aria-expanded={isHistoryOpen}
+                    onClick={handleNewConversation}
+                    className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
+                    aria-label="Start new conversation"
                   >
                     <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8M8 12h8M8 17h8M5 7h.01M5 12h.01M5 17h.01" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
                   </button>
-                  {isHistoryOpen && (
-                    <div className="retro-dropdown absolute right-0 top-[calc(100%+10px)] z-[90] w-[min(34rem,calc(100vw-2.5rem))] max-h-[72vh] overflow-hidden rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 shadow-glass-lg backdrop-blur-xl animate-slide-down">
-                      <div className="flex items-center justify-between border-b border-brand-surface-border/45 px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-[0.26em] text-brand-text-muted">Interaction History</p>
-                        <button
-                          type="button"
-                          className="retro-icon-button h-8 w-8 rounded-md flex items-center justify-center"
-                          aria-label="Close interaction history panel"
-                          onClick={() => setIsHistoryOpen(false)}
-                        >
-                          <svg className="h-4 w-4 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                      <div className="max-h-[calc(72vh-3.5rem)] overflow-y-auto">
-                        <ConversationList
-                          onSelectConversation={(selectedConversationId) => {
-                            void handleSelectConversationFromHistory(selectedConversationId);
-                          }}
-                          selectedConversationId={conversationId}
-                          refreshKey={conversationListRefreshKey}
-                        />
-                      </div>
-                    </div>
-                  )}
+                  <button
+                    onClick={handleSignOut}
+                    className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
+                    aria-label="Sign out"
+                  >
+                    <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                  </button>
                 </div>
-                <button
-                  onClick={handleNewConversation}
-                  className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
-                  aria-label="Start new conversation"
-                >
-                  <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
-                <button
-                  onClick={handleSignOut}
-                  className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
-                  aria-label="Sign out"
-                >
-                  <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                </button>
               </div>
-            </div>
-          </nav>
+            </nav>
+          </div>
 
           {/* Screen reader live region for message updates */}
           <div
@@ -1638,7 +1571,6 @@ function App() {
                       <button
                         type="button"
                         onClick={() => {
-                          setIsHistoryOpen(false);
                           setIsModeDropdownOpen((prev) => !prev);
                         }}
                         className="retro-mode-trigger flex h-11 w-11 items-center justify-center rounded-full border transition-colors"
@@ -2006,26 +1938,6 @@ function App() {
                           />
                         </div>
 
-                        <button
-                          type="button"
-                          className="retro-input-action hidden sm:flex h-10 w-10 items-center justify-center rounded-xl"
-                          aria-label="Voice input"
-                        >
-                          <svg className="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v9m0 0a3 3 0 003-3V6a3 3 0 10-6 0v3a3 3 0 003 3zm0 0v4m-4 0h8" />
-                          </svg>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="retro-input-action hidden sm:flex h-10 w-10 items-center justify-center rounded-xl"
-                          aria-label="More actions"
-                        >
-                          <svg className="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14m7-7H5" />
-                          </svg>
-                        </button>
-
                         {/* Send Button */}
                         <button
                           type="submit"
@@ -2213,46 +2125,6 @@ function App() {
             <div className="flex items-center justify-between">
               <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
               <div className="flex items-center gap-2">
-                <div ref={mobileHistoryDropdownRef} className="relative">
-                  <button
-                    onClick={openHistoryDrawer}
-                    className={`retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
-                      isHistoryOpen ? 'ring-1 ring-brand-accent-primary/40' : ''
-                    }`}
-                    aria-label={isHistoryOpen ? 'Close interaction history' : 'Open interaction history'}
-                    aria-expanded={isHistoryOpen}
-                  >
-                    <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8M8 12h8M8 17h8M5 7h.01M5 12h.01M5 17h.01" />
-                    </svg>
-                  </button>
-                  {isHistoryOpen && (
-                    <div className="retro-dropdown retro-dropdown-mobile absolute right-0 top-[calc(100%+10px)] z-[90] w-[min(24rem,calc(100vw-2rem))] max-h-[65vh] overflow-hidden rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 shadow-glass-lg backdrop-blur-xl animate-slide-down">
-                      <div className="flex items-center justify-between border-b border-brand-surface-border/45 px-3 py-2.5">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Interaction History</p>
-                        <button
-                          type="button"
-                          className="retro-icon-button h-7 w-7 rounded-md flex items-center justify-center"
-                          aria-label="Close interaction history panel"
-                          onClick={() => setIsHistoryOpen(false)}
-                        >
-                          <svg className="h-4 w-4 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                      <div className="max-h-[calc(65vh-3.25rem)] overflow-y-auto">
-                        <ConversationList
-                          onSelectConversation={(selectedConversationId) => {
-                            void handleSelectConversationFromHistory(selectedConversationId);
-                          }}
-                          selectedConversationId={conversationId}
-                          refreshKey={conversationListRefreshKey}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
                 <button
                   onClick={handleNewConversation}
                   className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
@@ -2278,7 +2150,6 @@ function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setIsHistoryOpen(false);
                   setIsModeDropdownOpen((prev) => !prev);
                 }}
                 className="retro-mode-trigger w-full flex items-center justify-between rounded-xl border px-3 py-2 transition-colors"
@@ -2742,16 +2613,6 @@ function App() {
                       }}
                     />
                   </div>
-
-                  <button
-                    type="button"
-                    className="retro-input-action flex h-9 w-9 items-center justify-center rounded-xl"
-                    aria-label="Voice input"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v9m0 0a3 3 0 003-3V6a3 3 0 10-6 0v3a3 3 0 003 3zm0 0v4m-4 0h8" />
-                    </svg>
-                  </button>
 
                   {/* Send Button */}
                   <button

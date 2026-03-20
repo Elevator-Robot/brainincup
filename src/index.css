@@ -487,6 +487,16 @@ textarea.w-full:focus {
 .rpg-grid__center { grid-column: 2; min-height: 0; display: flex; flex-direction: column; }
 .rpg-grid__right  { grid-column: 3; min-height: 0; display: flex; flex-direction: column; }
 
+.retro-nav-align-grid {
+  display: grid;
+  grid-template-columns: minmax(17rem, 20rem) minmax(0, 1fr) minmax(16.5rem, 19rem);
+  gap: var(--rpg-space-lg);
+}
+
+.retro-nav-align-grid > .retro-nav {
+  grid-column: 2;
+}
+
 @media (max-width: 1024px) {
   .rpg-grid {
     grid-template-columns: 1fr;
@@ -498,6 +508,10 @@ textarea.w-full:focus {
   }
   .rpg-grid__center {
     grid-column: 1;
+  }
+
+  .retro-nav-align-grid {
+    display: block;
   }
 }
 

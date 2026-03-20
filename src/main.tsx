@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { getCurrentUser } from 'aws-amplify/auth';
 import App from './App';
 import CustomAuth from './components/CustomAuth';
@@ -104,7 +105,20 @@ function AuthWrapper() {
   return <App />;
 }
 
-createRoot(document.getElementById('root')!).render(
+interface RootElementWithCache extends HTMLElement {
+  __brainInCupRoot?: Root;
+}
+
+const rootElement = document.getElementById('root') as RootElementWithCache | null;
+
+if (!rootElement) {
+  throw new Error('Root element not found');
+}
+
+const root = rootElement.__brainInCupRoot ?? createRoot(rootElement);
+rootElement.__brainInCupRoot = root;
+
+root.render(
   <React.StrictMode>
     <AuthWrapper />
   </React.StrictMode>,
