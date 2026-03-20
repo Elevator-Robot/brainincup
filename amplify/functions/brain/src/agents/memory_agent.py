@@ -160,13 +160,37 @@ class MemoryAgent:
             raise Exception(f"GraphQL returned errors: {payload['errors']}")
         return payload.get("data", {})
 
-    def retrieve_context(self, conversation_history, n=5):
-        """Get the last n interactions from history."""
-        recent = conversation_history[-n:] if conversation_history else []
-        context = ""
-        for interaction in recent:
-            user_input = interaction.get("user_input", "")
-            response = interaction.get("response", "")
-            context += f"User: {user_input}\n"
-            context += f"Brain: {response}\n\n"
-        return context
+    @staticmethod
+    def _extract_response_text(response):
+        if isinstance(response, dict):
+            candidate = response.get("response", "")
+            return str(candidate).strip()
+        return str(response or "").strip()
+
+    def retrieve_context(self, conversation_history, n=5, max_chars=6000):
+        """Get recent interactions bounded by turn count and character budget."""
+        if not conversation_history:
+            return ""
+
+        turn_limit = max(1, int(n or 1))
+        char_limit = max(500, int(max_chars or 500))
+        recent = conversation_history[-turn_limit:]
+
+        selected_chunks = []
+        total_chars = 0
+
+        for interaction in reversed(recent):
+            user_input = str(interaction.get("user_input", "")).strip()
+            response_text = self._extract_response_text(interaction.get("response", ""))
+            chunk = f"User: {user_input}\nBrain: {response_text}\n\n"
+
+            if selected_chunks and total_chars + len(chunk) > char_limit:
+                break
+
+            if not selected_chunks and len(chunk) > char_limit:
+                chunk = chunk[-char_limit:]
+
+            selected_chunks.append(chunk)
+            total_chars += len(chunk)
+
+        return "".join(reversed(selected_chunks))

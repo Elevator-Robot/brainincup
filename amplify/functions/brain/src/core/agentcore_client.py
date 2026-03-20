@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +57,35 @@ class AgentCoreClient:
         if self._should_send_trace() and trace_metadata:
             request["traceId"] = trace_metadata
         if runtime_user_id:
-            request["runtimeUserId"] = runtime_user_id
+            sanitized_runtime_user_id = self.sanitize_namespace(runtime_user_id)
+            if sanitized_runtime_user_id:
+                request["runtimeUserId"] = sanitized_runtime_user_id
 
-        response = self.client.invoke_agent_runtime(**request)
+        logger.debug(
+            "Prepared AgentCore invocation request",
+            extra={
+                "session_id": session_id,
+                "payload_bytes": len(body.encode("utf-8")),
+                "has_runtime_user_id": bool(request.get("runtimeUserId")),
+            },
+        )
+
+        try:
+            response = self.client.invoke_agent_runtime(**request)
+        except ClientError as error:
+            error_message = str(error)
+            if request.get("runtimeUserId") and (
+                "ValidationException" in error_message or "runtimeUserId" in error_message
+            ):
+                logger.warning(
+                    "Retrying AgentCore invocation without runtimeUserId after validation failure"
+                )
+                retry_request = dict(request)
+                retry_request.pop("runtimeUserId", None)
+                response = self.client.invoke_agent_runtime(**retry_request)
+            else:
+                raise
+
         decoded = self._decode_response(response)
         logger.debug(
             "AgentCore invocation complete",

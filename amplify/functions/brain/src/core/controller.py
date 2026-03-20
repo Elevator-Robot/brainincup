@@ -1,5 +1,6 @@
 import logging
 import json
+import os
 import re
 import uuid
 
@@ -53,6 +54,26 @@ class Controller:
 
         # Load initial conversation history
         self.conversation_history = self.memory_agent.load_conversation_history()
+        self.context_turn_limit = self._read_int_env(
+            "BRAIN_CONTEXT_MAX_TURNS", default=20, minimum=1, maximum=100
+        )
+        self.context_char_limit = self._read_int_env(
+            "BRAIN_CONTEXT_MAX_CHARS", default=6000, minimum=500, maximum=30000
+        )
+
+    @staticmethod
+    def _read_int_env(name: str, *, default: int, minimum: int, maximum: int) -> int:
+        raw_value = os.getenv(name)
+        if not raw_value:
+            return default
+        try:
+            parsed = int(raw_value)
+        except ValueError:
+            logger.warning(
+                "Invalid integer environment value", extra={"name": name, "value": raw_value}
+            )
+            return default
+        return max(minimum, min(maximum, parsed))
 
     def generate_conversation_title(
         self,
@@ -146,7 +167,11 @@ class Controller:
         return candidate
 
     def process_input(self, user_input, message_id=None, owner=None):
-        context = self.memory_agent.retrieve_context(self.conversation_history, n=100)
+        context = self.memory_agent.retrieve_context(
+            self.conversation_history,
+            n=self.context_turn_limit,
+            max_chars=self.context_char_limit,
+        )
         context = self.mode_handler.enrich_context(
             context=context,
             user_input=user_input,
