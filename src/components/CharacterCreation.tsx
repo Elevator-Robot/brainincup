@@ -15,13 +15,14 @@ interface CharacterCreationProps {
   }) => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
   inline?: boolean;
+  embedded?: boolean;
 }
 
 // Get races and classes from game framework
 const races = getAllRaces().map(r => r.name);
 const classes = getAllClasses().map(c => c.name);
 
-export default function CharacterCreation({ onComplete, onCancel, inline = false }: CharacterCreationProps) {
+export default function CharacterCreation({ onComplete, onCancel, inline = false, embedded = false }: CharacterCreationProps) {
   const [name, setName] = useState('');
   const [race, setRace] = useState('Human');
   const [characterClass, setCharacterClass] = useState('Wanderer');
@@ -82,7 +83,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
   };
 
   const card = (
-    <div className="retro-frame bg-brand-surface-elevated/95 border border-amber-700/35 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-slide-up">
+    <div className={`${embedded ? 'w-full p-0' : 'retro-frame bg-brand-surface-elevated/95 border border-amber-700/35 rounded-2xl shadow-2xl max-w-md w-full p-6'} animate-slide-up`}>
       <h2 className="text-2xl font-bold text-brand-text-primary mb-2">Create Your Character</h2>
       <p className="text-sm text-brand-text-secondary mb-6">Begin your adventure without leaving the story.</p>
       
@@ -172,6 +173,9 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
   );
 
   if (inline) {
+    if (embedded) {
+      return card;
+    }
     return <div className="flex justify-center">{card}</div>;
   }
 

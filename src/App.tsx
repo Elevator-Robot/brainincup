@@ -1468,13 +1468,14 @@ function App() {
     });
   }, [conversationId, createCharacter]);
 
+  const isGameMasterMode = effectivePersonality === 'game_master';
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState;
-  const showInlineCharacterCreation = showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master';
+  const showMobileInlineCharacterCreation = showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master';
+  const showRightPanelCharacterCreation = isGameMasterMode && Boolean(conversationId) && showCharacterCreation && !characterState;
   const isInputLocked = isWaitingForResponse || isGameMasterCharacterRequired;
   const gameMasterInputPlaceholder = isGameMasterCharacterRequired
     ? 'Create your character to begin your adventure...'
     : 'What do you do next?';
-  const isGameMasterMode = effectivePersonality === 'game_master';
 
   const normalizedQuestSteps = useMemo(() => mapQuestStepsToHud(questSteps), [questSteps]);
   const normalizedPlayerChoices = useMemo(() => mapPlayerChoicesToHud(playerChoices), [playerChoices]);
@@ -1741,15 +1742,6 @@ function App() {
                         className="h-full overflow-y-auto pr-2 pb-4"
                       >
                         <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
-                        {showInlineCharacterCreation && (
-                          <div className="mx-auto w-full max-w-xl">
-                            <CharacterCreation
-                              inline
-                              onComplete={handleCharacterCreationComplete}
-                              onCancel={handleCharacterCreationQuickStart}
-                            />
-                          </div>
-                        )}
                         {conversationId && isGameMasterMode && (
                           <Panel variant="header" className="retro-status-strip !px-5 !py-3.5 !rounded-2xl">
                             <div className="grid grid-cols-3 items-end text-center">
@@ -2043,34 +2035,46 @@ function App() {
               <RightStatus>
                 <Panel className="flex-1 flex flex-col text-brand-text-primary">
                   {isGameMasterMode ? (
-                    <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                      <Panel variant="inset" className="p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
-                        <div className="mt-3 flex items-center gap-3">
-                          <div className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center text-brand-text-primary">
-                            {(characterDisplay.name || 'A').slice(0, 1).toUpperCase()}
+                    showRightPanelCharacterCreation ? (
+                      <div className="flex h-full flex-col p-5 overflow-y-auto">
+                        <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
+                        <CharacterCreation
+                          inline
+                          embedded
+                          onComplete={handleCharacterCreationComplete}
+                          onCancel={handleCharacterCreationQuickStart}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
+                        <Panel variant="inset" className="p-4">
+                          <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
+                          <div className="mt-3 flex items-center gap-3">
+                            <div className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center text-brand-text-primary">
+                              {(characterDisplay.name || 'A').slice(0, 1).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
+                              <p className="text-xs text-brand-text-muted">{characterDisplay.characterClass || 'Wanderer'} • Lv {characterDisplay.level}</p>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
-                            <p className="text-xs text-brand-text-muted">{characterDisplay.characterClass || 'Wanderer'} • Lv {characterDisplay.level}</p>
+                        </Panel>
+
+                        <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center">
+                          <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-brand-text-primary/10">
+                          ROLL
+                          </p>
+                          <p className="relative text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Latest Roll</p>
+                          <div className="relative mt-2 text-7xl font-semibold leading-none text-brand-text-primary">
+                            {latestDiceRoll || '—'}
                           </div>
-                        </div>
-                      </Panel>
+                          <p className="relative mt-2 text-xs text-brand-text-muted">
+                            {adventureState?.title ? `Thread: ${adventureState.title}` : 'Fortune favors the bold.'}
+                          </p>
+                        </Panel>
 
-                      <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center">
-                        <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-brand-text-primary/10">
-                        ROLL
-                        </p>
-                        <p className="relative text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Latest Roll</p>
-                        <div className="relative mt-2 text-7xl font-semibold leading-none text-brand-text-primary">
-                          {latestDiceRoll || '—'}
-                        </div>
-                        <p className="relative mt-2 text-xs text-brand-text-muted">
-                          {adventureState?.title ? `Thread: ${adventureState.title}` : 'Fortune favors the bold.'}
-                        </p>
-                      </Panel>
-
-                    </div>
+                      </div>
+                    )
                   ) : (
                     <div className="flex h-full flex-col gap-4 p-5">
                       <Panel variant="inset" className="p-4">
@@ -2395,7 +2399,7 @@ function App() {
             {/* Messages with improved styling and animations */}
             <div className="retro-scroll-panel flex-1 overflow-y-auto px-4 py-5 pb-3 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col rounded-3xl">
             <div className="max-w-4xl mx-auto space-y-4 flex flex-col">
-              {showInlineCharacterCreation && (
+              {showMobileInlineCharacterCreation && (
                 <div className="mx-auto w-full max-w-xl pb-2">
                   <CharacterCreation
                     inline
@@ -2405,7 +2409,7 @@ function App() {
                 </div>
               )}
               
-              {messages.length === 0 && !isLoading && conversationId && !showInlineCharacterCreation && (
+              {messages.length === 0 && !isLoading && conversationId && !showMobileInlineCharacterCreation && (
                 <div className="flex justify-center items-center h-full min-h-[300px]">
                   <div className="retro-empty-state text-center space-y-3 px-4 mt-64">
                     <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
