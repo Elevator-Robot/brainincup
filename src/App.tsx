@@ -304,6 +304,7 @@ function App() {
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [conversationListRefreshKey, setConversationListRefreshKey] = useState(0);
   
   // Game Master data state
@@ -754,15 +755,18 @@ function App() {
   const desktopScrollContainerRef = useRef<HTMLDivElement>(null); // Desktop scroll container
   const desktopModeDropdownRef = useRef<HTMLDivElement>(null);
   const mobileModeDropdownRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isModeDropdownOpen) return;
+    if (!isModeDropdownOpen && !isProfileMenuOpen) return;
     const handleOutsideClick = (event: Event) => {
       const target = event.target as Node;
       const clickedDesktopDropdown = desktopModeDropdownRef.current?.contains(target);
       const clickedMobileDropdown = mobileModeDropdownRef.current?.contains(target);
-      if (!clickedDesktopDropdown && !clickedMobileDropdown) {
+      const clickedProfileDropdown = profileMenuRef.current?.contains(target);
+      if (!clickedDesktopDropdown && !clickedMobileDropdown && !clickedProfileDropdown) {
         setIsModeDropdownOpen(false);
+        setIsProfileMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -771,7 +775,7 @@ function App() {
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('touchstart', handleOutsideClick);
     };
-  }, [isModeDropdownOpen]);
+  }, [isModeDropdownOpen, isProfileMenuOpen]);
 
   useEffect(() => {
     async function getUserAttributes() {
@@ -1563,109 +1567,137 @@ function App() {
             {conversationId && (
               <LeftSidebar>
                 <Panel className="retro-left-panel flex h-full flex-col overflow-hidden">
-                  <div
-                    ref={desktopModeDropdownRef}
-                    className="retro-mode-header relative border-b px-5 py-5"
-                  >
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsModeDropdownOpen((prev) => !prev);
-                        }}
-                        className="retro-mode-trigger flex h-11 w-11 items-center justify-center rounded-full border transition-colors"
-                        aria-label="Select Brain or Game Master"
-                      >
-                        {isGameMasterMode ? (
-                          <img src="/game-master.svg" alt="" aria-hidden="true" className="h-6 w-10 object-contain" />
-                        ) : (
-                          <BrainIcon className="h-6 w-6 text-brand-text-accent" />
-                        )}
-                      </button>
-                      <div className="min-w-0">
-                        <p className="retro-mode-title text-sm font-medium text-brand-text-primary">
-                          {isGameMasterMode ? 'Game Master' : 'Brain'}
-                        </p>
-                        <p className="text-xs text-brand-text-muted">Active workspace</p>
-                      </div>
-                    </div>
-
-                    {isModeDropdownOpen && (
-                      <div className="retro-dropdown absolute left-4 top-[calc(100%-6px)] z-30 w-64 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
-                        <p className="px-2 pb-1 text-[10px] uppercase tracking-[0.26em] text-brand-text-muted">Brain / Game Master</p>
-                        {MODE_OPTIONS.map((option) => {
-                          const isActive = option.id === effectivePersonality;
-                          const isGameMasterOption = option.id === 'game_master';
-
-                          return (
-                            <button
-                              key={option.id}
-                              type="button"
-                              onClick={() => handleModeSelected(option.id)}
-                              className={`retro-dropdown-item flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
-                                isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover'
-                              }`}
-                            >
-                              <span
-                                className="flex h-10 w-10 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary"
-                              >
-                                {isGameMasterOption ? (
-                                  <img src="/game-master.svg" alt="" aria-hidden="true" className="h-5 w-8 object-contain" />
-                                ) : (
-                                  <BrainIcon className="h-5 w-5" />
-                                )}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-brand-text-primary">{option.shortLabel}</p>
-                                <p className="text-[11px] text-brand-text-muted">{option.badge}</p>
-                              </div>
-                              {isActive && (
-                                <svg className="h-4 w-4 text-brand-accent-primary" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8.5 12.086 5.707 9.293a1 1 0 00-1.414 1.414l3.5 3.5a1 1 0 001.414 0l7.5-7.5a1 1 0 000-1.414z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                  <div className="retro-mode-header border-b px-5 py-5">
+                    <button
+                      type="button"
+                      onClick={handleNewConversation}
+                      className="retro-sidebar-action w-full flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium text-brand-text-primary transition-colors"
+                      disabled={isWaitingForResponse}
+                    >
+                      <span className="flex items-center gap-2">
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.4} d="M12 4v16m8-8H4" />
+                        </svg>
+                        New Interaction
+                      </span>
+                    </button>
                   </div>
 
                   <div className="px-5 pt-4 pb-3">
-                    <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-brand-text-muted">
-                      <span className="rounded-full border border-brand-surface-border/50 bg-brand-surface-primary/40 px-3 py-1">Inbox</span>
-                      <span className="rounded-full border border-brand-surface-border/40 bg-brand-surface-primary/20 px-3 py-1">Recent</span>
+                    <p className="text-[11px] uppercase tracking-[0.24em] text-brand-text-muted">Main Menu</p>
+                  </div>
+
+                  <div className="px-5 space-y-2">
+                    <div ref={desktopModeDropdownRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsModeDropdownOpen((prev) => !prev)}
+                        className="retro-sidebar-action w-full flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm text-brand-text-primary transition-colors"
+                      >
+                        <span>{isGameMasterMode ? 'Game Master' : 'Brain'} Mode</span>
+                        <svg className={`h-4 w-4 transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {isModeDropdownOpen && (
+                        <div className="retro-dropdown mt-2 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
+                          {MODE_OPTIONS.map((option) => {
+                            const isActive = option.id === effectivePersonality;
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => handleModeSelected(option.id)}
+                                className={`retro-dropdown-item flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
+                                  isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover'
+                                }`}
+                              >
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
+                                  {option.id === 'game_master' ? (
+                                    <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
+                                  ) : (
+                                    <BrainIcon className="h-4 w-4" />
+                                  )}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-brand-text-primary">{option.shortLabel}</p>
+                                  <p className="text-[11px] text-brand-text-muted">{option.badge}</p>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto px-3 pb-4">
-                    <ConversationList
-                      onSelectConversation={(selectedConversationId) => {
-                        void handleSelectConversation(selectedConversationId);
-                      }}
-                      onNewConversation={handleNewConversation}
-                      disableNewConversation={isWaitingForResponse}
-                      selectedConversationId={conversationId}
-                      refreshKey={conversationListRefreshKey}
-                    />
+                  <div className="mt-auto border-t border-brand-surface-border/35 p-4">
+                    <div ref={profileMenuRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                        className="retro-profile-trigger w-full flex items-center justify-between rounded-xl border px-3 py-2 text-left transition-colors"
+                        aria-label="Open profile menu"
+                      >
+                        <span className="flex items-center gap-3 min-w-0">
+                          <span className="h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center">
+                            <img src="/brain-icon-192.png" alt="Brain in Cup profile" className="h-full w-full object-cover" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-medium text-brand-text-primary truncate">Brain in Cup</span>
+                            <span className="block text-xs text-brand-text-muted truncate">Application</span>
+                          </span>
+                        </span>
+                        <svg className={`h-4 w-4 text-brand-text-muted transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {isProfileMenuOpen && (
+                        <div className="retro-dropdown absolute bottom-[calc(100%+8px)] left-0 right-0 z-30 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
+                          <button
+                            type="button"
+                            onClick={handleSignOut}
+                            className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-primary"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            Sign out
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </Panel>
               </LeftSidebar>
             )}
 
             <CenterNarrative>
-              {/* Enhanced Chat Area with glass morphism design */}
-              {/* Messages with improved styling and animations */}
-              <Panel variant="inset" className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-surface-tertiary ${
-                isGameMasterMode
-                  ? 'px-6 py-6'
-                  : 'px-6 py-6'
-              }`}>
-                <div
-                  ref={desktopScrollContainerRef}
-                  className="h-full overflow-y-auto"
-                >
-                  <div className={`mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300 ${isGameMasterMode ? 'font-serif' : ''}`}>
+              <Panel variant="inset" className="flex-1 min-h-0 p-4">
+                <div className="retro-center-split h-full min-h-0">
+                  <aside className="retro-interactions-pane h-full min-h-0 overflow-hidden">
+                    <div className="px-3 pb-2 pt-1 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">
+                      Interactions
+                    </div>
+                    <div className="h-full overflow-y-auto pr-2">
+                      <ConversationList
+                        onSelectConversation={(selectedConversationId) => {
+                          void handleSelectConversation(selectedConversationId);
+                        }}
+                        disableNewConversation={isWaitingForResponse}
+                        selectedConversationId={conversationId}
+                        refreshKey={conversationListRefreshKey}
+                      />
+                    </div>
+                  </aside>
+
+                  <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col">
+                    <div
+                      ref={desktopScrollContainerRef}
+                      className="h-full overflow-y-auto pr-2"
+                    >
+                      <div className={`mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300 ${isGameMasterMode ? 'font-serif' : ''}`}>
                     {showInlineCharacterCreation && (
                       <div className="mx-auto w-full max-w-xl">
                         <CharacterCreation
@@ -1898,13 +1930,14 @@ function App() {
                       </div>
                     )}
                   
-                    {/* Invisible element to scroll to - at the bottom */}
-                    <div ref={messagesEndRef} />
-                  </div>
+                      {/* Invisible element to scroll to - at the bottom */}
+                      <div ref={messagesEndRef} />
+                    </div>
+                    </div>
+                  </section>
                 </div>
 
-                {/* Modern Input Area */}
-                <BottomInput>
+                <BottomInput className="pt-4 pb-0 px-0">
                   <div className="mx-auto max-w-4xl transition-all duration-300">
                     <form onSubmit={handleSubmit} className="relative">
                       <div className="retro-input-shell flex gap-2 items-end rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/80 backdrop-blur-xl p-2 shadow-lg transition-all duration-200">
