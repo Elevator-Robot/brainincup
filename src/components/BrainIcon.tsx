@@ -7,7 +7,7 @@ export default function BrainIcon({ className = 'w-5 h-5' }: BrainIconProps) {
     <img 
       src="/brain-chat.svg" 
       alt="Brain in Cup" 
-      className={`${className} drop-shadow-lg filter brightness-110 contrast-125`}
+      className={`${className} bg-transparent`}
       style={{ imageRendering: 'crisp-edges' }}
     />
   );

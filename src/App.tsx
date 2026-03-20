@@ -1441,6 +1441,7 @@ function App() {
   }, [conversationId, createCharacter]);
 
   const isGameMasterMode = effectivePersonality === 'game_master';
+  const appThemeClass = isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain';
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState;
   const showMobileInlineCharacterCreation = showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master';
   const showRightPanelCharacterCreation = showCharacterCreation && !characterState;
@@ -1514,7 +1515,7 @@ function App() {
   }, []);
 
   return (
-    <div className="retro-rpg-ui retro-rpg-ui--brain h-screen overflow-hidden relative">
+    <div className={`retro-rpg-ui ${appThemeClass} h-screen overflow-hidden relative`}>
 
 
       {/* Desktop: Main Layout */}

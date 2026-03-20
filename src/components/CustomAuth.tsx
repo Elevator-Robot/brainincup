@@ -203,13 +203,11 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
                 ) : (
                   <>
                     <div className="text-center mb-8">
-                      <div className="w-16 h-16 mx-auto mb-4 bg-gradient-mesh rounded-2xl flex items-center justify-center shadow-glow-sm animate-float">
-                        <BrainIcon className="w-12 h-12" />
-                      </div>
+                      <BrainIcon className="w-12 h-12 mx-auto mb-4 animate-float" />
                       <h1 className="text-2xl font-bold text-brand-text-primary mb-2">
                         Log in or sign up
                       </h1>
-                      <p className="text-brand-text-secondary text-sm">
+                      <p className="text-brand-text-muted text-sm">
                         Create interactions, browse history, and receive no promotional emails.
                       </p>
                     </div>
