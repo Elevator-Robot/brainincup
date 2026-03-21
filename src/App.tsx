@@ -1613,6 +1613,34 @@ function App() {
   const emptyStateTitle = isSelectingConversation
     ? 'LOADING'
     : (isGameMasterCharacterRequired ? 'Create Your Character' : 'No Conversation');
+  const websiteUserProfile = useMemo(() => {
+    const attrs = userAttributes ?? {};
+    const joinedName = [attrs.given_name, attrs.family_name]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join(' ')
+      .trim();
+    const displayName = attrs.name?.trim()
+      || joinedName
+      || attrs.preferred_username?.trim()
+      || attrs.email?.split('@')[0]
+      || 'Website User';
+    const email = attrs.email?.trim() || 'No email available';
+    const userId = attrs.sub?.trim() || '';
+    const avatarUrl = attrs.picture?.trim() || '';
+    const initials = displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || 'WU';
+    return {
+      displayName,
+      email,
+      userId,
+      avatarUrl,
+      initials,
+    };
+  }, [userAttributes]);
   const showMobileInlineCharacterCreation =
     showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master' && !isLoadingCharacter && !isSelectingConversation;
   const showRightPanelCharacterCreation =
@@ -1788,11 +1816,15 @@ function App() {
                         >
                           <span className="flex items-center gap-3 min-w-0">
                             <span className="h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center">
-                              <img src="/brain-icon-192.png" alt="Brain in Cup profile" className="h-full w-full object-cover" />
+                              {websiteUserProfile.avatarUrl ? (
+                                <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
+                              )}
                             </span>
                             <span className="min-w-0">
-                              <span className="block text-sm font-medium text-brand-text-primary truncate">Brain in Cup</span>
-                              <span className="block text-xs text-brand-text-muted truncate">Application</span>
+                              <span className="block text-sm font-medium text-brand-text-primary truncate">{websiteUserProfile.displayName}</span>
+                              <span className="block text-xs text-brand-text-muted truncate">{websiteUserProfile.email}</span>
                             </span>
                           </span>
                           <svg className={`h-4 w-4 text-brand-text-muted transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1843,7 +1875,11 @@ function App() {
                         className="retro-icon-button h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center"
                         aria-hidden="true"
                       >
-                        <img src="/brain-icon-192.png" alt="Brain in Cup profile" className="h-full w-full object-cover" />
+                        {websiteUserProfile.avatarUrl ? (
+                          <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2198,6 +2234,26 @@ function App() {
                     </div>
                   ) : (
                     <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
+                      <div className="retro-right-section">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
+                        <div className="mt-3 flex items-center gap-3">
+                          <div className="h-11 w-11 rounded-lg overflow-hidden border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
+                            {websiteUserProfile.avatarUrl ? (
+                              <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-brand-text-primary">{websiteUserProfile.displayName}</p>
+                            <p className="truncate text-xs text-brand-text-muted">{websiteUserProfile.email}</p>
+                          </div>
+                        </div>
+                        {websiteUserProfile.userId && (
+                          <p className="mt-3 text-[10px] text-brand-text-muted truncate">ID: {websiteUserProfile.userId}</p>
+                        )}
+                      </div>
+
                       <div className="retro-right-section relative">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
                         <div className="mt-3 flex items-center gap-3">
@@ -2283,16 +2339,21 @@ function App() {
                     <Panel variant="inset" className="p-4 !rounded-xl">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
                       <div className="mt-3 flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-lg border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
-                          <svg className="h-5 w-5 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
+                        <div className="h-11 w-11 rounded-lg overflow-hidden border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
+                          {websiteUserProfile.avatarUrl ? (
+                            <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-brand-text-primary truncate">Brain Workspace</p>
-                          <p className="text-xs text-brand-text-muted">Reflective mode active</p>
+                          <p className="text-sm font-medium text-brand-text-primary truncate">{websiteUserProfile.displayName}</p>
+                          <p className="text-xs text-brand-text-muted truncate">{websiteUserProfile.email}</p>
                         </div>
                       </div>
+                      {websiteUserProfile.userId && (
+                        <p className="mt-3 text-[10px] text-brand-text-muted truncate">ID: {websiteUserProfile.userId}</p>
+                      )}
                     </Panel>
 
                     <Panel variant="inset" className="p-4 !rounded-xl">

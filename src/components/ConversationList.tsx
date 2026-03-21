@@ -41,21 +41,6 @@ const getDateGroupLabel = (dateString?: string) => {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-const formatTimestamp = (dateString?: string) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return '';
-
-  const group = getDateGroupLabel(dateString);
-  if (group === 'Today') {
-    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  }
-  if (group === 'Yesterday') {
-    return 'Yesterday';
-  }
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-};
-
 const sanitizeConversationTitle = (rawTitle?: string | null): string => {
   const withoutBlockedWords = (rawTitle ?? '')
     .replace(/\b(?:brain|quest)\b/gi, ' ')
@@ -402,7 +387,6 @@ export default function ConversationList({
           </span>
         </div>
         {group.items.map((conversation) => {
-          const dateText = formatTimestamp(getConversationTimestamp(conversation));
           const conversationTitle = sanitizeConversationTitle(conversation.title);
           const modeMeta = getModeMeta(conversation.personalityMode);
           const isEditing = editingId === conversation.id;
@@ -495,11 +479,6 @@ export default function ConversationList({
                       <p className={`truncate text-sm font-semibold tracking-tight ${isSelected ? 'text-white' : 'text-brand-text-secondary group-hover:text-white'}`}>
                         {conversationTitle}
                       </p>
-                      {dateText && (
-                        <span className={`shrink-0 text-[11px] ${isSelected ? 'text-white/75' : 'text-brand-text-muted/75'}`}>
-                          {dateText}
-                        </span>
-                      )}
                     </div>
                     <p className="mt-0.5 truncate text-xs text-brand-text-muted/80">
                       {previewText}
