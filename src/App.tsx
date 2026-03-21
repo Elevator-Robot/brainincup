@@ -2236,26 +2236,6 @@ function App() {
                     </div>
                   ) : (
                     <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                      <div className="retro-right-section">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
-                        <div className="mt-3 flex items-center gap-3">
-                          <div className="h-11 w-11 rounded-lg overflow-hidden border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
-                            {websiteUserProfile.avatarUrl ? (
-                              <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
-                            ) : (
-                              <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-brand-text-primary">{websiteUserProfile.displayName}</p>
-                            <p className="truncate text-xs text-brand-text-muted">{websiteUserProfile.email}</p>
-                          </div>
-                        </div>
-                        {websiteUserProfile.userId && (
-                          <p className="mt-3 text-[10px] text-brand-text-muted truncate">ID: {websiteUserProfile.userId}</p>
-                        )}
-                      </div>
-
                       <div className="retro-right-section relative">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
                         <div className="mt-3 flex items-center gap-3">
@@ -2338,26 +2318,6 @@ function App() {
                   )
                 ) : (
                   <div className="flex h-full flex-col gap-4 p-5">
-                    <Panel variant="inset" className="p-4 !rounded-xl">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
-                      <div className="mt-3 flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-lg overflow-hidden border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
-                          {websiteUserProfile.avatarUrl ? (
-                            <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
-                          ) : (
-                            <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-brand-text-primary truncate">{websiteUserProfile.displayName}</p>
-                          <p className="text-xs text-brand-text-muted truncate">{websiteUserProfile.email}</p>
-                        </div>
-                      </div>
-                      {websiteUserProfile.userId && (
-                        <p className="mt-3 text-[10px] text-brand-text-muted truncate">ID: {websiteUserProfile.userId}</p>
-                      )}
-                    </Panel>
-
                     <Panel variant="inset" className="p-4 !rounded-xl">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
                       <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
