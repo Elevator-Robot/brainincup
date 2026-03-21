@@ -56,6 +56,10 @@ const formatModelErrors = (errors: unknown): string => {
 };
 
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
+const UI_LEFT_SIDEBAR_COLLAPSED_KEY = 'uiLeftSidebarCollapsed';
+const UI_CENTER_LIST_COLLAPSED_KEY = 'uiCenterListCollapsed';
+const UI_MOBILE_INFO_EXPANDED_KEY = 'uiMobileInfoExpanded';
+const UI_MOBILE_CHARACTER_EXPANDED_KEY = 'uiMobileCharacterExpanded';
 
 const readStoredConversationAvatarMap = (): Record<string, string> => {
   if (typeof window === 'undefined') return {};
@@ -91,6 +95,18 @@ const writeStoredConversationAvatar = (conversationId: string, avatarId: string)
 const getStoredConversationAvatarId = (conversationId?: string | null): string => {
   if (!conversationId) return '';
   return readStoredConversationAvatarMap()[conversationId] ?? '';
+};
+
+const readStoredBoolean = (key: string, fallback = false): boolean => {
+  if (typeof window === 'undefined') return fallback;
+  const value = window.localStorage.getItem(key);
+  if (value === null) return fallback;
+  return value === 'true';
+};
+
+const writeStoredBoolean = (key: string, value: boolean) => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(key, value ? 'true' : 'false');
 };
 
 interface HudQuestStep {
@@ -348,13 +364,21 @@ function App() {
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
-  const [mobileInfoExpanded, setMobileInfoExpanded] = useState(false);
-  const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(false);
+  const [mobileInfoExpanded, setMobileInfoExpanded] = useState(() =>
+    readStoredBoolean(UI_MOBILE_INFO_EXPANDED_KEY, false)
+  );
+  const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(() =>
+    readStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, false)
+  );
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
-  const [isCenterListCollapsed, setIsCenterListCollapsed] = useState(false);
+  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(() =>
+    readStoredBoolean(UI_LEFT_SIDEBAR_COLLAPSED_KEY, false)
+  );
+  const [isCenterListCollapsed, setIsCenterListCollapsed] = useState(() =>
+    readStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, false)
+  );
   const [conversationListRefreshKey, setConversationListRefreshKey] = useState(0);
   
   // Game Master data state
@@ -879,6 +903,22 @@ function App() {
   useEffect(() => {
     localStorage.setItem('lastPersonalityMode', normalizePersonalityMode(personalityMode));
   }, [personalityMode]);
+
+  useEffect(() => {
+    writeStoredBoolean(UI_LEFT_SIDEBAR_COLLAPSED_KEY, isLeftSidebarCollapsed);
+  }, [isLeftSidebarCollapsed]);
+
+  useEffect(() => {
+    writeStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, isCenterListCollapsed);
+  }, [isCenterListCollapsed]);
+
+  useEffect(() => {
+    writeStoredBoolean(UI_MOBILE_INFO_EXPANDED_KEY, mobileInfoExpanded);
+  }, [mobileInfoExpanded]);
+
+  useEffect(() => {
+    writeStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, mobileCharSheetExpanded);
+  }, [mobileCharSheetExpanded]);
 
   // Auto-load most recent conversation or create new one on app start
   useEffect(() => {
