@@ -2141,7 +2141,7 @@ function App() {
             </CenterNarrative>
 
             <RightStatus>
-              <Panel className="flex-1 flex flex-col text-brand-text-primary">
+              <Panel className="retro-right-panel flex-1 flex flex-col text-brand-text-primary !rounded-xl">
                 {isGameMasterMode ? (
                   showRightPanelCharacterCreation ? (
                     <div className="flex h-full flex-col p-5 overflow-y-auto">
@@ -2155,13 +2155,13 @@ function App() {
                     </div>
                   ) : (
                     <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                      <div className="relative">
+                      <div className="retro-right-section relative">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
                         <div className="mt-3 flex items-center gap-3">
                           <img
                             src={characterDisplay.avatarSrc}
                             alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                            className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/40 object-cover"
+                            className="h-11 w-11 rounded-lg border border-brand-surface-border/60 bg-brand-surface-secondary/40 object-cover"
                           />
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
@@ -2170,30 +2170,30 @@ function App() {
                         </div>
                       </div>
 
-                      <div>
+                      <div className="retro-right-section">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Stats & Health</p>
                         <div className="mt-3 grid grid-cols-3 gap-2">
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="retro-right-stat-tile">
                             <div className="text-[10px] text-brand-text-muted">STR</div>
                             <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.strength}</div>
                           </div>
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="retro-right-stat-tile">
                             <div className="text-[10px] text-brand-text-muted">DEX</div>
                             <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.dexterity}</div>
                           </div>
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="retro-right-stat-tile">
                             <div className="text-[10px] text-brand-text-muted">CON</div>
                             <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.constitution}</div>
                           </div>
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="retro-right-stat-tile">
                             <div className="text-[10px] text-brand-text-muted">INT</div>
                             <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.intelligence}</div>
                           </div>
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="retro-right-stat-tile">
                             <div className="text-[10px] text-brand-text-muted">WIS</div>
                             <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.wisdom}</div>
                           </div>
-                          <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
+                          <div className="retro-right-stat-tile">
                             <div className="text-[10px] text-brand-text-muted">CHA</div>
                             <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.charisma}</div>
                           </div>
@@ -2204,22 +2204,23 @@ function App() {
                             <span className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">HP</span>
                             <span className="text-xs text-brand-text-secondary">{characterDisplay.hp.current} / {characterDisplay.hp.max}</span>
                           </div>
-                          <div className="h-2 bg-brand-surface-hover rounded-full overflow-hidden">
+                          <div className="h-2 bg-brand-surface-hover/70 rounded-md border border-brand-surface-border/45 overflow-hidden">
                             <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${characterDisplay.hp.percentage}%` }} />
                           </div>
                         </div>
                       </div>
 
-                      <div>
+                      <div className="retro-right-section">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted mb-3">Inventory</p>
                         <InventoryManager
                           inventory={characterDisplay.inventory}
                           onUpdateInventory={updateInventory}
                           isUpdating={false}
+                          showTitle={false}
                         />
                       </div>
 
-                      <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center">
+                      <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center !rounded-xl">
                         <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-brand-text-primary/10">
                         ROLL
                         </p>
@@ -2236,10 +2237,10 @@ function App() {
                   )
                 ) : (
                   <div className="flex h-full flex-col gap-4 p-5">
-                    <Panel variant="inset" className="p-4">
+                    <Panel variant="inset" className="p-4 !rounded-xl">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
                       <div className="mt-3 flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
+                        <div className="h-11 w-11 rounded-lg border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
                           <svg className="h-5 w-5 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
@@ -2251,7 +2252,7 @@ function App() {
                       </div>
                     </Panel>
 
-                    <Panel variant="inset" className="p-4">
+                    <Panel variant="inset" className="p-4 !rounded-xl">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
                       <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
@@ -2491,6 +2492,7 @@ function App() {
                           inventory={charData.inventory}
                           onUpdateInventory={updateInventory}
                           isUpdating={false}
+                          showTitle={false}
                         />
                       </div>
                     );
