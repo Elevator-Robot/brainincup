@@ -1925,14 +1925,11 @@ function App() {
                   </aside>
 
                   <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
-                    <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden">
-                      <div
-                        ref={desktopScrollContainerRef}
-                        className="h-full overflow-y-auto pr-2 pb-4"
-                      >
-                        <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
-                          {conversationId && isGameMasterMode && (
-                            <Panel variant="header" className="retro-status-strip !px-5 !py-3.5 !rounded-2xl">
+                    <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden flex flex-col">
+                      {conversationId && isGameMasterMode && (
+                        <div className="pointer-events-none absolute left-0 right-2 top-0 z-20 px-3 pt-2">
+                          <div className="mx-auto max-w-4xl">
+                            <Panel variant="header" className="retro-status-strip retro-status-strip-floating !px-5 !py-3.5 !rounded-2xl">
                               <div className="grid grid-cols-3 items-end text-center">
                                 <div className="text-left">
                                   <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Day</p>
@@ -1948,8 +1945,15 @@ function App() {
                                 </div>
                               </div>
                             </Panel>
-                          )}
+                          </div>
+                        </div>
+                      )}
 
+                      <div
+                        ref={desktopScrollContainerRef}
+                        className={`flex-1 overflow-y-auto pr-2 pb-4 ${conversationId && isGameMasterMode ? 'pt-24' : ''}`}
+                      >
+                        <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
                           {/* Personality Indicator (mobile only) */}
                           {conversationId && effectivePersonality !== 'default' && (
                             <div className="lg:hidden">
@@ -2236,26 +2240,6 @@ function App() {
                     </div>
                   ) : (
                     <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                      <div className="retro-right-section">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
-                        <div className="mt-3 flex items-center gap-3">
-                          <div className="h-11 w-11 rounded-lg overflow-hidden border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
-                            {websiteUserProfile.avatarUrl ? (
-                              <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
-                            ) : (
-                              <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-brand-text-primary">{websiteUserProfile.displayName}</p>
-                            <p className="truncate text-xs text-brand-text-muted">{websiteUserProfile.email}</p>
-                          </div>
-                        </div>
-                        {websiteUserProfile.userId && (
-                          <p className="mt-3 text-[10px] text-brand-text-muted truncate">ID: {websiteUserProfile.userId}</p>
-                        )}
-                      </div>
-
                       <div className="retro-right-section relative">
                         <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
                         <div className="mt-3 flex items-center gap-3">
@@ -2338,26 +2322,6 @@ function App() {
                   )
                 ) : (
                   <div className="flex h-full flex-col gap-4 p-5">
-                    <Panel variant="inset" className="p-4 !rounded-xl">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
-                      <div className="mt-3 flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-lg overflow-hidden border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
-                          {websiteUserProfile.avatarUrl ? (
-                            <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
-                          ) : (
-                            <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-brand-text-primary truncate">{websiteUserProfile.displayName}</p>
-                          <p className="text-xs text-brand-text-muted truncate">{websiteUserProfile.email}</p>
-                        </div>
-                      </div>
-                      {websiteUserProfile.userId && (
-                        <p className="mt-3 text-[10px] text-brand-text-muted truncate">ID: {websiteUserProfile.userId}</p>
-                      )}
-                    </Panel>
-
                     <Panel variant="inset" className="p-4 !rounded-xl">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
                       <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
