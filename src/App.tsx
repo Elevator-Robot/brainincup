@@ -1610,6 +1610,9 @@ function App() {
   const isGameMasterMode = effectivePersonality === 'game_master';
   const appThemeClass = isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain';
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState;
+  const emptyStateTitle = isSelectingConversation
+    ? 'LOADING'
+    : (isGameMasterCharacterRequired ? 'Create Your Character' : 'No Conversation');
   const showMobileInlineCharacterCreation =
     showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master' && !isLoadingCharacter && !isSelectingConversation;
   const showRightPanelCharacterCreation =
@@ -1932,7 +1935,7 @@ function App() {
                             <div className="flex justify-center items-center h-full min-h-[300px]">
                               <div className="text-center space-y-3 mt-64">
                                 <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
-                                  {isGameMasterCharacterRequired ? 'Create Your Character' : 'No Conversation'}
+                                  {emptyStateTitle}
                                 </div>
                                 <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
                               </div>
@@ -2573,7 +2576,7 @@ function App() {
                 <div className="flex justify-center items-center h-full min-h-[300px]">
                   <div className="retro-empty-state text-center space-y-3 px-4 mt-64">
                     <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
-                      {isGameMasterCharacterRequired ? 'Create Your Character' : 'No Conversation'}
+                      {emptyStateTitle}
                     </div>
                     <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
                   </div>
