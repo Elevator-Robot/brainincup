@@ -1779,7 +1779,7 @@ function App() {
                     })}
                   </div>
 
-                  <div ref={profileMenuRef} className="relative">
+                  <div ref={profileMenuRef} className="relative z-40">
                     <button
                       type="button"
                       onClick={() => setIsProfileMenuOpen((prev) => !prev)}
@@ -1794,7 +1794,7 @@ function App() {
                     </button>
 
                     {isProfileMenuOpen && (
-                      <div className="retro-dropdown absolute bottom-[calc(100%+8px)] left-[calc(100%+8px)] z-30 min-w-[190px] rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
+                      <div className="retro-dropdown absolute bottom-0 left-[calc(100%+10px)] z-[90] min-w-[220px] rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
                         <div className="px-2 py-1.5">
                           <p className="truncate text-xs font-medium text-brand-text-primary">{websiteUserProfile.displayName}</p>
                           <p className="truncate text-[11px] text-brand-text-muted">{websiteUserProfile.email}</p>
