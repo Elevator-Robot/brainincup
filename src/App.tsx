@@ -1788,8 +1788,10 @@ function App() {
                             key={option.id}
                             type="button"
                             onClick={() => handleModeSelected(option.id)}
-                            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-                              isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover/80'
+                            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-200 ${
+                              isActive
+                                ? 'border border-brand-accent-primary/35 bg-brand-accent-primary/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
+                                : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-surface-secondary/35 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_16px_rgba(2,10,12,0.22)]'
                             }`}
                             aria-label={`Switch to ${option.shortLabel}`}
                           >
@@ -2015,7 +2017,7 @@ function App() {
                                     } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`
                                   }`}
                                   onClick={() => {
-                                    if (message.role === 'assistant' && !isGameMasterMode) {
+                                    if (message.role === 'assistant') {
                                       setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
                                     }
                                   }}
@@ -2036,7 +2038,7 @@ function App() {
                                 </div>
                     
                                 {/* Show additional details when expanded */}
-                                {message.role === 'assistant' && expandedMessageIndex === index && !isGameMasterMode && (
+                                {message.role === 'assistant' && expandedMessageIndex === index && (
                                   <div className="mt-4 space-y-3 animate-slide-up">
                                     {/* Sensations */}
                                     {message.sensations && message.sensations.length > 0 && (
@@ -2422,8 +2424,10 @@ function App() {
                     key={option.id}
                     type="button"
                     onClick={() => handleModeSelected(option.id)}
-                    className={`w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${
-                      isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover/80'
+                    className={`w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-all duration-200 ${
+                      isActive
+                        ? 'border border-brand-accent-primary/35 bg-brand-accent-primary/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
+                        : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-surface-secondary/35 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_16px_rgba(2,10,12,0.22)]'
                     }`}
                     aria-label={`Switch to ${option.shortLabel}`}
                   >
@@ -2677,9 +2681,9 @@ function App() {
                         message.role === 'user'
                           ? 'retro-message-user text-white'
                           : 'retro-message-assistant text-brand-text-primary'
-                      } ${message.role === 'assistant' && !isGameMasterMode ? 'cursor-pointer' : ''}`}
+                      } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`}
                       onClick={() => {
-                        if (message.role === 'assistant' && !isGameMasterMode) {
+                        if (message.role === 'assistant') {
                           setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
                         }
                       }}
@@ -2700,7 +2704,7 @@ function App() {
                     </div>
                     
                     {/* Show additional details when expanded */}
-                    {message.role === 'assistant' && expandedMessageIndex === index && !isGameMasterMode && (
+                    {message.role === 'assistant' && expandedMessageIndex === index && (
                       <div className="mt-3 space-y-2.5 animate-slide-up">
                         {/* Sensations */}
                         {message.sensations && message.sensations.length > 0 && (
