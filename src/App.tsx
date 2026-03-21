@@ -1925,14 +1925,11 @@ function App() {
                   </aside>
 
                   <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
-                    <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden">
-                      <div
-                        ref={desktopScrollContainerRef}
-                        className="h-full overflow-y-auto pr-2 pb-4"
-                      >
-                        <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
-                          {conversationId && isGameMasterMode && (
-                            <Panel variant="header" className="retro-status-strip !px-5 !py-3.5 !rounded-2xl">
+                    <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden flex flex-col">
+                      {conversationId && isGameMasterMode && (
+                        <div className="pointer-events-none absolute left-0 right-2 top-0 z-20 px-3 pt-2">
+                          <div className="mx-auto max-w-4xl">
+                            <Panel variant="header" className="retro-status-strip retro-status-strip-floating !px-5 !py-3.5 !rounded-2xl">
                               <div className="grid grid-cols-3 items-end text-center">
                                 <div className="text-left">
                                   <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Day</p>
@@ -1948,8 +1945,15 @@ function App() {
                                 </div>
                               </div>
                             </Panel>
-                          )}
+                          </div>
+                        </div>
+                      )}
 
+                      <div
+                        ref={desktopScrollContainerRef}
+                        className={`flex-1 overflow-y-auto pr-2 pb-4 ${conversationId && isGameMasterMode ? 'pt-24' : ''}`}
+                      >
+                        <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
                           {/* Personality Indicator (mobile only) */}
                           {conversationId && effectivePersonality !== 'default' && (
                             <div className="lg:hidden">
