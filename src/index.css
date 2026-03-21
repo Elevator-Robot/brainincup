@@ -656,6 +656,18 @@ textarea.w-full:focus {
   border-color: rgba(160, 243, 227, 0.2) !important;
 }
 
+.retro-left-panel-icon-only {
+  width: 4rem;
+  min-width: 4rem;
+  max-width: 4rem;
+  overflow: visible !important;
+  z-index: 30;
+}
+
+.retro-left-panel-icon-only .retro-dropdown {
+  z-index: 80;
+}
+
 .retro-right-stack {
   min-height: 100%;
 }

@@ -56,7 +56,6 @@ const formatModelErrors = (errors: unknown): string => {
 };
 
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
-const UI_LEFT_SIDEBAR_COLLAPSED_KEY = 'uiLeftSidebarCollapsed';
 const UI_CENTER_LIST_COLLAPSED_KEY = 'uiCenterListCollapsed';
 const UI_MOBILE_INFO_EXPANDED_KEY = 'uiMobileInfoExpanded';
 const UI_MOBILE_CHARACTER_EXPANDED_KEY = 'uiMobileCharacterExpanded';
@@ -373,9 +372,6 @@ function App() {
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(() =>
-    readStoredBoolean(UI_LEFT_SIDEBAR_COLLAPSED_KEY, false)
-  );
   const [isCenterListCollapsed, setIsCenterListCollapsed] = useState(() =>
     readStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, false)
   );
@@ -903,10 +899,6 @@ function App() {
   useEffect(() => {
     localStorage.setItem('lastPersonalityMode', normalizePersonalityMode(personalityMode));
   }, [personalityMode]);
-
-  useEffect(() => {
-    writeStoredBoolean(UI_LEFT_SIDEBAR_COLLAPSED_KEY, isLeftSidebarCollapsed);
-  }, [isLeftSidebarCollapsed]);
 
   useEffect(() => {
     writeStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, isCenterListCollapsed);
@@ -1705,10 +1697,6 @@ function App() {
     ? 'retro-send-button-disabled cursor-not-allowed opacity-60'
     : 'retro-send-button-active-brain text-white hover:-translate-y-0.5 active:translate-y-0';
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
-  const toggleLeftSidebar = useCallback(() => {
-    setIsLeftSidebarCollapsed((prev) => !prev);
-    setIsProfileMenuOpen(false);
-  }, []);
   const toggleCenterList = useCallback(() => {
     setIsCenterListCollapsed((prev) => !prev);
   }, []);
@@ -1723,7 +1711,7 @@ function App() {
         <main 
           className="retro-main flex-1 flex flex-col min-w-0 overflow-hidden relative px-4 pb-4 pt-4"
         >
-          <div className={`retro-nav-align-grid ${isLeftSidebarCollapsed ? 'retro-nav-align-grid--left-collapsed' : ''}`}>
+          <div className="retro-nav-align-grid retro-nav-align-grid--left-collapsed">
             <nav className="retro-nav sticky top-0 z-40 bg-brand-surface-elevated/90 backdrop-blur-xl border-b border-brand-surface-border/40 rounded-3xl mb-4">
               <div className="flex items-center justify-between px-6 py-4">
                 <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
@@ -1762,130 +1750,69 @@ function App() {
             {messages.length > 0 && `Interaction has ${messages.length} messages`}
           </div>
 
-          <RPGLayout className={isLeftSidebarCollapsed ? 'rpg-grid--left-collapsed' : ''}>
+          <RPGLayout className="rpg-grid--left-collapsed">
             <LeftSidebar>
-              <Panel className={`retro-left-panel relative flex h-full flex-col overflow-hidden ${isLeftSidebarCollapsed ? 'retro-left-panel-collapsed' : ''}`}>
-                <button
-                  type="button"
-                  onClick={toggleLeftSidebar}
-                  className="retro-collapse-button absolute right-3 top-3 z-20"
-                  aria-label={isLeftSidebarCollapsed ? 'Expand left panel' : 'Collapse left panel'}
-                >
-                  {isLeftSidebarCollapsed ? '>' : '<'}
-                </button>
+              <Panel className="retro-left-panel retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-2 py-3">
+                <div className="flex h-full flex-col items-center justify-between gap-4">
+                  <div className="flex w-full flex-col items-center gap-2">
+                    {MODE_OPTIONS.map((option) => {
+                      const isActive = option.id === effectivePersonality;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => handleModeSelected(option.id)}
+                          className={`retro-icon-button h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                            isActive
+                              ? 'border border-brand-accent-primary/40 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
+                              : 'border border-brand-surface-border/45 bg-brand-surface-secondary/35 text-brand-text-primary hover:border-brand-surface-border/60 hover:bg-brand-surface-secondary/55'
+                          }`}
+                          aria-label={`Switch to ${option.shortLabel}`}
+                        >
+                          {option.id === 'game_master' ? (
+                            <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
+                          ) : (
+                            <BrainIcon className="h-4 w-4" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                {!isLeftSidebarCollapsed ? (
-                  <>
-                    <div className="px-5 pt-5 pb-3">
-                      <p className="text-[11px] uppercase tracking-[0.24em] text-brand-text-muted">Main Menu</p>
-                    </div>
+                  <div ref={profileMenuRef} className="relative z-40">
+                    <button
+                      type="button"
+                      onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                      className="retro-icon-button h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center"
+                      aria-label="Open profile menu"
+                    >
+                      {websiteUserProfile.avatarUrl ? (
+                        <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
+                      )}
+                    </button>
 
-                    <div className="px-5 space-y-2">
-                      {MODE_OPTIONS.map((option) => {
-                        const isActive = option.id === effectivePersonality;
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => handleModeSelected(option.id)}
-                            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-200 ${
-                              isActive
-                                ? 'border border-brand-accent-primary/35 bg-brand-accent-primary/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
-                                : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-surface-secondary/35 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_16px_rgba(2,10,12,0.22)]'
-                            }`}
-                            aria-label={`Switch to ${option.shortLabel}`}
-                          >
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                              {option.id === 'game_master' ? (
-                                <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
-                              ) : (
-                                <BrainIcon className="h-4 w-4" />
-                              )}
-                            </span>
-                            <span className="min-w-0 flex-1 text-sm font-medium text-brand-text-primary">{option.shortLabel}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-auto border-t border-brand-surface-border/35 p-4">
-                      <div ref={profileMenuRef} className="relative">
+                    {isProfileMenuOpen && (
+                      <div className="retro-dropdown absolute bottom-0 left-[calc(100%+10px)] z-[90] min-w-[220px] rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
+                        <div className="px-2 py-1.5">
+                          <p className="truncate text-xs font-medium text-brand-text-primary">{websiteUserProfile.displayName}</p>
+                          <p className="truncate text-[11px] text-brand-text-muted">{websiteUserProfile.email}</p>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-                          className="retro-profile-trigger w-full flex items-center justify-between rounded-xl border px-3 py-2 text-left transition-colors"
-                          aria-label="Open profile menu"
+                          onClick={handleSignOut}
+                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-primary"
                         >
-                          <span className="flex items-center gap-3 min-w-0">
-                            <span className="h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center">
-                              {websiteUserProfile.avatarUrl ? (
-                                <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
-                              ) : (
-                                <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
-                              )}
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block text-sm font-medium text-brand-text-primary truncate">{websiteUserProfile.displayName}</span>
-                              <span className="block text-xs text-brand-text-muted truncate">{websiteUserProfile.email}</span>
-                            </span>
-                          </span>
-                          <svg className={`h-4 w-4 text-brand-text-muted transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                           </svg>
+                          Sign out
                         </button>
-
-                        {isProfileMenuOpen && (
-                          <div className="retro-dropdown absolute bottom-[calc(100%+8px)] left-0 right-0 z-30 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
-                            <button
-                              type="button"
-                              onClick={handleSignOut}
-                              className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-primary"
-                            >
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                              </svg>
-                            Sign out
-                            </button>
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  </>
-                ) : (
-                  <div
-                    className="flex h-full flex-col items-center justify-between px-2 pb-4 pt-14 cursor-pointer"
-                    onClick={() => {
-                      setIsLeftSidebarCollapsed(false);
-                      setIsProfileMenuOpen(false);
-                    }}
-                  >
-                    <div className="relative">
-                      <div
-                        className="retro-icon-button h-10 w-10 rounded-xl flex items-center justify-center"
-                        aria-hidden="true"
-                      >
-                        {isGameMasterMode ? (
-                          <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
-                        ) : (
-                          <BrainIcon className="h-4 w-4" />
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="relative">
-                      <div
-                        className="retro-icon-button h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center"
-                        aria-hidden="true"
-                      >
-                        {websiteUserProfile.avatarUrl ? (
-                          <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
-                        )}
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
               </Panel>
             </LeftSidebar>
 
