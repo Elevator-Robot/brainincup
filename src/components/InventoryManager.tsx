@@ -14,9 +14,15 @@ interface InventoryManagerProps {
   inventory: InventoryItem[];
   onUpdateInventory: (newInventory: InventoryItem[]) => Promise<void>;
   isUpdating?: boolean;
+  showTitle?: boolean;
 }
 
-export default function InventoryManager({ inventory, onUpdateInventory, isUpdating = false }: InventoryManagerProps) {
+export default function InventoryManager({
+  inventory,
+  onUpdateInventory,
+  isUpdating = false,
+  showTitle = true,
+}: InventoryManagerProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newItem, setNewItem] = useState<Partial<InventoryItem>>({
     name: '',
@@ -81,7 +87,7 @@ export default function InventoryManager({ inventory, onUpdateInventory, isUpdat
     <div className="space-y-4">
       {/* Header with Add Button */}
       <div className="flex items-center justify-between">
-        <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted">Inventory</p>
+        {showTitle ? <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted">Inventory</p> : <span />}
         <button
           onClick={() => setShowAddModal(true)}
           disabled={isUpdating}

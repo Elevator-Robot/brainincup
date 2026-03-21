@@ -12,6 +12,10 @@ import Panel from './components/ui/Panel';
 import { RPGLayout, LeftSidebar, CenterNarrative, RightStatus, BottomInput } from './components/ui/RPGLayout';
 import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
+import {
+  chooseAutoAvatarId,
+  getAvatarOptionById,
+} from './constants/gameMasterAvatars';
 import { isNoConversationsTestMode, isTestModeEnabled } from './utils/testMode';
 const dataClient = generateClient<Schema>();
 
@@ -22,12 +26,87 @@ type CharacterCreationInput = {
   name: string;
   race: string;
   characterClass: string;
+  avatarId: string;
   strength: number;
   dexterity: number;
   constitution: number;
   intelligence: number;
   wisdom: number;
   charisma: number;
+};
+
+const formatModelErrors = (errors: unknown): string => {
+  if (!Array.isArray(errors)) return '';
+  return errors
+    .map((error) => {
+      if (!error) return '';
+      if (typeof error === 'string') return error;
+      if (typeof error === 'object' && 'message' in error) {
+        const message = (error as { message?: unknown }).message;
+        return typeof message === 'string' ? message : '';
+      }
+      try {
+        return JSON.stringify(error);
+      } catch {
+        return '';
+      }
+    })
+    .filter(Boolean)
+    .join(' | ');
+};
+
+const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
+const UI_LEFT_SIDEBAR_COLLAPSED_KEY = 'uiLeftSidebarCollapsed';
+const UI_CENTER_LIST_COLLAPSED_KEY = 'uiCenterListCollapsed';
+const UI_MOBILE_INFO_EXPANDED_KEY = 'uiMobileInfoExpanded';
+const UI_MOBILE_CHARACTER_EXPANDED_KEY = 'uiMobileCharacterExpanded';
+
+const readStoredConversationAvatarMap = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(GM_CONVERSATION_AVATAR_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    return Object.entries(parsed as Record<string, unknown>).reduce<Record<string, string>>((acc, [key, value]) => {
+      if (typeof value === 'string' && value.trim()) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+  } catch (error) {
+    console.warn('Failed to read stored Game Master conversation avatars:', error);
+    return {};
+  }
+};
+
+const writeStoredConversationAvatar = (conversationId: string, avatarId: string) => {
+  if (typeof window === 'undefined') return;
+  if (!conversationId || !avatarId) return;
+  const existing = readStoredConversationAvatarMap();
+  existing[conversationId] = avatarId;
+  try {
+    window.localStorage.setItem(GM_CONVERSATION_AVATAR_STORAGE_KEY, JSON.stringify(existing));
+  } catch (error) {
+    console.warn('Failed to persist Game Master conversation avatar:', error);
+  }
+};
+
+const getStoredConversationAvatarId = (conversationId?: string | null): string => {
+  if (!conversationId) return '';
+  return readStoredConversationAvatarMap()[conversationId] ?? '';
+};
+
+const readStoredBoolean = (key: string, fallback = false): boolean => {
+  if (typeof window === 'undefined') return fallback;
+  const value = window.localStorage.getItem(key);
+  if (value === null) return fallback;
+  return value === 'true';
+};
+
+const writeStoredBoolean = (key: string, value: boolean) => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(key, value ? 'true' : 'false');
 };
 
 interface HudQuestStep {
@@ -118,10 +197,7 @@ const inferToneTag = (text: string) => {
 
 const generateDefaultConversationTitle = (mode: PersonalityModeId) => {
   const base = mode === 'game_master' ? 'Quest' : 'Brain';
-  const now = new Date();
-  const date = now.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  return `${base} • ${date} ${time}`;
+  return base;
 };
 
 const mapQuestStepsToHud = (steps: QuestStepRecord[]): HudQuestStep[] =>
@@ -288,14 +364,21 @@ function App() {
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
-  const [mobileInfoExpanded, setMobileInfoExpanded] = useState(false);
-  const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(false);
+  const [mobileInfoExpanded, setMobileInfoExpanded] = useState(() =>
+    readStoredBoolean(UI_MOBILE_INFO_EXPANDED_KEY, false)
+  );
+  const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(() =>
+    readStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, false)
+  );
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
-  const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
-  const [isCenterListCollapsed, setIsCenterListCollapsed] = useState(false);
+  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(() =>
+    readStoredBoolean(UI_LEFT_SIDEBAR_COLLAPSED_KEY, false)
+  );
+  const [isCenterListCollapsed, setIsCenterListCollapsed] = useState(() =>
+    readStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, false)
+  );
   const [conversationListRefreshKey, setConversationListRefreshKey] = useState(0);
   
   // Game Master data state
@@ -303,6 +386,7 @@ function App() {
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
   const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
+  const [isSelectingConversation, setIsSelectingConversation] = useState(false);
   const [showCharacterCreation, setShowCharacterCreation] = useState(false);
   const characterCreationLock = useRef(false);
   const adventureFetchLock = useRef<string | null>(null);
@@ -325,17 +409,23 @@ function App() {
     };
     
     const inventory = parseInventoryItems(characterState?.inventory);
+    const avatarId = getAvatarOptionById(characterState?.avatarId ?? '')?.id
+      ?? getAvatarOptionById(getStoredConversationAvatarId(conversationId))?.id
+      ?? '';
+    const avatarSrc = avatarId ? (getAvatarOptionById(avatarId)?.src ?? '') : '';
     
     return {
       name: characterState?.name || 'Adventurer',
       race: characterState?.race || 'Wanderer',
       characterClass: characterState?.characterClass || 'Wanderer',
       level: characterState?.level || 1,
+      avatarId,
+      avatarSrc,
       stats,
       hp,
       inventory,
     };
-  }, [characterState]);
+  }, [characterState, conversationId]);
   
   // Personality mode state
   const [personalityMode, setPersonalityMode] = useState<string>(() => {
@@ -445,10 +535,28 @@ function App() {
       const character = await findCharacterByConversation(convId);
 
       if (character) {
-        setCharacterState(character);
+        const storedAvatarId = getStoredConversationAvatarId(convId);
+        const avatarId = getAvatarOptionById(character.avatarId ?? '')?.id
+          ?? getAvatarOptionById(storedAvatarId)?.id
+          ?? '';
+        const hydratedCharacter = avatarId ? { ...character, avatarId } : character;
+        setCharacterState(hydratedCharacter);
+        if (avatarId) {
+          writeStoredConversationAvatar(convId, avatarId);
+        }
+        if (!character.avatarId && avatarId) {
+          try {
+            await dataClient.models.GameMasterCharacter.update({
+              id: character.id,
+              avatarId,
+            });
+          } catch (avatarPersistError) {
+            console.warn('Unable to persist auto-selected avatar, using local fallback:', avatarPersistError);
+          }
+        }
         setShowCharacterCreation(false);
         setIsLoadingCharacter(false);
-        return character;
+        return hydratedCharacter;
       }
       
       // Retry up to 2 times with delay if no character found (database propagation)
@@ -492,6 +600,11 @@ function App() {
       }, classId, 1);
       
       const startingEquipment = classData?.startingEquipment || ['Rusty Sword', 'Leather Armor', '5 Gold'];
+      const avatarId = getAvatarOptionById(characterData.avatarId ?? '')?.id ?? chooseAutoAvatarId({
+        name: characterData.name,
+        race: characterData.race,
+        characterClass: characterData.characterClass,
+      });
       
       // Convert starting equipment to InventoryItem format
       const inventoryItems: InventoryItem[] = startingEquipment.map((itemName: string) => {
@@ -512,7 +625,7 @@ function App() {
         };
       });
       
-      const created = await dataClient.models.GameMasterCharacter.create({
+      const baseCharacterPayload = {
         adventureId: 'placeholder',
         conversationId: convId,
         name: characterData.name,
@@ -533,16 +646,46 @@ function App() {
         skills: JSON.stringify({}),
         statusEffects: JSON.stringify([]),
         version: 1,
+      };
+      const createdWithAvatar = await dataClient.models.GameMasterCharacter.create({
+        ...baseCharacterPayload,
+        avatarId,
       });
+      let created = createdWithAvatar;
+
+      if (!createdWithAvatar.data) {
+        console.warn('Primary character create failed; retrying without avatarId.', createdWithAvatar.errors);
+        created = await dataClient.models.GameMasterCharacter.create(baseCharacterPayload);
+      }
       
       if (created.data) {
-        setCharacterState(created.data as CharacterRecord);
+        setCharacterState({ ...(created.data as CharacterRecord), avatarId });
+        writeStoredConversationAvatar(convId, avatarId);
+        const conversationTitle = (characterData.name || '').trim();
+        if (conversationTitle) {
+          try {
+            await dataClient.models.Conversation.update({
+              id: convId,
+              title: conversationTitle,
+            });
+            setConversationListRefreshKey((prev) => prev + 1);
+          } catch (titleError) {
+            console.error('Character created, but failed to update conversation title:', titleError);
+          }
+        }
         setShowCharacterCreation(false);
         // Small delay to ensure database write propagates
         await new Promise(resolve => setTimeout(resolve, 2000));
       } else if (created.errors) {
-        console.error('Character creation failed:', created.errors);
-        throw new Error('Failed to create character');
+        const primaryErrorText = formatModelErrors(createdWithAvatar.errors);
+        const fallbackErrorText = formatModelErrors(created.errors);
+        const combinedErrorText = [primaryErrorText, fallbackErrorText].filter(Boolean).join(' | ');
+        console.error('Character creation failed:', {
+          primaryErrors: createdWithAvatar.errors,
+          fallbackErrors: created.errors,
+          combinedErrorText,
+        });
+        throw new Error(combinedErrorText ? `Failed to create character: ${combinedErrorText}` : 'Failed to create character');
       }
     } catch (createError) {
       console.error('Error during character creation:', createError);
@@ -708,19 +851,14 @@ function App() {
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const messageContainerRefs = useRef<Map<number, HTMLDivElement>>(new Map()); // Track individual message container refs (bubble + details)
   const desktopScrollContainerRef = useRef<HTMLDivElement>(null); // Desktop scroll container
-  const desktopModeDropdownRef = useRef<HTMLDivElement>(null);
-  const mobileModeDropdownRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isModeDropdownOpen && !isProfileMenuOpen) return;
+    if (!isProfileMenuOpen) return;
     const handleOutsideClick = (event: Event) => {
       const target = event.target as Node;
-      const clickedDesktopDropdown = desktopModeDropdownRef.current?.contains(target);
-      const clickedMobileDropdown = mobileModeDropdownRef.current?.contains(target);
       const clickedProfileDropdown = profileMenuRef.current?.contains(target);
-      if (!clickedDesktopDropdown && !clickedMobileDropdown && !clickedProfileDropdown) {
-        setIsModeDropdownOpen(false);
+      if (!clickedProfileDropdown) {
         setIsProfileMenuOpen(false);
       }
     };
@@ -730,7 +868,7 @@ function App() {
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('touchstart', handleOutsideClick);
     };
-  }, [isModeDropdownOpen, isProfileMenuOpen]);
+  }, [isProfileMenuOpen]);
 
   useEffect(() => {
     async function getUserAttributes() {
@@ -765,6 +903,22 @@ function App() {
   useEffect(() => {
     localStorage.setItem('lastPersonalityMode', normalizePersonalityMode(personalityMode));
   }, [personalityMode]);
+
+  useEffect(() => {
+    writeStoredBoolean(UI_LEFT_SIDEBAR_COLLAPSED_KEY, isLeftSidebarCollapsed);
+  }, [isLeftSidebarCollapsed]);
+
+  useEffect(() => {
+    writeStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, isCenterListCollapsed);
+  }, [isCenterListCollapsed]);
+
+  useEffect(() => {
+    writeStoredBoolean(UI_MOBILE_INFO_EXPANDED_KEY, mobileInfoExpanded);
+  }, [mobileInfoExpanded]);
+
+  useEffect(() => {
+    writeStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, mobileCharSheetExpanded);
+  }, [mobileCharSheetExpanded]);
 
   // Auto-load most recent conversation or create new one on app start
   useEffect(() => {
@@ -805,10 +959,14 @@ function App() {
 
         // Load existing conversations
         const { data: conversations } = await dataClient.models.Conversation.list();
+        const modeFilteredConversations = (conversations || []).filter((conversation) => {
+          const mode = normalizePersonalityMode(conversation.personalityMode || 'default');
+          return mode === effectivePersonality;
+        });
         
-        if (conversations && conversations.length > 0) {
+        if (modeFilteredConversations.length > 0) {
           // Sort by most recent and select the first one
-          const sortedConversations = conversations.sort((a, b) => {
+          const sortedConversations = modeFilteredConversations.sort((a, b) => {
             const aDate = new Date(a.updatedAt || a.createdAt || 0);
             const bDate = new Date(b.updatedAt || b.createdAt || 0);
             return bDate.getTime() - aDate.getTime();
@@ -832,7 +990,7 @@ function App() {
     }
 
     autoLoadConversation();
-  }, [userAttributes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userAttributes, effectivePersonality]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ensure scroll to bottom on initial load and page refresh
   useEffect(() => {
@@ -910,6 +1068,7 @@ function App() {
         e.preventDefault();
         setShowDebugInfo(prev => !prev);
       }
+
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -1188,6 +1347,7 @@ function App() {
     
     // If empty string, clear the conversation
     if (!selectedConversationId) {
+      setIsSelectingConversation(false);
       setConversationId(null);
       setMessages([]);
       setIsWaitingForResponse(false);
@@ -1198,8 +1358,10 @@ function App() {
       return;
     }
     
+    setIsSelectingConversation(true);
     setConversationId(selectedConversationId);
     setMessages([]); // Clear current messages
+    setShowCharacterCreation(false);
     
     // Load conversation data and messages
     try {
@@ -1219,7 +1381,7 @@ function App() {
         }
         setPersonalityMode(normalizedMode);
         if (normalizedMode === 'game_master') {
-          setShowCharacterCreation(true);
+          setShowCharacterCreation(false);
           const character = await fetchCharacter(selectedConversationId);
           if (!character) {
             setMessages([]);
@@ -1290,11 +1452,12 @@ function App() {
     } catch (error) {
       console.error('Error loading conversation messages:', error);
       setIsWaitingForResponse(false);
+    } finally {
+      setIsSelectingConversation(false);
     }
   };
 
   const handleNewConversation = async () => {
-    setIsModeDropdownOpen(false);
     if (effectivePersonality === 'game_master') {
       setShowCharacterCreation(true);
       setCharacterState(null);
@@ -1377,7 +1540,6 @@ function App() {
   };
 
   const handleModeSelected = async (modeId: string) => {
-    setIsModeDropdownOpen(false);
     const normalized = normalizePersonalityMode(modeId);
     if (normalized === effectivePersonality) return;
 
@@ -1436,6 +1598,11 @@ function App() {
       name: 'Adventurer',
       race: 'Human',
       characterClass: 'Wanderer',
+      avatarId: chooseAutoAvatarId({
+        name: 'Adventurer',
+        race: 'Human',
+        characterClass: 'Wanderer',
+      }),
       ...stats,
     });
   }, [conversationId, createCharacter]);
@@ -1443,8 +1610,41 @@ function App() {
   const isGameMasterMode = effectivePersonality === 'game_master';
   const appThemeClass = isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain';
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState;
-  const showMobileInlineCharacterCreation = showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master';
-  const showRightPanelCharacterCreation = showCharacterCreation && !characterState;
+  const emptyStateTitle = isSelectingConversation
+    ? 'LOADING'
+    : (isGameMasterCharacterRequired ? 'Create Your Character' : 'No Conversation');
+  const websiteUserProfile = useMemo(() => {
+    const attrs = userAttributes ?? {};
+    const joinedName = [attrs.given_name, attrs.family_name]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join(' ')
+      .trim();
+    const displayName = attrs.name?.trim()
+      || joinedName
+      || attrs.preferred_username?.trim()
+      || attrs.email?.split('@')[0]
+      || 'Website User';
+    const email = attrs.email?.trim() || 'No email available';
+    const userId = attrs.sub?.trim() || '';
+    const avatarUrl = attrs.picture?.trim() || '';
+    const initials = displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || 'WU';
+    return {
+      displayName,
+      email,
+      userId,
+      avatarUrl,
+      initials,
+    };
+  }, [userAttributes]);
+  const showMobileInlineCharacterCreation =
+    showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master' && !isLoadingCharacter && !isSelectingConversation;
+  const showRightPanelCharacterCreation =
+    showCharacterCreation && !characterState && !isLoadingCharacter && !isSelectingConversation;
   const isInputLocked = isWaitingForResponse || isGameMasterCharacterRequired;
   const gameMasterInputPlaceholder = isGameMasterCharacterRequired
     ? 'Create your character to begin your adventure...'
@@ -1507,7 +1707,6 @@ function App() {
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
   const toggleLeftSidebar = useCallback(() => {
     setIsLeftSidebarCollapsed((prev) => !prev);
-    setIsModeDropdownOpen(false);
     setIsProfileMenuOpen(false);
   }, []);
   const toggleCenterList = useCallback(() => {
@@ -1582,47 +1781,31 @@ function App() {
                     </div>
 
                     <div className="px-5 space-y-2">
-                      <div ref={desktopModeDropdownRef} className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setIsModeDropdownOpen((prev) => !prev)}
-                          className="retro-sidebar-action w-full flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm text-brand-text-primary transition-colors"
-                        >
-                          <span>{isGameMasterMode ? 'Game Master' : 'Brain'} Mode</span>
-                          <svg className={`h-4 w-4 transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {isModeDropdownOpen && (
-                          <div className="retro-dropdown mt-2 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
-                            {MODE_OPTIONS.map((option) => {
-                              const isActive = option.id === effectivePersonality;
-                              return (
-                                <button
-                                  key={option.id}
-                                  type="button"
-                                  onClick={() => handleModeSelected(option.id)}
-                                  className={`retro-dropdown-item flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
-                                    isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover'
-                                  }`}
-                                >
-                                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                                    {option.id === 'game_master' ? (
-                                      <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
-                                    ) : (
-                                      <BrainIcon className="h-4 w-4" />
-                                    )}
-                                  </span>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-brand-text-primary">{option.shortLabel}</p>
-                                    <p className="text-[11px] text-brand-text-muted">{option.badge}</p>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
+                      {MODE_OPTIONS.map((option) => {
+                        const isActive = option.id === effectivePersonality;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => handleModeSelected(option.id)}
+                            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-200 ${
+                              isActive
+                                ? 'border border-brand-accent-primary/35 bg-brand-accent-primary/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
+                                : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-surface-secondary/35 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_16px_rgba(2,10,12,0.22)]'
+                            }`}
+                            aria-label={`Switch to ${option.shortLabel}`}
+                          >
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
+                              {option.id === 'game_master' ? (
+                                <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
+                              ) : (
+                                <BrainIcon className="h-4 w-4" />
+                              )}
+                            </span>
+                            <span className="min-w-0 flex-1 text-sm font-medium text-brand-text-primary">{option.shortLabel}</span>
+                          </button>
+                        );
+                      })}
                     </div>
 
                     <div className="mt-auto border-t border-brand-surface-border/35 p-4">
@@ -1635,11 +1818,15 @@ function App() {
                         >
                           <span className="flex items-center gap-3 min-w-0">
                             <span className="h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center">
-                              <img src="/brain-icon-192.png" alt="Brain in Cup profile" className="h-full w-full object-cover" />
+                              {websiteUserProfile.avatarUrl ? (
+                                <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
+                              )}
                             </span>
                             <span className="min-w-0">
-                              <span className="block text-sm font-medium text-brand-text-primary truncate">Brain in Cup</span>
-                              <span className="block text-xs text-brand-text-muted truncate">Application</span>
+                              <span className="block text-sm font-medium text-brand-text-primary truncate">{websiteUserProfile.displayName}</span>
+                              <span className="block text-xs text-brand-text-muted truncate">{websiteUserProfile.email}</span>
                             </span>
                           </span>
                           <svg className={`h-4 w-4 text-brand-text-muted transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1669,7 +1856,6 @@ function App() {
                     className="flex h-full flex-col items-center justify-between px-2 pb-4 pt-14 cursor-pointer"
                     onClick={() => {
                       setIsLeftSidebarCollapsed(false);
-                      setIsModeDropdownOpen(false);
                       setIsProfileMenuOpen(false);
                     }}
                   >
@@ -1691,7 +1877,11 @@ function App() {
                         className="retro-icon-button h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center"
                         aria-hidden="true"
                       >
-                        <img src="/brain-icon-192.png" alt="Brain in Cup profile" className="h-full w-full object-cover" />
+                        {websiteUserProfile.avatarUrl ? (
+                          <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1728,6 +1918,7 @@ function App() {
                           disableNewConversation={isWaitingForResponse}
                           selectedConversationId={conversationId}
                           refreshKey={conversationListRefreshKey}
+                          activeMode={effectivePersonality}
                         />
                       </div>
                     </div>
@@ -1781,7 +1972,9 @@ function App() {
                           {messages.length === 0 && !isLoading && conversationId && (
                             <div className="flex justify-center items-center h-full min-h-[300px]">
                               <div className="text-center space-y-3 mt-64">
-                                <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
+                                <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
+                                  {emptyStateTitle}
+                                </div>
                                 <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
                               </div>
                             </div>
@@ -1824,7 +2017,7 @@ function App() {
                                     } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`
                                   }`}
                                   onClick={() => {
-                                    if (message.role === 'assistant' && !isGameMasterMode) {
+                                    if (message.role === 'assistant') {
                                       setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
                                     }
                                   }}
@@ -1845,7 +2038,7 @@ function App() {
                                 </div>
                     
                                 {/* Show additional details when expanded */}
-                                {message.role === 'assistant' && expandedMessageIndex === index && !isGameMasterMode && (
+                                {message.role === 'assistant' && expandedMessageIndex === index && (
                                   <div className="mt-4 space-y-3 animate-slide-up">
                                     {/* Sensations */}
                                     {message.sensations && message.sensations.length > 0 && (
@@ -2029,7 +2222,7 @@ function App() {
             </CenterNarrative>
 
             <RightStatus>
-              <Panel className="flex-1 flex flex-col text-brand-text-primary">
+              <Panel className="retro-right-panel flex-1 flex flex-col text-brand-text-primary !rounded-xl">
                 {isGameMasterMode ? (
                   showRightPanelCharacterCreation ? (
                     <div className="flex h-full flex-col p-5 overflow-y-auto">
@@ -2043,20 +2236,72 @@ function App() {
                     </div>
                   ) : (
                     <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                      <Panel variant="inset" className="p-4">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
+                      <div className="retro-right-section relative">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
                         <div className="mt-3 flex items-center gap-3">
-                          <div className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center text-brand-text-primary">
-                            {(characterDisplay.name || 'A').slice(0, 1).toUpperCase()}
-                          </div>
+                          <img
+                            src={characterDisplay.avatarSrc}
+                            alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                            className="h-11 w-11 rounded-lg border border-brand-surface-border/60 bg-brand-surface-secondary/40 object-cover"
+                          />
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
                             <p className="text-xs text-brand-text-muted">{characterDisplay.characterClass || 'Wanderer'} • Lv {characterDisplay.level}</p>
                           </div>
                         </div>
-                      </Panel>
+                      </div>
 
-                      <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center">
+                      <div className="retro-right-section">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Stats & Health</p>
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          <div className="retro-right-stat-tile">
+                            <div className="text-[10px] text-brand-text-muted">STR</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.strength}</div>
+                          </div>
+                          <div className="retro-right-stat-tile">
+                            <div className="text-[10px] text-brand-text-muted">DEX</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.dexterity}</div>
+                          </div>
+                          <div className="retro-right-stat-tile">
+                            <div className="text-[10px] text-brand-text-muted">CON</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.constitution}</div>
+                          </div>
+                          <div className="retro-right-stat-tile">
+                            <div className="text-[10px] text-brand-text-muted">INT</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.intelligence}</div>
+                          </div>
+                          <div className="retro-right-stat-tile">
+                            <div className="text-[10px] text-brand-text-muted">WIS</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.wisdom}</div>
+                          </div>
+                          <div className="retro-right-stat-tile">
+                            <div className="text-[10px] text-brand-text-muted">CHA</div>
+                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.charisma}</div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">HP</span>
+                            <span className="text-xs text-brand-text-secondary">{characterDisplay.hp.current} / {characterDisplay.hp.max}</span>
+                          </div>
+                          <div className="h-2 bg-brand-surface-hover/70 rounded-md border border-brand-surface-border/45 overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${characterDisplay.hp.percentage}%` }} />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="retro-right-section">
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted mb-3">Inventory</p>
+                        <InventoryManager
+                          inventory={characterDisplay.inventory}
+                          onUpdateInventory={updateInventory}
+                          isUpdating={false}
+                          showTitle={false}
+                        />
+                      </div>
+
+                      <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center !rounded-xl">
                         <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-brand-text-primary/10">
                         ROLL
                         </p>
@@ -2073,22 +2318,7 @@ function App() {
                   )
                 ) : (
                   <div className="flex h-full flex-col gap-4 p-5">
-                    <Panel variant="inset" className="p-4">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Profile</p>
-                      <div className="mt-3 flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-2xl border border-brand-surface-border/60 bg-brand-surface-secondary/50 flex items-center justify-center">
-                          <svg className="h-5 w-5 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-brand-text-primary truncate">Brain Workspace</p>
-                          <p className="text-xs text-brand-text-muted">Reflective mode active</p>
-                        </div>
-                      </div>
-                    </Panel>
-
-                    <Panel variant="inset" className="p-4">
+                    <Panel variant="inset" className="p-4 !rounded-xl">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
                       <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
@@ -2145,71 +2375,33 @@ function App() {
               </div>
             </div>
 
-            <div ref={mobileModeDropdownRef} className="retro-mobile-mode relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsModeDropdownOpen((prev) => !prev);
-                }}
-                className="retro-mode-trigger w-full flex items-center justify-between rounded-xl border px-3 py-2 transition-colors"
-                aria-label="Select Brain or Game Master"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                    {isGameMasterMode ? (
-                      <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-7 object-contain" />
-                    ) : (
-                      <BrainIcon className="h-5 w-5" />
-                    )}
-                  </span>
-                  <div className="text-left">
-                    <p className="text-sm text-brand-text-primary">
-                      {isGameMasterMode ? 'Game Master' : 'Brain'}
-                    </p>
-                  </div>
-                </div>
-                <svg className={`w-4 h-4 text-brand-text-muted transition-transform ${isModeDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {isModeDropdownOpen && (
-                <div className="retro-dropdown retro-dropdown-mobile absolute left-0 right-0 top-[calc(100%+8px)] z-30 rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
-                  <p className="px-2 pb-1 text-[10px] uppercase tracking-[0.26em] text-brand-text-muted">Brain / Game Master</p>
-                  {MODE_OPTIONS.map((option) => {
-                    const isActive = option.id === effectivePersonality;
-                    const isGameMasterOption = option.id === 'game_master';
-
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => handleModeSelected(option.id)}
-                        className={`retro-dropdown-item flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
-                          isActive ? 'bg-brand-accent-primary/15' : 'hover:bg-brand-surface-hover'
-                        }`}
-                      >
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                          {isGameMasterOption ? (
-                            <img src="/game-master.svg" alt="" aria-hidden="true" className="h-5 w-8 object-contain" />
-                          ) : (
-                            <BrainIcon className="h-5 w-5" />
-                          )}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-brand-text-primary">{option.shortLabel}</p>
-                          <p className="text-[11px] text-brand-text-muted">{option.badge}</p>
-                        </div>
-                        {isActive && (
-                          <svg className="h-4 w-4 text-brand-accent-primary" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8.5 12.086 5.707 9.293a1 1 0 00-1.414 1.414l3.5 3.5a1 1 0 001.414 0l7.5-7.5a1 1 0 000-1.414z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+            <div>
+              {MODE_OPTIONS.map((option) => {
+                const isActive = option.id === effectivePersonality;
+                const isGameMasterOption = option.id === 'game_master';
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleModeSelected(option.id)}
+                    className={`w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-all duration-200 ${
+                      isActive
+                        ? 'border border-brand-accent-primary/35 bg-brand-accent-primary/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
+                        : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-surface-secondary/35 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_16px_rgba(2,10,12,0.22)]'
+                    }`}
+                    aria-label={`Switch to ${option.shortLabel}`}
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
+                      {isGameMasterOption ? (
+                        <img src="/game-master.svg" alt="" aria-hidden="true" className="h-5 w-7 object-contain" />
+                      ) : (
+                        <BrainIcon className="h-5 w-5" />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 text-sm font-medium text-brand-text-primary">{option.shortLabel}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </nav>
@@ -2288,11 +2480,11 @@ function App() {
                     className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
+                      <img
+                        src={characterDisplay.avatarSrc}
+                        alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                        className="w-8 h-8 rounded-lg border border-brand-surface-border/60 bg-brand-surface-secondary/40 object-cover flex-shrink-0"
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
                         <p className="text-sm text-brand-text-primary font-medium truncate">Stats & Inventory</p>
@@ -2368,6 +2560,7 @@ function App() {
                           inventory={charData.inventory}
                           onUpdateInventory={updateInventory}
                           isUpdating={false}
+                          showTitle={false}
                         />
                       </div>
                     );
@@ -2407,7 +2600,9 @@ function App() {
               {messages.length === 0 && !isLoading && conversationId && !showMobileInlineCharacterCreation && (
                 <div className="flex justify-center items-center h-full min-h-[300px]">
                   <div className="retro-empty-state text-center space-y-3 px-4 mt-64">
-                    <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">Idle Interaction</div>
+                    <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
+                      {emptyStateTitle}
+                    </div>
                     <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
                   </div>
                 </div>
@@ -2446,9 +2641,9 @@ function App() {
                         message.role === 'user'
                           ? 'retro-message-user text-white'
                           : 'retro-message-assistant text-brand-text-primary'
-                      } ${message.role === 'assistant' && !isGameMasterMode ? 'cursor-pointer' : ''}`}
+                      } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`}
                       onClick={() => {
-                        if (message.role === 'assistant' && !isGameMasterMode) {
+                        if (message.role === 'assistant') {
                           setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
                         }
                       }}
@@ -2469,7 +2664,7 @@ function App() {
                     </div>
                     
                     {/* Show additional details when expanded */}
-                    {message.role === 'assistant' && expandedMessageIndex === index && !isGameMasterMode && (
+                    {message.role === 'assistant' && expandedMessageIndex === index && (
                       <div className="mt-3 space-y-2.5 animate-slide-up">
                         {/* Sensations */}
                         {message.sensations && message.sensations.length > 0 && (

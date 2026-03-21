@@ -1,11 +1,17 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { calculateFinalStats, getAllRaces, getAllClasses } from '../game';
+import {
+  CHARACTER_AVATAR_OPTIONS,
+  DEFAULT_CHARACTER_AVATAR_ID,
+  chooseAutoAvatarId,
+} from '../constants/gameMasterAvatars';
 
 interface CharacterCreationProps {
   onComplete: (character: {
     name: string;
     race: string;
     characterClass: string;
+    avatarId: string;
     strength: number;
     dexterity: number;
     constitution: number;
@@ -26,11 +32,18 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
   const [name, setName] = useState('');
   const [race, setRace] = useState('Human');
   const [characterClass, setCharacterClass] = useState('Wanderer');
+  const [avatarId, setAvatarId] = useState(() => chooseAutoAvatarId({ name: '', race: 'Human', characterClass: 'Wanderer' }));
+  const [isAvatarManuallySelected, setIsAvatarManuallySelected] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const nameInputId = useId();
   const raceSelectId = useId();
   const classSelectId = useId();
+
+  useEffect(() => {
+    if (isAvatarManuallySelected) return;
+    setAvatarId(chooseAutoAvatarId({ name, race, characterClass }));
+  }, [name, race, characterClass, isAvatarManuallySelected]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,11 +71,13 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
         name: name.trim(),
         race,
         characterClass,
+        avatarId: avatarId || DEFAULT_CHARACTER_AVATAR_ID,
         ...finalStats,
       });
     } catch (submitError) {
       console.error('Character creation failed:', submitError);
-      setError('Unable to begin adventure right now. Please try again.');
+      const detail = submitError instanceof Error ? submitError.message : '';
+      setError(detail ? `Unable to begin adventure right now: ${detail}` : 'Unable to begin adventure right now. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -141,6 +156,34 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <p className="block text-sm font-medium text-brand-text-primary mb-2">
+            Avatar
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {CHARACTER_AVATAR_OPTIONS.map((avatarOption) => (
+              <button
+                key={avatarOption.id}
+                type="button"
+                onClick={() => {
+                  setAvatarId(avatarOption.id);
+                  setIsAvatarManuallySelected(true);
+                  setError('');
+                }}
+                className={`rounded-lg border p-0.5 transition-all disabled:opacity-60 ${
+                  avatarOption.id === avatarId
+                    ? 'border-brand-accent-primary'
+                    : 'border-brand-surface-border/60 hover:border-brand-surface-border'
+                }`}
+                aria-label={`Select ${avatarOption.label}`}
+                disabled={isSubmitting}
+              >
+                <img src={avatarOption.src} alt={avatarOption.label} className="h-16 w-full rounded-md object-cover" />
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && (
