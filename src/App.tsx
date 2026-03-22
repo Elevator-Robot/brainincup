@@ -1334,6 +1334,10 @@ function App() {
   };
 
   const handleSelectConversation = async (selectedConversationId: string) => {
+    // Avoid re-hydrating the same interaction when it is already active.
+    if (selectedConversationId && selectedConversationId === conversationId) {
+      return;
+    }
     
     // If empty string, clear the conversation
     if (!selectedConversationId) {
