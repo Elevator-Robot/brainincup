@@ -660,12 +660,64 @@ textarea.w-full:focus {
   width: 4rem;
   min-width: 4rem;
   max-width: 4rem;
+  border-radius: 1.35rem !important;
+  background-clip: padding-box;
   overflow: visible !important;
   z-index: 30;
 }
 
+.retro-left-panel-icon-only::before {
+  border-radius: calc(1.35rem - 3px) !important;
+}
+
+.retro-left-panel-icon-only::after {
+  display: none;
+}
+
 .retro-left-panel-icon-only .retro-dropdown {
   z-index: 80;
+}
+
+@keyframes bewitchedGlowPulse {
+  0%, 100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      0 0 0 1px rgba(188, 129, 255, 0.28),
+      0 0 14px rgba(154, 91, 255, 0.34),
+      0 0 24px rgba(87, 209, 255, 0.24);
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 0 0 1px rgba(216, 168, 255, 0.42),
+      0 0 18px rgba(185, 103, 255, 0.44),
+      0 0 30px rgba(101, 226, 255, 0.3);
+    transform: translateY(-0.5px) scale(1.02);
+  }
+}
+
+.retro-left-mode-button {
+  position: relative;
+  isolation: isolate;
+}
+
+.retro-left-mode-button-active {
+  animation: bewitchedGlowPulse 2.4s ease-in-out infinite;
+}
+
+.retro-left-mode-button-active::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 0.95rem;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(214, 165, 255, 0.28), transparent 58%),
+    radial-gradient(circle at 80% 80%, rgba(124, 227, 255, 0.24), transparent 62%);
+  filter: blur(8px);
+  opacity: 0.95;
+  z-index: -1;
+  pointer-events: none;
 }
 
 .retro-right-stack {
@@ -684,6 +736,23 @@ textarea.w-full:focus {
     0 12px 24px rgba(1, 8, 8, 0.26);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+}
+
+.retro-right-section--inventory {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 0;
+}
+
+.retro-right-section--character {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .retro-right-stat-tile {
@@ -767,6 +836,32 @@ textarea.w-full:focus {
 
 .retro-avatar-user {
   background: radial-gradient(circle at 30% 25%, rgba(139, 214, 196, 0.92), rgba(26, 95, 89, 0.95));
+}
+
+.retro-character-avatar {
+  border: 1px solid rgba(210, 177, 255, 0.72);
+  background: linear-gradient(145deg, rgba(85, 42, 126, 0.26), rgba(40, 22, 78, 0.22));
+  box-shadow:
+    inset 0 1px 0 rgba(246, 231, 255, 0.4),
+    0 0 0 1px rgba(179, 130, 255, 0.42),
+    0 0 24px rgba(173, 98, 255, 0.5),
+    0 0 40px rgba(112, 214, 255, 0.32);
+  animation: bewitchedGlowPulse 2.4s ease-in-out infinite;
+}
+
+.retro-character-avatar--compact {
+  box-shadow:
+    inset 0 1px 0 rgba(246, 231, 255, 0.28),
+    0 0 0 1px rgba(179, 130, 255, 0.28),
+    0 0 14px rgba(173, 98, 255, 0.34);
+}
+
+.retro-interaction-avatar {
+  border: 0;
+  background: linear-gradient(145deg, rgba(147, 102, 230, 0.14), rgba(120, 81, 169, 0.1));
+  box-shadow:
+    0 8px 16px rgba(8, 8, 18, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
 .retro-message {

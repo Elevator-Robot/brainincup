@@ -382,6 +382,7 @@ function App() {
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
   const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
+  const [isLoadingAdventure, setIsLoadingAdventure] = useState(false);
   const [isSelectingConversation, setIsSelectingConversation] = useState(false);
   const [showCharacterCreation, setShowCharacterCreation] = useState(false);
   const characterCreationLock = useRef(false);
@@ -519,10 +520,10 @@ function App() {
     }
   }, []);
 
-  const fetchCharacter = useCallback(async (convId: string, retryCount = 0): Promise<CharacterRecord | null> => {
+  const fetchCharacter = useCallback(async (convId: string): Promise<CharacterRecord | null> => {
     // Prevent duplicate creation with ref-based lock
     if (characterCreationLock.current) {
-      return null;
+      return characterState;
     }
     
     setIsLoadingCharacter(true);
@@ -551,27 +552,20 @@ function App() {
           }
         }
         setShowCharacterCreation(false);
-        setIsLoadingCharacter(false);
         return hydratedCharacter;
       }
-      
-      // Retry up to 2 times with delay if no character found (database propagation)
-      if (retryCount < 2) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return fetchCharacter(convId, retryCount + 1);
-      }
-      
-      // No character exists after retries - show character creation modal
-      setIsLoadingCharacter(false);
+
+      // No character exists yet - show character creation consistently and immediately.
       setShowCharacterCreation(true);
       return null;
     } catch (error) {
       console.error('❌ Error loading character:', error);
-      setIsLoadingCharacter(false);
       characterCreationLock.current = false;
       return null;
+    } finally {
+      setIsLoadingCharacter(false);
     }
-  }, [findCharacterByConversation]);
+  }, [characterState, findCharacterByConversation]);
 
   const createCharacter = useCallback(async (convId: string, characterData: CharacterCreationInput) => {
     if (characterCreationLock.current) {
@@ -719,6 +713,7 @@ function App() {
     }
     
     adventureFetchLock.current = convId;
+    setIsLoadingAdventure(true);
     
     try {
       const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
@@ -728,6 +723,7 @@ function App() {
         setCharacterState(null);
         setShowCharacterCreation(false);
         adventureFetchLock.current = null;
+        setIsLoadingAdventure(false);
         return;
       }
       const character = await fetchCharacter(convId);
@@ -735,6 +731,7 @@ function App() {
         setAdventureState(null);
         setQuestSteps([]);
         adventureFetchLock.current = null;
+        setIsLoadingAdventure(false);
         return;
       }
 
@@ -758,6 +755,7 @@ function App() {
       }
     } finally {
       adventureFetchLock.current = null;
+      setIsLoadingAdventure(false);
     }
   }, [effectivePersonality, ensureAdventureState, fetchCharacter]);
 
@@ -1336,6 +1334,10 @@ function App() {
   };
 
   const handleSelectConversation = async (selectedConversationId: string) => {
+    // Avoid re-hydrating the same interaction when it is already active.
+    if (selectedConversationId && selectedConversationId === conversationId) {
+      return;
+    }
     
     // If empty string, clear the conversation
     if (!selectedConversationId) {
@@ -1353,6 +1355,10 @@ function App() {
     setIsSelectingConversation(true);
     setConversationId(selectedConversationId);
     setMessages([]); // Clear current messages
+    setIsWaitingForResponse(false);
+    setAdventureState(null);
+    setQuestSteps([]);
+    setCharacterState(null);
     setShowCharacterCreation(false);
     
     // Load conversation data and messages
@@ -1451,12 +1457,17 @@ function App() {
 
   const handleNewConversation = async () => {
     if (effectivePersonality === 'game_master') {
-      setShowCharacterCreation(true);
       setCharacterState(null);
       setAdventureState(null);
       setQuestSteps([]);
+      setShowCharacterCreation(false);
     }
-    await createConversationWithMode(effectivePersonality);
+    setIsSelectingConversation(true);
+    try {
+      await createConversationWithMode(effectivePersonality);
+    } finally {
+      setIsSelectingConversation(false);
+    }
   };
 
   const createConversationWithMode = async (modeId: string) => {
@@ -1483,7 +1494,7 @@ function App() {
         setAdventureState(null);
         setQuestSteps([]);
         setCharacterState(null);
-        setShowCharacterCreation(normalized === 'game_master');
+        setShowCharacterCreation(false);
         setConversationListRefreshKey((prev) => prev + 1);
         return;
       }
@@ -1509,7 +1520,7 @@ function App() {
         setConversationId(createdId);
         setMessages([]);
         setPersonalityMode(normalized);
-        setShowCharacterCreation(normalized === 'game_master');
+        setShowCharacterCreation(false);
         console.log('✅ Created new conversation:', createdId);
         
         if (normalized === 'game_master') {
@@ -1536,7 +1547,7 @@ function App() {
     if (normalized === effectivePersonality) return;
 
     if (normalized === 'game_master') {
-      setShowCharacterCreation(true);
+      setShowCharacterCreation(false);
       setCharacterState(null);
       setAdventureState(null);
       setQuestSteps([]);
@@ -1600,9 +1611,13 @@ function App() {
   }, [conversationId, createCharacter]);
 
   const isGameMasterMode = effectivePersonality === 'game_master';
+  const hasSelectedConversation = Boolean(conversationId);
   const appThemeClass = isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain';
+  const isGameMasterContentLoading = isGameMasterMode && Boolean(conversationId) && (isSelectingConversation || isLoadingCharacter || isLoadingAdventure);
+  const isContentLoading = isLoading || isGameMasterContentLoading;
+  const isRightPanelLoading = hasSelectedConversation && (isSelectingConversation || isContentLoading);
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState;
-  const emptyStateTitle = isSelectingConversation
+  const emptyStateTitle = (isSelectingConversation || isGameMasterContentLoading)
     ? 'LOADING'
     : (isGameMasterCharacterRequired ? 'Create Your Character' : 'No Conversation');
   const websiteUserProfile = useMemo(() => {
@@ -1634,13 +1649,15 @@ function App() {
     };
   }, [userAttributes]);
   const showMobileInlineCharacterCreation =
-    showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master' && !isLoadingCharacter && !isSelectingConversation;
+    showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master' && !isGameMasterContentLoading;
   const showRightPanelCharacterCreation =
-    showCharacterCreation && !characterState && !isLoadingCharacter && !isSelectingConversation;
-  const isInputLocked = isWaitingForResponse || isGameMasterCharacterRequired;
-  const gameMasterInputPlaceholder = isGameMasterCharacterRequired
-    ? 'Create your character to begin your adventure...'
-    : 'What do you do next?';
+    showCharacterCreation && Boolean(conversationId) && !characterState && !isGameMasterContentLoading;
+  const isInputLocked = isWaitingForResponse || isGameMasterContentLoading || isGameMasterCharacterRequired;
+  const gameMasterInputPlaceholder = isGameMasterContentLoading
+    ? 'Loading adventure...'
+    : isGameMasterCharacterRequired
+      ? 'Create your character to begin your adventure...'
+      : 'What do you do next?';
 
   const normalizedQuestSteps = useMemo(() => mapQuestStepsToHud(questSteps), [questSteps]);
 
@@ -1721,19 +1738,17 @@ function App() {
                     className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
                     aria-label="Start new conversation"
                   >
-                    <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
+                    <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowDebugInfo((prev) => !prev)}
-                    className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
+                    className={`retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
+                      showDebugInfo ? 'retro-left-mode-button retro-left-mode-button-active' : ''
+                    }`}
                     aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
                   >
-                    <svg className="h-4 w-4 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8h.01M11 12h1v4h1m-1-13a9 9 0 100 18 9 9 0 000-18z" />
-                    </svg>
+                    <img src="/debug.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                   </button>
                 </div>
               </div>
@@ -1762,9 +1777,9 @@ function App() {
                           key={option.id}
                           type="button"
                           onClick={() => handleModeSelected(option.id)}
-                          className={`retro-icon-button h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                          className={`retro-icon-button retro-left-mode-button h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
                             isActive
-                              ? 'border border-brand-accent-primary/40 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
+                              ? 'retro-left-mode-button-active border border-brand-accent-primary/40 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
                               : 'border border-brand-surface-border/45 bg-brand-surface-secondary/35 text-brand-text-primary hover:border-brand-surface-border/60 hover:bg-brand-surface-secondary/55'
                           }`}
                           aria-label={`Switch to ${option.shortLabel}`}
@@ -1900,7 +1915,7 @@ function App() {
                             </div>
                           )}
               
-                          {messages.length === 0 && !isLoading && conversationId && (
+                          {messages.length === 0 && !isContentLoading && conversationId && (
                             <div className="flex justify-center items-center h-full min-h-[300px]">
                               <div className="text-center space-y-3 mt-64">
                                 <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
@@ -1911,7 +1926,7 @@ function App() {
                             </div>
                           )}
               
-                          {isLoading && (
+                          {isContentLoading && (
                             <div className="flex justify-center items-center h-full min-h-[200px]">
                               <div className="text-slate-400 flex items-center gap-2">
                                 <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
@@ -2154,98 +2169,119 @@ function App() {
 
             <RightStatus>
               <Panel className="retro-right-panel flex-1 flex flex-col text-brand-text-primary !rounded-xl">
-                {isGameMasterMode ? (
-                  showRightPanelCharacterCreation ? (
-                    <div className="flex h-full flex-col p-5 overflow-y-auto">
-                      <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
-                      <CharacterCreation
-                        inline
-                        embedded
-                        onComplete={handleCharacterCreationComplete}
-                        onCancel={handleCharacterCreationQuickStart}
-                      />
+                {!hasSelectedConversation ? (
+                  <div className="flex h-full items-center justify-center p-5">
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">No Interaction Selected</p>
+                      <p className="mt-2 text-sm text-brand-text-secondary">Select an interaction to view live details here.</p>
+                    </div>
+                  </div>
+                ) : isRightPanelLoading ? (
+                  <div className="flex h-full items-center justify-center p-5">
+                    <div className="flex items-center gap-2 text-brand-text-muted">
+                      <div className="h-5 w-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm uppercase tracking-[0.22em]">Loading</span>
+                    </div>
+                  </div>
+                ) : isGameMasterMode ? (
+                  isGameMasterContentLoading ? (
+                    <div className="flex h-full items-center justify-center p-5">
+                      <div className="flex items-center gap-2 text-brand-text-muted">
+                        <div className="h-5 w-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-sm uppercase tracking-[0.22em]">Loading</span>
+                      </div>
                     </div>
                   ) : (
-                    <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                      <div className="retro-right-section relative">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
-                        <div className="mt-3 flex items-center gap-3">
-                          <img
-                            src={characterDisplay.avatarSrc}
-                            alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                            className="h-11 w-11 rounded-lg border border-brand-surface-border/60 bg-brand-surface-secondary/40 object-cover"
-                          />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
-                            <p className="text-xs text-brand-text-muted">{characterDisplay.characterClass || 'Wanderer'} • Lv {characterDisplay.level}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="retro-right-section">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Stats & Health</p>
-                        <div className="mt-3 grid grid-cols-3 gap-2">
-                          <div className="retro-right-stat-tile">
-                            <div className="text-[10px] text-brand-text-muted">STR</div>
-                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.strength}</div>
-                          </div>
-                          <div className="retro-right-stat-tile">
-                            <div className="text-[10px] text-brand-text-muted">DEX</div>
-                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.dexterity}</div>
-                          </div>
-                          <div className="retro-right-stat-tile">
-                            <div className="text-[10px] text-brand-text-muted">CON</div>
-                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.constitution}</div>
-                          </div>
-                          <div className="retro-right-stat-tile">
-                            <div className="text-[10px] text-brand-text-muted">INT</div>
-                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.intelligence}</div>
-                          </div>
-                          <div className="retro-right-stat-tile">
-                            <div className="text-[10px] text-brand-text-muted">WIS</div>
-                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.wisdom}</div>
-                          </div>
-                          <div className="retro-right-stat-tile">
-                            <div className="text-[10px] text-brand-text-muted">CHA</div>
-                            <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.charisma}</div>
-                          </div>
-                        </div>
-
-                        <div className="mt-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">HP</span>
-                            <span className="text-xs text-brand-text-secondary">{characterDisplay.hp.current} / {characterDisplay.hp.max}</span>
-                          </div>
-                          <div className="h-2 bg-brand-surface-hover/70 rounded-md border border-brand-surface-border/45 overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${characterDisplay.hp.percentage}%` }} />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="retro-right-section">
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted mb-3">Inventory</p>
-                        <InventoryManager
-                          inventory={characterDisplay.inventory}
-                          onUpdateInventory={updateInventory}
-                          isUpdating={false}
-                          showTitle={false}
+                    showRightPanelCharacterCreation ? (
+                      <div className="flex h-full flex-col p-5 overflow-y-auto">
+                        <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
+                        <CharacterCreation
+                          inline
+                          embedded
+                          onComplete={handleCharacterCreationComplete}
+                          onCancel={handleCharacterCreationQuickStart}
                         />
                       </div>
-
-                      <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center !rounded-xl">
-                        <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-brand-text-primary/10">
-                        ROLL
-                        </p>
-                        <p className="relative text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Latest Roll</p>
-                        <div className="relative mt-2 text-7xl font-semibold leading-none text-brand-text-primary">
-                          {latestDiceRoll || '—'}
+                    ) : (
+                      <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
+                        <div className="retro-right-section retro-right-section--character relative">
+                          <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
+                          <div className="mt-3 flex items-center gap-3">
+                            <img
+                              src={characterDisplay.avatarSrc}
+                              alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                              className="retro-character-avatar h-16 w-16 rounded-xl object-cover"
+                            />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
+                              <p className="text-xs text-brand-text-muted">{characterDisplay.characterClass || 'Wanderer'} • Lv {characterDisplay.level}</p>
+                            </div>
+                          </div>
                         </div>
-                        <p className="relative mt-2 text-xs text-brand-text-muted">
-                          {adventureState?.title ? `Thread: ${adventureState.title}` : 'Fortune favors the bold.'}
-                        </p>
-                      </Panel>
 
-                    </div>
+                        <div className="retro-right-section">
+                          <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Stats & Health</p>
+                          <div className="mt-3 grid grid-cols-3 gap-2">
+                            <div className="retro-right-stat-tile">
+                              <div className="text-[10px] text-brand-text-muted">STR</div>
+                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.strength}</div>
+                            </div>
+                            <div className="retro-right-stat-tile">
+                              <div className="text-[10px] text-brand-text-muted">DEX</div>
+                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.dexterity}</div>
+                            </div>
+                            <div className="retro-right-stat-tile">
+                              <div className="text-[10px] text-brand-text-muted">CON</div>
+                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.constitution}</div>
+                            </div>
+                            <div className="retro-right-stat-tile">
+                              <div className="text-[10px] text-brand-text-muted">INT</div>
+                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.intelligence}</div>
+                            </div>
+                            <div className="retro-right-stat-tile">
+                              <div className="text-[10px] text-brand-text-muted">WIS</div>
+                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.wisdom}</div>
+                            </div>
+                            <div className="retro-right-stat-tile">
+                              <div className="text-[10px] text-brand-text-muted">CHA</div>
+                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.charisma}</div>
+                            </div>
+                          </div>
+
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">HP</span>
+                              <span className="text-xs text-brand-text-secondary">{characterDisplay.hp.current} / {characterDisplay.hp.max}</span>
+                            </div>
+                            <div className="h-2 bg-brand-surface-hover/70 rounded-md border border-brand-surface-border/45 overflow-hidden">
+                              <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${characterDisplay.hp.percentage}%` }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="retro-right-section retro-right-section--inventory">
+                          <InventoryManager
+                            inventory={characterDisplay.inventory}
+                            onUpdateInventory={updateInventory}
+                            isUpdating={false}
+                          />
+                        </div>
+
+                        <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center !rounded-xl">
+                          <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-brand-text-primary/10">
+                        ROLL
+                          </p>
+                          <p className="relative text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Latest Roll</p>
+                          <div className="relative mt-2 text-7xl font-semibold leading-none text-brand-text-primary">
+                            {latestDiceRoll || '—'}
+                          </div>
+                          <p className="relative mt-2 text-xs text-brand-text-muted">
+                            {adventureState?.title ? `Thread: ${adventureState.title}` : 'Fortune favors the bold.'}
+                          </p>
+                        </Panel>
+
+                      </div>
+                    )
                   )
                 ) : (
                   <div className="flex h-full flex-col gap-4 p-5">
@@ -2289,19 +2325,17 @@ function App() {
                   className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
                   aria-label="Start new conversation"
                 >
-                  <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
+                  <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowDebugInfo((prev) => !prev)}
-                  className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
+                  className={`retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
+                    showDebugInfo ? 'retro-left-mode-button retro-left-mode-button-active' : ''
+                  }`}
                   aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
                 >
-                  <svg className="h-4 w-4 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8h.01M11 12h1v4h1m-1-13a9 9 0 100 18 9 9 0 000-18z" />
-                  </svg>
+                  <img src="/debug.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                 </button>
               </div>
             </div>
@@ -2338,7 +2372,7 @@ function App() {
         </nav>
 
         {/* Floating Expandable Header Bars - Side by Side - Only for Game Master mode */}
-        {effectivePersonality === 'game_master' && characterState && (
+        {effectivePersonality === 'game_master' && characterState && !isGameMasterContentLoading && (
           <div className="retro-mobile-bars lg:hidden sticky top-0 z-40 pt-safe">
             <div className="flex gap-2 mx-4 mt-4 items-start">
               {/* First Bar - Quest Log */}
@@ -2414,7 +2448,7 @@ function App() {
                       <img
                         src={characterDisplay.avatarSrc}
                         alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                        className="w-8 h-8 rounded-lg border border-brand-surface-border/60 bg-brand-surface-secondary/40 object-cover flex-shrink-0"
+                        className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover flex-shrink-0"
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
@@ -2434,7 +2468,7 @@ function App() {
                   </button>
 
                   {/* Expanded Character Sheet Content */}
-                  {mobileCharSheetExpanded && adventureState && !isLoadingCharacter && characterState && (() => {
+                  {mobileCharSheetExpanded && adventureState && !isGameMasterContentLoading && characterState && (() => {
                     const charData = getCharacterData();
                     return (
                       <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
@@ -2491,7 +2525,6 @@ function App() {
                           inventory={charData.inventory}
                           onUpdateInventory={updateInventory}
                           isUpdating={false}
-                          showTitle={false}
                         />
                       </div>
                     );
@@ -2528,7 +2561,7 @@ function App() {
                 </div>
               )}
               
-              {messages.length === 0 && !isLoading && conversationId && !showMobileInlineCharacterCreation && (
+              {messages.length === 0 && !isContentLoading && conversationId && !showMobileInlineCharacterCreation && (
                 <div className="flex justify-center items-center h-full min-h-[300px]">
                   <div className="retro-empty-state text-center space-y-3 px-4 mt-64">
                     <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
@@ -2539,7 +2572,7 @@ function App() {
                 </div>
               )}
               
-              {isLoading && (
+              {isContentLoading && (
                 <div className="flex justify-center items-center h-full min-h-[200px]">
                   <div className="text-slate-400 flex items-center gap-2">
                     <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>

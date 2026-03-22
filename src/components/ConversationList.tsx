@@ -470,7 +470,7 @@ export default function ConversationList({
                       src={conversationAvatar}
                       alt=""
                       aria-hidden="true"
-                      className="h-9 w-9 flex-shrink-0 rounded-full border border-emerald-300/35 bg-emerald-500/10 object-cover"
+                      className="retro-interaction-avatar h-11 w-11 flex-shrink-0 rounded-xl object-cover"
                     />
                   )}
 
