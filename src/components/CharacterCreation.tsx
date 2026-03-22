@@ -128,8 +128,8 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               setError('');
             }}
             maxLength={50}
-            placeholder="Enter your character's name"
-            className="w-full px-4 py-3 bg-brand-surface-hover border border-brand-surface-border rounded-lg text-brand-text-primary placeholder:text-brand-text-muted focus:outline-none focus:ring-2 focus:ring-brand-accent-primary focus:border-transparent transition-all disabled:opacity-60"
+            aria-label="Character Name"
+            className="w-full bg-transparent border-0 border-b border-brand-surface-border/70 rounded-none px-1 pt-1 pb-2 text-lg tracking-wide text-brand-text-primary focus:outline-none focus:ring-0 focus:border-brand-accent-primary/80 transition-all disabled:opacity-60"
             autoFocus
             disabled={isSubmitting}
           />
@@ -144,7 +144,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
             id={raceSelectId}
             value={race}
             onChange={(e) => setRace(e.target.value)}
-            className="w-full px-4 py-3 bg-brand-surface-hover border border-brand-surface-border rounded-lg text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-accent-primary focus:border-transparent transition-all cursor-pointer disabled:opacity-60"
+            className="w-full px-4 py-3 bg-brand-surface-secondary/35 border border-brand-surface-border/70 rounded-lg text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45 focus:border-brand-accent-primary/45 transition-all cursor-pointer disabled:opacity-60"
             disabled={isSubmitting}
           >
             {raceOptions.map((raceOption) => (
@@ -161,7 +161,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
             id={classSelectId}
             value={characterClass}
             onChange={(e) => setCharacterClass(e.target.value)}
-            className="w-full px-4 py-3 bg-brand-surface-hover border border-brand-surface-border rounded-lg text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-accent-primary focus:border-transparent transition-all cursor-pointer disabled:opacity-60"
+            className="w-full px-4 py-3 bg-brand-surface-secondary/35 border border-brand-surface-border/70 rounded-lg text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45 focus:border-brand-accent-primary/45 transition-all cursor-pointer disabled:opacity-60"
             disabled={isSubmitting}
           >
             {classes.map((c) => (
