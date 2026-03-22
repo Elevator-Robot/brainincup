@@ -15,12 +15,12 @@ type CharacterType = Schema['GameMasterCharacter']['type'];
 
 interface ConversationListProps {
   onSelectConversation: (conversationId: string) => void;
-  onDeleteConversation?: (conversationId: string) => void;
-  onNewConversation?: () => void;
-  disableNewConversation?: boolean;
   selectedConversationId: string | null;
   refreshKey?: number;
   activeMode?: string;
+  deleteSelectionMode?: boolean;
+  selectedDeleteIds?: Set<string>;
+  onToggleDeleteSelection?: (conversationId: string) => void;
 }
 
 const getConversationTimestamp = (conversation: ConversationType) =>
@@ -75,23 +75,19 @@ const readStoredConversationAvatarMap = (): Record<string, string> => {
 
 export default function ConversationList({
   onSelectConversation,
-  onDeleteConversation,
-  onNewConversation,
-  disableNewConversation,
   selectedConversationId,
   refreshKey,
   activeMode = 'default',
+  deleteSelectionMode = false,
+  selectedDeleteIds,
+  onToggleDeleteSelection,
 }: ConversationListProps) {
   const [conversations, setConversations] = useState<ConversationType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSelectMode, setIsSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [latestMessageByConversation, setLatestMessageByConversation] = useState<Record<string, string>>({});
   const [avatarByConversation, setAvatarByConversation] = useState<Record<string, string>>({});
-  const newConversationDisabled = Boolean(disableNewConversation);
+  const selectedDeleteSet = selectedDeleteIds ?? new Set<string>();
 
   const loadConversations = useCallback(async () => {
     try {
@@ -233,119 +229,17 @@ export default function ConversationList({
     loadConversations();
   }, [loadConversations, refreshKey]);
 
-  const handleTitleEdit = (conversationId: string, currentTitle: string) => {
-    setEditingId(conversationId);
-    setEditingTitle(currentTitle || 'Untitled Interaction');
-  };
-
-  const handleTitleSave = async (conversationId: string) => {
-    const trimmedTitle = editingTitle.trim();
-    const existingConversation = conversations.find(conv => conv.id === conversationId);
-    const fallbackTitle = existingConversation?.title?.trim() || 'Untitled Interaction';
-    const finalTitle = trimmedTitle || fallbackTitle;
-
-    try {
-      // For test mode, just update local state
-      if (isTestModeEnabled()) {
-        setConversations(prevConversations =>
-          prevConversations.map(conv =>
-            conv.id === conversationId
-              ? { ...conv, title: finalTitle }
-              : conv
-          )
-        );
-        setEditingId(null);
-        setEditingTitle('');
-        return;
-      }
-
-      // Update the conversation title in the database when it actually changed
-      if (finalTitle !== fallbackTitle) {
-        await dataClient.models.Conversation.update({
-          id: conversationId,
-          title: finalTitle
-        });
-      }
-
-      // Update local state
-      setConversations(prevConversations =>
-        prevConversations.map(conv =>
-          conv.id === conversationId
-            ? { ...conv, title: finalTitle }
-            : conv
-        )
-      );
-
-      setEditingId(null);
-      setEditingTitle('');
-    } catch (error) {
-      console.error('Error updating conversation title:', error);
-    }
-  };
-
-  const handleTitleCancel = () => {
-    setEditingId(null);
-    setEditingTitle('');
-  };
-
-  const handleInputBlur = (conversationId: string) => {
-    if (editingId !== conversationId) return;
-    void handleTitleSave(conversationId);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent, conversationId: string) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      void handleTitleSave(conversationId);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      handleTitleCancel();
-    }
-  };
-
   const handleConversationKeyPress = (event: React.KeyboardEvent<HTMLDivElement>, conversationId: string) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      onSelectConversation(conversationId);
+      if (deleteSelectionMode) {
+        onToggleDeleteSelection?.(conversationId);
+      } else {
+        onSelectConversation(conversationId);
+      }
     }
   };
 
-
-  const handleDeleteExecute = async (conversationId: string) => {
-    try {
-      if (onDeleteConversation) {
-        await onDeleteConversation(conversationId);
-        return;
-      }
-
-      // For test mode or standalone usage, fall back to client-side deletion
-      if (isTestModeEnabled()) {
-        setConversations(prevConversations =>
-          prevConversations.filter(conv => conv.id !== conversationId)
-        );
-        
-        if (selectedConversationId === conversationId) {
-          onSelectConversation('');
-        }
-        return;
-      }
-
-      await dataClient.models.Conversation.delete({
-        id: conversationId
-      });
-
-      setConversations(prevConversations =>
-        prevConversations.filter(conv => conv.id !== conversationId)
-      );
-      
-      if (selectedConversationId === conversationId) {
-        onSelectConversation('');
-      }
-    } catch (error) {
-      console.error('Error deleting conversation:', error);
-    }
-  };
 
   const conversationsToShow = conversations.filter((conv) => {
     const conversationMode = normalizeConversationModeForFilter(conv.personalityMode);
@@ -389,7 +283,6 @@ export default function ConversationList({
         {group.items.map((conversation) => {
           const conversationTitle = sanitizeConversationTitle(conversation.title);
           const modeMeta = getModeMeta(conversation.personalityMode);
-          const isEditing = editingId === conversation.id;
           const isSelected = selectedConversationId === conversation.id;
           const previewText = (conversation.id && latestMessageByConversation[conversation.id])
             ? latestMessageByConversation[conversation.id]
@@ -398,9 +291,9 @@ export default function ConversationList({
           const isGameMasterConversation = modeMeta.id === 'game_master';
           const conversationAvatar = conversation.id ? avatarByConversation[conversation.id] : undefined;
           const hasGameMasterAvatar = Boolean(conversationAvatar);
-          const rowGridClass = isSelectMode
+          const rowGridClass = deleteSelectionMode
             ? (isGameMasterConversation && hasGameMasterAvatar ? 'grid-cols-[auto,auto,1fr]' : 'grid-cols-[auto,1fr]')
-            : (isGameMasterConversation && hasGameMasterAvatar ? 'grid-cols-[auto,1fr,auto]' : 'grid-cols-[1fr,auto]');
+            : (isGameMasterConversation && hasGameMasterAvatar ? 'grid-cols-[auto,1fr]' : 'grid-cols-[1fr]');
 
           return (
             <div
@@ -411,116 +304,51 @@ export default function ConversationList({
                   : 'border-white/[0.08] bg-white/[0.04] hover:border-white/[0.16] hover:bg-white/[0.07]'
               }`}
             >
-              {isEditing ? (
-                <div className="px-4 py-3">
+              <div
+                role="button"
+                tabIndex={0}
+                title={deleteSelectionMode ? 'Select interaction for deletion' : 'Open interaction'}
+                onClick={() => {
+                  if (!conversation.id) return;
+                  if (deleteSelectionMode) {
+                    onToggleDeleteSelection?.(conversation.id);
+                  } else {
+                    onSelectConversation(conversation.id);
+                  }
+                }}
+                onKeyDown={(event) => conversation.id && handleConversationKeyPress(event, conversation.id)}
+                className={`grid ${rowGridClass} items-center gap-3 px-3.5 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50 rounded-2xl`}
+              >
+                {deleteSelectionMode && conversation.id && (
                   <input
-                    type="text"
-                    value={editingTitle}
-                    onChange={(e) => setEditingTitle(e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, conversation.id!)}
-                    onBlur={() => handleInputBlur(conversation.id!)}
-                    onFocus={(e) => e.target.select()}
-                    placeholder="Interaction name"
-                    className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2 text-sm font-medium text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/40"
-                    autoFocus
+                    type="checkbox"
+                    checked={selectedDeleteSet.has(conversation.id)}
+                    onChange={() => {
+                      onToggleDeleteSelection?.(conversation.id!);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-4 w-4 rounded border border-white/30 bg-white/5 checked:bg-brand-accent-primary checked:border-brand-accent-primary focus:ring-2 focus:ring-brand-accent-primary/40"
                   />
+                )}
+
+                {isGameMasterConversation && hasGameMasterAvatar && (
+                  <img
+                    src={conversationAvatar}
+                    alt=""
+                    aria-hidden="true"
+                    className="retro-interaction-avatar h-11 w-11 flex-shrink-0 rounded-xl object-cover object-center"
+                  />
+                )}
+
+                <div className="min-w-0">
+                  <p className={`truncate text-sm font-semibold tracking-tight ${isSelected ? 'text-white' : 'text-brand-text-secondary group-hover:text-white'}`}>
+                    {conversationTitle}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-brand-text-muted/80">
+                    {previewText}
+                  </p>
                 </div>
-              ) : (
-                <div
-                  role="button"
-                  tabIndex={0}
-                  title={isSelectMode ? 'Select conversation' : 'Open interaction'}
-                  onClick={() => {
-                    if (!conversation.id) return;
-                    if (isSelectMode) {
-                      const newSelected = new Set(selectedIds);
-                      if (newSelected.has(conversation.id)) {
-                        newSelected.delete(conversation.id);
-                      } else {
-                        newSelected.add(conversation.id);
-                      }
-                      setSelectedIds(newSelected);
-                    } else {
-                      onSelectConversation(conversation.id);
-                    }
-                  }}
-                  onKeyDown={(event) => conversation.id && handleConversationKeyPress(event, conversation.id)}
-                  className={`grid ${rowGridClass} items-center gap-3 px-3.5 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50 rounded-2xl`}
-                >
-                  {isSelectMode && conversation.id && (
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(conversation.id)}
-                      onChange={() => {
-                        const newSelected = new Set(selectedIds);
-                        if (newSelected.has(conversation.id!)) {
-                          newSelected.delete(conversation.id!);
-                        } else {
-                          newSelected.add(conversation.id!);
-                        }
-                        setSelectedIds(newSelected);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-4 w-4 rounded border border-white/30 bg-white/5 checked:bg-brand-accent-primary checked:border-brand-accent-primary focus:ring-2 focus:ring-brand-accent-primary/40"
-                    />
-                  )}
-
-                  {isGameMasterConversation && hasGameMasterAvatar && (
-                    <img
-                      src={conversationAvatar}
-                      alt=""
-                      aria-hidden="true"
-                      className="retro-interaction-avatar h-11 w-11 flex-shrink-0 rounded-xl object-cover"
-                    />
-                  )}
-
-                  <div className="min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className={`truncate text-sm font-semibold tracking-tight ${isSelected ? 'text-white' : 'text-brand-text-secondary group-hover:text-white'}`}>
-                        {conversationTitle}
-                      </p>
-                    </div>
-                    <p className="mt-0.5 truncate text-xs text-brand-text-muted/80">
-                      {previewText}
-                    </p>
-                  </div>
-
-                  {!isSelectMode && (
-                    <div className="flex items-center gap-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (conversation.id) {
-                            handleTitleEdit(conversation.id, conversationTitle);
-                          }
-                        }}
-                        className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-brand-text-muted hover:text-brand-accent-primary hover:border-brand-accent-primary/50"
-                        title="Rename interaction"
-                        aria-label="Rename interaction"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (conversation.id && window.confirm('Delete this interaction?')) {
-                            handleDeleteExecute(conversation.id);
-                          }
-                        }}
-                        className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-brand-text-muted hover:text-brand-status-error hover:border-brand-status-error/50"
-                        title="Delete interaction"
-                        aria-label="Delete interaction"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+              </div>
             </div>
           );
         })}
@@ -530,65 +358,6 @@ export default function ConversationList({
 
   return (
     <div className="p-3 space-y-4">
-      {onNewConversation && (
-        <div className="flex justify-between items-center gap-2">
-          <button
-            type="button"
-            onClick={onNewConversation}
-            disabled={newConversationDisabled}
-            className="inline-flex items-center rounded-xl border border-white/12 bg-white/[0.05] px-3 py-1.5 text-[11px] font-semibold tracking-[0.18em] uppercase text-white/70 backdrop-blur-lg transition-all duration-200 hover:border-emerald-300/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/30 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            New Interaction
-          </button>
-          
-          {!isSelectMode ? (
-            <button
-              type="button"
-              onClick={() => {
-                setIsSelectMode(true);
-                setSelectedIds(new Set());
-              }}
-              className="inline-flex items-center rounded-xl border border-white/12 bg-white/[0.05] px-3 py-1.5 text-[11px] font-semibold tracking-[0.18em] uppercase text-white/70 backdrop-blur-lg transition-all duration-200 hover:border-emerald-300/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/30"
-            >
-                Select
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              {selectedIds.size > 0 && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (window.confirm(`Delete ${selectedIds.size} interaction${selectedIds.size > 1 ? 's' : ''}?`)) {
-                      for (const id of Array.from(selectedIds)) {
-                        if (onDeleteConversation) {
-                          await onDeleteConversation(id);
-                        }
-                      }
-                      setSelectedIds(new Set());
-                      setIsSelectMode(false);
-                      loadConversations();
-                    }
-                  }}
-                  className="inline-flex items-center rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[11px] font-semibold tracking-[0.18em] uppercase text-red-400 backdrop-blur-lg transition-all duration-200 hover:border-red-500/60 hover:bg-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
-                >
-                  Delete ({selectedIds.size})
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSelectMode(false);
-                  setSelectedIds(new Set());
-                }}
-                className="inline-flex items-center rounded-xl border border-white/12 bg-white/[0.05] px-3 py-1.5 text-[11px] font-semibold tracking-[0.18em] uppercase text-white/70 backdrop-blur-lg transition-all duration-200 hover:border-emerald-300/40 hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/30"
-              >
-                Done
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="relative">
         <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-text-muted/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m1.35-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -597,8 +366,9 @@ export default function ConversationList({
           type="text"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search interactions..."
-          className="w-full rounded-full border border-white/12 bg-white/[0.05] py-2 pl-10 pr-3 text-sm text-brand-text-primary placeholder-brand-text-muted/70 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/40"
+          placeholder="Search..."
+          aria-label="Search interactions"
+          className="w-full rounded-full border border-white/12 bg-white/[0.05] py-2 pl-10 pr-3 text-sm text-brand-text-primary placeholder:text-brand-text-muted placeholder:opacity-70 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/40"
         />
       </div>
 
@@ -619,7 +389,7 @@ export default function ConversationList({
             </svg>
           </div>
           <div className="text-brand-text-primary text-sm font-medium mb-2">No interactions yet</div>
-          <div className="text-brand-text-muted text-xs">Use the New Interaction control to begin</div>
+          <div className="text-brand-text-muted text-xs">Use the sidebar to begin a new interaction</div>
         </div>
       ) : (
         <div className="space-y-3.5">

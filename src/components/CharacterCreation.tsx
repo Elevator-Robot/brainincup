@@ -1,9 +1,8 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { calculateFinalStats, getAllRaces, getAllClasses } from '../game';
 import {
-  CHARACTER_AVATAR_OPTIONS,
-  DEFAULT_CHARACTER_AVATAR_ID,
-  chooseAutoAvatarId,
+  getAvatarOptionsForRace,
+  getAvatarOptionById,
 } from '../constants/gameMasterAvatars';
 
 interface CharacterCreationProps {
@@ -25,25 +24,32 @@ interface CharacterCreationProps {
 }
 
 // Get races and classes from game framework
-const races = getAllRaces().map(r => r.name);
+const raceOptions = getAllRaces().map((raceOption) => ({
+  id: raceOption.id,
+  name: raceOption.name,
+}));
 const classes = getAllClasses().map(c => c.name);
+const DEFAULT_RACE_NAME = raceOptions.find((raceOption) => raceOption.id === 'terran')?.name ?? raceOptions[0]?.name ?? 'Terran';
 
 export default function CharacterCreation({ onComplete, onCancel, inline = false, embedded = false }: CharacterCreationProps) {
   const [name, setName] = useState('');
-  const [race, setRace] = useState('Human');
+  const [race, setRace] = useState(DEFAULT_RACE_NAME);
   const [characterClass, setCharacterClass] = useState('Wanderer');
-  const [avatarId, setAvatarId] = useState(() => chooseAutoAvatarId({ name: '', race: 'Human', characterClass: 'Wanderer' }));
-  const [isAvatarManuallySelected, setIsAvatarManuallySelected] = useState(false);
+  const [avatarId, setAvatarId] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const nameInputId = useId();
   const raceSelectId = useId();
   const classSelectId = useId();
 
+  const availableAvatarOptions = useMemo(() => getAvatarOptionsForRace(race), [race]);
+
   useEffect(() => {
-    if (isAvatarManuallySelected) return;
-    setAvatarId(chooseAutoAvatarId({ name, race, characterClass }));
-  }, [name, race, characterClass, isAvatarManuallySelected]);
+    if (avatarId && availableAvatarOptions.some((avatarOption) => avatarOption.id === avatarId)) {
+      return;
+    }
+    setAvatarId('');
+  }, [availableAvatarOptions, avatarId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,9 +63,15 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
       setError('Character name must be 50 characters or less');
       return;
     }
+
+    const selectedAvatarId = getAvatarOptionById(avatarId)?.id ?? '';
+    if (availableAvatarOptions.length > 0 && !selectedAvatarId) {
+      setError('Please select an avatar before starting.');
+      return;
+    }
     
     // Calculate stats using game framework
-    const raceId = race.toLowerCase().replace('-', '');
+    const raceId = raceOptions.find((raceOption) => raceOption.name === race)?.id ?? 'terran';
     const classId = characterClass.toLowerCase();
     
     const finalStats = calculateFinalStats(classId, raceId);
@@ -71,7 +83,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
         name: name.trim(),
         race,
         characterClass,
-        avatarId: avatarId || DEFAULT_CHARACTER_AVATAR_ID,
+        avatarId: selectedAvatarId,
         ...finalStats,
       });
     } catch (submitError) {
@@ -135,8 +147,8 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
             className="w-full px-4 py-3 bg-brand-surface-hover border border-brand-surface-border rounded-lg text-brand-text-primary focus:outline-none focus:ring-2 focus:ring-brand-accent-primary focus:border-transparent transition-all cursor-pointer disabled:opacity-60"
             disabled={isSubmitting}
           >
-            {races.map((r) => (
-              <option key={r} value={r}>{r}</option>
+            {raceOptions.map((raceOption) => (
+              <option key={raceOption.id} value={raceOption.name}>{raceOption.name}</option>
             ))}
           </select>
         </div>
@@ -162,28 +174,38 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
           <p className="block text-sm font-medium text-brand-text-primary mb-2">
             Avatar
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            {CHARACTER_AVATAR_OPTIONS.map((avatarOption) => (
-              <button
-                key={avatarOption.id}
-                type="button"
-                onClick={() => {
-                  setAvatarId(avatarOption.id);
-                  setIsAvatarManuallySelected(true);
-                  setError('');
-                }}
-                className={`rounded-lg border p-0.5 transition-all disabled:opacity-60 ${
-                  avatarOption.id === avatarId
-                    ? 'border-brand-accent-primary'
-                    : 'border-brand-surface-border/60 hover:border-brand-surface-border'
-                }`}
-                aria-label={`Select ${avatarOption.label}`}
-                disabled={isSubmitting}
-              >
-                <img src={avatarOption.src} alt={avatarOption.label} className="h-16 w-full rounded-md object-cover" />
-              </button>
-            ))}
-          </div>
+          {availableAvatarOptions.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2">
+              {availableAvatarOptions.map((avatarOption) => (
+                <button
+                  key={avatarOption.id}
+                  type="button"
+                  onClick={() => {
+                    setAvatarId(avatarOption.id);
+                    setError('');
+                  }}
+                  className={`group relative overflow-hidden rounded-lg p-0.5 transition-all duration-200 disabled:opacity-60 ${
+                    avatarOption.id === avatarId
+                      ? 'shadow-[0_0_0_1px_rgba(168,85,247,0.45),0_10px_24px_rgba(44,14,84,0.28)]'
+                      : 'hover:scale-[1.04] hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(28,16,56,0.28)]'
+                  }`}
+                  aria-label={`Select ${avatarOption.label}`}
+                  disabled={isSubmitting}
+                >
+                  <img
+                    src={avatarOption.src}
+                    alt={avatarOption.label}
+                    className="h-20 w-full rounded-md object-cover object-center transition-all duration-200"
+                  />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-brand-text-muted italic">No avatars available for this race yet.</p>
+          )}
+          {availableAvatarOptions.length > 0 && !avatarId && (
+            <p className="mt-2 text-xs text-brand-text-muted">Select an avatar to continue.</p>
+          )}
         </div>
 
         {error && (
@@ -197,18 +219,18 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
             <button
               type="button"
               onClick={() => { void handleCancel(); }}
-              className="flex-1 px-4 py-3 bg-brand-surface-hover border border-brand-surface-border rounded-lg text-brand-text-secondary hover:bg-brand-surface-tertiary transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex-1 rounded-xl border border-brand-surface-border/45 bg-brand-surface-elevated/55 px-3 py-2 text-sm font-medium text-brand-text-secondary backdrop-blur-md transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-elevated/70 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isSubmitting}
             >
-              Quick Start
+              Quick
             </button>
           )}
           <button
             type="submit"
-            className="flex-1 px-4 py-3 bg-brand-accent-primary hover:bg-brand-accent-primary/90 rounded-lg text-white font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex-1 rounded-xl border border-brand-accent-primary/45 bg-brand-accent-primary/18 px-3 py-2 text-sm font-semibold text-brand-text-primary backdrop-blur-md transition-all duration-200 hover:border-brand-accent-primary/65 hover:bg-brand-accent-primary/26 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'Forging Hero...' : 'Begin Adventure'}
+            {isSubmitting ? 'Starting…' : 'Start'}
           </button>
         </div>
       </form>
