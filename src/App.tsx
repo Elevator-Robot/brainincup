@@ -1734,19 +1734,17 @@ function App() {
                     className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
                     aria-label="Start new conversation"
                   >
-                    <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
+                    <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowDebugInfo((prev) => !prev)}
-                    className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
+                    className={`retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
+                      showDebugInfo ? 'retro-left-mode-button retro-left-mode-button-active' : ''
+                    }`}
                     aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
                   >
-                    <svg className="h-4 w-4 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8h.01M11 12h1v4h1m-1-13a9 9 0 100 18 9 9 0 000-18z" />
-                    </svg>
+                    <img src="/debug.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                   </button>
                 </div>
               </div>
@@ -1775,9 +1773,9 @@ function App() {
                           key={option.id}
                           type="button"
                           onClick={() => handleModeSelected(option.id)}
-                          className={`retro-icon-button h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                          className={`retro-icon-button retro-left-mode-button h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
                             isActive
-                              ? 'border border-brand-accent-primary/40 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
+                              ? 'retro-left-mode-button-active border border-brand-accent-primary/40 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
                               : 'border border-brand-surface-border/45 bg-brand-surface-secondary/35 text-brand-text-primary hover:border-brand-surface-border/60 hover:bg-brand-surface-secondary/55'
                           }`}
                           aria-label={`Switch to ${option.shortLabel}`}
@@ -2325,19 +2323,17 @@ function App() {
                   className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
                   aria-label="Start new conversation"
                 >
-                  <svg className="w-5 h-5 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
+                  <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowDebugInfo((prev) => !prev)}
-                  className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
+                  className={`retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
+                    showDebugInfo ? 'retro-left-mode-button retro-left-mode-button-active' : ''
+                  }`}
                   aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
                 >
-                  <svg className="h-4 w-4 text-brand-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8h.01M11 12h1v4h1m-1-13a9 9 0 100 18 9 9 0 000-18z" />
-                  </svg>
+                  <img src="/debug.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                 </button>
               </div>
             </div>
