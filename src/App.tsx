@@ -2200,13 +2200,13 @@ function App() {
                       </div>
                     ) : (
                       <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                        <div className="retro-right-section relative">
+                        <div className="retro-right-section retro-right-section--character relative">
                           <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
                           <div className="mt-3 flex items-center gap-3">
                             <img
                               src={characterDisplay.avatarSrc}
                               alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                              className="h-11 w-11 rounded-lg border border-brand-surface-border/60 bg-brand-surface-secondary/40 object-cover"
+                              className="retro-character-avatar h-16 w-16 rounded-xl object-cover"
                             />
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
@@ -2255,13 +2255,11 @@ function App() {
                           </div>
                         </div>
 
-                        <div className="retro-right-section">
-                          <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted mb-3">Inventory</p>
+                        <div className="retro-right-section retro-right-section--inventory">
                           <InventoryManager
                             inventory={characterDisplay.inventory}
                             onUpdateInventory={updateInventory}
                             isUpdating={false}
-                            showTitle={false}
                           />
                         </div>
 
@@ -2446,7 +2444,7 @@ function App() {
                       <img
                         src={characterDisplay.avatarSrc}
                         alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                        className="w-8 h-8 rounded-lg border border-brand-surface-border/60 bg-brand-surface-secondary/40 object-cover flex-shrink-0"
+                        className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover flex-shrink-0"
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
@@ -2523,7 +2521,6 @@ function App() {
                           inventory={charData.inventory}
                           onUpdateInventory={updateInventory}
                           isUpdating={false}
-                          showTitle={false}
                         />
                       </div>
                     );

@@ -15,6 +15,8 @@ interface InventoryManagerProps {
   onUpdateInventory: (newInventory: InventoryItem[]) => Promise<void>;
   isUpdating?: boolean;
   showTitle?: boolean;
+  allowManualAdd?: boolean;
+  maxSlots?: number;
 }
 
 export default function InventoryManager({
@@ -22,7 +24,10 @@ export default function InventoryManager({
   onUpdateInventory,
   isUpdating = false,
   showTitle = true,
+  allowManualAdd = false,
+  maxSlots = 20,
 }: InventoryManagerProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newItem, setNewItem] = useState<Partial<InventoryItem>>({
     name: '',
@@ -34,6 +39,11 @@ export default function InventoryManager({
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!allowManualAdd) {
+      setShowAddModal(false);
+      return;
+    }
     
     if (!newItem.name?.trim()) {
       setError('Item name is required');
@@ -83,69 +93,96 @@ export default function InventoryManager({
     }
   };
 
+  const totalSlots = Math.max(maxSlots, inventory.length);
+  const usedSlots = Math.min(inventory.length, totalSlots);
+  const collapsedVisibleItems = 6;
+  const visibleItems = isExpanded ? inventory : inventory.slice(0, collapsedVisibleItems);
+  const hiddenItemCount = Math.max(inventory.length - visibleItems.length, 0);
+
   return (
-    <div className="space-y-4">
-      {/* Header with Add Button */}
-      <div className="flex items-center justify-between">
-        {showTitle ? <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted">Inventory</p> : <span />}
-        <button
-          onClick={() => setShowAddModal(true)}
-          disabled={isUpdating}
-          className="px-3 py-1 text-xs bg-brand-accent-primary hover:bg-brand-accent-secondary text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          + Add Item
-        </button>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2 flex-nowrap">
+        {showTitle ? <p className="shrink-0 whitespace-nowrap text-[11px] uppercase tracking-[0.24em] text-brand-text-muted">Inventory</p> : <span />}
+        <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+          <span className="px-1 text-[10px] font-medium tracking-[0.08em] text-brand-text-muted whitespace-nowrap">
+            {usedSlots}/{totalSlots}
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsExpanded((prev) => !prev)}
+            className={`retro-left-mode-button p-1.5 text-brand-text-primary transition-colors ${
+              isExpanded ? 'retro-left-mode-button-active' : ''
+            }`}
+            aria-label={isExpanded ? 'Collapse inventory list' : 'Expand inventory list'}
+          >
+            <img
+              src="/arrowExpand.svg"
+              alt=""
+              aria-hidden="true"
+              className={`h-4 w-4 object-contain brightness-0 invert transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {allowManualAdd ? (
+            <button
+              onClick={() => setShowAddModal(true)}
+              disabled={isUpdating}
+              className="px-3 py-1 text-xs bg-brand-accent-primary hover:bg-brand-accent-secondary text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              + Add Item
+            </button>
+          ) : null}
+        </div>
       </div>
 
-      {/* Inventory List */}
-      <div className="space-y-2">
-        {inventory.length === 0 ? (
+      <div className="space-y-1.5">
+        {visibleItems.length === 0 ? (
           <p className="text-sm text-brand-text-muted italic">No items in inventory</p>
         ) : (
-          inventory.map((item) => (
+          visibleItems.map((item) => (
             <div
               key={item.id}
-              className="bg-brand-surface-hover border border-brand-surface-border rounded-lg p-3 flex items-start justify-between gap-3"
+              className="flex items-center justify-between gap-2 border-b border-brand-surface-border/20 py-2 last:border-b-0"
             >
+              <div className="mt-0.5 text-sm leading-none" aria-hidden="true">{getItemTypeIcon(item.type)}</div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-lg">{getItemTypeIcon(item.type)}</span>
+                <div className="flex items-center gap-2">
                   <h4 className="text-sm font-semibold text-brand-text-primary truncate">
                     {item.name}
                   </h4>
                   {item.quantity && item.quantity > 1 && (
                     <span className="text-xs text-brand-text-muted">×{item.quantity}</span>
                   )}
-                </div>
-                {item.description && (
-                  <p className="text-xs text-brand-text-secondary line-clamp-2">{item.description}</p>
-                )}
-                <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] uppercase tracking-wider text-brand-text-muted">
                     {item.type}
                   </span>
-                  {item.equipped && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-brand-accent-primary/20 text-brand-accent-primary rounded">
-                      Equipped
-                    </span>
-                  )}
                 </div>
+                {item.equipped && (
+                  <span className="mt-0.5 inline-block text-[10px] text-brand-accent-primary">
+                    Equipped
+                  </span>
+                )}
               </div>
-              <button
-                onClick={() => handleRemoveItem(item.id)}
-                disabled={isUpdating}
-                className="text-red-500 hover:text-red-400 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Remove item"
-              >
-                ✕
-              </button>
+              {allowManualAdd ? (
+                <button
+                  onClick={() => handleRemoveItem(item.id)}
+                  disabled={isUpdating}
+                  className="text-red-500 hover:text-red-400 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Remove item"
+                >
+                  ✕
+                </button>
+              ) : null}
             </div>
           ))
         )}
       </div>
 
+      {!isExpanded && hiddenItemCount > 0 ? (
+        <p className="text-[10px] text-brand-text-muted">Expand to view {hiddenItemCount} more items.</p>
+      ) : null}
+
       {/* Add Item Modal */}
-      {showAddModal && (
+      {allowManualAdd && showAddModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-brand-surface-elevated border border-brand-surface-border rounded-2xl shadow-2xl max-w-md w-full p-6 animate-slide-up">
             <h3 className="text-xl font-bold text-brand-text-primary mb-4">Add Item</h3>
