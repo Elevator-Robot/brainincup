@@ -1918,10 +1918,12 @@ function App() {
                   <button
                     type="button"
                     onClick={() => setShowDebugInfo((prev) => !prev)}
-                    className={`retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
+                    className={`retro-icon-button retro-tooltip-trigger w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
                       showDebugInfo ? 'retro-left-mode-button retro-left-mode-button-active' : ''
                     }`}
                     aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
+                    data-tooltip={showDebugInfo ? 'Hide debug data' : 'Show debug data'}
+                    data-tooltip-position="bottom"
                   >
                     <img src="/debug.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                   </button>
@@ -1949,9 +1951,11 @@ function App() {
                       type="button"
                       onClick={handleNewConversation}
                       disabled={isWaitingForResponse || isSelectingConversation}
-                      className="retro-icon-button h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="retro-icon-button retro-tooltip-trigger h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
                       aria-label="Start new interaction"
                       title="New interaction"
+                      data-tooltip="New interaction"
+                      data-tooltip-position="right"
                     >
                       <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                     </button>
@@ -1963,12 +1967,14 @@ function App() {
                           key={option.id}
                           type="button"
                           onClick={() => handleModeSelected(option.id)}
-                          className={`retro-icon-button retro-left-mode-button h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                          className={`retro-icon-button retro-left-mode-button retro-tooltip-trigger h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
                             isActive
                               ? 'retro-left-mode-button-active border border-brand-accent-primary/40 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
                               : 'border border-brand-surface-border/45 bg-brand-bg-secondary/65 text-brand-text-primary hover:border-brand-surface-border/60 hover:bg-brand-bg-tertiary/55'
                           }`}
                           aria-label={`Switch to ${option.shortLabel}`}
+                          data-tooltip={`Switch to ${option.shortLabel}`}
+                          data-tooltip-position="right"
                         >
                           {option.id === 'game_master' ? (
                             <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
@@ -1987,7 +1993,7 @@ function App() {
                       onDragOver={handleTrashDragOver}
                       onDragLeave={handleTrashDragLeave}
                       onDrop={handleTrashDrop}
-                      className={`retro-icon-button mb-2 h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
+                      className={`retro-icon-button retro-tooltip-trigger mb-2 h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
                         isTrashDragOver
                           ? 'border-brand-status-error/70 bg-brand-status-error/28 text-brand-status-error scale-[1.06]'
                           : isBulkDeleteMode
@@ -2004,6 +2010,8 @@ function App() {
                           ? `Delete selected (${bulkDeleteConversationIds.size})`
                           : 'Select interactions to delete'
                       }
+                      data-tooltip={isBulkDeleteMode ? 'Delete selected interactions' : 'Select interactions to delete'}
+                      data-tooltip-position="right"
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
@@ -2012,8 +2020,10 @@ function App() {
                     <button
                       type="button"
                       onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-                      className="retro-icon-button h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center"
+                      className="retro-icon-button retro-tooltip-trigger h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center"
                       aria-label="Open profile menu"
+                      data-tooltip="Account menu"
+                      data-tooltip-position="right"
                     >
                       {websiteUserProfile.avatarUrl ? (
                         <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
@@ -2570,10 +2580,12 @@ function App() {
                 <button
                   type="button"
                   onClick={() => setShowDebugInfo((prev) => !prev)}
-                  className={`retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
+                  className={`retro-icon-button retro-tooltip-trigger w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
                     showDebugInfo ? 'retro-left-mode-button retro-left-mode-button-active' : ''
                   }`}
                   aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
+                  data-tooltip={showDebugInfo ? 'Hide debug data' : 'Show debug data'}
+                  data-tooltip-position="bottom"
                 >
                   <img src="/debug.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                 </button>
