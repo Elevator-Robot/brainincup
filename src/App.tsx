@@ -8,6 +8,7 @@ import InstallPrompt from './components/InstallPrompt';
 import CharacterCreation from './components/CharacterCreation';
 import ConversationList from './components/ConversationList';
 import InventoryManager, { type InventoryItem } from './components/InventoryManager';
+import TroubleDice3D from './components/TroubleDice3D';
 import Panel from './components/ui/Panel';
 import { RPGLayout, LeftSidebar, CenterNarrative, RightStatus, BottomInput } from './components/ui/RPGLayout';
 import { FACILITATED_MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
@@ -413,6 +414,7 @@ function App() {
   const [lastManualDiceRoll, setLastManualDiceRoll] = useState<DiceRollResult | null>(null);
   const [isDiceRolling, setIsDiceRolling] = useState(false);
   const [diceRollPulseId, setDiceRollPulseId] = useState(0);
+  const [diceRollNonce, setDiceRollNonce] = useState(0);
   
   // Game Master data state
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
@@ -1986,6 +1988,7 @@ function App() {
 
     const sides = 20;
     setIsDiceRolling(true);
+    setDiceRollNonce((prev) => prev + 1);
 
     // Pop-o-matic "bubbles" effect window.
     await new Promise<void>((resolve) => {
@@ -2652,17 +2655,19 @@ function App() {
                             void handleDiceRoll();
                           }}
                           disabled={!canUseDiceRoll}
-                          className={`retro-roll-panel-button mt-auto relative overflow-hidden rounded-xl ${
+                          className={`retro-roll-panel-button retro-tooltip-trigger mt-auto relative rounded-xl ${
                             isDiceRolling ? 'retro-roll-panel-button--rolling' : ''
                           }`}
                           aria-label={isDiceRolling ? 'Rolling d20' : 'Roll a d20'}
-                          title={isDiceRolling ? 'Rolling d20…' : 'Roll d20'}
+                          data-tooltip={isDiceRolling ? 'Rolling d20…' : 'Roll d20'}
+                          data-tooltip-position="top"
                         >
-                          <span className="retro-trouble-dice-bubble retro-roll-panel-bubble" aria-hidden="true">
-                            <span key={`panel-${diceRollPulseId}`} className="retro-trouble-dice-pips retro-roll-panel-value">
-                              {latestDiceRoll || (isDiceRolling ? '...' : 'd20')}
-                            </span>
-                          </span>
+                          <TroubleDice3D
+                            rollNonce={diceRollNonce}
+                            isRolling={isDiceRolling}
+                            pulseId={diceRollPulseId}
+                            displayValue={latestDiceRoll || (isDiceRolling ? '...' : 'd20')}
+                          />
                         </button>
 
                       </div>

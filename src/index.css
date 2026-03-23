@@ -1150,6 +1150,53 @@ textarea.w-full:focus {
   font-size: 0.9rem;
 }
 
+.retro-three-dice-shell {
+  position: relative;
+  width: 100%;
+  min-height: 9.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.retro-three-dice-canvas-wrap {
+  width: 100%;
+  height: 100%;
+  min-height: 9.4rem;
+  border-radius: 0.9rem;
+  overflow: hidden;
+  background: transparent;
+  box-shadow: none;
+}
+
+.retro-three-dice-canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.retro-roll-panel-value-badge {
+  position: absolute;
+  bottom: 0.9rem;
+  min-width: 3.2rem;
+  padding: 0.34rem 0.82rem;
+  border-radius: 999px;
+  border: 1px solid rgba(176, 242, 229, 0.46);
+  background: linear-gradient(160deg, rgba(245, 255, 252, 0.94), rgba(205, 244, 235, 0.88));
+  color: rgba(11, 66, 59, 0.95);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.04em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 8px 16px rgba(2, 12, 10, 0.3);
+  animation: retroTroubleDiceReveal 220ms ease-out;
+}
+
+.retro-roll-panel-value-badge--rolling {
+  animation: retroTroubleBubblePop 620ms cubic-bezier(0.26, 0.12, 0.22, 1);
+}
+
 .retro-right-panel {
   background:
     linear-gradient(160deg, rgba(12, 34, 30, 0.6), rgba(8, 21, 19, 0.54)),
@@ -1207,12 +1254,22 @@ textarea.w-full:focus {
   transform: translateX(-50%) translateY(-4px);
 }
 
+.retro-tooltip-trigger[data-tooltip-position="top"]::after {
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+}
+
 .retro-tooltip-trigger[data-tooltip]:not([data-tooltip=""]):hover::after {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
 }
 
 .retro-tooltip-trigger[data-tooltip-position="bottom"]:not([data-tooltip=""]):hover::after {
+  transform: translateX(-50%) translateY(0);
+}
+
+.retro-tooltip-trigger[data-tooltip-position="top"]:not([data-tooltip=""]):hover::after {
   transform: translateX(-50%) translateY(0);
 }
 
