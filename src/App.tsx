@@ -2368,7 +2368,7 @@ function App() {
                               <img
                                 src={characterDisplay.avatarSrc}
                                 alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                                className="retro-character-avatar h-16 w-16 rounded-xl object-cover object-center"
+                                className="retro-character-avatar h-16 w-16 rounded-xl object-cover object-center transition-transform duration-300 hover:scale-[1.28] hover:z-20"
                               />
                             ) : null}
                             <div className="min-w-0">
@@ -2613,7 +2613,7 @@ function App() {
                         <img
                           src={characterDisplay.avatarSrc}
                           alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                          className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0"
+                          className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0 transition-transform duration-300 hover:scale-[1.32] hover:z-20"
                         />
                       ) : null}
                       <div className="min-w-0 flex-1">

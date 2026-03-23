@@ -845,6 +845,8 @@ textarea.w-full:focus {
     0 0 24px rgba(173, 98, 255, 0.5),
     0 0 40px rgba(112, 214, 255, 0.32);
   animation: bewitchedGlowPulse 2.4s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
 }
 
 .retro-character-avatar--compact {
