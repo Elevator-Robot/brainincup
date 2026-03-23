@@ -146,13 +146,11 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
 
   const card = (
     <div className={`${embedded ? 'w-full p-0' : 'retro-frame bg-brand-surface-elevated/95 border border-amber-700/35 rounded-2xl shadow-2xl max-w-md w-full p-4'} animate-slide-up`}>
-      <h2 className="text-2xl font-bold text-brand-text-primary mb-1">Create Your Character</h2>
-      <p className="text-sm text-brand-text-secondary mb-3">Begin your adventure without leaving the story.</p>
       
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label htmlFor={nameInputId} className="block text-sm font-medium text-brand-text-primary mb-1">
-            Character Name *
+            Your name?
           </label>
           <input
             id={nameInputId}
@@ -163,7 +161,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               setError('');
             }}
             maxLength={50}
-            aria-label="Character Name"
+            aria-label="Your name?"
             className="w-full bg-transparent border-0 border-b border-brand-surface-border/70 rounded-none px-1 py-1 text-lg tracking-wide text-brand-text-primary focus:outline-none focus:ring-0 focus:border-brand-accent-primary/80 transition-all disabled:opacity-60"
             autoFocus
             disabled={isSubmitting}
