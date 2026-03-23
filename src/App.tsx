@@ -57,10 +57,14 @@ const formatModelErrors = (errors: unknown): string => {
 };
 
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
+const LAST_CONVERSATION_STORAGE_KEY_PREFIX = 'lastConversationId';
 const UI_CENTER_LIST_COLLAPSED_KEY = 'uiCenterListCollapsed';
 const UI_MOBILE_INFO_EXPANDED_KEY = 'uiMobileInfoExpanded';
 const UI_MOBILE_CHARACTER_EXPANDED_KEY = 'uiMobileCharacterExpanded';
 const ACCOUNT_DELETE_CONFIRM_TEXT = 'DELETE';
+
+const getLastConversationStorageKey = (mode: string): string =>
+  `${LAST_CONVERSATION_STORAGE_KEY_PREFIX}:${normalizePersonalityMode(mode)}`;
 
 const readStoredConversationAvatarMap = (): Record<string, string> => {
   if (typeof window === 'undefined') return {};
@@ -922,12 +926,12 @@ function App() {
     getUserAttributes();
   }, []);
 
-  // Save conversationId to localStorage whenever it changes
+  // Save conversationId scoped by mode to prevent cross-talk between modes.
   useEffect(() => {
     if (conversationId) {
-      localStorage.setItem('lastConversationId', conversationId);
+      localStorage.setItem(getLastConversationStorageKey(effectivePersonality), conversationId);
     }
-  }, [conversationId]);
+  }, [conversationId, effectivePersonality]);
 
   // Persist current mode to avoid Brain->Game Master flicker on initial app boot.
   useEffect(() => {
@@ -964,21 +968,23 @@ function App() {
           return;
         }
 
-        // Check for last conversation ID in localStorage
-        const lastConversationId = localStorage.getItem('lastConversationId');
+        // Check for last conversation ID scoped to the currently active mode.
+        const lastConversationStorageKey = getLastConversationStorageKey(effectivePersonality);
+        const lastConversationId = localStorage.getItem(lastConversationStorageKey);
         if (lastConversationId) {
           try {
             // Verify the conversation still exists
             const { data: conversation } = await dataClient.models.Conversation.get({ id: lastConversationId });
-            if (conversation) {
+            const conversationMode = normalizePersonalityMode(conversation?.personalityMode || 'default');
+            if (conversation && conversationMode === effectivePersonality) {
               await handleSelectConversation(lastConversationId);
               return;
             } else {
-              localStorage.removeItem('lastConversationId');
+              localStorage.removeItem(lastConversationStorageKey);
             }
           } catch (error) {
             console.error('❌ Error verifying last conversation:', error);
-            localStorage.removeItem('lastConversationId');
+            localStorage.removeItem(lastConversationStorageKey);
           }
         }
 
@@ -1414,13 +1420,15 @@ function App() {
       if (conversationData) {
         const storedMode = conversationData.personalityMode || 'default';
         const normalizedMode = normalizePersonalityMode(storedMode);
-        if (storedMode !== normalizedMode) {
-          await dataClient.models.Conversation.update({
-            id: selectedConversationId,
-            personalityMode: normalizedMode,
+        if (normalizedMode !== effectivePersonality) {
+          console.warn('Refusing to select cross-mode interaction:', {
+            selectedConversationId,
+            normalizedMode,
+            effectivePersonality,
           });
+          setIsWaitingForResponse(false);
+          return;
         }
-        setPersonalityMode(normalizedMode);
         if (normalizedMode === 'game_master') {
           setShowCharacterCreation(false);
           const character = await fetchCharacter(selectedConversationId);
@@ -1502,7 +1510,7 @@ function App() {
     adventureFetchLock.current = null;
     const shouldShowCharacterFlow = effectivePersonality === 'game_master';
     if (typeof window !== 'undefined') {
-      window.localStorage.removeItem('lastConversationId');
+      window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
     }
     setIsSelectingConversation(false);
     setConversationId(null);
@@ -1519,24 +1527,22 @@ function App() {
     setExpandedMessageIndex(null);
     setIsBulkDeleteMode(false);
     setBulkDeleteConversationIds(new Set());
+    setIsNewInteractionPrimed(false);
 
-    if (newInteractionPrimeTimerRef.current) {
-      clearTimeout(newInteractionPrimeTimerRef.current);
-      newInteractionPrimeTimerRef.current = null;
+    setIsSelectingConversation(true);
+    try {
+      const createdConversationId = await createConversationWithMode(effectivePersonality);
+      if (!createdConversationId) {
+        return;
+      }
+      if (!shouldShowCharacterFlow) {
+        requestAnimationFrame(() => {
+          inputRef.current?.focus();
+        });
+      }
+    } finally {
+      setIsSelectingConversation(false);
     }
-    if (shouldShowCharacterFlow) {
-      setIsNewInteractionPrimed(false);
-    } else {
-      setIsNewInteractionPrimed(true);
-      newInteractionPrimeTimerRef.current = setTimeout(() => {
-        setIsNewInteractionPrimed(false);
-        newInteractionPrimeTimerRef.current = null;
-      }, 900);
-    }
-
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-    });
   };
 
   const createConversationWithMode = useCallback(async (modeId: string): Promise<string | null> => {
@@ -1562,7 +1568,7 @@ function App() {
         setAdventureState(null);
         setQuestSteps([]);
         setCharacterState(null);
-        setShowCharacterCreation(false);
+        setShowCharacterCreation(normalized === 'game_master');
         setConversationListRefreshKey((prev) => prev + 1);
         return mockConversationId;
       }
@@ -1591,7 +1597,7 @@ function App() {
         setAdventureState(null);
         setQuestSteps([]);
         setCharacterState(null);
-        setShowCharacterCreation(false);
+        setShowCharacterCreation(normalized === 'game_master');
         setConversationListRefreshKey((prev) => prev + 1);
         return createdId;
 
@@ -1610,34 +1616,23 @@ function App() {
     const normalized = normalizePersonalityMode(modeId);
     if (normalized === effectivePersonality) return;
 
-    if (normalized === 'game_master') {
-      setShowCharacterCreation(false);
-      setCharacterState(null);
-      setAdventureState(null);
-      setQuestSteps([]);
-      setPendingCharacterDraft(null);
-    } else {
-      setShowCharacterCreation(false);
-      setAdventureState(null);
-      setQuestSteps([]);
-      setCharacterState(null);
-      setPendingCharacterDraft(null);
-    }
-
+    setIsSelectingConversation(false);
+    setConversationId(null);
+    setMessages([]);
+    setInputMessage('');
+    setIsWaitingForResponse(false);
+    setExpandedMessageIndex(null);
+    setAdventureState(null);
+    setQuestSteps([]);
+    setCharacterState(null);
+    setShowCharacterCreation(false);
+    setPendingCharacterDraft(null);
+    setIsNewInteractionPrimed(false);
+    setIsBulkDeleteMode(false);
+    setBulkDeleteConversationIds(new Set());
+    setDraggingConversationId(null);
+    setIsTrashDragOver(false);
     setPersonalityMode(normalized);
-
-    if (!conversationId || isTestModeEnabled()) {
-      return;
-    }
-
-    try {
-      await dataClient.models.Conversation.update({
-        id: conversationId,
-        personalityMode: normalized,
-      });
-    } catch (error) {
-      console.error('Error updating conversation mode:', error);
-    }
   };
 
   const handleFacilitatedModeToggle = (modeId: PersonalityModeId) => {
@@ -1685,7 +1680,7 @@ function App() {
 
       if (activeConversationDeleted) {
         if (typeof window !== 'undefined') {
-          window.localStorage.removeItem('lastConversationId');
+          window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
         }
         setIsSelectingConversation(false);
         setConversationId(null);
@@ -1704,7 +1699,7 @@ function App() {
     } catch (error) {
       console.error('Error deleting selected conversations:', error);
     }
-  }, [bulkDeleteConversationIds, conversationId, isBulkDeleteMode]);
+  }, [bulkDeleteConversationIds, conversationId, effectivePersonality, isBulkDeleteMode]);
 
   const deleteConversationById = useCallback(async (targetConversationId: string) => {
     if (!targetConversationId) return;
@@ -1720,7 +1715,7 @@ function App() {
 
       if (deletingActiveConversation) {
         if (typeof window !== 'undefined') {
-          window.localStorage.removeItem('lastConversationId');
+          window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
         }
         setIsSelectingConversation(false);
         setConversationId(null);
@@ -1740,7 +1735,7 @@ function App() {
       setDraggingConversationId(null);
       setIsTrashDragOver(false);
     }
-  }, [conversationId]);
+  }, [conversationId, effectivePersonality]);
 
   const handleTrashDragOver = useCallback((event: React.DragEvent<HTMLButtonElement>) => {
     if (isBulkDeleteMode || !draggingConversationId) return;
