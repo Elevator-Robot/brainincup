@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { fetchUserAttributes, signOut } from 'aws-amplify/auth';
+import { fetchUserAttributes, signOut, deleteUser } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
 import BrainIcon from './components/BrainIcon';
@@ -14,6 +14,7 @@ import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityM
 import type { PersonalityModeId } from './constants/personalityModes';
 import {
   chooseAutoAvatarId,
+  getAvatarOptionsForRace,
   getAvatarOptionById,
 } from './constants/gameMasterAvatars';
 import { isNoConversationsTestMode, isTestModeEnabled } from './utils/testMode';
@@ -59,6 +60,7 @@ const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
 const UI_CENTER_LIST_COLLAPSED_KEY = 'uiCenterListCollapsed';
 const UI_MOBILE_INFO_EXPANDED_KEY = 'uiMobileInfoExpanded';
 const UI_MOBILE_CHARACTER_EXPANDED_KEY = 'uiMobileCharacterExpanded';
+const ACCOUNT_DELETE_CONFIRM_TEXT = 'DELETE';
 
 const readStoredConversationAvatarMap = (): Record<string, string> => {
   if (typeof window === 'undefined') return {};
@@ -88,6 +90,19 @@ const writeStoredConversationAvatar = (conversationId: string, avatarId: string)
     window.localStorage.setItem(GM_CONVERSATION_AVATAR_STORAGE_KEY, JSON.stringify(existing));
   } catch (error) {
     console.warn('Failed to persist Game Master conversation avatar:', error);
+  }
+};
+
+const removeStoredConversationAvatar = (conversationId: string) => {
+  if (typeof window === 'undefined') return;
+  if (!conversationId) return;
+  const existing = readStoredConversationAvatarMap();
+  if (!existing[conversationId]) return;
+  delete existing[conversationId];
+  try {
+    window.localStorage.setItem(GM_CONVERSATION_AVATAR_STORAGE_KEY, JSON.stringify(existing));
+  } catch (error) {
+    console.warn('Failed to remove persisted Game Master conversation avatar:', error);
   }
 };
 
@@ -372,10 +387,16 @@ function App() {
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen] = useState(false);
+  const [deleteAccountConfirmValue, setDeleteAccountConfirmValue] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState('');
   const [isCenterListCollapsed, setIsCenterListCollapsed] = useState(() =>
     readStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, false)
   );
   const [conversationListRefreshKey, setConversationListRefreshKey] = useState(0);
+  const [isBulkDeleteMode, setIsBulkDeleteMode] = useState(false);
+  const [bulkDeleteConversationIds, setBulkDeleteConversationIds] = useState<Set<string>>(new Set());
   
   // Game Master data state
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
@@ -639,7 +660,7 @@ function App() {
       };
       const createdWithAvatar = await dataClient.models.GameMasterCharacter.create({
         ...baseCharacterPayload,
-        avatarId,
+        ...(avatarId ? { avatarId } : {}),
       });
       let created = createdWithAvatar;
 
@@ -649,8 +670,11 @@ function App() {
       }
       
       if (created.data) {
-        setCharacterState({ ...(created.data as CharacterRecord), avatarId });
-        writeStoredConversationAvatar(convId, avatarId);
+        const createdAvatarId = getAvatarOptionById(avatarId)?.id ?? '';
+        setCharacterState(createdAvatarId ? { ...(created.data as CharacterRecord), avatarId: createdAvatarId } : (created.data as CharacterRecord));
+        if (createdAvatarId) {
+          writeStoredConversationAvatar(convId, createdAvatarId);
+        }
         const conversationTitle = (characterData.name || '').trim();
         if (conversationTitle) {
           try {
@@ -1456,6 +1480,7 @@ function App() {
   };
 
   const handleNewConversation = async () => {
+    adventureFetchLock.current = null;
     if (effectivePersonality === 'game_master') {
       setCharacterState(null);
       setAdventureState(null);
@@ -1517,21 +1542,9 @@ function App() {
           return;
         }
 
-        setConversationId(createdId);
-        setMessages([]);
-        setPersonalityMode(normalized);
-        setShowCharacterCreation(false);
         console.log('✅ Created new conversation:', createdId);
-        
-        if (normalized === 'game_master') {
-          await fetchAdventureBundle(createdId, normalized);
-        } else {
-          setAdventureState(null);
-          setQuestSteps([]);
-          setCharacterState(null);
-          setShowCharacterCreation(false);
-        }
         setConversationListRefreshKey((prev) => prev + 1);
+        await handleSelectConversation(createdId);
 
       } else {
         console.error('❌ Failed to create conversation: No data returned');
@@ -1574,6 +1587,66 @@ function App() {
     }
   };
 
+  const handleToggleBulkDeleteConversation = useCallback((targetConversationId: string) => {
+    if (!targetConversationId) return;
+    setBulkDeleteConversationIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(targetConversationId)) {
+        next.delete(targetConversationId);
+      } else {
+        next.add(targetConversationId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSidebarDeleteAction = useCallback(async () => {
+    if (!isBulkDeleteMode) {
+      setIsProfileMenuOpen(false);
+      setBulkDeleteConversationIds(new Set());
+      setIsBulkDeleteMode(true);
+      return;
+    }
+
+    const idsToDelete = Array.from(bulkDeleteConversationIds);
+    if (idsToDelete.length === 0) {
+      setIsBulkDeleteMode(false);
+      return;
+    }
+
+    const activeConversationDeleted = conversationId ? idsToDelete.includes(conversationId) : false;
+
+    try {
+      if (!isTestModeEnabled()) {
+        await Promise.all(
+          idsToDelete.map((id) => dataClient.models.Conversation.delete({ id }))
+        );
+      }
+
+      idsToDelete.forEach((id) => removeStoredConversationAvatar(id));
+
+      if (activeConversationDeleted) {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('lastConversationId');
+        }
+        setIsSelectingConversation(false);
+        setConversationId(null);
+        setMessages([]);
+        setIsWaitingForResponse(false);
+        setAdventureState(null);
+        setQuestSteps([]);
+        setCharacterState(null);
+        setShowCharacterCreation(false);
+      }
+
+      setConversationListRefreshKey((prev) => prev + 1);
+      setBulkDeleteConversationIds(new Set());
+      setIsBulkDeleteMode(false);
+    } catch (error) {
+      console.error('Error deleting selected conversations:', error);
+    }
+  }, [bulkDeleteConversationIds, conversationId, isBulkDeleteMode]);
+
 
   const handleSignOut = async () => {
     try {
@@ -1581,6 +1654,38 @@ function App() {
       window.location.reload();
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  const openDeleteAccountConfirm = () => {
+    setDeleteAccountError('');
+    setDeleteAccountConfirmValue('');
+    setIsProfileMenuOpen(false);
+    setIsDeleteAccountConfirmOpen(true);
+  };
+
+  const closeDeleteAccountConfirm = () => {
+    if (isDeletingAccount) return;
+    setIsDeleteAccountConfirmOpen(false);
+    setDeleteAccountConfirmValue('');
+    setDeleteAccountError('');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteAccountConfirmValue !== ACCOUNT_DELETE_CONFIRM_TEXT) {
+      setDeleteAccountError('Please type DELETE to confirm.');
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    setDeleteAccountError('');
+    try {
+      await deleteUser();
+      window.location.reload();
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      setDeleteAccountError('Unable to delete account right now. Please try again.');
+      setIsDeletingAccount(false);
     }
   };
 
@@ -1595,17 +1700,30 @@ function App() {
     if (!conversationId) {
       throw new Error('No active conversation for character creation');
     }
-    const { calculateFinalStats } = await import('./game');
-    const stats = calculateFinalStats('wanderer', 'human');
+    const { calculateFinalStats, getAllRaces, getAllClasses } = await import('./game');
+    const raceOptions = getAllRaces();
+    const classOptions = getAllClasses();
+    if (raceOptions.length === 0 || classOptions.length === 0) {
+      throw new Error('No races or classes are configured for quick start');
+    }
+
+    const selectedRace = raceOptions[Math.floor(Math.random() * raceOptions.length)];
+    const selectedClass = classOptions[Math.floor(Math.random() * classOptions.length)];
+    const raceAvatarOptions = getAvatarOptionsForRace(selectedRace.name);
+    const randomAvatarId = raceAvatarOptions.length > 0
+      ? raceAvatarOptions[Math.floor(Math.random() * raceAvatarOptions.length)].id
+      : chooseAutoAvatarId({
+        name: 'Adventurer',
+        race: selectedRace.name,
+        characterClass: selectedClass.name,
+      });
+    const stats = calculateFinalStats(selectedClass.id, selectedRace.id);
+
     await createCharacter(conversationId, {
       name: 'Adventurer',
-      race: 'Human',
-      characterClass: 'Wanderer',
-      avatarId: chooseAutoAvatarId({
-        name: 'Adventurer',
-        race: 'Human',
-        characterClass: 'Wanderer',
-      }),
+      race: selectedRace.name,
+      characterClass: selectedClass.name,
+      avatarId: randomAvatarId,
       ...stats,
     });
   }, [conversationId, createCharacter]);
@@ -1734,13 +1852,6 @@ function App() {
                 <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={handleNewConversation}
-                    className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
-                    aria-label="Start new conversation"
-                  >
-                    <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
-                  </button>
-                  <button
                     type="button"
                     onClick={() => setShowDebugInfo((prev) => !prev)}
                     className={`retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
@@ -1770,6 +1881,17 @@ function App() {
               <Panel className="retro-left-panel retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-2 py-3">
                 <div className="flex h-full flex-col items-center justify-between gap-4">
                   <div className="flex w-full flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleNewConversation}
+                      disabled={isWaitingForResponse || isSelectingConversation}
+                      className="retro-icon-button h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
+                      aria-label="Start new interaction"
+                      title="New interaction"
+                    >
+                      <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
+                    </button>
+                    <div className="my-1 h-px w-7 bg-brand-surface-border/40" aria-hidden="true" />
                     {MODE_OPTIONS.map((option) => {
                       const isActive = option.id === effectivePersonality;
                       return (
@@ -1780,7 +1902,7 @@ function App() {
                           className={`retro-icon-button retro-left-mode-button h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
                             isActive
                               ? 'retro-left-mode-button-active border border-brand-accent-primary/40 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
-                              : 'border border-brand-surface-border/45 bg-brand-surface-secondary/35 text-brand-text-primary hover:border-brand-surface-border/60 hover:bg-brand-surface-secondary/55'
+                              : 'border border-brand-surface-border/45 bg-brand-bg-secondary/65 text-brand-text-primary hover:border-brand-surface-border/60 hover:bg-brand-bg-tertiary/55'
                           }`}
                           aria-label={`Switch to ${option.shortLabel}`}
                         >
@@ -1795,6 +1917,29 @@ function App() {
                   </div>
 
                   <div ref={profileMenuRef} className="relative z-40">
+                    <button
+                      type="button"
+                      onClick={() => { void handleSidebarDeleteAction(); }}
+                      className={`retro-icon-button mb-2 h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
+                        isBulkDeleteMode
+                          ? 'border-brand-status-error/55 bg-brand-status-error/18 text-brand-status-error'
+                          : 'border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary'
+                      }`}
+                      aria-label={
+                        isBulkDeleteMode
+                          ? `Delete ${bulkDeleteConversationIds.size} selected interaction${bulkDeleteConversationIds.size === 1 ? '' : 's'}`
+                          : 'Enter interaction deletion mode'
+                      }
+                      title={
+                        isBulkDeleteMode
+                          ? `Delete selected (${bulkDeleteConversationIds.size})`
+                          : 'Select interactions to delete'
+                      }
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
+                      </svg>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setIsProfileMenuOpen((prev) => !prev)}
@@ -1823,6 +1968,16 @@ function App() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                           </svg>
                           Sign out
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openDeleteAccountConfirm}
+                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
+                          </svg>
+                          Delete account
                         </button>
                       </div>
                     )}
@@ -1857,10 +2012,12 @@ function App() {
                           onSelectConversation={(selectedConversationId) => {
                             void handleSelectConversation(selectedConversationId);
                           }}
-                          disableNewConversation={isWaitingForResponse}
                           selectedConversationId={conversationId}
                           refreshKey={conversationListRefreshKey}
                           activeMode={effectivePersonality}
+                          deleteSelectionMode={isBulkDeleteMode}
+                          selectedDeleteIds={bulkDeleteConversationIds}
+                          onToggleDeleteSelection={handleToggleBulkDeleteConversation}
                         />
                       </div>
                     </div>
@@ -2207,11 +2364,15 @@ function App() {
                         <div className="retro-right-section retro-right-section--character relative">
                           <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
                           <div className="mt-3 flex items-center gap-3">
-                            <img
-                              src={characterDisplay.avatarSrc}
-                              alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                              className="retro-character-avatar h-16 w-16 rounded-xl object-cover"
-                            />
+                            {characterDisplay.avatarSrc ? (
+                              <div className="relative z-10 flex-shrink-0 transition-transform duration-300 hover:z-30 hover:scale-[1.35]">
+                                <img
+                                  src={characterDisplay.avatarSrc}
+                                  alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                                  className="retro-character-avatar h-16 w-16 rounded-xl object-cover object-center"
+                                />
+                              </div>
+                            ) : null}
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
                               <p className="text-xs text-brand-text-muted">{characterDisplay.characterClass || 'Wanderer'} • Lv {characterDisplay.level}</p>
@@ -2321,13 +2482,6 @@ function App() {
               <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleNewConversation}
-                  className="retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors"
-                  aria-label="Start new conversation"
-                >
-                  <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
-                </button>
-                <button
                   type="button"
                   onClick={() => setShowDebugInfo((prev) => !prev)}
                   className={`retro-icon-button w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
@@ -2341,6 +2495,18 @@ function App() {
             </div>
 
             <div>
+              <button
+                type="button"
+                onClick={handleNewConversation}
+                disabled={isWaitingForResponse || isSelectingConversation}
+                className="mb-2.5 w-full flex items-center gap-3 rounded-xl border border-brand-surface-border/45 bg-brand-bg-secondary/65 px-2.5 py-2 text-left transition-all duration-200 hover:border-brand-surface-border/65 hover:bg-brand-bg-tertiary/55 disabled:cursor-not-allowed disabled:opacity-45"
+                aria-label="Start new interaction"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
+                  <img src="/addChat.svg" alt="" aria-hidden="true" className="h-4.5 w-4.5 object-contain brightness-0 invert" />
+                </span>
+                <span className="text-sm font-medium text-brand-text-primary">New Interaction</span>
+              </button>
               {MODE_OPTIONS.map((option) => {
                 const isActive = option.id === effectivePersonality;
                 const isGameMasterOption = option.id === 'game_master';
@@ -2352,7 +2518,7 @@ function App() {
                     className={`w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-all duration-200 ${
                       isActive
                         ? 'border border-brand-accent-primary/35 bg-brand-accent-primary/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
-                        : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-surface-secondary/35 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_16px_rgba(2,10,12,0.22)]'
+                        : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-bg-secondary/60 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(156,116,230,0.18),0_8px_16px_rgba(2,10,12,0.22)]'
                     }`}
                     aria-label={`Switch to ${option.shortLabel}`}
                   >
@@ -2445,11 +2611,15 @@ function App() {
                     className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <img
-                        src={characterDisplay.avatarSrc}
-                        alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                        className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                      />
+                      {characterDisplay.avatarSrc ? (
+                        <div className="relative z-10 flex-shrink-0 transition-transform duration-300 hover:z-30 hover:scale-[1.42]">
+                          <img
+                            src={characterDisplay.avatarSrc}
+                            alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                            className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0"
+                          />
+                        </div>
+                      ) : null}
                       <div className="min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
                         <p className="text-sm text-brand-text-primary font-medium truncate">Stats & Inventory</p>
@@ -2799,6 +2969,50 @@ function App() {
 
       {/* Install Prompt */}
       <InstallPrompt />
+
+      {isDeleteAccountConfirmOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/65 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-5 shadow-glass-lg">
+            <p className="text-xs uppercase tracking-[0.22em] text-brand-text-muted">Account Settings</p>
+            <h2 className="mt-2 text-lg font-semibold text-brand-text-primary">Delete account</h2>
+            <p className="mt-2 text-sm text-brand-text-secondary">
+              This permanently removes your account. Type <span className="font-semibold text-brand-text-primary">{ACCOUNT_DELETE_CONFIRM_TEXT}</span> to confirm.
+            </p>
+            <input
+              type="text"
+              value={deleteAccountConfirmValue}
+              onChange={(event) => {
+                setDeleteAccountConfirmValue(event.target.value);
+                setDeleteAccountError('');
+              }}
+              placeholder={ACCOUNT_DELETE_CONFIRM_TEXT}
+              className="mt-4 w-full rounded-xl border border-brand-surface-border/60 bg-brand-surface-hover/70 px-3 py-2 text-sm text-brand-text-primary placeholder:text-brand-text-muted focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45"
+              disabled={isDeletingAccount}
+            />
+            {deleteAccountError ? (
+              <p className="mt-2 text-sm text-brand-status-error">{deleteAccountError}</p>
+            ) : null}
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeDeleteAccountConfirm}
+                className="rounded-xl border border-brand-surface-border/60 px-3 py-2 text-sm text-brand-text-secondary hover:bg-brand-surface-hover/55"
+                disabled={isDeletingAccount}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                className="rounded-xl bg-brand-status-error/85 px-3 py-2 text-sm font-medium text-white hover:bg-brand-status-error disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isDeletingAccount || deleteAccountConfirmValue !== ACCOUNT_DELETE_CONFIRM_TEXT}
+              >
+                {isDeletingAccount ? 'Deleting…' : 'Delete account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

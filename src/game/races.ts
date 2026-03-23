@@ -4,10 +4,10 @@ import type { RaceDefinition } from './types';
 // Each race has complete base stats (no modifiers, these ARE the base)
 
 export const RACES: Record<string, RaceDefinition> = {
-  human: {
-    id: 'human',
-    name: 'Human',
-    description: 'Versatile and adaptable, humans are found across all lands.',
+  terran: {
+    id: 'terran',
+    name: 'Terran',
+    description: 'Adaptable and resilient people of the central realms.',
     baseStats: {
       strength: 11,
       dexterity: 11,
@@ -20,11 +20,28 @@ export const RACES: Record<string, RaceDefinition> = {
     size: 'Medium',
     speed: 30,
   },
+
+  goblin: {
+    id: 'goblin',
+    name: 'Goblin',
+    description: 'Cunning and quick, goblins excel at survival and opportunism.',
+    baseStats: {
+      strength: 8,
+      dexterity: 13,
+      constitution: 10,
+      intelligence: 10,
+      wisdom: 10,
+      charisma: 9,
+    },
+    traits: ['Nimble Escape', 'Darkvision', 'Scavenger Instinct'],
+    size: 'Small',
+    speed: 30,
+  },
   
-  elf: {
-    id: 'elf',
-    name: 'Elf',
-    description: 'Graceful and perceptive, elves are attuned to magic and nature.',
+  elvin: {
+    id: 'elvin',
+    name: 'Elvin',
+    description: 'Graceful and perceptive, the Elvin are deeply attuned to magic and nature.',
     baseStats: {
       strength: 8,
       dexterity: 12,
@@ -38,21 +55,21 @@ export const RACES: Record<string, RaceDefinition> = {
     speed: 30,
   },
   
-  dwarf: {
-    id: 'dwarf',
-    name: 'Dwarf',
-    description: 'Hardy and resilient, dwarves are master craftsmen and warriors.',
+  troll: {
+    id: 'troll',
+    name: 'Troll',
+    description: 'Massive and relentless, trolls endure wounds others cannot.',
     baseStats: {
-      strength: 11,
-      dexterity: 9,
-      constitution: 12,
-      intelligence: 10,
-      wisdom: 11,
-      charisma: 9,
+      strength: 13,
+      dexterity: 8,
+      constitution: 13,
+      intelligence: 8,
+      wisdom: 10,
+      charisma: 8,
     },
-    traits: ['Darkvision', 'Dwarven Resilience', 'Stonecunning', 'Tool Proficiency'],
-    size: 'Medium',
-    speed: 25,
+    traits: ['Regenerative Vigor', 'Brutal Frame', 'Darkvision'],
+    size: 'Large',
+    speed: 30,
   },
   
   halfling: {
@@ -72,57 +89,23 @@ export const RACES: Record<string, RaceDefinition> = {
     speed: 25,
   },
   
-  dragonborn: {
-    id: 'dragonborn',
-    name: 'Dragonborn',
-    description: 'Proud dragon-blooded warriors with elemental breath.',
+  orc: {
+    id: 'orc',
+    name: 'Orc',
+    description: 'Powerful and direct, orcs are fierce in battle and loyal in kinship.',
     baseStats: {
-      strength: 12,
-      dexterity: 10,
-      constitution: 11,
-      intelligence: 10,
+      strength: 13,
+      dexterity: 9,
+      constitution: 12,
+      intelligence: 8,
       wisdom: 10,
-      charisma: 11,
+      charisma: 9,
     },
-    traits: ['Draconic Ancestry', 'Breath Weapon', 'Damage Resistance'],
+    traits: ['Adrenaline Rush', 'Powerful Build', 'Menacing'],
     size: 'Medium',
     speed: 30,
   },
-  
-  gnome: {
-    id: 'gnome',
-    name: 'Gnome',
-    description: 'Curious and inventive, gnomes have a magical affinity.',
-    baseStats: {
-      strength: 8,
-      dexterity: 10,
-      constitution: 10,
-      intelligence: 12,
-      wisdom: 10,
-      charisma: 10,
-    },
-    traits: ['Darkvision', 'Gnome Cunning', 'Artificer\'s Lore', 'Tinker'],
-    size: 'Small',
-    speed: 25,
-  },
-  
-  halfElf: {
-    id: 'halfElf',
-    name: 'Half-Elf',
-    description: 'Blending human versatility with elven grace.',
-    baseStats: {
-      strength: 10,
-      dexterity: 11,
-      constitution: 10,
-      intelligence: 10,
-      wisdom: 10,
-      charisma: 12,
-    },
-    traits: ['Darkvision', 'Fey Ancestry', 'Skill Versatility'],
-    size: 'Medium',
-    speed: 30,
-  },
-  
+
   halfOrc: {
     id: 'halfOrc',
     name: 'Half-Orc',
@@ -140,22 +123,6 @@ export const RACES: Record<string, RaceDefinition> = {
     speed: 30,
   },
   
-  tiefling: {
-    id: 'tiefling',
-    name: 'Tiefling',
-    description: 'Bearing infernal heritage with innate magical abilities.',
-    baseStats: {
-      strength: 9,
-      dexterity: 10,
-      constitution: 10,
-      intelligence: 11,
-      wisdom: 10,
-      charisma: 12,
-    },
-    traits: ['Darkvision', 'Hellish Resistance', 'Infernal Legacy'],
-    size: 'Medium',
-    speed: 30,
-  },
 };
 
 // Helper to get race by ID

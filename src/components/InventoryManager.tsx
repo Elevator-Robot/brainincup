@@ -82,17 +82,6 @@ export default function InventoryManager({
     }
   };
 
-  const getItemTypeIcon = (type: string) => {
-    switch (type) {
-    case 'weapon': return '⚔️';
-    case 'armor': return '🛡️';
-    case 'consumable': return '🧪';
-    case 'quest': return '📜';
-    case 'currency': return '💰';
-    default: return '📦';
-    }
-  };
-
   const totalSlots = Math.max(maxSlots, inventory.length);
   const usedSlots = Math.min(inventory.length, totalSlots);
   const collapsedVisibleItems = 6;
@@ -143,7 +132,6 @@ export default function InventoryManager({
               key={item.id}
               className="flex items-center justify-between gap-2 border-b border-brand-surface-border/20 py-2 last:border-b-0"
             >
-              <div className="mt-0.5 text-sm leading-none" aria-hidden="true">{getItemTypeIcon(item.type)}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h4 className="text-sm font-semibold text-brand-text-primary truncate">
