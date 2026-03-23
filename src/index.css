@@ -856,6 +856,36 @@ textarea.w-full:focus {
     0 0 14px rgba(173, 98, 255, 0.34);
 }
 
+.retro-character-avatar-wrap {
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  transition: transform 300ms ease, filter 300ms ease;
+}
+
+.retro-character-meta {
+  transition: transform 300ms ease, opacity 300ms ease;
+  will-change: transform;
+}
+
+.retro-character-identity:hover .retro-character-avatar-wrap {
+  z-index: 30;
+  transform: scale(1.35);
+  filter: brightness(1.03);
+}
+
+.retro-character-identity:hover .retro-character-meta {
+  transform: translateX(8px);
+}
+
+.retro-character-identity--compact:hover .retro-character-avatar-wrap {
+  transform: scale(1.42);
+}
+
+.retro-character-identity--compact:hover .retro-character-meta--compact {
+  transform: translateX(6px);
+}
+
 .retro-interaction-avatar {
   border: 0;
   background: linear-gradient(145deg, rgba(147, 102, 230, 0.14), rgba(120, 81, 169, 0.1));
