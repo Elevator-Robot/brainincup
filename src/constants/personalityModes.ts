@@ -41,6 +41,11 @@ export const MODE_OPTIONS: PersonalityModeMeta[] = [
   }
 ];
 
+// Brain is the base website experience; facilitated modes are explicit opt-ins.
+export const FACILITATED_MODE_OPTIONS: PersonalityModeMeta[] = MODE_OPTIONS.filter(
+  (option) => option.id !== 'default',
+);
+
 export const MODE_META = MODE_OPTIONS.reduce<Record<PersonalityModeId, PersonalityModeMeta>>((acc, option) => {
   acc[option.id] = option;
   return acc;

@@ -10,7 +10,7 @@ import ConversationList from './components/ConversationList';
 import InventoryManager, { type InventoryItem } from './components/InventoryManager';
 import Panel from './components/ui/Panel';
 import { RPGLayout, LeftSidebar, CenterNarrative, RightStatus, BottomInput } from './components/ui/RPGLayout';
-import { MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
+import { FACILITATED_MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import {
   chooseAutoAvatarId,
@@ -57,10 +57,14 @@ const formatModelErrors = (errors: unknown): string => {
 };
 
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
+const LAST_CONVERSATION_STORAGE_KEY_PREFIX = 'lastConversationId';
 const UI_CENTER_LIST_COLLAPSED_KEY = 'uiCenterListCollapsed';
 const UI_MOBILE_INFO_EXPANDED_KEY = 'uiMobileInfoExpanded';
 const UI_MOBILE_CHARACTER_EXPANDED_KEY = 'uiMobileCharacterExpanded';
 const ACCOUNT_DELETE_CONFIRM_TEXT = 'DELETE';
+
+const getLastConversationStorageKey = (mode: string): string =>
+  `${LAST_CONVERSATION_STORAGE_KEY_PREFIX}:${normalizePersonalityMode(mode)}`;
 
 const readStoredConversationAvatarMap = (): Record<string, string> => {
   if (typeof window === 'undefined') return {};
@@ -399,6 +403,8 @@ function App() {
   const [bulkDeleteConversationIds, setBulkDeleteConversationIds] = useState<Set<string>>(new Set());
   const [draggingConversationId, setDraggingConversationId] = useState<string | null>(null);
   const [isTrashDragOver, setIsTrashDragOver] = useState(false);
+  const [isNewInteractionPrimed, setIsNewInteractionPrimed] = useState(false);
+  const [pendingCharacterDraft, setPendingCharacterDraft] = useState<CharacterCreationInput | null>(null);
   
   // Game Master data state
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
@@ -869,6 +875,7 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const newInteractionPrimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageContainerRefs = useRef<Map<number, HTMLDivElement>>(new Map()); // Track individual message container refs (bubble + details)
   const desktopScrollContainerRef = useRef<HTMLDivElement>(null); // Desktop scroll container
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -889,6 +896,13 @@ function App() {
       document.removeEventListener('touchstart', handleOutsideClick);
     };
   }, [isProfileMenuOpen]);
+
+  useEffect(() => () => {
+    if (newInteractionPrimeTimerRef.current) {
+      clearTimeout(newInteractionPrimeTimerRef.current);
+      newInteractionPrimeTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     async function getUserAttributes() {
@@ -912,12 +926,12 @@ function App() {
     getUserAttributes();
   }, []);
 
-  // Save conversationId to localStorage whenever it changes
+  // Save conversationId scoped by mode to prevent cross-talk between modes.
   useEffect(() => {
     if (conversationId) {
-      localStorage.setItem('lastConversationId', conversationId);
+      localStorage.setItem(getLastConversationStorageKey(effectivePersonality), conversationId);
     }
-  }, [conversationId]);
+  }, [conversationId, effectivePersonality]);
 
   // Persist current mode to avoid Brain->Game Master flicker on initial app boot.
   useEffect(() => {
@@ -936,7 +950,7 @@ function App() {
     writeStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, mobileCharSheetExpanded);
   }, [mobileCharSheetExpanded]);
 
-  // Auto-load most recent conversation or create new one on app start
+  // Auto-load most recent conversation on app start (do not auto-create drafts).
   useEffect(() => {
     async function autoLoadConversation() {
       if (!userAttributes || conversationId) return; // Don't run if already have conversation or no user
@@ -946,8 +960,7 @@ function App() {
         // For test mode, auto-select test conversation or create new one
         if (isTestModeEnabled()) {
           if (isNoConversationsTestMode()) {
-            console.log('✅ Test mode: No conversations, creating new one');
-            await handleNewConversation();
+            console.log('✅ Test mode: No conversations, waiting for first submit');
           } else {
             console.log('✅ Test mode: Auto-selecting test conversation');
             setConversationId('test-conversation-1');
@@ -955,21 +968,23 @@ function App() {
           return;
         }
 
-        // Check for last conversation ID in localStorage
-        const lastConversationId = localStorage.getItem('lastConversationId');
+        // Check for last conversation ID scoped to the currently active mode.
+        const lastConversationStorageKey = getLastConversationStorageKey(effectivePersonality);
+        const lastConversationId = localStorage.getItem(lastConversationStorageKey);
         if (lastConversationId) {
           try {
             // Verify the conversation still exists
             const { data: conversation } = await dataClient.models.Conversation.get({ id: lastConversationId });
-            if (conversation) {
+            const conversationMode = normalizePersonalityMode(conversation?.personalityMode || 'default');
+            if (conversation && conversationMode === effectivePersonality) {
               await handleSelectConversation(lastConversationId);
               return;
             } else {
-              localStorage.removeItem('lastConversationId');
+              localStorage.removeItem(lastConversationStorageKey);
             }
           } catch (error) {
             console.error('❌ Error verifying last conversation:', error);
-            localStorage.removeItem('lastConversationId');
+            localStorage.removeItem(lastConversationStorageKey);
           }
         }
 
@@ -990,18 +1005,9 @@ function App() {
           
           const mostRecentConversation = sortedConversations[0];
           await handleSelectConversation(mostRecentConversation.id!);
-        } else {
-          // No conversations exist, create a new one
-          await handleNewConversation();
         }
       } catch (error) {
         console.error('❌ Error auto-loading conversation:', error);
-        // Fallback: create new conversation
-        try {
-          await handleNewConversation();
-        } catch (fallbackError) {
-          console.error('❌ Fallback new conversation failed:', fallbackError);
-        }
       }
     }
 
@@ -1298,11 +1304,11 @@ function App() {
     typingIntervalRef.current = setInterval(typeNextCharacter, 1000 / typingSpeed);
   };
 
-  const handleSendMessage = async (content: string): Promise<void> => {
+  const handleSendMessage = async (content: string, targetConversationId: string): Promise<void> => {
     try {
       setIsWaitingForResponse(true);
-      
-      if (!conversationId) {
+
+      if (!targetConversationId) {
         console.error('No conversation ID available');
         setIsWaitingForResponse(false);
         return;
@@ -1310,7 +1316,7 @@ function App() {
 
       const { data: savedMessage } = await dataClient.models.Message.create({
         content,
-        conversationId: conversationId
+        conversationId: targetConversationId
       });
 
       if (savedMessage?.id) {
@@ -1331,18 +1337,31 @@ function App() {
       (effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState)
     ) return;
 
-    // If no conversation exists, create one first
-    if (!conversationId) {
-      await handleNewConversation();
-      // Wait a bit for the conversation to be created
-      await new Promise(resolve => setTimeout(resolve, 100));
+    let activeConversationId = conversationId;
+    if (!activeConversationId) {
+      activeConversationId = await createConversationWithMode(effectivePersonality);
+      if (!activeConversationId) {
+        return;
+      }
+      if (effectivePersonality === 'game_master') {
+        if (pendingCharacterDraft) {
+          await createCharacter(activeConversationId, pendingCharacterDraft);
+          setPendingCharacterDraft(null);
+        } else {
+          const existingCharacter = await fetchCharacter(activeConversationId);
+          if (!existingCharacter) {
+            return;
+          }
+        }
+      }
     }
 
-    const userMessage = inputMessage;
+    const userMessage = inputMessage.trim();
+    setIsNewInteractionPrimed(false);
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setInputMessage('');
 
-    await handleSendMessage(userMessage);
+    await handleSendMessage(userMessage, activeConversationId);
     // Assistant reply will come via subscription
   };
 
@@ -1369,6 +1388,8 @@ function App() {
     if (!selectedConversationId) {
       setIsSelectingConversation(false);
       setConversationId(null);
+      setIsNewInteractionPrimed(false);
+      setPendingCharacterDraft(null);
       setMessages([]);
       setIsWaitingForResponse(false);
       setAdventureState(null);
@@ -1379,6 +1400,8 @@ function App() {
     }
     
     setIsSelectingConversation(true);
+    setIsNewInteractionPrimed(false);
+    setPendingCharacterDraft(null);
     setConversationId(selectedConversationId);
     setMessages([]); // Clear current messages
     setIsWaitingForResponse(false);
@@ -1397,13 +1420,15 @@ function App() {
       if (conversationData) {
         const storedMode = conversationData.personalityMode || 'default';
         const normalizedMode = normalizePersonalityMode(storedMode);
-        if (storedMode !== normalizedMode) {
-          await dataClient.models.Conversation.update({
-            id: selectedConversationId,
-            personalityMode: normalizedMode,
+        if (normalizedMode !== effectivePersonality) {
+          console.warn('Refusing to select cross-mode interaction:', {
+            selectedConversationId,
+            normalizedMode,
+            effectivePersonality,
           });
+          setIsWaitingForResponse(false);
+          return;
         }
-        setPersonalityMode(normalizedMode);
         if (normalizedMode === 'game_master') {
           setShowCharacterCreation(false);
           const character = await fetchCharacter(selectedConversationId);
@@ -1483,21 +1508,44 @@ function App() {
 
   const handleNewConversation = async () => {
     adventureFetchLock.current = null;
-    if (effectivePersonality === 'game_master') {
-      setCharacterState(null);
-      setAdventureState(null);
-      setQuestSteps([]);
-      setShowCharacterCreation(false);
+    const shouldShowCharacterFlow = effectivePersonality === 'game_master';
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
     }
+    setIsSelectingConversation(false);
+    setConversationId(null);
+    setMessages([]);
+    setInputMessage('');
+    setIsWaitingForResponse(false);
+    setAdventureState(null);
+    setQuestSteps([]);
+    setCharacterState(null);
+    setPendingCharacterDraft(null);
+    setShowCharacterCreation(shouldShowCharacterFlow);
+    setDraggingConversationId(null);
+    setIsTrashDragOver(false);
+    setExpandedMessageIndex(null);
+    setIsBulkDeleteMode(false);
+    setBulkDeleteConversationIds(new Set());
+    setIsNewInteractionPrimed(false);
+
     setIsSelectingConversation(true);
     try {
-      await createConversationWithMode(effectivePersonality);
+      const createdConversationId = await createConversationWithMode(effectivePersonality);
+      if (!createdConversationId) {
+        return;
+      }
+      if (!shouldShowCharacterFlow) {
+        requestAnimationFrame(() => {
+          inputRef.current?.focus();
+        });
+      }
     } finally {
       setIsSelectingConversation(false);
     }
   };
 
-  const createConversationWithMode = async (modeId: string) => {
+  const createConversationWithMode = useCallback(async (modeId: string): Promise<string | null> => {
     try {
       const normalized = normalizePersonalityMode(modeId);
       const defaultTitle = generateDefaultConversationTitle(normalized);
@@ -1516,14 +1564,13 @@ function App() {
           );
         }
         setConversationId(mockConversationId);
-        setMessages([]);
         setPersonalityMode(normalized);
         setAdventureState(null);
         setQuestSteps([]);
         setCharacterState(null);
-        setShowCharacterCreation(false);
+        setShowCharacterCreation(normalized === 'game_master');
         setConversationListRefreshKey((prev) => prev + 1);
-        return;
+        return mockConversationId;
       }
 
       // Get current user for participants
@@ -1541,52 +1588,56 @@ function App() {
         const createdId = newConversation.id;
         if (!createdId) {
           console.error('❌ Failed to create conversation: No ID returned');
-          return;
+          return null;
         }
 
         console.log('✅ Created new conversation:', createdId);
+        setConversationId(createdId);
+        setPersonalityMode(normalized);
+        setAdventureState(null);
+        setQuestSteps([]);
+        setCharacterState(null);
+        setShowCharacterCreation(normalized === 'game_master');
         setConversationListRefreshKey((prev) => prev + 1);
-        await handleSelectConversation(createdId);
+        return createdId;
 
       } else {
         console.error('❌ Failed to create conversation: No data returned');
+        return null;
       }
     } catch (error) {
       console.error('❌ Error creating new conversation:', error);
-      // Don't throw the error to prevent breaking the UI
+      return null;
     }
-  };
+    return null;
+  }, [userAttributes]);
 
   const handleModeSelected = async (modeId: string) => {
     const normalized = normalizePersonalityMode(modeId);
     if (normalized === effectivePersonality) return;
 
-    if (normalized === 'game_master') {
-      setShowCharacterCreation(false);
-      setCharacterState(null);
-      setAdventureState(null);
-      setQuestSteps([]);
-    } else {
-      setShowCharacterCreation(false);
-      setAdventureState(null);
-      setQuestSteps([]);
-      setCharacterState(null);
-    }
-
+    setIsSelectingConversation(false);
+    setConversationId(null);
+    setMessages([]);
+    setInputMessage('');
+    setIsWaitingForResponse(false);
+    setExpandedMessageIndex(null);
+    setAdventureState(null);
+    setQuestSteps([]);
+    setCharacterState(null);
+    setShowCharacterCreation(false);
+    setPendingCharacterDraft(null);
+    setIsNewInteractionPrimed(false);
+    setIsBulkDeleteMode(false);
+    setBulkDeleteConversationIds(new Set());
+    setDraggingConversationId(null);
+    setIsTrashDragOver(false);
     setPersonalityMode(normalized);
+  };
 
-    if (!conversationId || isTestModeEnabled()) {
-      return;
-    }
-
-    try {
-      await dataClient.models.Conversation.update({
-        id: conversationId,
-        personalityMode: normalized,
-      });
-    } catch (error) {
-      console.error('Error updating conversation mode:', error);
-    }
+  const handleFacilitatedModeToggle = (modeId: PersonalityModeId) => {
+    const nextMode = effectivePersonality === modeId ? 'default' : modeId;
+    void handleModeSelected(nextMode);
   };
 
   const handleToggleBulkDeleteConversation = useCallback((targetConversationId: string) => {
@@ -1629,10 +1680,11 @@ function App() {
 
       if (activeConversationDeleted) {
         if (typeof window !== 'undefined') {
-          window.localStorage.removeItem('lastConversationId');
+          window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
         }
         setIsSelectingConversation(false);
         setConversationId(null);
+        setPendingCharacterDraft(null);
         setMessages([]);
         setIsWaitingForResponse(false);
         setAdventureState(null);
@@ -1647,7 +1699,7 @@ function App() {
     } catch (error) {
       console.error('Error deleting selected conversations:', error);
     }
-  }, [bulkDeleteConversationIds, conversationId, isBulkDeleteMode]);
+  }, [bulkDeleteConversationIds, conversationId, effectivePersonality, isBulkDeleteMode]);
 
   const deleteConversationById = useCallback(async (targetConversationId: string) => {
     if (!targetConversationId) return;
@@ -1663,10 +1715,11 @@ function App() {
 
       if (deletingActiveConversation) {
         if (typeof window !== 'undefined') {
-          window.localStorage.removeItem('lastConversationId');
+          window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
         }
         setIsSelectingConversation(false);
         setConversationId(null);
+        setPendingCharacterDraft(null);
         setMessages([]);
         setIsWaitingForResponse(false);
         setAdventureState(null);
@@ -1682,7 +1735,7 @@ function App() {
       setDraggingConversationId(null);
       setIsTrashDragOver(false);
     }
-  }, [conversationId]);
+  }, [conversationId, effectivePersonality]);
 
   const handleTrashDragOver = useCallback((event: React.DragEvent<HTMLButtonElement>) => {
     if (isBulkDeleteMode || !draggingConversationId) return;
@@ -1755,15 +1808,21 @@ function App() {
 
   const handleCharacterCreationComplete = useCallback(async (characterData: CharacterCreationInput) => {
     if (!conversationId) {
-      throw new Error('No active conversation for character creation');
+      const createdConversationId = await createConversationWithMode(effectivePersonality);
+      if (!createdConversationId) {
+        throw new Error('Unable to create interaction');
+      }
+      setPendingCharacterDraft(null);
+      setIsNewInteractionPrimed(false);
+      await createCharacter(createdConversationId, characterData);
+      return;
     }
+    setPendingCharacterDraft(null);
+    setIsNewInteractionPrimed(false);
     await createCharacter(conversationId, characterData);
-  }, [conversationId, createCharacter]);
+  }, [conversationId, createCharacter, createConversationWithMode, effectivePersonality]);
 
   const handleCharacterCreationQuickStart = useCallback(async () => {
-    if (!conversationId) {
-      throw new Error('No active conversation for character creation');
-    }
     const { calculateFinalStats, getAllRaces, getAllClasses } = await import('./game');
     const raceOptions = getAllRaces();
     const classOptions = getAllClasses();
@@ -1782,23 +1841,38 @@ function App() {
         characterClass: selectedClass.name,
       });
     const stats = calculateFinalStats(selectedClass.id, selectedRace.id);
-
-    await createCharacter(conversationId, {
+    const quickStartCharacter: CharacterCreationInput = {
       name: 'Adventurer',
       race: selectedRace.name,
       characterClass: selectedClass.name,
       avatarId: randomAvatarId,
       ...stats,
-    });
-  }, [conversationId, createCharacter]);
+    };
+
+    if (!conversationId) {
+      const createdConversationId = await createConversationWithMode(effectivePersonality);
+      if (!createdConversationId) {
+        throw new Error('Unable to create interaction');
+      }
+      setPendingCharacterDraft(null);
+      setIsNewInteractionPrimed(false);
+      await createCharacter(createdConversationId, quickStartCharacter);
+      return;
+    }
+    setPendingCharacterDraft(null);
+    setIsNewInteractionPrimed(false);
+    await createCharacter(conversationId, quickStartCharacter);
+  }, [conversationId, createCharacter, createConversationWithMode, effectivePersonality]);
 
   const isGameMasterMode = effectivePersonality === 'game_master';
-  const hasSelectedConversation = Boolean(conversationId);
   const appThemeClass = isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain';
   const isGameMasterContentLoading = isGameMasterMode && Boolean(conversationId) && (isSelectingConversation || isLoadingCharacter || isLoadingAdventure);
+  const hasGameMasterCharacterReady = Boolean(characterState || pendingCharacterDraft);
+  const showGameMasterCharacterFlow = showCharacterCreation && isGameMasterMode && !isGameMasterContentLoading;
+  const hasSelectedConversation = Boolean(conversationId) || showGameMasterCharacterFlow;
   const isContentLoading = isLoading || isGameMasterContentLoading;
-  const isRightPanelLoading = hasSelectedConversation && (isSelectingConversation || isContentLoading);
-  const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState;
+  const isRightPanelLoading = (hasSelectedConversation || isGameMasterMode) && (isSelectingConversation || isContentLoading);
+  const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && !hasGameMasterCharacterReady;
   const emptyStateTitle = (isSelectingConversation || isGameMasterContentLoading)
     ? 'LOADING'
     : (isGameMasterCharacterRequired ? 'Create Your Character' : 'No Conversation');
@@ -1830,10 +1904,9 @@ function App() {
       initials,
     };
   }, [userAttributes]);
-  const showMobileInlineCharacterCreation =
-    showCharacterCreation && Boolean(conversationId) && effectivePersonality === 'game_master' && !isGameMasterContentLoading;
+  const showMobileInlineCharacterCreation = showGameMasterCharacterFlow;
   const showRightPanelCharacterCreation =
-    showCharacterCreation && Boolean(conversationId) && !characterState && !isGameMasterContentLoading;
+    showGameMasterCharacterFlow && !characterState;
   const isInputLocked = isWaitingForResponse || isGameMasterContentLoading || isGameMasterCharacterRequired;
   const gameMasterInputPlaceholder = isGameMasterContentLoading
     ? 'Loading adventure...'
@@ -1960,20 +2033,20 @@ function App() {
                       <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                     </button>
                     <div className="my-1 h-px w-7 bg-brand-surface-border/40" aria-hidden="true" />
-                    {MODE_OPTIONS.map((option) => {
+                    {FACILITATED_MODE_OPTIONS.map((option) => {
                       const isActive = option.id === effectivePersonality;
                       return (
                         <button
                           key={option.id}
                           type="button"
-                          onClick={() => handleModeSelected(option.id)}
+                          onClick={() => handleFacilitatedModeToggle(option.id)}
                           className={`retro-icon-button retro-left-mode-button retro-tooltip-trigger h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
                             isActive
                               ? 'retro-left-mode-button-active border border-brand-accent-primary/40 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
                               : 'border border-brand-surface-border/45 bg-brand-bg-secondary/65 text-brand-text-primary hover:border-brand-surface-border/60 hover:bg-brand-bg-tertiary/55'
                           }`}
-                          aria-label={`Switch to ${option.shortLabel}`}
-                          data-tooltip={`Switch to ${option.shortLabel}`}
+                          aria-label={isActive ? 'Return to Brain chat' : `Enter ${option.shortLabel}`}
+                          data-tooltip={isActive ? 'Return to Brain chat' : `Enter ${option.shortLabel}`}
                           data-tooltip-position="right"
                         >
                           {option.id === 'game_master' ? (
@@ -2067,48 +2140,53 @@ function App() {
 
             <CenterNarrative>
               <Panel variant="inset" className="flex-1 min-h-0 p-4">
-                <div className={`retro-center-split h-full min-h-0 ${isCenterListCollapsed ? 'retro-center-split--list-collapsed' : ''}`}>
-                  <aside className={`retro-interactions-pane relative h-full min-h-0 overflow-hidden ${isCenterListCollapsed ? 'retro-interactions-pane-collapsed' : ''}`}>
-                    <button
-                      type="button"
-                      onClick={toggleCenterList}
-                      className="retro-collapse-button absolute right-3 top-3 z-20"
-                      aria-label={isCenterListCollapsed ? 'Expand interactions list' : 'Collapse interactions list'}
-                    >
-                      {isCenterListCollapsed ? '>' : '<'}
-                    </button>
-                    <div
-                      aria-hidden={isCenterListCollapsed}
-                      className={`h-full transition-opacity duration-200 ${
-                        isCenterListCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
-                      }`}
-                    >
-                      <div className="px-3 pb-2 pt-1 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">
+                <div className={`retro-center-split h-full min-h-0 ${isGameMasterMode ? (isCenterListCollapsed ? 'retro-center-split--list-collapsed' : '') : 'retro-center-split--brain'}`}>
+                  {isGameMasterMode && (
+                    <aside className={`retro-interactions-pane relative h-full min-h-0 overflow-visible ${isCenterListCollapsed ? 'retro-interactions-pane-collapsed' : 'retro-interactions-pane-expanded'}`}>
+                      <button
+                        type="button"
+                        onClick={toggleCenterList}
+                        className={`retro-divider-handle absolute right-0 top-1/2 z-20 ${isCenterListCollapsed ? 'retro-divider-handle-collapsed' : ''}`}
+                        aria-label={isCenterListCollapsed ? 'Expand interactions list' : 'Collapse interactions list'}
+                        aria-pressed={!isCenterListCollapsed}
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M8 6h8M8 12h8M8 18h8" />
+                        </svg>
+                      </button>
+                      <div
+                        aria-hidden={isCenterListCollapsed}
+                        className={`retro-interactions-content h-full ${
+                          isCenterListCollapsed ? 'retro-interactions-content--collapsed pointer-events-none' : 'retro-interactions-content--expanded'
+                        }`}
+                      >
+                        <div className="px-3 pb-2 pt-1 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">
                         Interactions
+                        </div>
+                        <div className="h-full overflow-y-auto pr-2">
+                          <ConversationList
+                            onSelectConversation={(selectedConversationId) => {
+                              void handleSelectConversation(selectedConversationId);
+                            }}
+                            selectedConversationId={conversationId}
+                            refreshKey={conversationListRefreshKey}
+                            activeMode={effectivePersonality}
+                            deleteSelectionMode={isBulkDeleteMode}
+                            selectedDeleteIds={bulkDeleteConversationIds}
+                            onToggleDeleteSelection={handleToggleBulkDeleteConversation}
+                            onConversationDragStart={(targetConversationId) => {
+                              if (isBulkDeleteMode) return;
+                              setDraggingConversationId(targetConversationId);
+                            }}
+                            onConversationDragEnd={() => {
+                              setDraggingConversationId(null);
+                              setIsTrashDragOver(false);
+                            }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-full overflow-y-auto pr-2">
-                        <ConversationList
-                          onSelectConversation={(selectedConversationId) => {
-                            void handleSelectConversation(selectedConversationId);
-                          }}
-                          selectedConversationId={conversationId}
-                          refreshKey={conversationListRefreshKey}
-                          activeMode={effectivePersonality}
-                          deleteSelectionMode={isBulkDeleteMode}
-                          selectedDeleteIds={bulkDeleteConversationIds}
-                          onToggleDeleteSelection={handleToggleBulkDeleteConversation}
-                          onConversationDragStart={(targetConversationId) => {
-                            if (isBulkDeleteMode) return;
-                            setDraggingConversationId(targetConversationId);
-                          }}
-                          onConversationDragEnd={() => {
-                            setDraggingConversationId(null);
-                            setIsTrashDragOver(false);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </aside>
+                    </aside>
+                  )}
 
                   <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
                     <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -2140,8 +2218,8 @@ function App() {
                         className={`flex-1 overflow-y-auto pr-2 pb-4 ${conversationId && isGameMasterMode ? 'pt-24' : ''}`}
                       >
                         <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
-                          {/* Personality Indicator (mobile only) */}
-                          {conversationId && effectivePersonality !== 'default' && (
+                          {/* Mode indicator (mobile only) */}
+                          {conversationId && isGameMasterMode && (
                             <div className="lg:hidden">
                               <PersonalityIndicator personality={effectivePersonality} />
                             </div>
@@ -2361,7 +2439,7 @@ function App() {
                       <BottomInput className="px-0 pt-3 shrink-0">
                         <div className="mx-auto max-w-4xl transition-all duration-300">
                           <form onSubmit={handleSubmit} className="relative">
-                            <div className="retro-input-shell flex gap-2 items-end rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/80 backdrop-blur-xl p-2 shadow-lg transition-all duration-200">
+                            <div className={`retro-input-shell flex gap-2 items-end rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/80 backdrop-blur-xl p-2 shadow-lg transition-all duration-200 ${isNewInteractionPrimed ? 'retro-input-shell-primed' : ''}`}>
                               {/* Textarea */}
                               <div className="flex-1 min-w-0">
                                 <textarea
@@ -2374,7 +2452,7 @@ function App() {
                                       ? 'Brain is thinking...'
                                       : conversationId
                                         ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
-                                        : 'Start a new conversation...'
+                                        : (isNewInteractionPrimed ? 'New interaction ready. Start typing...' : 'Start a new conversation...')
                                   }
                                   className="retro-input-textarea w-full px-3 py-2.5 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
                                   rows={1}
@@ -2426,7 +2504,11 @@ function App() {
                   <div className="flex h-full items-center justify-center p-5">
                     <div className="text-center">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">No Interaction Selected</p>
-                      <p className="mt-2 text-sm text-brand-text-secondary">Select an interaction to view live details here.</p>
+                      <p className="mt-2 text-sm text-brand-text-secondary">
+                        {isNewInteractionPrimed
+                          ? 'New interaction draft ready. Start typing to create it.'
+                          : 'Select an interaction to view live details here.'}
+                      </p>
                     </div>
                   </div>
                 ) : isRightPanelLoading ? (
@@ -2554,7 +2636,7 @@ function App() {
                       <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
                     </Panel>
 
-                    {conversationId && effectivePersonality !== 'default' && (
+                    {conversationId && isGameMasterMode && (
                       <PersonalityIndicator personality={effectivePersonality} />
                     )}
 
@@ -2605,29 +2687,30 @@ function App() {
                 </span>
                 <span className="text-sm font-medium text-brand-text-primary">New Interaction</span>
               </button>
-              {MODE_OPTIONS.map((option) => {
+              {FACILITATED_MODE_OPTIONS.map((option) => {
                 const isActive = option.id === effectivePersonality;
-                const isGameMasterOption = option.id === 'game_master';
                 return (
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() => handleModeSelected(option.id)}
+                    onClick={() => handleFacilitatedModeToggle(option.id)}
                     className={`w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-all duration-200 ${
                       isActive
                         ? 'border border-brand-accent-primary/35 bg-brand-accent-primary/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
                         : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-bg-secondary/60 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(156,116,230,0.18),0_8px_16px_rgba(2,10,12,0.22)]'
                     }`}
-                    aria-label={`Switch to ${option.shortLabel}`}
+                    aria-label={isActive ? 'Return to Brain chat' : `Enter ${option.shortLabel}`}
                   >
                     <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                      {isGameMasterOption ? (
+                      {option.id === 'game_master' ? (
                         <img src="/game-master.svg" alt="" aria-hidden="true" className="h-5 w-7 object-contain" />
                       ) : (
                         <BrainIcon className="h-5 w-5" />
                       )}
                     </span>
-                    <span className="min-w-0 flex-1 text-sm font-medium text-brand-text-primary">{option.shortLabel}</span>
+                    <span className="min-w-0 flex-1 text-sm font-medium text-brand-text-primary">
+                      {isActive ? `${option.shortLabel} (On)` : option.shortLabel}
+                    </span>
                   </button>
                 );
               })}
@@ -3017,7 +3100,7 @@ function App() {
             <div className="retro-input-dock pt-3 pb-3 px-3 pb-safe">
               <div className="max-w-4xl mx-auto">
                 <form onSubmit={handleSubmit} className="relative">
-                  <div className="retro-input-shell flex gap-2 items-end bg-brand-surface-elevated/80 backdrop-blur-xl rounded-2xl border border-brand-surface-border/50 p-2.5 transition-all duration-200">
+                  <div className={`retro-input-shell flex gap-2 items-end bg-brand-surface-elevated/80 backdrop-blur-xl rounded-2xl border border-brand-surface-border/50 p-2.5 transition-all duration-200 ${isNewInteractionPrimed ? 'retro-input-shell-primed' : ''}`}>
                     {/* Textarea */}
                     <div className="flex-1 min-w-0">
                       <textarea
@@ -3030,7 +3113,7 @@ function App() {
                             ? 'Brain is thinking...'
                             : conversationId
                               ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
-                              : 'Start a new conversation...'
+                              : (isNewInteractionPrimed ? 'New interaction ready. Start typing...' : 'Start a new conversation...')
                         }
                         className="retro-input-textarea w-full px-3 py-2 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-sm leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
                         rows={1}
