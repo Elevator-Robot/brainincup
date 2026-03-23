@@ -1902,7 +1902,7 @@ function App() {
                           className={`retro-icon-button retro-left-mode-button h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
                             isActive
                               ? 'retro-left-mode-button-active border border-brand-accent-primary/40 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
-                              : 'border border-brand-surface-border/45 bg-brand-surface-secondary/35 text-brand-text-primary hover:border-brand-surface-border/60 hover:bg-brand-surface-secondary/55'
+                              : 'border border-brand-surface-border/45 bg-brand-bg-secondary/65 text-brand-text-primary hover:border-brand-surface-border/60 hover:bg-brand-bg-tertiary/55'
                           }`}
                           aria-label={`Switch to ${option.shortLabel}`}
                         >
@@ -2497,7 +2497,7 @@ function App() {
                 type="button"
                 onClick={handleNewConversation}
                 disabled={isWaitingForResponse || isSelectingConversation}
-                className="mb-2.5 w-full flex items-center gap-3 rounded-xl border border-brand-surface-border/45 bg-brand-surface-secondary/35 px-2.5 py-2 text-left transition-all duration-200 hover:border-brand-surface-border/65 hover:bg-brand-surface-secondary/55 disabled:cursor-not-allowed disabled:opacity-45"
+                className="mb-2.5 w-full flex items-center gap-3 rounded-xl border border-brand-surface-border/45 bg-brand-bg-secondary/65 px-2.5 py-2 text-left transition-all duration-200 hover:border-brand-surface-border/65 hover:bg-brand-bg-tertiary/55 disabled:cursor-not-allowed disabled:opacity-45"
                 aria-label="Start new interaction"
               >
                 <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
@@ -2516,7 +2516,7 @@ function App() {
                     className={`w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-all duration-200 ${
                       isActive
                         ? 'border border-brand-accent-primary/35 bg-brand-accent-primary/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
-                        : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-surface-secondary/35 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_16px_rgba(2,10,12,0.22)]'
+                        : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-bg-secondary/60 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(156,116,230,0.18),0_8px_16px_rgba(2,10,12,0.22)]'
                     }`}
                     aria-label={`Switch to ${option.shortLabel}`}
                   >
