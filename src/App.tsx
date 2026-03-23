@@ -397,6 +397,8 @@ function App() {
   const [conversationListRefreshKey, setConversationListRefreshKey] = useState(0);
   const [isBulkDeleteMode, setIsBulkDeleteMode] = useState(false);
   const [bulkDeleteConversationIds, setBulkDeleteConversationIds] = useState<Set<string>>(new Set());
+  const [draggingConversationId, setDraggingConversationId] = useState<string | null>(null);
+  const [isTrashDragOver, setIsTrashDragOver] = useState(false);
   
   // Game Master data state
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
@@ -1647,6 +1649,68 @@ function App() {
     }
   }, [bulkDeleteConversationIds, conversationId, isBulkDeleteMode]);
 
+  const deleteConversationById = useCallback(async (targetConversationId: string) => {
+    if (!targetConversationId) return;
+
+    const deletingActiveConversation = conversationId === targetConversationId;
+
+    try {
+      if (!isTestModeEnabled()) {
+        await dataClient.models.Conversation.delete({ id: targetConversationId });
+      }
+
+      removeStoredConversationAvatar(targetConversationId);
+
+      if (deletingActiveConversation) {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('lastConversationId');
+        }
+        setIsSelectingConversation(false);
+        setConversationId(null);
+        setMessages([]);
+        setIsWaitingForResponse(false);
+        setAdventureState(null);
+        setQuestSteps([]);
+        setCharacterState(null);
+        setShowCharacterCreation(false);
+      }
+
+      setConversationListRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+    } finally {
+      setDraggingConversationId(null);
+      setIsTrashDragOver(false);
+    }
+  }, [conversationId]);
+
+  const handleTrashDragOver = useCallback((event: React.DragEvent<HTMLButtonElement>) => {
+    if (isBulkDeleteMode || !draggingConversationId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setIsTrashDragOver(true);
+  }, [draggingConversationId, isBulkDeleteMode]);
+
+  const handleTrashDragLeave = useCallback(() => {
+    setIsTrashDragOver(false);
+  }, []);
+
+  const handleTrashDrop = useCallback((event: React.DragEvent<HTMLButtonElement>) => {
+    if (isBulkDeleteMode) return;
+    event.preventDefault();
+    const droppedConversationId =
+      event.dataTransfer.getData('application/x-conversation-id')
+      || event.dataTransfer.getData('text/plain')
+      || draggingConversationId
+      || '';
+    if (droppedConversationId) {
+      void deleteConversationById(droppedConversationId);
+    } else {
+      setIsTrashDragOver(false);
+      setDraggingConversationId(null);
+    }
+  }, [deleteConversationById, draggingConversationId, isBulkDeleteMode]);
+
 
   const handleSignOut = async () => {
     try {
@@ -1920,10 +1984,15 @@ function App() {
                     <button
                       type="button"
                       onClick={() => { void handleSidebarDeleteAction(); }}
+                      onDragOver={handleTrashDragOver}
+                      onDragLeave={handleTrashDragLeave}
+                      onDrop={handleTrashDrop}
                       className={`retro-icon-button mb-2 h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
-                        isBulkDeleteMode
-                          ? 'border-brand-status-error/55 bg-brand-status-error/18 text-brand-status-error'
-                          : 'border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary'
+                        isTrashDragOver
+                          ? 'border-brand-status-error/70 bg-brand-status-error/28 text-brand-status-error scale-[1.06]'
+                          : isBulkDeleteMode
+                            ? 'border-brand-status-error/55 bg-brand-status-error/18 text-brand-status-error'
+                            : 'border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary'
                       }`}
                       aria-label={
                         isBulkDeleteMode
@@ -2018,6 +2087,14 @@ function App() {
                           deleteSelectionMode={isBulkDeleteMode}
                           selectedDeleteIds={bulkDeleteConversationIds}
                           onToggleDeleteSelection={handleToggleBulkDeleteConversation}
+                          onConversationDragStart={(targetConversationId) => {
+                            if (isBulkDeleteMode) return;
+                            setDraggingConversationId(targetConversationId);
+                          }}
+                          onConversationDragEnd={() => {
+                            setDraggingConversationId(null);
+                            setIsTrashDragOver(false);
+                          }}
                         />
                       </div>
                     </div>
