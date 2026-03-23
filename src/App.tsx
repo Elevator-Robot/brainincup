@@ -2365,11 +2365,13 @@ function App() {
                           <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
                           <div className="mt-3 flex items-center gap-3">
                             {characterDisplay.avatarSrc ? (
-                              <img
-                                src={characterDisplay.avatarSrc}
-                                alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                                className="retro-character-avatar h-16 w-16 rounded-xl object-cover object-center transition-transform duration-300 hover:scale-[1.28] hover:z-20"
-                              />
+                              <div className="relative z-10 flex-shrink-0 transition-transform duration-300 hover:z-30 hover:scale-[1.35]">
+                                <img
+                                  src={characterDisplay.avatarSrc}
+                                  alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                                  className="retro-character-avatar h-16 w-16 rounded-xl object-cover object-center"
+                                />
+                              </div>
                             ) : null}
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
@@ -2610,11 +2612,13 @@ function App() {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {characterDisplay.avatarSrc ? (
-                        <img
-                          src={characterDisplay.avatarSrc}
-                          alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                          className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0 transition-transform duration-300 hover:scale-[1.32] hover:z-20"
-                        />
+                        <div className="relative z-10 flex-shrink-0 transition-transform duration-300 hover:z-30 hover:scale-[1.42]">
+                          <img
+                            src={characterDisplay.avatarSrc}
+                            alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                            className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0"
+                          />
+                        </div>
                       ) : null}
                       <div className="min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>

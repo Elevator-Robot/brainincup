@@ -753,6 +753,7 @@ textarea.w-full:focus {
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  overflow: visible;
 }
 
 .retro-right-stat-tile {
@@ -983,6 +984,7 @@ textarea.w-full:focus {
 .retro-mobile-card {
   border-color: rgba(171, 249, 234, 0.26);
   background: linear-gradient(160deg, rgba(14, 42, 37, 0.66), rgba(9, 25, 24, 0.56));
+  overflow: visible;
 }
 
 .retro-mobile-nav {
