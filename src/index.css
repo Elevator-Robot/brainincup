@@ -1009,6 +1009,194 @@ textarea.w-full:focus {
   box-shadow: inset 0 1px 0 rgba(237, 255, 252, 0.24), 0 10px 18px rgba(1, 8, 8, 0.34);
 }
 
+@keyframes retroTroubleDiceJitter {
+  0% { transform: translateY(0) scale(1); }
+  16% { transform: translateY(-2px) scale(1.03) rotate(-4deg); }
+  32% { transform: translateY(1px) scale(0.99) rotate(4deg); }
+  48% { transform: translateY(-3px) scale(1.05) rotate(-3deg); }
+  64% { transform: translateY(2px) scale(0.98) rotate(3deg); }
+  80% { transform: translateY(-1px) scale(1.02) rotate(-2deg); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes retroTroubleBubblePop {
+  0% {
+    transform: scale(1);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.34),
+      0 10px 18px rgba(1, 8, 8, 0.32);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.46),
+      0 14px 22px rgba(1, 8, 8, 0.38);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.34),
+      0 10px 18px rgba(1, 8, 8, 0.32);
+  }
+}
+
+@keyframes retroTroubleDiceReveal {
+  0% {
+    opacity: 0.25;
+    transform: scale(0.85);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+.retro-trouble-dice {
+  position: relative;
+  flex-shrink: 0;
+  width: 3.1rem;
+  height: 3.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(191, 255, 244, 0.42);
+  background: radial-gradient(circle at 30% 25%, rgba(53, 148, 134, 0.9), rgba(20, 78, 70, 0.96));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(243, 255, 252, 0.22), 0 10px 18px rgba(1, 8, 8, 0.34);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.retro-trouble-dice:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+  border-color: rgba(214, 255, 248, 0.62);
+  box-shadow: inset 0 1px 0 rgba(248, 255, 253, 0.26), 0 12px 20px rgba(1, 8, 8, 0.36);
+}
+
+.retro-trouble-dice:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.retro-trouble-dice-bubble {
+  width: 2.05rem;
+  height: 2.05rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 28%, rgba(247, 255, 252, 0.96), rgba(198, 244, 236, 0.88));
+  border: 1px solid rgba(129, 210, 194, 0.42);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.34),
+    0 10px 18px rgba(1, 8, 8, 0.32);
+}
+
+.retro-trouble-dice-pips {
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(14, 71, 63, 0.96);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  animation: retroTroubleDiceReveal 220ms ease-out;
+}
+
+.retro-trouble-dice--rolling {
+  animation: retroTroubleDiceJitter 620ms cubic-bezier(0.32, 0.04, 0.28, 1);
+}
+
+.retro-trouble-dice--rolling .retro-trouble-dice-bubble {
+  animation: retroTroubleBubblePop 620ms cubic-bezier(0.26, 0.12, 0.22, 1);
+}
+
+.retro-roll-panel-button {
+  width: 100%;
+  min-height: 10.5rem;
+  border: 1px solid rgba(186, 248, 237, 0.3);
+  background: linear-gradient(160deg, rgba(16, 44, 39, 0.65), rgba(9, 25, 23, 0.58));
+  box-shadow: inset 0 1px 0 rgba(240, 255, 251, 0.12), 0 12px 22px rgba(1, 8, 8, 0.3);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.retro-roll-panel-button:not(:disabled):hover {
+  transform: translateY(-1px);
+  border-color: rgba(214, 255, 248, 0.52);
+  box-shadow: inset 0 1px 0 rgba(240, 255, 251, 0.16), 0 14px 24px rgba(1, 8, 8, 0.34);
+}
+
+.retro-roll-panel-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.retro-roll-panel-button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(179, 250, 237, 0.52),
+    0 0 0 4px rgba(3, 14, 12, 0.92),
+    0 12px 24px rgba(2, 10, 9, 0.42);
+}
+
+.retro-roll-panel-button--rolling .retro-roll-panel-bubble {
+  animation: retroTroubleBubblePop 620ms cubic-bezier(0.26, 0.12, 0.22, 1);
+}
+
+.retro-roll-panel-value {
+  font-size: 0.9rem;
+}
+
+.retro-three-dice-shell {
+  position: relative;
+  width: 100%;
+  min-height: 9.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.retro-three-dice-canvas-wrap {
+  width: 100%;
+  height: 100%;
+  min-height: 9.4rem;
+  border-radius: 0.9rem;
+  overflow: hidden;
+  background: transparent;
+  box-shadow: none;
+}
+
+.retro-three-dice-canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.retro-roll-panel-value-badge {
+  position: absolute;
+  bottom: 0.9rem;
+  min-width: 3.2rem;
+  padding: 0.34rem 0.82rem;
+  border-radius: 999px;
+  border: 1px solid rgba(176, 242, 229, 0.46);
+  background: linear-gradient(160deg, rgba(245, 255, 252, 0.94), rgba(205, 244, 235, 0.88));
+  color: rgba(11, 66, 59, 0.95);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.04em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 8px 16px rgba(2, 12, 10, 0.3);
+  animation: retroTroubleDiceReveal 220ms ease-out;
+}
+
+.retro-roll-panel-value-badge--rolling {
+  animation: retroTroubleBubblePop 620ms cubic-bezier(0.26, 0.12, 0.22, 1);
+}
+
 .retro-right-panel {
   background:
     linear-gradient(160deg, rgba(12, 34, 30, 0.6), rgba(8, 21, 19, 0.54)),
@@ -1066,12 +1254,22 @@ textarea.w-full:focus {
   transform: translateX(-50%) translateY(-4px);
 }
 
+.retro-tooltip-trigger[data-tooltip-position="top"]::after {
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+}
+
 .retro-tooltip-trigger[data-tooltip]:not([data-tooltip=""]):hover::after {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
 }
 
 .retro-tooltip-trigger[data-tooltip-position="bottom"]:not([data-tooltip=""]):hover::after {
+  transform: translateX(-50%) translateY(0);
+}
+
+.retro-tooltip-trigger[data-tooltip-position="top"]:not([data-tooltip=""]):hover::after {
   transform: translateX(-50%) translateY(0);
 }
 

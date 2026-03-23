@@ -18,11 +18,14 @@
     "@aws-amplify/ui-react": "^6.5.5",
     "@fontsource/cinzel": "^5.2.8",
     "@fontsource/medievalsharp": "^5.2.8",
+    "@react-three/fiber": "^8.17.14",
+    "@react-three/rapier": "^1.5.0",
     "aws-amplify": "^6.11.0",
     "aws-sdk": "^2.1692.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "three": "^0.164.1"
   },
   "devDependencies": {
     "@aws-amplify/backend": "^1.5.0",
@@ -30,6 +33,7 @@
     "@types/node": "^22.15.21",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
+    "@types/three": "^0.183.1",
     "@typescript-eslint/eslint-plugin": "^7.2.0",
     "@typescript-eslint/parser": "^7.2.0",
     "@vitejs/plugin-react": "^4.2.1",
