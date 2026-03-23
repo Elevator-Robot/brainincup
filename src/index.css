@@ -868,6 +868,11 @@ textarea.w-full:focus {
   will-change: transform;
 }
 
+.retro-character-heading {
+  transition: transform 300ms ease, opacity 300ms ease;
+  will-change: transform;
+}
+
 .retro-character-identity:hover .retro-character-avatar-wrap {
   z-index: 30;
   transform: scale(1.35);
@@ -884,6 +889,10 @@ textarea.w-full:focus {
 
 .retro-character-identity--compact:hover .retro-character-meta--compact {
   transform: translateX(6px);
+}
+
+.retro-right-section--character:has(.retro-character-identity:hover) .retro-character-heading {
+  transform: translateY(-6px);
 }
 
 .retro-interaction-avatar {

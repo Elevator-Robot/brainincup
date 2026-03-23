@@ -2371,7 +2371,7 @@ function App() {
                     ) : (
                       <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
                         <div className="retro-right-section retro-right-section--character relative">
-                          <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
+                          <p className="retro-character-heading text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
                           <div className="retro-character-identity mt-3 flex items-center gap-3">
                             {characterDisplay.avatarSrc ? (
                               <div className="retro-character-avatar-wrap">
