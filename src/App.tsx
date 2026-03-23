@@ -36,6 +36,11 @@ type CharacterCreationInput = {
   charisma: number;
 };
 
+type DiceRollResult = {
+  value: number;
+  sides: number;
+};
+
 const formatModelErrors = (errors: unknown): string => {
   if (!Array.isArray(errors)) return '';
   return errors
@@ -405,6 +410,9 @@ function App() {
   const [isTrashDragOver, setIsTrashDragOver] = useState(false);
   const [isNewInteractionPrimed, setIsNewInteractionPrimed] = useState(false);
   const [pendingCharacterDraft, setPendingCharacterDraft] = useState<CharacterCreationInput | null>(null);
+  const [lastManualDiceRoll, setLastManualDiceRoll] = useState<DiceRollResult | null>(null);
+  const [isDiceRolling, setIsDiceRolling] = useState(false);
+  const [diceRollPulseId, setDiceRollPulseId] = useState(0);
   
   // Game Master data state
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
@@ -1933,6 +1941,9 @@ function App() {
     return validLocation?.trim() || 'The Shrouded Vale';
   }, [adventureState?.lastLocation, adventureState?.title]);
   const latestDiceRoll = useMemo(() => {
+    if (lastManualDiceRoll) {
+      return String(lastManualDiceRoll.value);
+    }
     const patterns = [
       /\bd20\b[^0-9]*(\d{1,2})/i,
       /\broll(?:ed)?\b[^0-9]*(\d{1,2})/i,
@@ -1946,7 +1957,7 @@ function App() {
       }
     }
     return null;
-  }, [messages]);
+  }, [lastManualDiceRoll, messages]);
   const latestAssistantMessage = useMemo(
     () => [...messages].reverse().find((message) => message.role === 'assistant' && Boolean(message.content || message.fullContent)),
     [messages],
@@ -1968,6 +1979,35 @@ function App() {
   const sendButtonStateClass = !inputMessage.trim() || isInputLocked
     ? 'retro-send-button-disabled cursor-not-allowed opacity-60'
     : 'retro-send-button-active-brain text-white hover:-translate-y-0.5 active:translate-y-0';
+  const canUseDiceRoll = isGameMasterMode && !isInputLocked && !isDiceRolling;
+
+  const handleDiceRoll = useCallback(async () => {
+    if (!canUseDiceRoll) return;
+
+    const sides = 20;
+    setIsDiceRolling(true);
+
+    // Pop-o-matic "bubbles" effect window.
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 620);
+    });
+
+    const value = Math.floor(Math.random() * sides) + 1;
+    setLastManualDiceRoll({ value, sides });
+    setDiceRollPulseId((prev) => prev + 1);
+    setInputMessage((prev) => {
+      const trimmed = prev.trim();
+      if (!trimmed) {
+        return `I rolled a d${sides}: ${value}. `;
+      }
+      return `${prev}${prev.endsWith(' ') ? '' : ' '}[d${sides}: ${value}] `;
+    });
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+    setIsDiceRolling(false);
+  }, [canUseDiceRoll]);
+
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
   const toggleCenterList = useCallback(() => {
     setIsCenterListCollapsed((prev) => !prev);
@@ -2606,18 +2646,24 @@ function App() {
                           />
                         </div>
 
-                        <Panel variant="highlight" className="mt-auto relative overflow-hidden p-4 text-center !rounded-xl">
-                          <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[92px] font-black leading-none text-brand-text-primary/10">
-                        ROLL
-                          </p>
-                          <p className="relative text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Latest Roll</p>
-                          <div className="relative mt-2 text-7xl font-semibold leading-none text-brand-text-primary">
-                            {latestDiceRoll || '—'}
-                          </div>
-                          <p className="relative mt-2 text-xs text-brand-text-muted">
-                            {adventureState?.title ? `Thread: ${adventureState.title}` : 'Fortune favors the bold.'}
-                          </p>
-                        </Panel>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleDiceRoll();
+                          }}
+                          disabled={!canUseDiceRoll}
+                          className={`retro-roll-panel-button mt-auto relative overflow-hidden rounded-xl ${
+                            isDiceRolling ? 'retro-roll-panel-button--rolling' : ''
+                          }`}
+                          aria-label={isDiceRolling ? 'Rolling d20' : 'Roll a d20'}
+                          title={isDiceRolling ? 'Rolling d20…' : 'Roll d20'}
+                        >
+                          <span className="retro-trouble-dice-bubble retro-roll-panel-bubble" aria-hidden="true">
+                            <span key={`panel-${diceRollPulseId}`} className="retro-trouble-dice-pips retro-roll-panel-value">
+                              {latestDiceRoll || (isDiceRolling ? '...' : 'd20')}
+                            </span>
+                          </span>
+                        </button>
 
                       </div>
                     )
