@@ -465,8 +465,8 @@ function App() {
   
   // Personality mode state
   const [personalityMode, setPersonalityMode] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'default';
-    const cached = window.localStorage.getItem('lastPersonalityMode') || 'default';
+    if (typeof window === 'undefined') return 'game_master';
+    const cached = window.localStorage.getItem('lastPersonalityMode') || 'game_master';
     return normalizePersonalityMode(cached);
   });
   const effectivePersonality = normalizePersonalityMode(personalityMode);
@@ -865,7 +865,9 @@ function App() {
       setAdventureState(null);
       setQuestSteps([]);
       setCharacterState(null);
-      setShowCharacterCreation(false);
+      if (effectivePersonality !== 'game_master') {
+        setShowCharacterCreation(false);
+      }
       return;
     }
     if (effectivePersonality === 'game_master') {
@@ -1539,6 +1541,10 @@ function App() {
     setBulkDeleteConversationIds(new Set());
     setIsNewInteractionPrimed(false);
 
+    if (shouldShowCharacterFlow) {
+      return;
+    }
+
     setIsSelectingConversation(true);
     try {
       const createdConversationId = await createConversationWithMode(effectivePersonality);
@@ -1933,6 +1939,12 @@ function App() {
 
   const hudQuestSteps = normalizedQuestSteps.length > 0 ? normalizedQuestSteps : derivedQuestSteps;
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
+  const userMessageAvatarSrc = useMemo(() => {
+    if (isGameMasterMode && characterDisplay.avatarSrc) {
+      return characterDisplay.avatarSrc;
+    }
+    return websiteUserProfile.avatarUrl || '';
+  }, [characterDisplay.avatarSrc, isGameMasterMode, websiteUserProfile.avatarUrl]);
   const currentLocation = useMemo(() => {
     const candidates = [adventureState?.lastLocation, adventureState?.title];
     const validLocation = candidates.find((value) => {
@@ -2111,9 +2123,9 @@ function App() {
                       onDrop={handleTrashDrop}
                       className={`retro-icon-button retro-tooltip-trigger mb-2 h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
                         isTrashDragOver
-                          ? 'border-brand-status-error/70 bg-brand-status-error/28 text-brand-status-error scale-[1.06]'
+                          ? 'border-brand-status-error/70 bg-brand-status-error/28 text-brand-status-error scale-[1.16] shadow-[0_12px_26px_rgba(239,68,68,0.34)]'
                           : isBulkDeleteMode
-                            ? 'border-brand-status-error/55 bg-brand-status-error/18 text-brand-status-error'
+                            ? 'border-brand-status-error/55 bg-brand-status-error/18 text-brand-status-error scale-[1.14] shadow-[0_10px_22px_rgba(239,68,68,0.28)]'
                             : 'border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary'
                       }`}
                       aria-label={
@@ -2129,23 +2141,35 @@ function App() {
                       data-tooltip={isBulkDeleteMode ? 'Delete selected interactions' : 'Select interactions to delete'}
                       data-tooltip-position="right"
                     >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg
+                        className={`transition-all duration-200 ${(isBulkDeleteMode || isTrashDragOver) ? 'h-5 w-5' : 'h-4 w-4'}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
                       </svg>
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-                      className="retro-icon-button retro-tooltip-trigger h-10 w-10 rounded-xl overflow-hidden border border-brand-surface-border/50 bg-brand-surface-secondary/60 flex items-center justify-center"
+                      className={`retro-icon-button retro-tooltip-trigger h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
+                        isProfileMenuOpen
+                          ? 'border-brand-accent-primary/65 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]'
+                          : 'border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary hover:border-brand-surface-border/70 hover:bg-brand-surface-elevated/70'
+                      }`}
                       aria-label="Open profile menu"
                       data-tooltip="Account menu"
                       data-tooltip-position="right"
                     >
-                      {websiteUserProfile.avatarUrl ? (
-                        <img src={websiteUserProfile.avatarUrl} alt="" aria-hidden="true" className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="text-xs font-semibold text-brand-text-primary">{websiteUserProfile.initials}</span>
-                      )}
+                      <span className="relative flex items-center justify-center" aria-hidden="true">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M4 7h16M4 12h16M4 17h16" />
+                        </svg>
+                        <span className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full transition-colors ${
+                          isProfileMenuOpen ? 'bg-brand-accent-primary' : 'bg-brand-text-muted/50'
+                        }`} />
+                      </span>
                     </button>
 
                     {isProfileMenuOpen && (
@@ -2306,11 +2330,15 @@ function App() {
                               className={`retro-message-row flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
                               {message.role === 'assistant' && (
-                                <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 animate-float">
-                                  <BrainIcon className="w-4 h-4 text-white" />
+                                <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 animate-float">
+                                  <img
+                                    src="/images/avatars/narrator.png"
+                                    alt=""
+                                    aria-hidden="true"
+                                    className="h-full w-full object-cover"
+                                  />
                                 </div>
                               )}
-                  
                               <div 
                                 ref={(el) => {
                                   if (el && message.role === 'assistant') {
@@ -2421,10 +2449,12 @@ function App() {
                               </div>
                   
                               {message.role === 'user' && (
-                                <div className="retro-avatar retro-avatar-user w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 transition-all duration-300 overflow-hidden">
-                                  {characterDisplay.avatarSrc ? (
+                                <div className={`retro-avatar retro-avatar-user w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 transition-all duration-300 overflow-hidden ${
+                                  isGameMasterMode ? '' : 'retro-avatar-user--brain'
+                                }`}>
+                                  {userMessageAvatarSrc ? (
                                     <img
-                                      src={characterDisplay.avatarSrc}
+                                      src={userMessageAvatarSrc}
                                       alt=""
                                       aria-hidden="true"
                                       className="h-full w-full object-cover"
@@ -2442,8 +2472,13 @@ function App() {
               
                           {isWaitingForResponse && (
                             <div className="retro-waiting-row flex gap-4 justify-start animate-slide-up">
-                              <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 animate-glow-pulse">
-                                <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
+                              <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 animate-glow-pulse">
+                                <img
+                                  src="/images/avatars/narrator.png"
+                                  alt=""
+                                  aria-hidden="true"
+                                  className="h-full w-full object-cover"
+                                />
                               </div>
                               <div className="retro-message retro-waiting-bubble rounded-2xl px-4 py-3 backdrop-blur-lg text-brand-text-primary">
                                 <div className="flex items-center gap-2">
@@ -2989,11 +3024,15 @@ function App() {
                   className={`retro-message-row flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   {message.role === 'assistant' && (
-                    <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1">
-                      <BrainIcon className="w-4 h-4 text-white" />
+                    <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1">
+                      <img
+                        src="/images/avatars/narrator.png"
+                        alt=""
+                        aria-hidden="true"
+                        className="h-full w-full object-cover"
+                      />
                     </div>
                   )}
-                  
                   <div 
                     ref={(el) => {
                       if (el && message.role === 'assistant') {
@@ -3102,10 +3141,12 @@ function App() {
                   </div>
                   
                   {message.role === 'user' && (
-                    <div className="retro-avatar retro-avatar-user w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 overflow-hidden">
-                      {characterDisplay.avatarSrc ? (
+                    <div className={`retro-avatar retro-avatar-user w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 overflow-hidden ${
+                      isGameMasterMode ? '' : 'retro-avatar-user--brain'
+                    }`}>
+                      {userMessageAvatarSrc ? (
                         <img
-                          src={characterDisplay.avatarSrc}
+                          src={userMessageAvatarSrc}
                           alt=""
                           aria-hidden="true"
                           className="h-full w-full object-cover"
@@ -3123,8 +3164,13 @@ function App() {
               
               {isWaitingForResponse && (
                 <div className="retro-waiting-row flex gap-3 justify-start animate-slide-up">
-                  <div className="retro-avatar retro-avatar-assistant w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 animate-glow-pulse">
-                    <BrainIcon className="w-4 h-4 text-white animate-spin-slow" />
+                  <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 animate-glow-pulse">
+                    <img
+                      src="/images/avatars/narrator.png"
+                      alt=""
+                      aria-hidden="true"
+                      className="h-full w-full object-cover"
+                    />
                   </div>
                   <div className="retro-message retro-waiting-bubble rounded-2xl px-4 py-3 backdrop-blur-lg text-brand-text-primary">
                     <div className="flex items-center gap-2">
