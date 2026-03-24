@@ -832,11 +832,19 @@ textarea.w-full:focus {
 }
 
 .retro-avatar-assistant {
-  background: radial-gradient(circle at 30% 25%, rgba(178, 250, 242, 0.95), rgba(54, 154, 145, 0.94));
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .retro-avatar-user {
   background: radial-gradient(circle at 30% 25%, rgba(139, 214, 196, 0.92), rgba(26, 95, 89, 0.95));
+}
+
+.retro-avatar-user--brain {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .retro-character-avatar {
