@@ -23,8 +23,19 @@ function DiceBody({ rollNonce, isRolling }: Pick<TroubleDice3DProps, 'rollNonce'
   const lastRollNonceRef = useRef(0);
   const shellMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
   const coreMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
+  const edgeMaterialRef = useRef<THREE.LineBasicMaterial | null>(null);
+  const edgeAccentMaterialRef = useRef<THREE.LineDashedMaterial | null>(null);
+  const edgeEtchMaterialRef = useRef<THREE.LineBasicMaterial | null>(null);
+  const edgeGlowMaterialRef = useRef<THREE.LineBasicMaterial | null>(null);
+  const edgeAccentRef = useRef<THREE.LineSegments | null>(null);
   const geometry = useMemo(() => new THREE.IcosahedronGeometry(0.68, 0), []);
   const edgesGeometry = useMemo(() => new THREE.EdgesGeometry(geometry), [geometry]);
+
+  useEffect(() => {
+    if (edgeAccentRef.current) {
+      edgeAccentRef.current.computeLineDistances();
+    }
+  }, [edgesGeometry]);
 
   useEffect(() => {
     return () => {
@@ -83,11 +94,26 @@ function DiceBody({ rollNonce, isRolling }: Pick<TroubleDice3DProps, 'rollNonce'
 
   useFrame(({ clock }) => {
     const pulse = 0.3 + Math.sin(clock.elapsedTime * 2.7) * 0.07 + (isRolling ? 0.14 : 0);
+    const edgePulse = 0.62 + Math.sin(clock.elapsedTime * 4.2) * 0.17 + (isRolling ? 0.18 : 0);
     if (shellMaterialRef.current) {
       shellMaterialRef.current.emissiveIntensity = pulse;
     }
     if (coreMaterialRef.current) {
       coreMaterialRef.current.emissiveIntensity = pulse * 0.8;
+    }
+    if (edgeMaterialRef.current) {
+      edgeMaterialRef.current.opacity = Math.min(1, edgePulse);
+    }
+    if (edgeAccentMaterialRef.current) {
+      edgeAccentMaterialRef.current.opacity = Math.min(0.95, edgePulse * 0.9);
+      edgeAccentMaterialRef.current.dashSize = 0.07 + edgePulse * 0.045;
+      edgeAccentMaterialRef.current.gapSize = 0.045 + edgePulse * 0.03;
+    }
+    if (edgeEtchMaterialRef.current) {
+      edgeEtchMaterialRef.current.opacity = 0.2 + edgePulse * 0.18;
+    }
+    if (edgeGlowMaterialRef.current) {
+      edgeGlowMaterialRef.current.opacity = 0.14 + edgePulse * 0.08;
     }
   });
 
@@ -130,7 +156,31 @@ function DiceBody({ rollNonce, isRolling }: Pick<TroubleDice3DProps, 'rollNonce'
         />
       </mesh>
       <lineSegments geometry={edgesGeometry}>
-        <lineBasicMaterial color="#d7c7ff" transparent opacity={0.78} />
+        <lineBasicMaterial ref={edgeEtchMaterialRef} color="#1d103f" transparent opacity={0.32} />
+      </lineSegments>
+      <lineSegments geometry={edgesGeometry} scale={[1.006, 1.006, 1.006]}>
+        <lineBasicMaterial ref={edgeMaterialRef} color="#e9ddff" transparent opacity={0.82} />
+      </lineSegments>
+      <lineSegments geometry={edgesGeometry} scale={[1.02, 1.02, 1.02]}>
+        <lineBasicMaterial
+          ref={edgeGlowMaterialRef}
+          color="#8de8ff"
+          transparent
+          opacity={0.2}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </lineSegments>
+      <lineSegments ref={edgeAccentRef} geometry={edgesGeometry} scale={[1.012, 1.012, 1.012]}>
+        <lineDashedMaterial
+          ref={edgeAccentMaterialRef}
+          color="#93f1ff"
+          transparent
+          opacity={0.72}
+          dashSize={0.1}
+          gapSize={0.06}
+          scale={1.6}
+        />
       </lineSegments>
     </RigidBody>
   );
