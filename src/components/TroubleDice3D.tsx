@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { CuboidCollider, Physics, RigidBody, type RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 
@@ -18,9 +18,11 @@ const WALL_THICKNESS = 0.14;
 const FLOOR_Y = -CHAMBER_HALF_HEIGHT;
 const CEILING_Y = CHAMBER_HALF_HEIGHT;
 
-function DiceBody({ rollNonce }: Pick<TroubleDice3DProps, 'rollNonce'>) {
+function DiceBody({ rollNonce, isRolling }: Pick<TroubleDice3DProps, 'rollNonce' | 'isRolling'>) {
   const rigidBodyRef = useRef<RapierRigidBody | null>(null);
   const lastRollNonceRef = useRef(0);
+  const shellMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
+  const coreMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const geometry = useMemo(() => new THREE.IcosahedronGeometry(0.68, 0), []);
   const edgesGeometry = useMemo(() => new THREE.EdgesGeometry(geometry), [geometry]);
 
@@ -79,6 +81,16 @@ function DiceBody({ rollNonce }: Pick<TroubleDice3DProps, 'rollNonce'>) {
     };
   }, [rollNonce, tossDie]);
 
+  useFrame(({ clock }) => {
+    const pulse = 0.3 + Math.sin(clock.elapsedTime * 2.7) * 0.07 + (isRolling ? 0.14 : 0);
+    if (shellMaterialRef.current) {
+      shellMaterialRef.current.emissiveIntensity = pulse;
+    }
+    if (coreMaterialRef.current) {
+      coreMaterialRef.current.emissiveIntensity = pulse * 0.8;
+    }
+  });
+
   return (
     <RigidBody
       ref={rigidBodyRef}
@@ -91,15 +103,34 @@ function DiceBody({ rollNonce }: Pick<TroubleDice3DProps, 'rollNonce'>) {
     >
       <mesh geometry={geometry} castShadow receiveShadow>
         <meshPhysicalMaterial
-          color="#7de7d5"
-          roughness={0.24}
-          metalness={0.15}
-          clearcoat={0.42}
-          clearcoatRoughness={0.18}
+          ref={shellMaterialRef}
+          color="#d7deff"
+          emissive="#5b39d4"
+          emissiveIntensity={0.3}
+          roughness={0.14}
+          metalness={0.38}
+          clearcoat={1}
+          clearcoatRoughness={0.08}
+          iridescence={0.5}
+          iridescenceIOR={1.3}
+          iridescenceThicknessRange={[120, 420]}
+        />
+      </mesh>
+      <mesh geometry={geometry}>
+        <meshStandardMaterial
+          ref={coreMaterialRef}
+          color="#8ee8ff"
+          emissive="#4338ca"
+          emissiveIntensity={0.22}
+          roughness={0.5}
+          metalness={0.14}
+          transparent
+          opacity={0.16}
+          side={THREE.BackSide}
         />
       </mesh>
       <lineSegments geometry={edgesGeometry}>
-        <lineBasicMaterial color="#0e4f47" transparent opacity={0.56} />
+        <lineBasicMaterial color="#d7c7ff" transparent opacity={0.78} />
       </lineSegments>
     </RigidBody>
   );
@@ -116,9 +147,11 @@ export default function TroubleDice3D({ rollNonce, isRolling, displayValue, puls
           gl={{ antialias: true, alpha: true }}
           shadows={false}
         >
-          <ambientLight intensity={0.72} />
-          <directionalLight position={[3.4, 4.2, 2.1]} intensity={1.22} />
-          <directionalLight position={[-2.4, 1.4, -3]} intensity={0.48} color="#8bd6ff" />
+          <ambientLight intensity={0.34} />
+          <hemisphereLight intensity={0.72} color="#b28cff" groundColor="#143f4f" />
+          <directionalLight position={[3.2, 4.4, 2.2]} intensity={1.12} color="#f2f6ff" />
+          <directionalLight position={[-2.6, 1.8, -3.2]} intensity={0.52} color="#7dd3fc" />
+          <pointLight position={[0, 0.8, 1.6]} intensity={1.1} color="#8b5cf6" distance={6} />
 
           <Physics gravity={[0, -22, 0]} timeStep={1 / 120}>
             <RigidBody type="fixed" colliders={false}>
@@ -160,7 +193,7 @@ export default function TroubleDice3D({ rollNonce, isRolling, displayValue, puls
               />
             </RigidBody>
 
-            <DiceBody rollNonce={rollNonce} />
+            <DiceBody rollNonce={rollNonce} isRolling={isRolling} />
           </Physics>
         </Canvas>
       </span>
