@@ -127,7 +127,11 @@ const schema = a.schema({
     locationTag: a.string().default(''),
     createdAt: a.datetime(),
     playerChoices: a.hasMany('GameMasterPlayerChoice', 'questStepId'),
-  }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
+  })
+    .secondaryIndexes((index) => [
+      index('conversationId'),  // GSI for querying quest steps by conversation
+    ])
+    .authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 
   GameMasterPlayerChoice: a.model({
     id: a.id(),
