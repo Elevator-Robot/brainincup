@@ -88,15 +88,17 @@ class GameMasterModeHandler(BaseModeHandler):
         actor_id = self._resolve_actor_id(owner)
         semantic_namespace = self._semantic_namespace(actor_id)
         character_namespace = self._character_namespace(actor_id)
+        npc_namespace = self._npc_namespace(actor_id)
         
         # Retrieve quest log (recent story events)
         quest_log = self._retrieve_quest_log()
         
-        # Retrieve AgentCore memory
+        # Retrieve AgentCore memory (includes semantic, character, and NPCs)
         memory_context = self._retrieve_agentcore_memory(
             user_input=user_input,
             semantic_namespace=semantic_namespace,
             character_namespace=character_namespace,
+            npc_namespace=npc_namespace,
         )
 
         # Build enriched context in priority order
@@ -195,8 +197,66 @@ class GameMasterModeHandler(BaseModeHandler):
         except Exception as error:
             logger.warning("Failed to persist character semantic memory record", exc_info=error)
 
+        # Extract and store NPCs mentioned in the response
+        try:
+            npcs = self._extract_npcs_from_text(response_text)
+            if npcs:
+                npc_namespace = self._npc_namespace(actor_id)
+                for npc_info in npcs:
+                    npc_request_id = f"npc-{npc_info['name'].lower().replace(' ', '-')}-{message_id or str(uuid.uuid4())[:8]}"
+                    self.agentcore_client.save_memory_record(
+                        request_identifier=npc_request_id,
+                        namespaces=[npc_namespace],
+                        content_text=npc_info['description'],
+                        memory_strategy_id=self.semantic_memory_strategy_id,
+                    )
+        except Exception as error:
+            logger.warning("Failed to persist NPC memory", exc_info=error)
+
     def _resolve_actor_id(self, owner: str | None) -> str:
         return self.agentcore_client.sanitize_namespace(owner or self.conversation_id)
+
+    def _extract_npcs_from_text(self, text: str) -> list[dict]:
+        """
+        Extract NPC mentions from narrative text using pattern matching.
+        Returns list of dicts with 'name' and 'description'.
+        """
+        if not text:
+            return []
+        
+        npcs = []
+        # Pattern: Look for quoted names or capitalized names followed by descriptors
+        # Examples: "Eldrin the merchant", "Captain Sara", "a dwarf named Grog"
+        
+        # Pattern 1: "Name the descriptor" or "Name, the descriptor"
+        pattern1 = r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)[,\s]+(?:the|a|an)\s+([a-z][^,.!?]*?)(?:[,.!?]|\s+(?:says?|asks?|tells?|approaches?|appears?|stands?|sits?))'
+        matches1 = re.findall(pattern1, text)
+        for name, descriptor in matches1:
+            if name and len(name) > 2 and not name.lower() in {'you', 'your', 'the', 'this', 'that'}:
+                npcs.append({
+                    'name': name.strip(),
+                    'description': f"NPC: {name.strip()} ({descriptor.strip()})"
+                })
+        
+        # Pattern 2: "a/an descriptor named Name"
+        pattern2 = r'(?:a|an)\s+([a-z]+(?:\s+[a-z]+)*?)\s+named\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)'
+        matches2 = re.findall(pattern2, text)
+        for descriptor, name in matches2:
+            if name and len(name) > 2:
+                npcs.append({
+                    'name': name.strip(),
+                    'description': f"NPC: {name.strip()} ({descriptor.strip()})"
+                })
+        
+        # Deduplicate by name
+        seen = set()
+        unique_npcs = []
+        for npc in npcs:
+            if npc['name'] not in seen:
+                seen.add(npc['name'])
+                unique_npcs.append(npc)
+        
+        return unique_npcs
 
     def _semantic_namespace(self, actor_id: str) -> str:
         strategy = self.agentcore_client.sanitize_namespace(
@@ -212,12 +272,27 @@ class GameMasterModeHandler(BaseModeHandler):
         )
         return f"/strategy/{strategy}/actor/{actor_id}/character/"
 
+    def _npc_namespace(self, actor_id: str) -> str:
+        """Namespace for storing NPC information."""
+        strategy = self.agentcore_client.sanitize_namespace(
+            self.semantic_memory_strategy_id or "semantic-default"
+        )
+        return f"/strategy/{strategy}/actor/{actor_id}/npcs/"
+
+    def _world_namespace(self, actor_id: str) -> str:
+        """Namespace for storing world lore and locations."""
+        strategy = self.agentcore_client.sanitize_namespace(
+            self.semantic_memory_strategy_id or "semantic-default"
+        )
+        return f"/strategy/{strategy}/actor/{actor_id}/world/"
+
     def _retrieve_agentcore_memory(
         self,
         *,
         user_input: str,
         semantic_namespace: str,
         character_namespace: str,
+        npc_namespace: str,
     ) -> str:
         records: list[str] = []
         try:
@@ -243,6 +318,19 @@ class GameMasterModeHandler(BaseModeHandler):
             )
         except Exception as error:
             logger.warning("Failed to retrieve character AgentCore memory", exc_info=error)
+
+        # Retrieve NPCs mentioned in user input
+        try:
+            npc_records = self.agentcore_client.retrieve_memory_records(
+                namespace=npc_namespace,
+                search_query=user_input,
+                top_k=3,
+                memory_strategy_id=self.semantic_memory_strategy_id,
+            )
+            if npc_records:
+                records.extend(npc_records)
+        except Exception as error:
+            logger.warning("Failed to retrieve NPC AgentCore memory", exc_info=error)
 
         if not records:
             return ""
