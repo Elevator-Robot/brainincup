@@ -251,7 +251,12 @@ def main(event, context):
                             extra={"character_name": character_data.get("name")}
                         )
 
-                controller = Controller(conversation_id, personality_mode, character_data)
+                controller = Controller(
+                    conversation_id, 
+                    personality_mode, 
+                    character_data,
+                    dynamodb_resource=dynamodb
+                )
                 is_first_interaction = event_name == "INSERT" and len(controller.conversation_history) == 1
                 response = controller.process_input(
                     user_input, final_message_id, final_owner

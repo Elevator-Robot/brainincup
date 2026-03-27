@@ -57,6 +57,7 @@ class GameMasterModeHandler(BaseModeHandler):
         personality_mode: str,
         agentcore_client: Any,
         character_data: dict | None = None,
+        dynamodb_resource: Any | None = None,
     ) -> None:
         super().__init__(
             conversation_id=conversation_id,
@@ -64,6 +65,8 @@ class GameMasterModeHandler(BaseModeHandler):
             agentcore_client=agentcore_client,
             character_data=character_data,
         )
+        self.dynamodb_resource = dynamodb_resource
+        self.quest_step_table_name = os.getenv("QUEST_STEP_TABLE_NAME")
         self.semantic_memory_strategy_id = (
             os.getenv("AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID", "").strip()
             or os.getenv("AGENTCORE_MEMORY_STRATEGY_ID", "").strip()
@@ -85,22 +88,39 @@ class GameMasterModeHandler(BaseModeHandler):
         actor_id = self._resolve_actor_id(owner)
         semantic_namespace = self._semantic_namespace(actor_id)
         character_namespace = self._character_namespace(actor_id)
+        
+        # Retrieve quest log (recent story events)
+        quest_log = self._retrieve_quest_log()
+        
+        # Retrieve AgentCore memory
         memory_context = self._retrieve_agentcore_memory(
             user_input=user_input,
             semantic_namespace=semantic_namespace,
             character_namespace=character_namespace,
         )
 
+        # Build enriched context in priority order
         enriched_context = context
+        
+        # 1. Quest log first (most important for story continuity)
+        if quest_log:
+            enriched_context = (
+                f"{quest_log}\n\n{enriched_context}" if enriched_context else quest_log
+            )
+        
+        # 2. AgentCore memory second
         if memory_context:
             enriched_context = (
                 f"{memory_context}\n\n{enriched_context}" if enriched_context else memory_context
             )
+        
+        # 3. Character sheet third (canonical truth)
         if self.character_data:
             character_context = self._format_character_context(self.character_data)
             enriched_context = (
                 f"{character_context}\n\n{enriched_context}" if enriched_context else character_context
             )
+        
         return enriched_context
 
     def apply_depth(self, *, depth_agent: Any, emotional_response: dict) -> dict:
@@ -243,6 +263,50 @@ class GameMasterModeHandler(BaseModeHandler):
         memory_lines.extend(f"- {record}" for record in unique_records)
         memory_lines.append("=======================")
         return "\n".join(memory_lines)
+
+    def _retrieve_quest_log(self) -> str:
+        """Fetch recent quest steps from DynamoDB to provide story context."""
+        if not self.dynamodb_resource or not self.quest_step_table_name:
+            return ""
+        
+        try:
+            table = self.dynamodb_resource.Table(self.quest_step_table_name)
+            # Query by conversationId GSI to get quest steps for this conversation
+            response = table.query(
+                IndexName='conversationId',
+                KeyConditionExpression='conversationId = :convId',
+                ExpressionAttributeValues={':convId': self.conversation_id},
+                ScanIndexForward=False,  # Most recent first
+                Limit=10,  # Last 10 quest steps
+            )
+            
+            items = response.get('Items', [])
+            if not items:
+                return ""
+            
+            # Reverse to show chronological order (oldest to newest)
+            items.reverse()
+            
+            quest_log_lines = ["=== QUEST LOG (Recent Story Events) ==="]
+            for idx, item in enumerate(items, 1):
+                summary = item.get('summary', '').strip()
+                location = item.get('locationTag', '').strip()
+                danger = item.get('dangerLevel', '').strip()
+                
+                if summary:
+                    line = f"{idx}. {summary}"
+                    if location:
+                        line += f" [Location: {location}]"
+                    if danger and danger != 'Unknown':
+                        line += f" [Danger: {danger}]"
+                    quest_log_lines.append(line)
+            
+            quest_log_lines.append("========================================")
+            return "\n".join(quest_log_lines)
+            
+        except Exception as error:
+            logger.warning("Failed to retrieve quest log from DynamoDB", exc_info=error)
+            return ""
 
     def _format_character_context(self, character: dict) -> str:
         stats = character.get("stats", {})
@@ -430,6 +494,7 @@ def create_mode_handler(
     personality_mode: str,
     agentcore_client: Any,
     character_data: dict | None = None,
+    dynamodb_resource: Any | None = None,
 ) -> BaseModeHandler:
     if personality_mode == "game_master":
         return GameMasterModeHandler(
@@ -437,6 +502,7 @@ def create_mode_handler(
             personality_mode=personality_mode,
             agentcore_client=agentcore_client,
             character_data=character_data,
+            dynamodb_resource=dynamodb_resource,
         )
     return BaseModeHandler(
         conversation_id=conversation_id,

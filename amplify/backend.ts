@@ -81,12 +81,14 @@ const conversationTable = backend.data.resources.tables['Conversation'];
 const messageTable = backend.data.resources.tables['Message'];
 const responseTable = backend.data.resources.tables['BrainResponse'];
 const characterTable = backend.data.resources.tables['GameMasterCharacter'];
+const questStepTable = backend.data.resources.tables['GameMasterQuestStep'];
 
 const brainLambda = backend.brain.resources.lambda as import('aws-cdk-lib').aws_lambda.Function;
 brainLambda.addEnvironment('CONVERSATION_TABLE_NAME', conversationTable.tableName);
 brainLambda.addEnvironment('MESSAGE_TABLE_NAME', messageTable.tableName);
 brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
 brainLambda.addEnvironment('CHARACTER_TABLE_NAME', characterTable.tableName);
+brainLambda.addEnvironment('QUEST_STEP_TABLE_NAME', questStepTable.tableName);
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
@@ -237,7 +239,9 @@ brainLambda.addToRolePolicy(new PolicyStatement({
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${responseTable.tableName}`,
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${responseTable.tableName}/*`,
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${characterTable.tableName}`,
-    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${characterTable.tableName}/*`
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${characterTable.tableName}/*`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${questStepTable.tableName}`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${questStepTable.tableName}/*`
   ],
   effect: Effect.ALLOW,
 }));
