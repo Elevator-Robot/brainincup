@@ -2,8 +2,6 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { fetchUserAttributes, signOut, deleteUser } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
-import BrainIcon from './components/BrainIcon';
-import PersonalityIndicator from './components/PersonalityIndicator';
 import InstallPrompt from './components/InstallPrompt';
 import CharacterCreation from './components/CharacterCreation';
 import ConversationList from './components/ConversationList';
@@ -11,7 +9,7 @@ import InventoryManager, { type InventoryItem } from './components/InventoryMana
 import TroubleDice3D from './components/TroubleDice3D';
 import Panel from './components/ui/Panel';
 import { RPGLayout, LeftSidebar, CenterNarrative, RightStatus, BottomInput } from './components/ui/RPGLayout';
-import { FACILITATED_MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
+import { normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import {
   chooseAutoAvatarId,
@@ -464,12 +462,10 @@ function App() {
   }, [characterState, conversationId]);
   
   // Personality mode state
-  const [personalityMode, setPersonalityMode] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'game_master';
-    const cached = window.localStorage.getItem('lastPersonalityMode') || 'game_master';
-    return normalizePersonalityMode(cached);
-  });
-  const effectivePersonality = normalizePersonalityMode(personalityMode);
+  // Mode selection UI removed - defaulting to game_master mode
+  // Backend mode handlers remain intact for future integration
+  const setPersonalityMode = (_mode: string) => {}; // No-op for compatibility
+  const effectivePersonality = 'game_master';
 
   const ensureAdventureState = useCallback(async (convId: string, modeOverride?: string): Promise<AdventureRecord | null> => {
     const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
@@ -945,10 +941,7 @@ function App() {
     }
   }, [conversationId, effectivePersonality]);
 
-  // Persist current mode to avoid Brain->Game Master flicker on initial app boot.
-  useEffect(() => {
-    localStorage.setItem('lastPersonalityMode', normalizePersonalityMode(personalityMode));
-  }, [personalityMode]);
+  // Mode persistence removed - mode is now hardcoded to game_master
 
   useEffect(() => {
     writeStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, isCenterListCollapsed);
@@ -1628,33 +1621,8 @@ function App() {
     return null;
   }, [userAttributes]);
 
-  const handleModeSelected = async (modeId: string) => {
-    const normalized = normalizePersonalityMode(modeId);
-    if (normalized === effectivePersonality) return;
-
-    setIsSelectingConversation(false);
-    setConversationId(null);
-    setMessages([]);
-    setInputMessage('');
-    setIsWaitingForResponse(false);
-    setExpandedMessageIndex(null);
-    setAdventureState(null);
-    setQuestSteps([]);
-    setCharacterState(null);
-    setShowCharacterCreation(false);
-    setPendingCharacterDraft(null);
-    setIsNewInteractionPrimed(false);
-    setIsBulkDeleteMode(false);
-    setBulkDeleteConversationIds(new Set());
-    setDraggingConversationId(null);
-    setIsTrashDragOver(false);
-    setPersonalityMode(normalized);
-  };
-
-  const handleFacilitatedModeToggle = (modeId: PersonalityModeId) => {
-    const nextMode = effectivePersonality === modeId ? 'default' : modeId;
-    void handleModeSelected(nextMode);
-  };
+  // handleModeSelected removed - mode selection UI removed
+  // Keeping setPersonalityMode for compatibility with drag-drop logic
 
   const handleToggleBulkDeleteConversation = useCallback((targetConversationId: string) => {
     if (!targetConversationId) return;
@@ -2087,31 +2055,7 @@ function App() {
                     >
                       <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                     </button>
-                    <div className="my-1 h-px w-7 bg-brand-surface-border/40" aria-hidden="true" />
-                    {FACILITATED_MODE_OPTIONS.map((option) => {
-                      const isActive = option.id === effectivePersonality;
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => handleFacilitatedModeToggle(option.id)}
-                          className={`retro-icon-button retro-left-mode-button retro-tooltip-trigger h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                            isActive
-                              ? 'retro-left-mode-button-active border border-brand-accent-primary/40 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
-                              : 'border border-brand-surface-border/45 bg-brand-bg-secondary/65 text-brand-text-primary hover:border-brand-surface-border/60 hover:bg-brand-bg-tertiary/55'
-                          }`}
-                          aria-label={isActive ? 'Return to Brain chat' : `Enter ${option.shortLabel}`}
-                          data-tooltip={isActive ? 'Return to Brain chat' : `Enter ${option.shortLabel}`}
-                          data-tooltip-position="right"
-                        >
-                          {option.id === 'game_master' ? (
-                            <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
-                          ) : (
-                            <BrainIcon className="h-4 w-4" />
-                          )}
-                        </button>
-                      );
-                    })}
+                    {/* Mode toggle buttons removed - mode is now hardcoded to game_master */}
                   </div>
 
                   <div ref={profileMenuRef} className="relative z-40">
@@ -2285,12 +2229,7 @@ function App() {
                         className={`flex-1 overflow-y-auto pr-2 pb-4 ${conversationId && isGameMasterMode ? 'pt-24' : ''}`}
                       >
                         <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
-                          {/* Mode indicator (mobile only) */}
-                          {conversationId && isGameMasterMode && (
-                            <div className="lg:hidden">
-                              <PersonalityIndicator personality={effectivePersonality} />
-                            </div>
-                          )}
+                          {/* Mode indicator removed */}
 
                           {conversationId && effectivePersonality === 'game_master' && adventureState && (
                             <div className="lg:hidden">
@@ -2722,9 +2661,7 @@ function App() {
                       <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
                     </Panel>
 
-                    {conversationId && isGameMasterMode && (
-                      <PersonalityIndicator personality={effectivePersonality} />
-                    )}
+                    {/* Mode indicator removed */}
 
                   </div>
                 )}
@@ -2773,33 +2710,7 @@ function App() {
                 </span>
                 <span className="text-sm font-medium text-brand-text-primary">New Interaction</span>
               </button>
-              {FACILITATED_MODE_OPTIONS.map((option) => {
-                const isActive = option.id === effectivePersonality;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => handleFacilitatedModeToggle(option.id)}
-                    className={`w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-all duration-200 ${
-                      isActive
-                        ? 'border border-brand-accent-primary/35 bg-brand-accent-primary/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
-                        : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-bg-secondary/60 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(156,116,230,0.18),0_8px_16px_rgba(2,10,12,0.22)]'
-                    }`}
-                    aria-label={isActive ? 'Return to Brain chat' : `Enter ${option.shortLabel}`}
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                      {option.id === 'game_master' ? (
-                        <img src="/game-master.svg" alt="" aria-hidden="true" className="h-5 w-7 object-contain" />
-                      ) : (
-                        <BrainIcon className="h-5 w-5" />
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1 text-sm font-medium text-brand-text-primary">
-                      {isActive ? `${option.shortLabel} (On)` : option.shortLabel}
-                    </span>
-                  </button>
-                );
-              })}
+              {/* Mode toggle buttons removed - mode is now hardcoded to game_master */}
             </div>
           </div>
         </nav>
