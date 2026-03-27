@@ -89,16 +89,18 @@ class GameMasterModeHandler(BaseModeHandler):
         semantic_namespace = self._semantic_namespace(actor_id)
         character_namespace = self._character_namespace(actor_id)
         npc_namespace = self._npc_namespace(actor_id)
+        world_namespace = self._world_namespace(actor_id)
         
         # Retrieve quest log (recent story events)
         quest_log = self._retrieve_quest_log()
         
-        # Retrieve AgentCore memory (includes semantic, character, and NPCs)
+        # Retrieve AgentCore memory (includes semantic, character, NPCs, and world info)
         memory_context = self._retrieve_agentcore_memory(
             user_input=user_input,
             semantic_namespace=semantic_namespace,
             character_namespace=character_namespace,
             npc_namespace=npc_namespace,
+            world_namespace=world_namespace,
         )
 
         # Build enriched context in priority order
@@ -213,6 +215,22 @@ class GameMasterModeHandler(BaseModeHandler):
         except Exception as error:
             logger.warning("Failed to persist NPC memory", exc_info=error)
 
+        # Extract and store world info (locations, rules, factions)
+        try:
+            world_info = self._extract_world_info_from_text(response_text)
+            if world_info:
+                world_namespace = self._world_namespace(actor_id)
+                for info in world_info:
+                    info_id = f"world-{info['type']}-{message_id or str(uuid.uuid4())[:8]}"
+                    self.agentcore_client.save_memory_record(
+                        request_identifier=info_id,
+                        namespaces=[world_namespace],
+                        content_text=info['description'],
+                        memory_strategy_id=self.semantic_memory_strategy_id,
+                    )
+        except Exception as error:
+            logger.warning("Failed to persist world info memory", exc_info=error)
+
     def _resolve_actor_id(self, owner: str | None) -> str:
         return self.agentcore_client.sanitize_namespace(owner or self.conversation_id)
 
@@ -258,6 +276,56 @@ class GameMasterModeHandler(BaseModeHandler):
         
         return unique_npcs
 
+    def _extract_world_info_from_text(self, text: str) -> list[dict]:
+        """
+        Extract location and world lore mentions from narrative text.
+        Returns list of dicts with 'type' and 'description'.
+        """
+        if not text:
+            return []
+        
+        world_info = []
+        
+        # Pattern 1: Location descriptions - "the [Adj] [Place]", "the [Place] of [Name]"
+        location_pattern1 = r'(?:the|a|an)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:Tavern|Inn|Castle|Tower|Temple|Forest|Mountain|Village|City|Kingdom|Dungeon|Cave|Bridge|Gate|Hall|Market)))'
+        matches1 = re.findall(location_pattern1, text)
+        for location in matches1:
+            if location and len(location) > 3:
+                world_info.append({
+                    'type': 'location',
+                    'description': f"Location: {location.strip()}"
+                })
+        
+        # Pattern 2: World rules - "magic is [forbidden/allowed/etc]", "[something] is forbidden"
+        rule_pattern = r'((?:magic|fighting|weapons|violence|trading|entering|leaving)[^.!?]*(?:forbidden|banned|illegal|required|mandatory|sacred|holy|cursed))'
+        matches2 = re.findall(rule_pattern, text, re.IGNORECASE)
+        for rule in matches2:
+            if rule and len(rule) > 10:
+                world_info.append({
+                    'type': 'rule',
+                    'description': f"Rule: {rule.strip()}"
+                })
+        
+        # Pattern 3: Faction/organization mentions - "the [Name] [faction/guild/order/etc]"
+        faction_pattern = r'(?:the\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(Guild|Order|Faction|Brotherhood|Sisterhood|Clan|Tribe|Council)'
+        matches3 = re.findall(faction_pattern, text)
+        for name, org_type in matches3:
+            if name and len(name) > 2:
+                world_info.append({
+                    'type': 'faction',
+                    'description': f"Faction: {name.strip()} {org_type}"
+                })
+        
+        # Deduplicate by description
+        seen = set()
+        unique_info = []
+        for info in world_info:
+            if info['description'] not in seen:
+                seen.add(info['description'])
+                unique_info.append(info)
+        
+        return unique_info
+
     def _semantic_namespace(self, actor_id: str) -> str:
         strategy = self.agentcore_client.sanitize_namespace(
             self.semantic_memory_strategy_id or "semantic-default"
@@ -293,6 +361,7 @@ class GameMasterModeHandler(BaseModeHandler):
         semantic_namespace: str,
         character_namespace: str,
         npc_namespace: str,
+        world_namespace: str,
     ) -> str:
         records: list[str] = []
         try:
@@ -331,6 +400,19 @@ class GameMasterModeHandler(BaseModeHandler):
                 records.extend(npc_records)
         except Exception as error:
             logger.warning("Failed to retrieve NPC AgentCore memory", exc_info=error)
+
+        # Retrieve world info (locations, rules, factions) relevant to user input
+        try:
+            world_records = self.agentcore_client.retrieve_memory_records(
+                namespace=world_namespace,
+                search_query=user_input,
+                top_k=3,
+                memory_strategy_id=self.semantic_memory_strategy_id,
+            )
+            if world_records:
+                records.extend(world_records)
+        except Exception as error:
+            logger.warning("Failed to retrieve world info AgentCore memory", exc_info=error)
 
         if not records:
             return ""
