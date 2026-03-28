@@ -253,4 +253,11 @@ brainLambda.addToRolePolicy(new PolicyStatement({
   effect: Effect.ALLOW,
 }));
 
+// Add Lambda function URL to outputs so frontend can call it
+backend.addOutput({
+  custom: {
+    brainApiUrl: brainLambda.url,
+  },
+});
+
 export default backend;
