@@ -84,6 +84,17 @@ const characterTable = backend.data.resources.tables['GameMasterCharacter'];
 const questStepTable = backend.data.resources.tables['GameMasterQuestStep'];
 
 const brainLambda = backend.brain.resources.lambda as import('aws-cdk-lib').aws_lambda.Function;
+
+// Add Function URL to make the Lambda publicly accessible
+const functionUrl = brainLambda.addFunctionUrl({
+  authType: import('aws-cdk-lib').aws_lambda.FunctionUrlAuthType.NONE,
+  cors: {
+    allowedOrigins: ['*'],
+    allowedMethods: [import('aws-cdk-lib').aws_lambda.HttpMethod.ALL],
+    allowedHeaders: ['*'],
+  },
+});
+
 brainLambda.addEnvironment('CONVERSATION_TABLE_NAME', conversationTable.tableName);
 brainLambda.addEnvironment('MESSAGE_TABLE_NAME', messageTable.tableName);
 brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
@@ -256,7 +267,7 @@ brainLambda.addToRolePolicy(new PolicyStatement({
 // Add Lambda function URL to outputs so frontend can call it
 backend.addOutput({
   custom: {
-    brainApiUrl: brainLambda.url,
+    brainApiUrl: functionUrl.url,
   },
 });
 
