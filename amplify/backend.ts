@@ -4,6 +4,7 @@ import { data } from './data/resource';
 import { brain } from './functions/brain/resource';
 import { PolicyStatement, Effect, ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { EventSourceMapping, StartingPosition } from 'aws-cdk-lib/aws-lambda';
+import { FunctionUrlAuthType, HttpMethod } from 'aws-cdk-lib/aws-lambda';
 import { StreamViewType } from 'aws-cdk-lib/aws-dynamodb';
 import { Tags, CfnResource, CfnOutput } from 'aws-cdk-lib';
 import { existsSync, readFileSync } from 'node:fs';
@@ -87,10 +88,10 @@ const brainLambda = backend.brain.resources.lambda as import('aws-cdk-lib').aws_
 
 // Add Function URL to make the Lambda publicly accessible
 const functionUrl = brainLambda.addFunctionUrl({
-  authType: import('aws-cdk-lib').aws_lambda.FunctionUrlAuthType.NONE,
+  authType: FunctionUrlAuthType.NONE,
   cors: {
     allowedOrigins: ['*'],
-    allowedMethods: [import('aws-cdk-lib').aws_lambda.HttpMethod.ALL],
+    allowedMethods: [HttpMethod.ALL],
     allowedHeaders: ['*'],
   },
 });
