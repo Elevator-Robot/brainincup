@@ -54,14 +54,36 @@ if [ ${#UNIQUE_GROUPS[@]} -eq 0 ]; then
   exit 1
 fi
 
-echo "✅ Found ${#UNIQUE_GROUPS[@]} sandbox log group(s):" >&2
-for group in "${UNIQUE_GROUPS[@]}"; do
-  echo "   📋 $group" >&2
-done
-echo "" >&2
+echo "✅ Found ${#UNIQUE_GROUPS[@]} sandbox log group(s)" >&2
 
-# Use the first log group (typically there's only one brain function)
-LOG_GROUP="${UNIQUE_GROUPS[0]}"
+# Find the log group with most recent activity
+echo "🔍 Finding most recently active log group..." >&2
+ACTIVE_GROUP=""
+LATEST_TIME=0
+
+for group in "${UNIQUE_GROUPS[@]}"; do
+  # Get the last event timestamp for this log group
+  last_event=$(aws logs describe-log-groups --log-group-name-pattern "$group" --query 'logGroups[0].storedBytes' --output text 2>/dev/null)
+  
+  if [ -n "$last_event" ] && [ "$last_event" != "None" ] && [ "$last_event" -gt 0 ]; then
+    # Check for recent events (last 10 minutes)
+    recent_count=$(aws logs filter-log-events --log-group-name "$group" --start-time $(( $(date +%s) * 1000 - 600000 )) --max-items 1 --query 'events | length(@)' --output text 2>/dev/null || echo "0")
+    
+    if [ "$recent_count" -gt 0 ]; then
+      ACTIVE_GROUP="$group"
+      echo "   ✓ Found recent activity in: $group" >&2
+      break
+    fi
+  fi
+done
+
+# If no recent activity found, use the first group
+if [ -z "$ACTIVE_GROUP" ]; then
+  ACTIVE_GROUP="${UNIQUE_GROUPS[0]}"
+  echo "   ⚠️  No recent activity detected, using first group: $ACTIVE_GROUP" >&2
+fi
+
+LOG_GROUP="$ACTIVE_GROUP"
 
 echo "📡 Streaming live logs from: $LOG_GROUP" >&2
 echo "   (Press Ctrl+C to stop)" >&2
