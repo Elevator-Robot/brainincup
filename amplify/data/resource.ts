@@ -62,7 +62,7 @@ const schema = a.schema({
     // Narrative Structure Fields
     currentLocation: a.string().default('Unknown Location'),
     currentScene: a.string().default(''),
-    currentAct: a.enum(['EXPOSITION', 'RISING_ACTION', 'CLIMAX', 'FALLING_ACTION', 'RESOLUTION']).default('EXPOSITION'),
+    currentAct: a.enum(['EXPOSITION', 'RISING_ACTION', 'CLIMAX', 'FALLING_ACTION', 'RESOLUTION']),
     currentChapter: a.integer().default(1),
     tensionLevel: a.integer().default(3),
     
