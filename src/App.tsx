@@ -1914,6 +1914,11 @@ function App() {
     return websiteUserProfile.avatarUrl || '';
   }, [characterDisplay.avatarSrc, isGameMasterMode, websiteUserProfile.avatarUrl]);
   const currentLocation = useMemo(() => {
+    // Use narrative structure location if available
+    if (adventureState?.currentLocation) {
+      return adventureState.currentLocation;
+    }
+    // Fallback logic
     const candidates = [adventureState?.lastLocation, adventureState?.title];
     const validLocation = candidates.find((value) => {
       if (typeof value !== 'string') return false;
@@ -1921,7 +1926,26 @@ function App() {
       return normalized.length > 0 && normalized !== 'unknown' && normalized !== 'n/a';
     });
     return validLocation?.trim() || 'The Shrouded Vale';
-  }, [adventureState?.lastLocation, adventureState?.title]);
+  }, [adventureState?.currentLocation, adventureState?.lastLocation, adventureState?.title]);
+  
+  const currentAct = useMemo(() => {
+    if (!adventureState?.currentAct) return 'I';
+    
+    const actMap: Record<string, string> = {
+      'EXPOSITION': 'I',
+      'RISING_ACTION': 'II',
+      'CLIMAX': 'III',
+      'FALLING_ACTION': 'IV',
+      'RESOLUTION': 'V'
+    };
+    
+    return actMap[adventureState.currentAct] || 'I';
+  }, [adventureState?.currentAct]);
+  
+  const currentChapter = useMemo(() => {
+    return adventureState?.currentChapter || 1;
+  }, [adventureState?.currentChapter]);
+  
   const latestDiceRoll = useMemo(() => {
     if (lastManualDiceRoll) {
       return String(lastManualDiceRoll.value);
@@ -2216,7 +2240,7 @@ function App() {
                                 </div>
                                 <div className="text-right">
                                   <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Act</p>
-                                  <p className="text-lg font-light text-brand-text-primary">{characterDisplay.level >= 5 ? 'II' : 'I'}</p>
+                                  <p className="text-lg font-light text-brand-text-primary">{currentAct} • Ch. {currentChapter}</p>
                                 </div>
                               </div>
                             </Panel>
