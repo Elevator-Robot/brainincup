@@ -6,7 +6,16 @@ set -e
 
 # Configuration
 AWS_REGION="${AWS_REGION:-us-east-1}"
-ACCOUNT_ID="${ACCOUNT_ID:-431515038332}"
+AWS_PROFILE="${AWS_PROFILE:-brain}"
+
+# Auto-detect AWS account ID
+ACCOUNT_ID="${ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo "")}"
+if [ -z "$ACCOUNT_ID" ]; then
+  echo "❌ Error: Could not determine AWS account ID"
+  echo "   Make sure AWS credentials are configured"
+  exit 1
+fi
+
 REPO="${REPO:-brain-agent}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 
