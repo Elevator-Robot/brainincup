@@ -4,6 +4,7 @@ import re
 import uuid
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from core.narrative_extractor import NarrativeExtractor, StoryAct, StoryBeat
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,26 @@ class GameMasterModeHandler(BaseModeHandler):
             os.getenv("AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID", "").strip()
             or self.semantic_memory_strategy_id
         )
+        
+        # Initialize narrative extractor
+        self.narrative_extractor = NarrativeExtractor()
+        
+        # Track adventure state for narrative structure
+        self.adventure_state = {
+            'currentLocation': 'Unknown Location',
+            'currentScene': '',
+            'currentAct': 'EXPOSITION',
+            'currentChapter': 1,
+            'tensionLevel': 3,
+            'timeline': [],
+            'visitedLocations': [],
+            'activeObjectives': [],
+            'criticalChoices': [],
+            'storyArc': {},
+            'turnsInChapter': 0,
+            'turnsSinceConflict': 0,
+            'lastStoryBeat': None,
+        }
 
     def enrich_context(
         self,
@@ -106,7 +127,14 @@ class GameMasterModeHandler(BaseModeHandler):
         # Build enriched context in priority order
         enriched_context = context
         
-        # 1. Quest log first (most important for story continuity)
+        # 0. Narrative structure first (sets the scene)
+        narrative_context = self._format_narrative_context()
+        if narrative_context:
+            enriched_context = (
+                f"{narrative_context}\n\n{enriched_context}" if enriched_context else narrative_context
+            )
+        
+        # 1. Quest log second (most important for story continuity)
         if quest_log:
             enriched_context = (
                 f"{quest_log}\n\n{enriched_context}" if enriched_context else quest_log
@@ -230,6 +258,15 @@ class GameMasterModeHandler(BaseModeHandler):
                     )
         except Exception as error:
             logger.warning("Failed to persist world info memory", exc_info=error)
+        
+        # Update narrative structure (location, act, tension, timeline)
+        try:
+            self._update_narrative_structure(
+                user_input=user_input,
+                response_text=response_text
+            )
+        except Exception as error:
+            logger.warning("Failed to update narrative structure", exc_info=error)
 
     def _resolve_actor_id(self, owner: str | None) -> str:
         return self.agentcore_client.sanitize_namespace(owner or self.conversation_id)
@@ -656,6 +693,149 @@ class GameMasterModeHandler(BaseModeHandler):
             )
 
         return " ".join(parts) + " What do you do next?"
+    
+    def _format_narrative_context(self) -> str:
+        """Format current narrative structure for AI context"""
+        parts = []
+        
+        # Current story state
+        parts.append(f"=== Story State ===")
+        parts.append(f"Current Location: {self.adventure_state['currentLocation']}")
+        if self.adventure_state['currentScene']:
+            parts.append(f"Current Scene: {self.adventure_state['currentScene']}")
+        parts.append(f"Story Act: {self.adventure_state['currentAct']} (Chapter {self.adventure_state['currentChapter']})")
+        parts.append(f"Tension Level: {self.adventure_state['tensionLevel']}/10")
+        parts.append("")
+        
+        # Recent timeline (last 3 events)
+        if self.adventure_state['timeline']:
+            parts.append("Recent Story Events:")
+            for event in self.adventure_state['timeline'][-3:]:
+                parts.append(f"  - [{event['location']}] {event['summary']}")
+            parts.append("")
+        
+        # Active objectives
+        if self.adventure_state['activeObjectives']:
+            parts.append("Active Quest Objectives:")
+            for obj in self.adventure_state['activeObjectives']:
+                status = obj.get('status', 'ACTIVE')
+                if status == 'ACTIVE':
+                    parts.append(f"  - {obj['description']}")
+            parts.append("")
+        
+        # Scene transition guidance
+        parts.append("Scene Transition Rules:")
+        parts.append("  - Only move to connected or previously visited locations")
+        parts.append("  - Signal location changes clearly in narration")
+        parts.append("  - Maintain location continuity unless player explicitly travels")
+        parts.append("")
+        
+        return "\n".join(parts)
+    
+    def _update_narrative_structure(self, user_input: str, response_text: str) -> None:
+        """Extract and update narrative structure from AI response"""
+        
+        # Extract location/scene
+        location_data = self.narrative_extractor.extract_location(
+            response_text,
+            self.adventure_state['currentLocation']
+        )
+        
+        # Validate and update location if transition detected
+        if location_data['is_transition']:
+            is_valid, reason = self.narrative_extractor.validate_location_transition(
+                self.adventure_state['currentLocation'],
+                location_data['location'],
+                self.adventure_state['visitedLocations']
+            )
+            
+            if is_valid:
+                # Update current location
+                old_location = self.adventure_state['currentLocation']
+                self.adventure_state['currentLocation'] = location_data['location']
+                self.adventure_state['currentScene'] = location_data['scene']
+                
+                # Add to visited locations if new
+                if not any(loc['name'] == location_data['location'] for loc in self.adventure_state['visitedLocations']):
+                    self.adventure_state['visitedLocations'].append({
+                        'name': location_data['location'],
+                        'firstVisited': datetime.utcnow().isoformat(),
+                        'description': location_data['scene'] or '',
+                        'connectedTo': [old_location] if old_location != 'Unknown Location' else [],
+                        'dangerLevel': 5,  # Default mid-range
+                    })
+                
+                logger.info(f"Location updated: {old_location} → {location_data['location']}")
+            else:
+                logger.warning(f"Invalid location transition blocked: {reason}")
+        
+        # Detect story beat
+        story_beat = self.narrative_extractor.detect_story_beat(response_text)
+        if story_beat:
+            self.adventure_state['lastStoryBeat'] = story_beat.value
+            
+            # Reset conflict counter if conflict detected
+            if story_beat == StoryBeat.CONFLICT:
+                self.adventure_state['turnsSinceConflict'] = 0
+            else:
+                self.adventure_state['turnsSinceConflict'] += 1
+        else:
+            self.adventure_state['turnsSinceConflict'] += 1
+        
+        # Update tension
+        new_tension = self.narrative_extractor.calculate_tension_change(
+            self.adventure_state['tensionLevel'],
+            story_beat,
+            self.adventure_state['turnsSinceConflict']
+        )
+        self.adventure_state['tensionLevel'] = new_tension
+        
+        # Check act progression
+        should_advance, new_act, reason = self.narrative_extractor.should_advance_act(
+            StoryAct[self.adventure_state['currentAct']],
+            self.adventure_state['tensionLevel'],
+            self.adventure_state['currentChapter'],
+            len(self.adventure_state['timeline'])
+        )
+        
+        if should_advance and new_act:
+            logger.info(f"Act progression: {self.adventure_state['currentAct']} → {new_act.value} ({reason})")
+            self.adventure_state['currentAct'] = new_act.value
+            self.adventure_state['currentChapter'] += 1
+            self.adventure_state['turnsInChapter'] = 0
+        else:
+            self.adventure_state['turnsInChapter'] += 1
+        
+        # Check chapter progression
+        should_advance_chapter, reason = self.narrative_extractor.should_advance_chapter(
+            self.adventure_state['currentChapter'],
+            self.adventure_state['turnsInChapter'],
+            self.adventure_state['tensionLevel'],
+            story_beat
+        )
+        
+        if should_advance_chapter:
+            logger.info(f"Chapter advancement: Chapter {self.adventure_state['currentChapter']} → {self.adventure_state['currentChapter'] + 1} ({reason})")
+            self.adventure_state['currentChapter'] += 1
+            self.adventure_state['turnsInChapter'] = 0
+        
+        # Add timeline event
+        timeline_event = self.narrative_extractor.create_timeline_event(
+            location=self.adventure_state['currentLocation'],
+            scene=self.adventure_state['currentScene'],
+            summary=response_text[:200] + "..." if len(response_text) > 200 else response_text,
+            player_action=user_input,
+            chapter=self.adventure_state['currentChapter'],
+            event_type=story_beat.value if story_beat else "NARRATIVE",
+            npcs_present=self.narrative_extractor.extract_npcs_from_text(response_text)
+        )
+        self.adventure_state['timeline'].append(timeline_event)
+        
+        # Keep timeline to last 20 events to prevent it from growing too large
+        if len(self.adventure_state['timeline']) > 20:
+            self.adventure_state['timeline'] = self.adventure_state['timeline'][-20:]
+        
+        logger.debug(f"Narrative state: {self.adventure_state['currentLocation']} | {self.adventure_state['currentAct']} Ch{self.adventure_state['currentChapter']} | Tension {self.adventure_state['tensionLevel']}/10")
 
 
 def create_mode_handler(
