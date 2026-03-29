@@ -732,6 +732,70 @@ class GameMasterModeHandler(BaseModeHandler):
         
         return "\n".join(parts)
     
+    def _persist_adventure_state(self) -> None:
+        """Persist current adventure state to DynamoDB"""
+        if not self.dynamodb_resource:
+            logger.warning("Cannot persist adventure state: DynamoDB resource not available")
+            return
+        
+        adventure_table_name = os.getenv("ADVENTURE_TABLE_NAME")
+        if not adventure_table_name:
+            logger.warning("Cannot persist adventure state: ADVENTURE_TABLE_NAME not set")
+            return
+        
+        try:
+            adventure_table = self.dynamodb_resource.Table(adventure_table_name)
+            
+            # Find adventure by conversationId
+            response = adventure_table.query(
+                IndexName='conversationId',
+                KeyConditionExpression='conversationId = :convId',
+                ExpressionAttributeValues={':convId': self.conversation_id},
+                Limit=1
+            )
+            
+            if not response.get('Items'):
+                logger.warning(f"No adventure found for conversation {self.conversation_id}")
+                return
+            
+            adventure_item = response['Items'][0]
+            adventure_id = adventure_item['id']
+            
+            # Update narrative structure fields
+            adventure_table.update_item(
+                Key={'id': adventure_id},
+                UpdateExpression='''
+                    SET currentLocation = :loc,
+                        currentScene = :scene,
+                        currentAct = :act,
+                        currentChapter = :chapter,
+                        tensionLevel = :tension,
+                        timeline = :timeline,
+                        visitedLocations = :visited,
+                        activeObjectives = :objectives,
+                        criticalChoices = :choices,
+                        storyArc = :arc,
+                        updatedAt = :now
+                ''',
+                ExpressionAttributeValues={
+                    ':loc': self.adventure_state['currentLocation'],
+                    ':scene': self.adventure_state['currentScene'],
+                    ':act': self.adventure_state['currentAct'],
+                    ':chapter': self.adventure_state['currentChapter'],
+                    ':tension': self.adventure_state['tensionLevel'],
+                    ':timeline': self.adventure_state['timeline'],
+                    ':visited': self.adventure_state['visitedLocations'],
+                    ':objectives': self.adventure_state['activeObjectives'],
+                    ':choices': self.adventure_state['criticalChoices'],
+                    ':arc': self.adventure_state['storyArc'],
+                    ':now': datetime.utcnow().isoformat() + 'Z'
+                }
+            )
+            
+            logger.info(f"Adventure state persisted: {self.adventure_state['currentLocation']}")
+        except Exception as error:
+            logger.error(f"Failed to persist adventure state: {error}", exc_info=True)
+    
     def _update_narrative_structure(self, user_input: str, response_text: str) -> None:
         """Extract and update narrative structure from AI response"""
         
@@ -834,6 +898,9 @@ class GameMasterModeHandler(BaseModeHandler):
         # Keep timeline to last 20 events to prevent it from growing too large
         if len(self.adventure_state['timeline']) > 20:
             self.adventure_state['timeline'] = self.adventure_state['timeline'][-20:]
+        
+        # Persist adventure state to DynamoDB
+        self._persist_adventure_state()
         
         logger.debug(f"Narrative state: {self.adventure_state['currentLocation']} | {self.adventure_state['currentAct']} Ch{self.adventure_state['currentChapter']} | Tension {self.adventure_state['tensionLevel']}/10")
 
