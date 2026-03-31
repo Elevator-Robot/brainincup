@@ -1907,12 +1907,6 @@ function App() {
 
   const hudQuestSteps = normalizedQuestSteps.length > 0 ? normalizedQuestSteps : derivedQuestSteps;
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
-  const userMessageAvatarSrc = useMemo(() => {
-    if (isGameMasterMode && characterDisplay.avatarSrc) {
-      return characterDisplay.avatarSrc;
-    }
-    return websiteUserProfile.avatarUrl || '';
-  }, [characterDisplay.avatarSrc, isGameMasterMode, websiteUserProfile.avatarUrl]);
   const currentLocation = useMemo(() => {
     // Use narrative structure location if available
     if (adventureState?.currentLocation) {
@@ -2401,25 +2395,6 @@ function App() {
                                 )}
                               </div>
                   
-                              {message.role === 'user' && (
-                                <div className={`retro-avatar retro-avatar-user w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 transition-all duration-300 overflow-hidden ${
-                                  isGameMasterMode ? '' : 'retro-avatar-user--brain'
-                                }`}>
-                                  {userMessageAvatarSrc ? (
-                                    <img
-                                      src={userMessageAvatarSrc}
-                                      alt=""
-                                      aria-hidden="true"
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                  )}
-                                </div>
-                              )}
                             </div>
                           ))}
               
@@ -3047,25 +3022,6 @@ function App() {
                     )}
                   </div>
                   
-                  {message.role === 'user' && (
-                    <div className={`retro-avatar retro-avatar-user w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 overflow-hidden ${
-                      isGameMasterMode ? '' : 'retro-avatar-user--brain'
-                    }`}>
-                      {userMessageAvatarSrc ? (
-                        <img
-                          src={userMessageAvatarSrc}
-                          alt=""
-                          aria-hidden="true"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      )}
-                    </div>
-                  )}
                 </div>
               ))}
               

@@ -826,28 +826,6 @@ textarea.w-full:focus {
   align-items: flex-start;
 }
 
-.retro-avatar {
-  border: none;
-  box-shadow: none;
-}
-
-.retro-avatar-assistant {
-  background: transparent;
-  border: 0 !important;
-  box-shadow: none !important;
-  opacity: 1;
-}
-
-.retro-avatar-user {
-  background: radial-gradient(circle at 30% 25%, rgba(139, 214, 196, 0.92), rgba(26, 95, 89, 0.95));
-}
-
-.retro-avatar-user--brain {
-  border: 0;
-  box-shadow: none;
-  background: transparent;
-}
-
 .retro-character-avatar {
   background: linear-gradient(145deg, rgba(85, 42, 126, 0.26), rgba(40, 22, 78, 0.22));
   box-shadow:
