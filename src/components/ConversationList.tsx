@@ -12,6 +12,7 @@ const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
 type ConversationType = Schema['Conversation']['type'] & { personalityMode?: string | null };
 type MessageType = Schema['Message']['type'];
 type CharacterType = Schema['GameMasterCharacter']['type'];
+type AdventureType = Schema['GameMasterAdventure']['type'];
 
 interface ConversationListProps {
   onSelectConversation: (conversationId: string) => void;
@@ -91,6 +92,7 @@ export default function ConversationList({
   const [searchQuery, setSearchQuery] = useState('');
   const [latestMessageByConversation, setLatestMessageByConversation] = useState<Record<string, string>>({});
   const [avatarByConversation, setAvatarByConversation] = useState<Record<string, string>>({});
+  const [locationByConversation, setLocationByConversation] = useState<Record<string, string>>({});
   const selectedDeleteSet = selectedDeleteIds ?? new Set<string>();
 
   const loadConversations = useCallback(async () => {
@@ -166,6 +168,7 @@ export default function ConversationList({
 
       const latestMessages: Record<string, string> = {};
       const gmAvatars: Record<string, string> = {};
+      const gmLocations: Record<string, string> = {};
       const storedAvatarMap = readStoredConversationAvatarMap();
       await Promise.all(
         sortedConversations.map(async (conversation) => {
@@ -188,6 +191,22 @@ export default function ConversationList({
           }
 
           if (conversationMode !== 'game_master') return;
+          
+          // Load adventure location
+          try {
+            const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
+              filter: { conversationId: { eq: conversation.id } },
+              limit: 1,
+            });
+            const adventure = adventureData?.[0];
+            if (adventure?.currentLocation) {
+              gmLocations[conversation.id] = adventure.currentLocation;
+            }
+          } catch (adventureError) {
+            console.error('Error loading adventure location:', adventureError);
+          }
+          
+          // Load character avatar
           try {
             let characters: CharacterType[] | undefined;
             try {
@@ -221,6 +240,7 @@ export default function ConversationList({
       );
       setLatestMessageByConversation(latestMessages);
       setAvatarByConversation(gmAvatars);
+      setLocationByConversation(gmLocations);
     } catch (error) {
       console.error('Error loading conversations:', error);
     } finally {
@@ -290,10 +310,14 @@ export default function ConversationList({
           const isSelected = selectedConversationId === conversation.id;
           const isGameMasterConversation = modeMeta.id === 'game_master';
           
-          // For Game Master mode, show character name instead of mode description
-          const previewText = (conversation.id && latestMessageByConversation[conversation.id])
-            ? latestMessageByConversation[conversation.id]
-            : (isGameMasterConversation ? conversationTitle : modeMeta.description);
+          // For Game Master mode, show location as preview
+          const conversationLocation = conversation.id ? locationByConversation[conversation.id] : undefined;
+          const previewText = isGameMasterConversation
+            ? (conversationLocation || 'Unknown Location')
+            : (conversation.id && latestMessageByConversation[conversation.id])
+              ? latestMessageByConversation[conversation.id]
+              : modeMeta.description;
+              
           const conversationAvatar = conversation.id ? avatarByConversation[conversation.id] : undefined;
           const hasGameMasterAvatar = Boolean(conversationAvatar);
           const rowGridClass = deleteSelectionMode
