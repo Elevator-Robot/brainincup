@@ -58,11 +58,18 @@ class NarrativeExtractor:
     """Extract and manage story structure from AI responses"""
     
     def __init__(self):
-        # Location detection patterns
+        # Location detection patterns (order matters - most specific first)
         self.location_patterns = [
+            # Player explicitly stating location
+            r"(?:we are|I am|you are) (?:in|at) ([A-Z][a-zA-Z\s',.-]+?)(?:\.|,|$)",
+            
+            # Formal fantasy locations with type suffixes
             r"(?:You (?:arrive at|enter|find yourself in|step into|approach|reach)|The scene shifts to) (?:the )?([A-Z][a-zA-Z\s'-]+(?:Grove|Forest|Tavern|Castle|Temple|Village|City|Tower|Cave|Dungeon|Manor|Keep|Hall|Inn|Market|Square|Garden|Ruins|Mountain|Valley|Lake|River|Bridge|Gate|Chamber|Sanctum|Lair|Den|Crypt|Tomb|Shrine))",
             r"(?:At|In|Within|Inside) (?:the )?([A-Z][a-zA-Z\s'-]+(?:Grove|Forest|Tavern|Castle|Temple|Village|City|Tower|Cave|Dungeon|Manor|Keep|Hall|Inn|Market|Square|Garden|Ruins|Mountain|Valley|Lake|River|Bridge|Gate|Chamber|Sanctum|Lair|Den|Crypt|Tomb|Shrine))",
             r"The ([A-Z][a-zA-Z\s'-]+(?:Grove|Forest|Tavern|Castle|Temple|Village|City|Tower|Cave|Dungeon|Manor|Keep|Hall|Inn)) (?:stretches|looms|stands|appears)",
+            
+            # Generic location mentions (fallback)
+            r"(?:arrive (?:at|in)|enter|travel to|head to|move to|walk to|go to) (?:the )?([A-Z][a-zA-Z\s',.-]+?)(?:\.|,|$)",
         ]
         
         # Scene descriptor patterns (optional, more detailed)

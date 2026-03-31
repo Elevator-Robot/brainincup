@@ -2292,16 +2292,6 @@ function App() {
                               key={index}
                               className={`retro-message-row flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
-                              {message.role === 'assistant' && (
-                                <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 animate-float">
-                                  <img
-                                    src="/images/avatars/narrator.png"
-                                    alt=""
-                                    aria-hidden="true"
-                                    className="h-full w-full object-cover"
-                                  />
-                                </div>
-                              )}
                               <div 
                                 ref={(el) => {
                                   if (el && message.role === 'assistant') {
@@ -2958,16 +2948,6 @@ function App() {
                   key={index}
                   className={`retro-message-row flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  {message.role === 'assistant' && (
-                    <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1">
-                      <img
-                        src="/images/avatars/narrator.png"
-                        alt=""
-                        aria-hidden="true"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  )}
                   <div 
                     ref={(el) => {
                       if (el && message.role === 'assistant') {

@@ -97,6 +97,9 @@ class GameMasterModeHandler(BaseModeHandler):
             'turnsSinceConflict': 0,
             'lastStoryBeat': None,
         }
+        
+        # Load existing adventure state from DynamoDB
+        self._load_adventure_state()
 
     def enrich_context(
         self,
@@ -732,6 +735,45 @@ class GameMasterModeHandler(BaseModeHandler):
         
         return "\n".join(parts)
     
+    def _load_adventure_state(self) -> None:
+        """Load existing adventure state from DynamoDB on initialization"""
+        if not self.dynamodb_resource:
+            return
+        
+        adventure_table_name = os.getenv("ADVENTURE_TABLE_NAME")
+        if not adventure_table_name:
+            return
+        
+        try:
+            adventure_table = self.dynamodb_resource.Table(adventure_table_name)
+            
+            # Query adventure by conversationId
+            response = adventure_table.query(
+                IndexName='gsi-Conversation.gameMasterAdventure',
+                KeyConditionExpression='conversationId = :convId',
+                ExpressionAttributeValues={':convId': self.conversation_id},
+                Limit=1
+            )
+            
+            if response.get('Items'):
+                adventure_item = response['Items'][0]
+                
+                # Load narrative structure fields if they exist
+                self.adventure_state['currentLocation'] = adventure_item.get('currentLocation', 'Unknown Location')
+                self.adventure_state['currentScene'] = adventure_item.get('currentScene', '')
+                self.adventure_state['currentAct'] = adventure_item.get('currentAct', 'EXPOSITION')
+                self.adventure_state['currentChapter'] = adventure_item.get('currentChapter', 1)
+                self.adventure_state['tensionLevel'] = adventure_item.get('tensionLevel', 3)
+                self.adventure_state['timeline'] = adventure_item.get('timeline', [])
+                self.adventure_state['visitedLocations'] = adventure_item.get('visitedLocations', [])
+                self.adventure_state['activeObjectives'] = adventure_item.get('activeObjectives', [])
+                self.adventure_state['criticalChoices'] = adventure_item.get('criticalChoices', [])
+                self.adventure_state['storyArc'] = adventure_item.get('storyArc', {})
+                
+                logger.info(f"Loaded adventure state: {self.adventure_state['currentLocation']} | {self.adventure_state['currentAct']} Ch{self.adventure_state['currentChapter']}")
+        except Exception as error:
+            logger.warning(f"Failed to load adventure state: {error}")
+    
     def _persist_adventure_state(self) -> None:
         """Persist current adventure state to DynamoDB"""
         if not self.dynamodb_resource:
@@ -746,9 +788,9 @@ class GameMasterModeHandler(BaseModeHandler):
         try:
             adventure_table = self.dynamodb_resource.Table(adventure_table_name)
             
-            # Find adventure by conversationId
+            # Find adventure by conversationId using Amplify-generated GSI
             response = adventure_table.query(
-                IndexName='conversationId',
+                IndexName='gsi-Conversation.gameMasterAdventure',
                 KeyConditionExpression='conversationId = :convId',
                 ExpressionAttributeValues={':convId': self.conversation_id},
                 Limit=1
