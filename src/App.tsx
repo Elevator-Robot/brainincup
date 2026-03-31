@@ -2425,14 +2425,6 @@ function App() {
               
                           {isWaitingForResponse && (
                             <div className="retro-waiting-row flex gap-4 justify-start animate-slide-up">
-                              <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 animate-glow-pulse">
-                                <img
-                                  src="/images/avatars/narrator.png"
-                                  alt=""
-                                  aria-hidden="true"
-                                  className="h-full w-full object-cover"
-                                />
-                              </div>
                               <div className="retro-message retro-waiting-bubble rounded-2xl px-4 py-3 backdrop-blur-lg text-brand-text-primary">
                                 <div className="flex items-center gap-2">
                                   <div className="flex space-x-1">
@@ -3079,14 +3071,6 @@ function App() {
               
               {isWaitingForResponse && (
                 <div className="retro-waiting-row flex gap-3 justify-start animate-slide-up">
-                  <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 animate-glow-pulse">
-                    <img
-                      src="/images/avatars/narrator.png"
-                      alt=""
-                      aria-hidden="true"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
                   <div className="retro-message retro-waiting-bubble rounded-2xl px-4 py-3 backdrop-blur-lg text-brand-text-primary">
                     <div className="flex items-center gap-2">
                       <div className="flex space-x-1">
