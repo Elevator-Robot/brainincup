@@ -288,11 +288,12 @@ export default function ConversationList({
           const conversationTitle = sanitizeConversationTitle(conversation.title);
           const modeMeta = getModeMeta(conversation.personalityMode);
           const isSelected = selectedConversationId === conversation.id;
+          const isGameMasterConversation = modeMeta.id === 'game_master';
+          
+          // For Game Master mode, show character name instead of mode description
           const previewText = (conversation.id && latestMessageByConversation[conversation.id])
             ? latestMessageByConversation[conversation.id]
-            : modeMeta.description;
-
-          const isGameMasterConversation = modeMeta.id === 'game_master';
+            : (isGameMasterConversation ? conversationTitle : modeMeta.description);
           const conversationAvatar = conversation.id ? avatarByConversation[conversation.id] : undefined;
           const hasGameMasterAvatar = Boolean(conversationAvatar);
           const rowGridClass = deleteSelectionMode
