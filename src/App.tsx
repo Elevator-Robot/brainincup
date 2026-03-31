@@ -2551,7 +2551,7 @@ function App() {
                             ) : null}
                             <div className="retro-character-meta min-w-0">
                               <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
-                              <p className="text-xs text-brand-text-muted">{characterDisplay.characterClass || 'Wanderer'} • Lv {characterDisplay.level}</p>
+                              <p className="text-xs text-brand-text-muted">{currentLocation}</p>
                             </div>
                           </div>
                         </div>
@@ -2781,7 +2781,7 @@ function App() {
                       ) : null}
                       <div className="retro-character-meta retro-character-meta--compact min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
-                        <p className="text-sm text-brand-text-primary font-medium truncate">Stats & Inventory</p>
+                        <p className="text-sm text-brand-text-primary font-medium truncate">{currentLocation}</p>
                       </div>
                     </div>
                     <svg 
