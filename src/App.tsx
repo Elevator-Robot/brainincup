@@ -2,8 +2,6 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { fetchUserAttributes, signOut, deleteUser } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
-import BrainIcon from './components/BrainIcon';
-import PersonalityIndicator from './components/PersonalityIndicator';
 import InstallPrompt from './components/InstallPrompt';
 import CharacterCreation from './components/CharacterCreation';
 import ConversationList from './components/ConversationList';
@@ -11,7 +9,7 @@ import InventoryManager, { type InventoryItem } from './components/InventoryMana
 import TroubleDice3D from './components/TroubleDice3D';
 import Panel from './components/ui/Panel';
 import { RPGLayout, LeftSidebar, CenterNarrative, RightStatus, BottomInput } from './components/ui/RPGLayout';
-import { FACILITATED_MODE_OPTIONS, normalizePersonalityMode } from './constants/personalityModes';
+import { normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import {
   chooseAutoAvatarId,
@@ -464,12 +462,10 @@ function App() {
   }, [characterState, conversationId]);
   
   // Personality mode state
-  const [personalityMode, setPersonalityMode] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'game_master';
-    const cached = window.localStorage.getItem('lastPersonalityMode') || 'game_master';
-    return normalizePersonalityMode(cached);
-  });
-  const effectivePersonality = normalizePersonalityMode(personalityMode);
+  // Mode selection UI removed - defaulting to game_master mode
+  // Backend mode handlers remain intact for future integration
+  const setPersonalityMode = (_mode: string) => {}; // No-op for compatibility
+  const effectivePersonality = 'game_master';
 
   const ensureAdventureState = useCallback(async (convId: string, modeOverride?: string): Promise<AdventureRecord | null> => {
     const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
@@ -945,10 +941,7 @@ function App() {
     }
   }, [conversationId, effectivePersonality]);
 
-  // Persist current mode to avoid Brain->Game Master flicker on initial app boot.
-  useEffect(() => {
-    localStorage.setItem('lastPersonalityMode', normalizePersonalityMode(personalityMode));
-  }, [personalityMode]);
+  // Mode persistence removed - mode is now hardcoded to game_master
 
   useEffect(() => {
     writeStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, isCenterListCollapsed);
@@ -1628,33 +1621,8 @@ function App() {
     return null;
   }, [userAttributes]);
 
-  const handleModeSelected = async (modeId: string) => {
-    const normalized = normalizePersonalityMode(modeId);
-    if (normalized === effectivePersonality) return;
-
-    setIsSelectingConversation(false);
-    setConversationId(null);
-    setMessages([]);
-    setInputMessage('');
-    setIsWaitingForResponse(false);
-    setExpandedMessageIndex(null);
-    setAdventureState(null);
-    setQuestSteps([]);
-    setCharacterState(null);
-    setShowCharacterCreation(false);
-    setPendingCharacterDraft(null);
-    setIsNewInteractionPrimed(false);
-    setIsBulkDeleteMode(false);
-    setBulkDeleteConversationIds(new Set());
-    setDraggingConversationId(null);
-    setIsTrashDragOver(false);
-    setPersonalityMode(normalized);
-  };
-
-  const handleFacilitatedModeToggle = (modeId: PersonalityModeId) => {
-    const nextMode = effectivePersonality === modeId ? 'default' : modeId;
-    void handleModeSelected(nextMode);
-  };
+  // handleModeSelected removed - mode selection UI removed
+  // Keeping setPersonalityMode for compatibility with drag-drop logic
 
   const handleToggleBulkDeleteConversation = useCallback((targetConversationId: string) => {
     if (!targetConversationId) return;
@@ -1939,13 +1907,12 @@ function App() {
 
   const hudQuestSteps = normalizedQuestSteps.length > 0 ? normalizedQuestSteps : derivedQuestSteps;
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
-  const userMessageAvatarSrc = useMemo(() => {
-    if (isGameMasterMode && characterDisplay.avatarSrc) {
-      return characterDisplay.avatarSrc;
-    }
-    return websiteUserProfile.avatarUrl || '';
-  }, [characterDisplay.avatarSrc, isGameMasterMode, websiteUserProfile.avatarUrl]);
   const currentLocation = useMemo(() => {
+    // Use narrative structure location if available
+    if (adventureState?.currentLocation) {
+      return adventureState.currentLocation;
+    }
+    // Fallback logic
     const candidates = [adventureState?.lastLocation, adventureState?.title];
     const validLocation = candidates.find((value) => {
       if (typeof value !== 'string') return false;
@@ -1953,7 +1920,26 @@ function App() {
       return normalized.length > 0 && normalized !== 'unknown' && normalized !== 'n/a';
     });
     return validLocation?.trim() || 'The Shrouded Vale';
-  }, [adventureState?.lastLocation, adventureState?.title]);
+  }, [adventureState?.currentLocation, adventureState?.lastLocation, adventureState?.title]);
+  
+  const currentAct = useMemo(() => {
+    if (!adventureState?.currentAct) return 'I';
+    
+    const actMap: Record<string, string> = {
+      'EXPOSITION': 'I',
+      'RISING_ACTION': 'II',
+      'CLIMAX': 'III',
+      'FALLING_ACTION': 'IV',
+      'RESOLUTION': 'V'
+    };
+    
+    return actMap[adventureState.currentAct] || 'I';
+  }, [adventureState?.currentAct]);
+  
+  const currentChapter = useMemo(() => {
+    return adventureState?.currentChapter || 1;
+  }, [adventureState?.currentChapter]);
+  
   const latestDiceRoll = useMemo(() => {
     if (lastManualDiceRoll) {
       return String(lastManualDiceRoll.value);
@@ -2087,31 +2073,7 @@ function App() {
                     >
                       <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                     </button>
-                    <div className="my-1 h-px w-7 bg-brand-surface-border/40" aria-hidden="true" />
-                    {FACILITATED_MODE_OPTIONS.map((option) => {
-                      const isActive = option.id === effectivePersonality;
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => handleFacilitatedModeToggle(option.id)}
-                          className={`retro-icon-button retro-left-mode-button retro-tooltip-trigger h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                            isActive
-                              ? 'retro-left-mode-button-active border border-brand-accent-primary/40 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
-                              : 'border border-brand-surface-border/45 bg-brand-bg-secondary/65 text-brand-text-primary hover:border-brand-surface-border/60 hover:bg-brand-bg-tertiary/55'
-                          }`}
-                          aria-label={isActive ? 'Return to Brain chat' : `Enter ${option.shortLabel}`}
-                          data-tooltip={isActive ? 'Return to Brain chat' : `Enter ${option.shortLabel}`}
-                          data-tooltip-position="right"
-                        >
-                          {option.id === 'game_master' ? (
-                            <img src="/game-master.svg" alt="" aria-hidden="true" className="h-4 w-6 object-contain" />
-                          ) : (
-                            <BrainIcon className="h-4 w-4" />
-                          )}
-                        </button>
-                      );
-                    })}
+                    {/* Mode toggle buttons removed - mode is now hardcoded to game_master */}
                   </div>
 
                   <div ref={profileMenuRef} className="relative z-40">
@@ -2272,7 +2234,7 @@ function App() {
                                 </div>
                                 <div className="text-right">
                                   <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Act</p>
-                                  <p className="text-lg font-light text-brand-text-primary">{characterDisplay.level >= 5 ? 'II' : 'I'}</p>
+                                  <p className="text-lg font-light text-brand-text-primary">{currentAct} • Ch. {currentChapter}</p>
                                 </div>
                               </div>
                             </Panel>
@@ -2285,12 +2247,7 @@ function App() {
                         className={`flex-1 overflow-y-auto pr-2 pb-4 ${conversationId && isGameMasterMode ? 'pt-24' : ''}`}
                       >
                         <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
-                          {/* Mode indicator (mobile only) */}
-                          {conversationId && isGameMasterMode && (
-                            <div className="lg:hidden">
-                              <PersonalityIndicator personality={effectivePersonality} />
-                            </div>
-                          )}
+                          {/* Mode indicator removed */}
 
                           {conversationId && effectivePersonality === 'game_master' && adventureState && (
                             <div className="lg:hidden">
@@ -2329,16 +2286,6 @@ function App() {
                               key={index}
                               className={`retro-message-row flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
-                              {message.role === 'assistant' && (
-                                <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 animate-float">
-                                  <img
-                                    src="/images/avatars/narrator.png"
-                                    alt=""
-                                    aria-hidden="true"
-                                    className="h-full w-full object-cover"
-                                  />
-                                </div>
-                              )}
                               <div 
                                 ref={(el) => {
                                   if (el && message.role === 'assistant') {
@@ -2366,7 +2313,7 @@ function App() {
                                       <span className={`mb-1 block text-[11px] uppercase tracking-[0.22em] ${
                                         message.role === 'user' ? 'text-teal-200/75' : 'text-brand-text-muted'
                                       }`}>
-                                        {message.role === 'user' ? 'Player Action' : 'Narrator'}
+                                        {message.role === 'user' ? 'You' : 'Brain'}
                                       </span>
                                     )}
                                     {message.content}
@@ -2448,38 +2395,11 @@ function App() {
                                 )}
                               </div>
                   
-                              {message.role === 'user' && (
-                                <div className={`retro-avatar retro-avatar-user w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 transition-all duration-300 overflow-hidden ${
-                                  isGameMasterMode ? '' : 'retro-avatar-user--brain'
-                                }`}>
-                                  {userMessageAvatarSrc ? (
-                                    <img
-                                      src={userMessageAvatarSrc}
-                                      alt=""
-                                      aria-hidden="true"
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                  )}
-                                </div>
-                              )}
                             </div>
                           ))}
               
                           {isWaitingForResponse && (
                             <div className="retro-waiting-row flex gap-4 justify-start animate-slide-up">
-                              <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 animate-glow-pulse">
-                                <img
-                                  src="/images/avatars/narrator.png"
-                                  alt=""
-                                  aria-hidden="true"
-                                  className="h-full w-full object-cover"
-                                />
-                              </div>
                               <div className="retro-message retro-waiting-bubble rounded-2xl px-4 py-3 backdrop-blur-lg text-brand-text-primary">
                                 <div className="flex items-center gap-2">
                                   <div className="flex space-x-1">
@@ -2631,7 +2551,7 @@ function App() {
                             ) : null}
                             <div className="retro-character-meta min-w-0">
                               <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
-                              <p className="text-xs text-brand-text-muted">{characterDisplay.characterClass || 'Wanderer'} • Lv {characterDisplay.level}</p>
+                              <p className="text-xs text-brand-text-muted">{currentLocation}</p>
                             </div>
                           </div>
                         </div>
@@ -2722,9 +2642,7 @@ function App() {
                       <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
                     </Panel>
 
-                    {conversationId && isGameMasterMode && (
-                      <PersonalityIndicator personality={effectivePersonality} />
-                    )}
+                    {/* Mode indicator removed */}
 
                   </div>
                 )}
@@ -2773,33 +2691,7 @@ function App() {
                 </span>
                 <span className="text-sm font-medium text-brand-text-primary">New Interaction</span>
               </button>
-              {FACILITATED_MODE_OPTIONS.map((option) => {
-                const isActive = option.id === effectivePersonality;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => handleFacilitatedModeToggle(option.id)}
-                    className={`w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-all duration-200 ${
-                      isActive
-                        ? 'border border-brand-accent-primary/35 bg-brand-accent-primary/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
-                        : 'border border-transparent hover:border-brand-surface-border/45 hover:bg-brand-bg-secondary/60 hover:backdrop-blur-lg hover:shadow-[inset_0_1px_0_rgba(156,116,230,0.18),0_8px_16px_rgba(2,10,12,0.22)]'
-                    }`}
-                    aria-label={isActive ? 'Return to Brain chat' : `Enter ${option.shortLabel}`}
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                      {option.id === 'game_master' ? (
-                        <img src="/game-master.svg" alt="" aria-hidden="true" className="h-5 w-7 object-contain" />
-                      ) : (
-                        <BrainIcon className="h-5 w-5" />
-                      )}
-                    </span>
-                    <span className="min-w-0 flex-1 text-sm font-medium text-brand-text-primary">
-                      {isActive ? `${option.shortLabel} (On)` : option.shortLabel}
-                    </span>
-                  </button>
-                );
-              })}
+              {/* Mode toggle buttons removed - mode is now hardcoded to game_master */}
             </div>
           </div>
         </nav>
@@ -2889,7 +2781,7 @@ function App() {
                       ) : null}
                       <div className="retro-character-meta retro-character-meta--compact min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
-                        <p className="text-sm text-brand-text-primary font-medium truncate">Stats & Inventory</p>
+                        <p className="text-sm text-brand-text-primary font-medium truncate">{currentLocation}</p>
                       </div>
                     </div>
                     <svg 
@@ -3023,16 +2915,6 @@ function App() {
                   key={index}
                   className={`retro-message-row flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  {message.role === 'assistant' && (
-                    <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1">
-                      <img
-                        src="/images/avatars/narrator.png"
-                        alt=""
-                        aria-hidden="true"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  )}
                   <div 
                     ref={(el) => {
                       if (el && message.role === 'assistant') {
@@ -3058,7 +2940,7 @@ function App() {
                           <span className={`mb-1 block text-[10px] uppercase tracking-[0.2em] ${
                             message.role === 'user' ? 'text-teal-200/75' : 'text-brand-text-muted'
                           }`}>
-                            {message.role === 'user' ? 'Player Action' : 'Narrator'}
+                            {message.role === 'user' ? 'You' : 'Brain'}
                           </span>
                         )}
                         {message.content}
@@ -3140,38 +3022,11 @@ function App() {
                     )}
                   </div>
                   
-                  {message.role === 'user' && (
-                    <div className={`retro-avatar retro-avatar-user w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 overflow-hidden ${
-                      isGameMasterMode ? '' : 'retro-avatar-user--brain'
-                    }`}>
-                      {userMessageAvatarSrc ? (
-                        <img
-                          src={userMessageAvatarSrc}
-                          alt=""
-                          aria-hidden="true"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <svg className="w-4 h-4 text-brand-text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      )}
-                    </div>
-                  )}
                 </div>
               ))}
               
               {isWaitingForResponse && (
                 <div className="retro-waiting-row flex gap-3 justify-start animate-slide-up">
-                  <div className="retro-avatar retro-avatar-assistant w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 animate-glow-pulse">
-                    <img
-                      src="/images/avatars/narrator.png"
-                      alt=""
-                      aria-hidden="true"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
                   <div className="retro-message retro-waiting-bubble rounded-2xl px-4 py-3 backdrop-blur-lg text-brand-text-primary">
                     <div className="flex items-center gap-2">
                       <div className="flex space-x-1">

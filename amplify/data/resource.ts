@@ -58,6 +58,21 @@ const schema = a.schema({
     moodTag: a.string().default('Unsettled'),
     lastLocation: a.string().default('Unknown'),
     lastStepId: a.string().default(''),
+    
+    // Narrative Structure Fields
+    currentLocation: a.string().default('Unknown Location'),
+    currentScene: a.string().default(''),
+    currentAct: a.enum(['EXPOSITION', 'RISING_ACTION', 'CLIMAX', 'FALLING_ACTION', 'RESOLUTION']),
+    currentChapter: a.integer().default(1),
+    tensionLevel: a.integer().default(3),
+    
+    // Complex narrative data (JSON)
+    timeline: a.json(),              // Array of story events
+    visitedLocations: a.json(),      // Location registry with connections
+    activeObjectives: a.json(),      // Quest objectives
+    criticalChoices: a.json(),       // Major decisions
+    storyArc: a.json(),              // Act summaries
+    
     questSteps: a.hasMany('GameMasterQuestStep', 'adventureId'),
     character: a.hasOne('GameMasterCharacter', 'adventureId'),
     owner: a.string(),
@@ -127,7 +142,11 @@ const schema = a.schema({
     locationTag: a.string().default(''),
     createdAt: a.datetime(),
     playerChoices: a.hasMany('GameMasterPlayerChoice', 'questStepId'),
-  }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
+  })
+    .secondaryIndexes((index) => [
+      index('conversationId'),  // GSI for querying quest steps by conversation
+    ])
+    .authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 
   GameMasterPlayerChoice: a.model({
     id: a.id(),

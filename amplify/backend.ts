@@ -4,6 +4,7 @@ import { data } from './data/resource';
 import { brain } from './functions/brain/resource';
 import { PolicyStatement, Effect, ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { EventSourceMapping, StartingPosition } from 'aws-cdk-lib/aws-lambda';
+import { FunctionUrlAuthType, HttpMethod } from 'aws-cdk-lib/aws-lambda';
 import { StreamViewType } from 'aws-cdk-lib/aws-dynamodb';
 import { Tags, CfnResource, CfnOutput } from 'aws-cdk-lib';
 import { existsSync, readFileSync } from 'node:fs';
@@ -81,12 +82,27 @@ const conversationTable = backend.data.resources.tables['Conversation'];
 const messageTable = backend.data.resources.tables['Message'];
 const responseTable = backend.data.resources.tables['BrainResponse'];
 const characterTable = backend.data.resources.tables['GameMasterCharacter'];
+const questStepTable = backend.data.resources.tables['GameMasterQuestStep'];
+const adventureTable = backend.data.resources.tables['GameMasterAdventure'];
 
 const brainLambda = backend.brain.resources.lambda as import('aws-cdk-lib').aws_lambda.Function;
+
+// Add Function URL to make the Lambda publicly accessible
+const functionUrl = brainLambda.addFunctionUrl({
+  authType: FunctionUrlAuthType.NONE,
+  cors: {
+    allowedOrigins: ['*'],
+    allowedMethods: [HttpMethod.ALL],
+    allowedHeaders: ['*'],
+  },
+});
+
 brainLambda.addEnvironment('CONVERSATION_TABLE_NAME', conversationTable.tableName);
 brainLambda.addEnvironment('MESSAGE_TABLE_NAME', messageTable.tableName);
 brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
 brainLambda.addEnvironment('CHARACTER_TABLE_NAME', characterTable.tableName);
+brainLambda.addEnvironment('QUEST_STEP_TABLE_NAME', questStepTable.tableName);
+brainLambda.addEnvironment('ADVENTURE_TABLE_NAME', adventureTable.tableName);
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
@@ -237,7 +253,11 @@ brainLambda.addToRolePolicy(new PolicyStatement({
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${responseTable.tableName}`,
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${responseTable.tableName}/*`,
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${characterTable.tableName}`,
-    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${characterTable.tableName}/*`
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${characterTable.tableName}/*`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${questStepTable.tableName}`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${questStepTable.tableName}/*`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${adventureTable.tableName}`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${adventureTable.tableName}/*`
   ],
   effect: Effect.ALLOW,
 }));
@@ -248,5 +268,12 @@ brainLambda.addToRolePolicy(new PolicyStatement({
   ],
   effect: Effect.ALLOW,
 }));
+
+// Add Lambda function URL to outputs so frontend can call it
+backend.addOutput({
+  custom: {
+    brainApiUrl: functionUrl.url,
+  },
+});
 
 export default backend;

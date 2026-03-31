@@ -3,6 +3,7 @@ import json
 import os
 import re
 import uuid
+from typing import Any
 
 from agents import (
     PerceptionAgent,
@@ -27,6 +28,7 @@ class Controller:
         conversation_id,
         personality_mode: str = "default",
         character_data: dict | None = None,
+        dynamodb_resource: Any | None = None,
     ):
         self.personality_mode = personality_mode or "default"
         prompt_template, persona_config = setup_prompt_template(self.personality_mode)
@@ -50,16 +52,27 @@ class Controller:
             personality_mode=self.personality_mode,
             agentcore_client=agentcore_client,
             character_data=character_data,
+            dynamodb_resource=dynamodb_resource,
         )
 
         # Load initial conversation history
         self.conversation_history = self.memory_agent.load_conversation_history()
-        self.context_turn_limit = self._read_int_env(
-            "BRAIN_CONTEXT_MAX_TURNS", default=20, minimum=1, maximum=100
-        )
-        self.context_char_limit = self._read_int_env(
-            "BRAIN_CONTEXT_MAX_CHARS", default=6000, minimum=500, maximum=30000
-        )
+        
+        # Game Master mode needs larger context for narrative consistency
+        if self.personality_mode == "game_master":
+            self.context_turn_limit = self._read_int_env(
+                "BRAIN_CONTEXT_MAX_TURNS", default=50, minimum=1, maximum=100
+            )
+            self.context_char_limit = self._read_int_env(
+                "BRAIN_CONTEXT_MAX_CHARS", default=15000, minimum=500, maximum=30000
+            )
+        else:
+            self.context_turn_limit = self._read_int_env(
+                "BRAIN_CONTEXT_MAX_TURNS", default=20, minimum=1, maximum=100
+            )
+            self.context_char_limit = self._read_int_env(
+                "BRAIN_CONTEXT_MAX_CHARS", default=6000, minimum=500, maximum=30000
+            )
 
     @staticmethod
     def _read_int_env(name: str, *, default: int, minimum: int, maximum: int) -> int:

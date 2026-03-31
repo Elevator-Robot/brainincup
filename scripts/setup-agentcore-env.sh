@@ -4,19 +4,26 @@ set -e
 # AgentCore Environment Setup Script
 # Automatically retrieves and sets required environment variables for deployment
 
+# Configuration
+AWS_REGION="${AWS_REGION:-us-east-1}"
+AWS_PROFILE="${AWS_PROFILE:-brain}"
+
+# Auto-detect AWS account ID
+ACCOUNT_ID="${ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo "")}"
+if [ -z "$ACCOUNT_ID" ]; then
+  echo "❌ Error: Could not determine AWS account ID"
+  echo "   Make sure AWS credentials are configured"
+  exit 1
+fi
+
+REPO="${REPO:-brain-agent}"
+STACK_NAME_PATTERN="amplify-brainincup-*-sandbox-*"
+TRACE_ENABLED_VALUE="${AGENTCORE_TRACE_ENABLED:-false}"
+TRACE_SAMPLE_RATE_VALUE="${AGENTCORE_TRACE_SAMPLE_RATE:-0.0}"
+
 echo "🔧 AgentCore Environment Setup"
 echo "=============================="
 echo ""
-
-# Configuration
-AWS_REGION="${AWS_REGION:-us-east-1}"
-ACCOUNT_ID="${ACCOUNT_ID:-431515038332}"
-REPO="${REPO:-brain-agent}"
-STACK_NAME_PATTERN="amplify-brainincup-*-sandbox-*"
-export AWS_PROFILE="${AWS_PROFILE:-brain}"
-TRACE_ENABLED_VALUE="${AGENTCORE_TRACE_ENABLED:-true}"
-TRACE_SAMPLE_RATE_VALUE="${AGENTCORE_TRACE_SAMPLE_RATE:-1.0}"
-
 echo "📍 Region: $AWS_REGION"
 echo "🔢 Account: $ACCOUNT_ID"
 echo ""
@@ -78,7 +85,6 @@ if [ -n "$AGENTCORE_RUNTIME_ARN" ]; then
   echo "✅ Using existing runtime ARN from stack"
 else
   echo "export AGENTCORE_CONTAINER_URI='$AGENTCORE_CONTAINER_URI'"
-  echo "export AGENTCORE_RUNTIME_NAME='BrainInCupRuntime'"
   echo "export AGENTCORE_NETWORK_MODE='PUBLIC'"
   echo ""
   echo "✅ Using container URI to provision new runtime"
@@ -88,32 +94,16 @@ echo "export AGENTCORE_TRACE_ENABLED='${TRACE_ENABLED_VALUE}'"
 echo "export AGENTCORE_TRACE_SAMPLE_RATE='${TRACE_SAMPLE_RATE_VALUE}'"
 echo ""
 
-# Option to automatically export
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-read -p "Export these variables to current shell? (y/n) " -n 1 -r
-echo ""
-
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-  if [ -n "$AGENTCORE_RUNTIME_ARN" ]; then
-    export AGENTCORE_RUNTIME_ARN="$AGENTCORE_RUNTIME_ARN"
-  else
-    export AGENTCORE_CONTAINER_URI="$AGENTCORE_CONTAINER_URI"
-    export AGENTCORE_RUNTIME_NAME="BrainInCupRuntime"
-    export AGENTCORE_NETWORK_MODE="PUBLIC"
-  fi
-  
-  export AGENTCORE_TRACE_ENABLED="${TRACE_ENABLED_VALUE}"
-  export AGENTCORE_TRACE_SAMPLE_RATE="${TRACE_SAMPLE_RATE_VALUE}"
-  
-  echo "✅ Variables exported to current shell"
-  echo ""
-  echo "Run: npm run sandbox"
+# Auto-export by default (non-interactive mode)
+if [ -n "$AGENTCORE_RUNTIME_ARN" ]; then
+  export AGENTCORE_RUNTIME_ARN="$AGENTCORE_RUNTIME_ARN"
 else
-  echo ""
-  echo "💡 To export manually, copy the commands above and run them"
-  echo ""
-  echo "Then run: npm run sandbox"
+  export AGENTCORE_CONTAINER_URI="$AGENTCORE_CONTAINER_URI"
+  export AGENTCORE_NETWORK_MODE="PUBLIC"
 fi
 
+export AGENTCORE_TRACE_ENABLED="${TRACE_ENABLED_VALUE}"
+export AGENTCORE_TRACE_SAMPLE_RATE="${TRACE_SAMPLE_RATE_VALUE}"
+
+echo "✅ Variables exported"
 echo ""

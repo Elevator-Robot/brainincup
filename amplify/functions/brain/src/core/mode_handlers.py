@@ -4,6 +4,7 @@ import re
 import uuid
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from core.narrative_extractor import NarrativeExtractor, StoryAct, StoryBeat
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ class GameMasterModeHandler(BaseModeHandler):
         personality_mode: str,
         agentcore_client: Any,
         character_data: dict | None = None,
+        dynamodb_resource: Any | None = None,
     ) -> None:
         super().__init__(
             conversation_id=conversation_id,
@@ -64,6 +66,8 @@ class GameMasterModeHandler(BaseModeHandler):
             agentcore_client=agentcore_client,
             character_data=character_data,
         )
+        self.dynamodb_resource = dynamodb_resource
+        self.quest_step_table_name = os.getenv("QUEST_STEP_TABLE_NAME")
         self.semantic_memory_strategy_id = (
             os.getenv("AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID", "").strip()
             or os.getenv("AGENTCORE_MEMORY_STRATEGY_ID", "").strip()
@@ -73,6 +77,29 @@ class GameMasterModeHandler(BaseModeHandler):
             os.getenv("AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID", "").strip()
             or self.semantic_memory_strategy_id
         )
+        
+        # Initialize narrative extractor
+        self.narrative_extractor = NarrativeExtractor()
+        
+        # Track adventure state for narrative structure
+        self.adventure_state = {
+            'currentLocation': 'Unknown Location',
+            'currentScene': '',
+            'currentAct': 'EXPOSITION',
+            'currentChapter': 1,
+            'tensionLevel': 3,
+            'timeline': [],
+            'visitedLocations': [],
+            'activeObjectives': [],
+            'criticalChoices': [],
+            'storyArc': {},
+            'turnsInChapter': 0,
+            'turnsSinceConflict': 0,
+            'lastStoryBeat': None,
+        }
+        
+        # Load existing adventure state from DynamoDB
+        self._load_adventure_state()
 
     def enrich_context(
         self,
@@ -85,22 +112,50 @@ class GameMasterModeHandler(BaseModeHandler):
         actor_id = self._resolve_actor_id(owner)
         semantic_namespace = self._semantic_namespace(actor_id)
         character_namespace = self._character_namespace(actor_id)
+        npc_namespace = self._npc_namespace(actor_id)
+        world_namespace = self._world_namespace(actor_id)
+        
+        # Retrieve quest log (recent story events)
+        quest_log = self._retrieve_quest_log()
+        
+        # Retrieve AgentCore memory (includes semantic, character, NPCs, and world info)
         memory_context = self._retrieve_agentcore_memory(
             user_input=user_input,
             semantic_namespace=semantic_namespace,
             character_namespace=character_namespace,
+            npc_namespace=npc_namespace,
+            world_namespace=world_namespace,
         )
 
+        # Build enriched context in priority order
         enriched_context = context
+        
+        # 0. Narrative structure first (sets the scene)
+        narrative_context = self._format_narrative_context()
+        if narrative_context:
+            enriched_context = (
+                f"{narrative_context}\n\n{enriched_context}" if enriched_context else narrative_context
+            )
+        
+        # 1. Quest log second (most important for story continuity)
+        if quest_log:
+            enriched_context = (
+                f"{quest_log}\n\n{enriched_context}" if enriched_context else quest_log
+            )
+        
+        # 2. AgentCore memory second
         if memory_context:
             enriched_context = (
                 f"{memory_context}\n\n{enriched_context}" if enriched_context else memory_context
             )
+        
+        # 3. Character sheet third (canonical truth)
         if self.character_data:
             character_context = self._format_character_context(self.character_data)
             enriched_context = (
                 f"{character_context}\n\n{enriched_context}" if enriched_context else character_context
             )
+        
         return enriched_context
 
     def apply_depth(self, *, depth_agent: Any, emotional_response: dict) -> dict:
@@ -175,8 +230,141 @@ class GameMasterModeHandler(BaseModeHandler):
         except Exception as error:
             logger.warning("Failed to persist character semantic memory record", exc_info=error)
 
+        # Extract and store NPCs mentioned in the response
+        try:
+            npcs = self._extract_npcs_from_text(response_text)
+            if npcs:
+                npc_namespace = self._npc_namespace(actor_id)
+                for npc_info in npcs:
+                    npc_request_id = f"npc-{npc_info['name'].lower().replace(' ', '-')}-{message_id or str(uuid.uuid4())[:8]}"
+                    self.agentcore_client.save_memory_record(
+                        request_identifier=npc_request_id,
+                        namespaces=[npc_namespace],
+                        content_text=npc_info['description'],
+                        memory_strategy_id=self.semantic_memory_strategy_id,
+                    )
+        except Exception as error:
+            logger.warning("Failed to persist NPC memory", exc_info=error)
+
+        # Extract and store world info (locations, rules, factions)
+        try:
+            world_info = self._extract_world_info_from_text(response_text)
+            if world_info:
+                world_namespace = self._world_namespace(actor_id)
+                for info in world_info:
+                    info_id = f"world-{info['type']}-{message_id or str(uuid.uuid4())[:8]}"
+                    self.agentcore_client.save_memory_record(
+                        request_identifier=info_id,
+                        namespaces=[world_namespace],
+                        content_text=info['description'],
+                        memory_strategy_id=self.semantic_memory_strategy_id,
+                    )
+        except Exception as error:
+            logger.warning("Failed to persist world info memory", exc_info=error)
+        
+        # Update narrative structure (location, act, tension, timeline)
+        try:
+            self._update_narrative_structure(
+                user_input=user_input,
+                response_text=response_text
+            )
+        except Exception as error:
+            logger.warning("Failed to update narrative structure", exc_info=error)
+
     def _resolve_actor_id(self, owner: str | None) -> str:
         return self.agentcore_client.sanitize_namespace(owner or self.conversation_id)
+
+    def _extract_npcs_from_text(self, text: str) -> list[dict]:
+        """
+        Extract NPC mentions from narrative text using pattern matching.
+        Returns list of dicts with 'name' and 'description'.
+        """
+        if not text:
+            return []
+        
+        npcs = []
+        # Pattern: Look for quoted names or capitalized names followed by descriptors
+        # Examples: "Eldrin the merchant", "Captain Sara", "a dwarf named Grog"
+        
+        # Pattern 1: "Name the descriptor" or "Name, the descriptor"
+        pattern1 = r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)[,\s]+(?:the|a|an)\s+([a-z][^,.!?]*?)(?:[,.!?]|\s+(?:says?|asks?|tells?|approaches?|appears?|stands?|sits?))'
+        matches1 = re.findall(pattern1, text)
+        for name, descriptor in matches1:
+            if name and len(name) > 2 and not name.lower() in {'you', 'your', 'the', 'this', 'that'}:
+                npcs.append({
+                    'name': name.strip(),
+                    'description': f"NPC: {name.strip()} ({descriptor.strip()})"
+                })
+        
+        # Pattern 2: "a/an descriptor named Name"
+        pattern2 = r'(?:a|an)\s+([a-z]+(?:\s+[a-z]+)*?)\s+named\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)'
+        matches2 = re.findall(pattern2, text)
+        for descriptor, name in matches2:
+            if name and len(name) > 2:
+                npcs.append({
+                    'name': name.strip(),
+                    'description': f"NPC: {name.strip()} ({descriptor.strip()})"
+                })
+        
+        # Deduplicate by name
+        seen = set()
+        unique_npcs = []
+        for npc in npcs:
+            if npc['name'] not in seen:
+                seen.add(npc['name'])
+                unique_npcs.append(npc)
+        
+        return unique_npcs
+
+    def _extract_world_info_from_text(self, text: str) -> list[dict]:
+        """
+        Extract location and world lore mentions from narrative text.
+        Returns list of dicts with 'type' and 'description'.
+        """
+        if not text:
+            return []
+        
+        world_info = []
+        
+        # Pattern 1: Location descriptions - "the [Adj] [Place]", "the [Place] of [Name]"
+        location_pattern1 = r'(?:the|a|an)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:Tavern|Inn|Castle|Tower|Temple|Forest|Mountain|Village|City|Kingdom|Dungeon|Cave|Bridge|Gate|Hall|Market)))'
+        matches1 = re.findall(location_pattern1, text)
+        for location in matches1:
+            if location and len(location) > 3:
+                world_info.append({
+                    'type': 'location',
+                    'description': f"Location: {location.strip()}"
+                })
+        
+        # Pattern 2: World rules - "magic is [forbidden/allowed/etc]", "[something] is forbidden"
+        rule_pattern = r'((?:magic|fighting|weapons|violence|trading|entering|leaving)[^.!?]*(?:forbidden|banned|illegal|required|mandatory|sacred|holy|cursed))'
+        matches2 = re.findall(rule_pattern, text, re.IGNORECASE)
+        for rule in matches2:
+            if rule and len(rule) > 10:
+                world_info.append({
+                    'type': 'rule',
+                    'description': f"Rule: {rule.strip()}"
+                })
+        
+        # Pattern 3: Faction/organization mentions - "the [Name] [faction/guild/order/etc]"
+        faction_pattern = r'(?:the\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(Guild|Order|Faction|Brotherhood|Sisterhood|Clan|Tribe|Council)'
+        matches3 = re.findall(faction_pattern, text)
+        for name, org_type in matches3:
+            if name and len(name) > 2:
+                world_info.append({
+                    'type': 'faction',
+                    'description': f"Faction: {name.strip()} {org_type}"
+                })
+        
+        # Deduplicate by description
+        seen = set()
+        unique_info = []
+        for info in world_info:
+            if info['description'] not in seen:
+                seen.add(info['description'])
+                unique_info.append(info)
+        
+        return unique_info
 
     def _semantic_namespace(self, actor_id: str) -> str:
         strategy = self.agentcore_client.sanitize_namespace(
@@ -192,12 +380,28 @@ class GameMasterModeHandler(BaseModeHandler):
         )
         return f"/strategy/{strategy}/actor/{actor_id}/character/"
 
+    def _npc_namespace(self, actor_id: str) -> str:
+        """Namespace for storing NPC information."""
+        strategy = self.agentcore_client.sanitize_namespace(
+            self.semantic_memory_strategy_id or "semantic-default"
+        )
+        return f"/strategy/{strategy}/actor/{actor_id}/npcs/"
+
+    def _world_namespace(self, actor_id: str) -> str:
+        """Namespace for storing world lore and locations."""
+        strategy = self.agentcore_client.sanitize_namespace(
+            self.semantic_memory_strategy_id or "semantic-default"
+        )
+        return f"/strategy/{strategy}/actor/{actor_id}/world/"
+
     def _retrieve_agentcore_memory(
         self,
         *,
         user_input: str,
         semantic_namespace: str,
         character_namespace: str,
+        npc_namespace: str,
+        world_namespace: str,
     ) -> str:
         records: list[str] = []
         try:
@@ -224,6 +428,32 @@ class GameMasterModeHandler(BaseModeHandler):
         except Exception as error:
             logger.warning("Failed to retrieve character AgentCore memory", exc_info=error)
 
+        # Retrieve NPCs mentioned in user input
+        try:
+            npc_records = self.agentcore_client.retrieve_memory_records(
+                namespace=npc_namespace,
+                search_query=user_input,
+                top_k=3,
+                memory_strategy_id=self.semantic_memory_strategy_id,
+            )
+            if npc_records:
+                records.extend(npc_records)
+        except Exception as error:
+            logger.warning("Failed to retrieve NPC AgentCore memory", exc_info=error)
+
+        # Retrieve world info (locations, rules, factions) relevant to user input
+        try:
+            world_records = self.agentcore_client.retrieve_memory_records(
+                namespace=world_namespace,
+                search_query=user_input,
+                top_k=3,
+                memory_strategy_id=self.semantic_memory_strategy_id,
+            )
+            if world_records:
+                records.extend(world_records)
+        except Exception as error:
+            logger.warning("Failed to retrieve world info AgentCore memory", exc_info=error)
+
         if not records:
             return ""
 
@@ -243,6 +473,50 @@ class GameMasterModeHandler(BaseModeHandler):
         memory_lines.extend(f"- {record}" for record in unique_records)
         memory_lines.append("=======================")
         return "\n".join(memory_lines)
+
+    def _retrieve_quest_log(self) -> str:
+        """Fetch recent quest steps from DynamoDB to provide story context."""
+        if not self.dynamodb_resource or not self.quest_step_table_name:
+            return ""
+        
+        try:
+            table = self.dynamodb_resource.Table(self.quest_step_table_name)
+            # Query by conversationId GSI to get quest steps for this conversation
+            response = table.query(
+                IndexName='conversationId',
+                KeyConditionExpression='conversationId = :convId',
+                ExpressionAttributeValues={':convId': self.conversation_id},
+                ScanIndexForward=False,  # Most recent first
+                Limit=10,  # Last 10 quest steps
+            )
+            
+            items = response.get('Items', [])
+            if not items:
+                return ""
+            
+            # Reverse to show chronological order (oldest to newest)
+            items.reverse()
+            
+            quest_log_lines = ["=== QUEST LOG (Recent Story Events) ==="]
+            for idx, item in enumerate(items, 1):
+                summary = item.get('summary', '').strip()
+                location = item.get('locationTag', '').strip()
+                danger = item.get('dangerLevel', '').strip()
+                
+                if summary:
+                    line = f"{idx}. {summary}"
+                    if location:
+                        line += f" [Location: {location}]"
+                    if danger and danger != 'Unknown':
+                        line += f" [Danger: {danger}]"
+                    quest_log_lines.append(line)
+            
+            quest_log_lines.append("========================================")
+            return "\n".join(quest_log_lines)
+            
+        except Exception as error:
+            logger.warning("Failed to retrieve quest log from DynamoDB", exc_info=error)
+            return ""
 
     def _format_character_context(self, character: dict) -> str:
         stats = character.get("stats", {})
@@ -422,6 +696,255 @@ class GameMasterModeHandler(BaseModeHandler):
             )
 
         return " ".join(parts) + " What do you do next?"
+    
+    def _format_narrative_context(self) -> str:
+        """Format current narrative structure for AI context"""
+        parts = []
+        
+        # Current story state
+        parts.append(f"=== Story State ===")
+        parts.append(f"Current Location: {self.adventure_state['currentLocation']}")
+        if self.adventure_state['currentScene']:
+            parts.append(f"Current Scene: {self.adventure_state['currentScene']}")
+        parts.append(f"Story Act: {self.adventure_state['currentAct']} (Chapter {self.adventure_state['currentChapter']})")
+        parts.append(f"Tension Level: {self.adventure_state['tensionLevel']}/10")
+        parts.append("")
+        
+        # Recent timeline (last 3 events)
+        if self.adventure_state['timeline']:
+            parts.append("Recent Story Events:")
+            for event in self.adventure_state['timeline'][-3:]:
+                parts.append(f"  - [{event['location']}] {event['summary']}")
+            parts.append("")
+        
+        # Active objectives
+        if self.adventure_state['activeObjectives']:
+            parts.append("Active Quest Objectives:")
+            for obj in self.adventure_state['activeObjectives']:
+                status = obj.get('status', 'ACTIVE')
+                if status == 'ACTIVE':
+                    parts.append(f"  - {obj['description']}")
+            parts.append("")
+        
+        # Scene transition guidance
+        parts.append("Scene Transition Rules:")
+        parts.append("  - Only move to connected or previously visited locations")
+        parts.append("  - Signal location changes clearly in narration")
+        parts.append("  - Maintain location continuity unless player explicitly travels")
+        parts.append("")
+        
+        return "\n".join(parts)
+    
+    def _load_adventure_state(self) -> None:
+        """Load existing adventure state from DynamoDB on initialization"""
+        if not self.dynamodb_resource:
+            return
+        
+        adventure_table_name = os.getenv("ADVENTURE_TABLE_NAME")
+        if not adventure_table_name:
+            return
+        
+        try:
+            adventure_table = self.dynamodb_resource.Table(adventure_table_name)
+            
+            # Query adventure by conversationId
+            response = adventure_table.query(
+                IndexName='gsi-Conversation.gameMasterAdventure',
+                KeyConditionExpression='conversationId = :convId',
+                ExpressionAttributeValues={':convId': self.conversation_id},
+                Limit=1
+            )
+            
+            if response.get('Items'):
+                adventure_item = response['Items'][0]
+                
+                # Load narrative structure fields if they exist
+                self.adventure_state['currentLocation'] = adventure_item.get('currentLocation', 'Unknown Location')
+                self.adventure_state['currentScene'] = adventure_item.get('currentScene', '')
+                self.adventure_state['currentAct'] = adventure_item.get('currentAct', 'EXPOSITION')
+                self.adventure_state['currentChapter'] = adventure_item.get('currentChapter', 1)
+                self.adventure_state['tensionLevel'] = adventure_item.get('tensionLevel', 3)
+                self.adventure_state['timeline'] = adventure_item.get('timeline', [])
+                self.adventure_state['visitedLocations'] = adventure_item.get('visitedLocations', [])
+                self.adventure_state['activeObjectives'] = adventure_item.get('activeObjectives', [])
+                self.adventure_state['criticalChoices'] = adventure_item.get('criticalChoices', [])
+                self.adventure_state['storyArc'] = adventure_item.get('storyArc', {})
+                
+                logger.info(f"Loaded adventure state: {self.adventure_state['currentLocation']} | {self.adventure_state['currentAct']} Ch{self.adventure_state['currentChapter']}")
+        except Exception as error:
+            logger.warning(f"Failed to load adventure state: {error}")
+    
+    def _persist_adventure_state(self) -> None:
+        """Persist current adventure state to DynamoDB"""
+        if not self.dynamodb_resource:
+            logger.warning("Cannot persist adventure state: DynamoDB resource not available")
+            return
+        
+        adventure_table_name = os.getenv("ADVENTURE_TABLE_NAME")
+        if not adventure_table_name:
+            logger.warning("Cannot persist adventure state: ADVENTURE_TABLE_NAME not set")
+            return
+        
+        try:
+            adventure_table = self.dynamodb_resource.Table(adventure_table_name)
+            
+            # Find adventure by conversationId using Amplify-generated GSI
+            response = adventure_table.query(
+                IndexName='gsi-Conversation.gameMasterAdventure',
+                KeyConditionExpression='conversationId = :convId',
+                ExpressionAttributeValues={':convId': self.conversation_id},
+                Limit=1
+            )
+            
+            if not response.get('Items'):
+                logger.warning(f"No adventure found for conversation {self.conversation_id}")
+                return
+            
+            adventure_item = response['Items'][0]
+            adventure_id = adventure_item['id']
+            
+            # Update narrative structure fields
+            adventure_table.update_item(
+                Key={'id': adventure_id},
+                UpdateExpression='''
+                    SET currentLocation = :loc,
+                        currentScene = :scene,
+                        currentAct = :act,
+                        currentChapter = :chapter,
+                        tensionLevel = :tension,
+                        timeline = :timeline,
+                        visitedLocations = :visited,
+                        activeObjectives = :objectives,
+                        criticalChoices = :choices,
+                        storyArc = :arc,
+                        updatedAt = :now
+                ''',
+                ExpressionAttributeValues={
+                    ':loc': self.adventure_state['currentLocation'],
+                    ':scene': self.adventure_state['currentScene'],
+                    ':act': self.adventure_state['currentAct'],
+                    ':chapter': self.adventure_state['currentChapter'],
+                    ':tension': self.adventure_state['tensionLevel'],
+                    ':timeline': self.adventure_state['timeline'],
+                    ':visited': self.adventure_state['visitedLocations'],
+                    ':objectives': self.adventure_state['activeObjectives'],
+                    ':choices': self.adventure_state['criticalChoices'],
+                    ':arc': self.adventure_state['storyArc'],
+                    ':now': datetime.utcnow().isoformat() + 'Z'
+                }
+            )
+            
+            logger.info(f"Adventure state persisted: {self.adventure_state['currentLocation']}")
+        except Exception as error:
+            logger.error(f"Failed to persist adventure state: {error}", exc_info=True)
+    
+    def _update_narrative_structure(self, user_input: str, response_text: str) -> None:
+        """Extract and update narrative structure from AI response"""
+        
+        # Extract location/scene
+        location_data = self.narrative_extractor.extract_location(
+            response_text,
+            self.adventure_state['currentLocation']
+        )
+        
+        # Validate and update location if transition detected
+        if location_data['is_transition']:
+            is_valid, reason = self.narrative_extractor.validate_location_transition(
+                self.adventure_state['currentLocation'],
+                location_data['location'],
+                self.adventure_state['visitedLocations']
+            )
+            
+            if is_valid:
+                # Update current location
+                old_location = self.adventure_state['currentLocation']
+                self.adventure_state['currentLocation'] = location_data['location']
+                self.adventure_state['currentScene'] = location_data['scene']
+                
+                # Add to visited locations if new
+                if not any(loc['name'] == location_data['location'] for loc in self.adventure_state['visitedLocations']):
+                    self.adventure_state['visitedLocations'].append({
+                        'name': location_data['location'],
+                        'firstVisited': datetime.utcnow().isoformat(),
+                        'description': location_data['scene'] or '',
+                        'connectedTo': [old_location] if old_location != 'Unknown Location' else [],
+                        'dangerLevel': 5,  # Default mid-range
+                    })
+                
+                logger.info(f"Location updated: {old_location} → {location_data['location']}")
+            else:
+                logger.warning(f"Invalid location transition blocked: {reason}")
+        
+        # Detect story beat
+        story_beat = self.narrative_extractor.detect_story_beat(response_text)
+        if story_beat:
+            self.adventure_state['lastStoryBeat'] = story_beat.value
+            
+            # Reset conflict counter if conflict detected
+            if story_beat == StoryBeat.CONFLICT:
+                self.adventure_state['turnsSinceConflict'] = 0
+            else:
+                self.adventure_state['turnsSinceConflict'] += 1
+        else:
+            self.adventure_state['turnsSinceConflict'] += 1
+        
+        # Update tension
+        new_tension = self.narrative_extractor.calculate_tension_change(
+            self.adventure_state['tensionLevel'],
+            story_beat,
+            self.adventure_state['turnsSinceConflict']
+        )
+        self.adventure_state['tensionLevel'] = new_tension
+        
+        # Check act progression
+        should_advance, new_act, reason = self.narrative_extractor.should_advance_act(
+            StoryAct[self.adventure_state['currentAct']],
+            self.adventure_state['tensionLevel'],
+            self.adventure_state['currentChapter'],
+            len(self.adventure_state['timeline'])
+        )
+        
+        if should_advance and new_act:
+            logger.info(f"Act progression: {self.adventure_state['currentAct']} → {new_act.value} ({reason})")
+            self.adventure_state['currentAct'] = new_act.value
+            self.adventure_state['currentChapter'] += 1
+            self.adventure_state['turnsInChapter'] = 0
+        else:
+            self.adventure_state['turnsInChapter'] += 1
+        
+        # Check chapter progression
+        should_advance_chapter, reason = self.narrative_extractor.should_advance_chapter(
+            self.adventure_state['currentChapter'],
+            self.adventure_state['turnsInChapter'],
+            self.adventure_state['tensionLevel'],
+            story_beat
+        )
+        
+        if should_advance_chapter:
+            logger.info(f"Chapter advancement: Chapter {self.adventure_state['currentChapter']} → {self.adventure_state['currentChapter'] + 1} ({reason})")
+            self.adventure_state['currentChapter'] += 1
+            self.adventure_state['turnsInChapter'] = 0
+        
+        # Add timeline event
+        timeline_event = self.narrative_extractor.create_timeline_event(
+            location=self.adventure_state['currentLocation'],
+            scene=self.adventure_state['currentScene'],
+            summary=response_text[:200] + "..." if len(response_text) > 200 else response_text,
+            player_action=user_input,
+            chapter=self.adventure_state['currentChapter'],
+            event_type=story_beat.value if story_beat else "NARRATIVE",
+            npcs_present=self.narrative_extractor.extract_npcs_from_text(response_text)
+        )
+        self.adventure_state['timeline'].append(timeline_event)
+        
+        # Keep timeline to last 20 events to prevent it from growing too large
+        if len(self.adventure_state['timeline']) > 20:
+            self.adventure_state['timeline'] = self.adventure_state['timeline'][-20:]
+        
+        # Persist adventure state to DynamoDB
+        self._persist_adventure_state()
+        
+        logger.debug(f"Narrative state: {self.adventure_state['currentLocation']} | {self.adventure_state['currentAct']} Ch{self.adventure_state['currentChapter']} | Tension {self.adventure_state['tensionLevel']}/10")
 
 
 def create_mode_handler(
@@ -430,6 +953,7 @@ def create_mode_handler(
     personality_mode: str,
     agentcore_client: Any,
     character_data: dict | None = None,
+    dynamodb_resource: Any | None = None,
 ) -> BaseModeHandler:
     if personality_mode == "game_master":
         return GameMasterModeHandler(
@@ -437,6 +961,7 @@ def create_mode_handler(
             personality_mode=personality_mode,
             agentcore_client=agentcore_client,
             character_data=character_data,
+            dynamodb_resource=dynamodb_resource,
         )
     return BaseModeHandler(
         conversation_id=conversation_id,

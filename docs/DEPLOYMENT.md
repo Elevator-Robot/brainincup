@@ -1,53 +1,178 @@
 # Deployment Guide
 
-This document explains how to deploy the Brain In Cup application with and without external authentication providers.
+## Quick Start
 
-## Problem Statement
+Deploy everything with a single command:
 
-Previously, deploying the sandbox environment with `npx ampx sandbox` would fail if the required external provider secrets (Google, Facebook) were not configured in AWS Parameter Store:
-
-```
-AmplifySecretFetcherResource | Received response status [FAILED] from custom resource. 
-Message returned: Failed to retrieve backend secret 'FACEBOOK_CLIENT_ID' for 'brain-in-cup'
+```bash
+npm run deploy
 ```
 
-This blocked development workflows when external provider secrets were not yet available.
-
-## Solution
-
-The authentication configuration now automatically provides default values for external provider secrets when they're not available:
-
-- **Default behavior**: Uses real secrets when available, falls back to default values when missing
-- **Development mode**: Set `AMPLIFY_EXTERNAL_PROVIDERS=false` to force default values
-- **Production mode**: External providers work normally when secrets are properly configured
+That's it! The script will automatically:
+1. ✅ Detect your AWS account ID
+2. ✅ Build the Lambda layer
+3. ✅ Check if AgentCore container exists
+4. ✅ Build and push container if needed
+5. ✅ Deploy the Amplify sandbox with AgentCore runtime
 
 ## Prerequisites
 
-### Building the Lambda Layer
+- **Docker** running locally
+- **AWS CLI** configured with credentials
+- **AWS Profile** named `brain` (or set `AWS_PROFILE` env var)
+- Node.js 18+ and npm
 
-Before deploying for the first time, you **must** build the Lambda layer containing Python dependencies:
+## Environment Configuration
+
+All configuration is auto-detected! No hardcoded values needed.
+
+Optional settings in `.env.agentcore`:
+- `AGENTCORE_NETWORK_MODE`: `PUBLIC` or `VPC` (default: `PUBLIC`)
+- `AGENTCORE_TRACE_ENABLED`: Enable tracing (default: `false`)
+- `AGENTCORE_TRACE_SAMPLE_RATE`: Trace sample rate 0.0-1.0 (default: `0.0`)
+
+## Individual Commands
+
+If you need more control:
+
+### Build and Push AgentCore Container Only
+```bash
+./scripts/update-agent-image.sh
+```
+
+### Deploy Without Rebuilding Container
+```bash
+npm run sandbox
+```
+
+### View Live Logs
+```bash
+npm run logs
+```
+
+### Delete Sandbox
+```bash
+npm run sandbox:delete
+```
+
+## How It Works
+
+### First Deployment
+1. Builds AgentCore Docker container from `agent-runtime/`
+2. Pushes to ECR (auto-detected: `{account}.dkr.ecr.us-east-1.amazonaws.com/brain-agent`)
+3. Creates `AWS::BedrockAgentCore::Runtime` with the container
+4. Deploys Lambda, DynamoDB, AppSync, Cognito, etc.
+
+### Subsequent Deployments
+- Reuses existing container if found
+- Updates AgentCore runtime if container changed
+- Hotswaps Lambda code for faster deploys
+
+## Authentication Setup (Optional)
+
+### External OAuth Providers
+
+To enable Google and Facebook login:
+
+1. **Configure secrets in AWS Parameter Store**:
+   ```bash
+   # Google OAuth
+   aws ssm put-parameter --name /amplify/brain-in-cup/GOOGLE_CLIENT_ID \
+     --value "your-google-client-id" --type SecureString
+   
+   aws ssm put-parameter --name /amplify/brain-in-cup/GOOGLE_CLIENT_SECRET \
+     --value "your-google-client-secret" --type SecureString
+   
+   # Facebook OAuth
+   aws ssm put-parameter --name /amplify/brain-in-cup/FACEBOOK_CLIENT_ID \
+     --value "your-facebook-client-id" --type SecureString
+   
+   aws ssm put-parameter --name /amplify/brain-in-cup/FACEBOOK_CLIENT_SECRET \
+     --value "your-facebook-client-secret" --type SecureString
+   ```
+
+2. **Deploy normally**:
+   ```bash
+   npm run deploy
+   ```
+
+### Development Without External Providers
+
+Set `AMPLIFY_EXTERNAL_PROVIDERS=false` to use default values:
+
+```bash
+AMPLIFY_EXTERNAL_PROVIDERS=false npm run deploy
+```
+
+## Troubleshooting
+
+### "Could not determine AWS account ID"
+Make sure AWS credentials are configured:
+```bash
+aws sts get-caller-identity --profile brain
+```
+
+### "Docker is not running"
+Start Docker Desktop and try again.
+
+### "ECR repository does not exist"
+The script will create it automatically on first run.
+
+### AgentCore Runtime Errors
+Check logs:
+```bash
+npm run logs
+```
+
+Look for errors in CloudFormation:
+```bash
+aws cloudformation describe-stack-events \
+  --stack-name amplify-brainincup-{user}-sandbox-{id} \
+  --region us-east-1
+```
+
+### Lambda Layer Build Issues
+
+If you see import errors like "No module named 'pydantic_core._pydantic_core'":
 
 ```bash
 ./scripts/build-lambda-layer.sh
 ```
 
-**What it does:**
-- Builds dependencies compatible with AWS Lambda (Linux x86_64, Python 3.12)
-- Uses Docker if available, falls back to pip with platform flags
-- Installs packages from `amplify/functions/brain/layer/requirements.txt`
-- Compiles native extensions (pydantic_core) for the correct platform
-- Creates the `amplify/functions/brain/layer/python/` directory
+This rebuilds Python dependencies compatible with AWS Lambda.
 
-**Requirements:**
-- Docker (recommended) OR Python 3.12 with pip
-- Internet connection
-- Script can be run from project root or function directory
+## CI/CD
 
-**When to rebuild:**
-- Before first deployment
-- After updating `requirements.txt`
-- When Lambda import errors occur (e.g., "No module named 'pydantic_core._pydantic_core'")
-- When switching between development machines (macOS ↔ Linux)
+For automated deployments, set these environment variables:
+- `AWS_REGION` (default: `us-east-1`)
+- `AWS_PROFILE` (default: `brain`)
+- `REPO` (default: `brain-agent`)
+- `IMAGE_TAG` (default: `latest`)
+
+Example GitHub Actions:
+```yaml
+- name: Deploy
+  env:
+    AWS_REGION: us-east-1
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  run: npm run deploy
+```
+
+## Architecture
+
+### AgentCore Runtime
+Brain uses AWS Bedrock AgentCore for managed AI agent execution:
+- Container: Custom Python runtime with LangChain
+- Memory: Persistent conversation context and world state
+- Tools: Function calling for game mechanics
+
+### Backend Stack
+- **Lambda**: Main Brain function with AgentCore client
+- **DynamoDB**: Game state, conversations, quest logs
+- **AppSync**: GraphQL API with real-time subscriptions
+- **Cognito**: User authentication and authorization
+- **CloudWatch**: Logging and monitoring
 
 **Troubleshooting:**
 - See `scripts/README.md` for detailed documentation
