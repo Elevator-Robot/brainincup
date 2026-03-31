@@ -12,7 +12,6 @@ const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
 type ConversationType = Schema['Conversation']['type'] & { personalityMode?: string | null };
 type MessageType = Schema['Message']['type'];
 type CharacterType = Schema['GameMasterCharacter']['type'];
-type AdventureType = Schema['GameMasterAdventure']['type'];
 
 interface ConversationListProps {
   onSelectConversation: (conversationId: string) => void;
