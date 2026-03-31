@@ -2313,7 +2313,7 @@ function App() {
                                       <span className={`mb-1 block text-[11px] uppercase tracking-[0.22em] ${
                                         message.role === 'user' ? 'text-teal-200/75' : 'text-brand-text-muted'
                                       }`}>
-                                        {message.role === 'user' ? 'Player Action' : 'Narrator'}
+                                        {message.role === 'user' ? 'You' : 'Narrator'}
                                       </span>
                                     )}
                                     {message.content}
@@ -2940,7 +2940,7 @@ function App() {
                           <span className={`mb-1 block text-[10px] uppercase tracking-[0.2em] ${
                             message.role === 'user' ? 'text-teal-200/75' : 'text-brand-text-muted'
                           }`}>
-                            {message.role === 'user' ? 'Player Action' : 'Narrator'}
+                            {message.role === 'user' ? 'You' : 'Narrator'}
                           </span>
                         )}
                         {message.content}
