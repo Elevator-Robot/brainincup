@@ -1,0 +1,222 @@
+[
+  {
+    "id": "surprise_001",
+    "schemaVersion": "1.0",
+    "docType": "SURPRISE_EVENT",
+    "campaignId": "campaign_001",
+    "title": "The Wandering Peddler",
+    "narrativeDescription": "A cheerful, gap-toothed peddler appears from around a corner, cart piled improbably high with salvaged goods. He seems entirely unbothered by the ruins around him. 'Finest wares in the Shattered Realm!' he announces to no one in particular. He has healing supplies, and he is willing to trade for almost anything — including information.",
+    "triggerConditions": {
+      "acts": ["EXPOSITION"],
+      "tensionRange": [1, 5],
+      "requiredWorldFlags": [],
+      "forbiddenWorldFlags": ["met_wandering_peddler"]
+    },
+    "mechanicalEffect": {
+      "hpChange": 5,
+      "xpAward": 15,
+      "itemGrant": {"itemId": "item_healing_salve", "quantity": 1},
+      "worldFlagsSet": ["met_wandering_peddler"]
+    },
+    "cooldownTurns": 25,
+    "priority": 4
+  },
+  {
+    "id": "surprise_002",
+    "schemaVersion": "1.0",
+    "docType": "SURPRISE_EVENT",
+    "campaignId": "campaign_001",
+    "title": "The Stray Cat",
+    "narrativeDescription": "A small, battle-scarred cat with mismatched eyes pads out of the rubble and sits directly in your path, staring at you with unsettling intelligence. After a moment, it turns and walks deliberately toward a collapsed wall — and through a gap you had not noticed, you can see a shortcut that saves considerable time and avoids a patrol route.",
+    "triggerConditions": {
+      "acts": ["EXPOSITION", "RISING_ACTION"],
+      "tensionRange": [1, 6],
+      "requiredWorldFlags": [],
+      "forbiddenWorldFlags": ["followed_the_cat"]
+    },
+    "mechanicalEffect": {
+      "hpChange": 0,
+      "xpAward": 20,
+      "itemGrant": null,
+      "worldFlagsSet": ["followed_the_cat", "knows_hidden_paths"]
+    },
+    "cooldownTurns": 30,
+    "priority": 3
+  },
+  {
+    "id": "surprise_003",
+    "schemaVersion": "1.0",
+    "docType": "SURPRISE_EVENT",
+    "campaignId": "campaign_001",
+    "title": "The Enforcer Deserter",
+    "narrativeDescription": "A young enforcer, still in partial armor, steps out of the shadows with hands raised. He is shaking. 'I don't want to do this anymore,' he says. 'I know things. About the King. About what they're really looking for in the ruins.' He is terrified and clearly telling the truth. He wants safe passage to the survivor camp in exchange for information.",
+    "triggerConditions": {
+      "acts": ["EXPOSITION", "RISING_ACTION"],
+      "tensionRange": [3, 7],
+      "requiredWorldFlags": ["encountered_enforcers"],
+      "forbiddenWorldFlags": ["met_enforcer_deserter"]
+    },
+    "mechanicalEffect": {
+      "hpChange": 0,
+      "xpAward": 35,
+      "itemGrant": {"itemId": "item_enforcer_badge", "quantity": 1},
+      "worldFlagsSet": ["met_enforcer_deserter", "knows_king_seeks_artifact"]
+    },
+    "cooldownTurns": 40,
+    "priority": 7
+  },
+  {
+    "id": "surprise_004",
+    "schemaVersion": "1.0",
+    "docType": "SURPRISE_EVENT",
+    "campaignId": "campaign_001",
+    "title": "The Tremor",
+    "narrativeDescription": "The ground shudders. Dust falls from the ceiling. A low, resonant groan passes through the stone beneath your feet — the sound of a floating island shifting in its orbit. It lasts only a few seconds, but in those seconds, a section of wall collapses nearby, revealing a previously hidden chamber. The tremors are getting more frequent. Something is destabilizing the islands.",
+    "triggerConditions": {
+      "acts": ["EXPOSITION", "RISING_ACTION"],
+      "tensionRange": [4, 8],
+      "requiredWorldFlags": [],
+      "forbiddenWorldFlags": ["witnessed_major_tremor"]
+    },
+    "mechanicalEffect": {
+      "hpChange": -3,
+      "xpAward": 25,
+      "itemGrant": {"itemId": "item_old_coin_cache", "quantity": 1},
+      "worldFlagsSet": ["witnessed_major_tremor", "knows_islands_destabilizing"]
+    },
+    "cooldownTurns": 35,
+    "priority": 5
+  },
+  {
+    "id": "surprise_005",
+    "schemaVersion": "1.0",
+    "docType": "SURPRISE_EVENT",
+    "campaignId": "campaign_001",
+    "title": "The Ambush",
+    "narrativeDescription": "Three figures drop from the rooftops — not enforcers, but desperate scavengers who have decided you look like an easier target than the King's soldiers. They are poorly armed and clearly hungry. Whether you fight, negotiate, or flee, the encounter is over quickly. But one of them drops something in the scramble: a folded note with a resistance symbol on it.",
+    "triggerConditions": {
+      "acts": ["RISING_ACTION"],
+      "tensionRange": [5, 9],
+      "requiredWorldFlags": [],
+      "forbiddenWorldFlags": ["ambushed_by_scavengers"]
+    },
+    "mechanicalEffect": {
+      "hpChange": -5,
+      "xpAward": 30,
+      "itemGrant": {"itemId": "item_resistance_note", "quantity": 1},
+      "worldFlagsSet": ["ambushed_by_scavengers"]
+    },
+    "cooldownTurns": 20,
+    "priority": 6
+  },
+  {
+    "id": "surprise_006",
+    "schemaVersion": "1.0",
+    "docType": "SURPRISE_EVENT",
+    "campaignId": "campaign_001",
+    "title": "The Wounded Resistance Fighter",
+    "narrativeDescription": "A figure collapses against a wall ahead of you — a resistance fighter, badly wounded, clutching a satchel to their chest. They have been running from an enforcer patrol. They press the satchel into your hands before losing consciousness. Inside: a map of the Ruined Keep's drainage tunnels, annotated in a careful hand. 'Don't let them have it,' the fighter whispers.",
+    "triggerConditions": {
+      "acts": ["RISING_ACTION"],
+      "tensionRange": [5, 10],
+      "requiredWorldFlags": ["found_resistance_camp"],
+      "forbiddenWorldFlags": ["received_keep_tunnel_map"]
+    },
+    "mechanicalEffect": {
+      "hpChange": 0,
+      "xpAward": 40,
+      "itemGrant": {"itemId": "item_keep_tunnel_map", "quantity": 1},
+      "worldFlagsSet": ["received_keep_tunnel_map", "knows_keep_layout"]
+    },
+    "cooldownTurns": 50,
+    "priority": 9
+  },
+  {
+    "id": "surprise_007",
+    "schemaVersion": "1.0",
+    "docType": "SURPRISE_EVENT",
+    "campaignId": "campaign_001",
+    "title": "The Memory Echo",
+    "narrativeDescription": "Without warning, a fragment of memory surfaces — sharp and vivid, unlike the vague impressions you have been piecing together. You see yourself in the old world, standing in a great hall, speaking to someone whose face you cannot quite resolve. You are handing them something. They are afraid. The memory fades as quickly as it came, leaving you with a name on your lips that you do not recognize.",
+    "triggerConditions": {
+      "acts": ["RISING_ACTION", "CLIMAX"],
+      "tensionRange": [4, 9],
+      "requiredWorldFlags": ["met_archivist"],
+      "forbiddenWorldFlags": ["knows_players_true_identity"]
+    },
+    "mechanicalEffect": {
+      "hpChange": 0,
+      "xpAward": 50,
+      "itemGrant": null,
+      "worldFlagsSet": ["recovered_memory_fragment", "knows_old_world_connection"]
+    },
+    "cooldownTurns": 45,
+    "priority": 8
+  },
+  {
+    "id": "surprise_008",
+    "schemaVersion": "1.0",
+    "docType": "SURPRISE_EVENT",
+    "campaignId": "campaign_001",
+    "title": "The King's Proclamation",
+    "narrativeDescription": "An enforcer captain reads aloud from a scroll in the market square, voice carrying over the crowd: 'By order of the Shattered King, any person found harboring or assisting the individual known as the Amnesiac is to be executed. A reward of one hundred gold shards is offered for information leading to their capture.' The crowd goes very quiet. Several people look directly at you.",
+    "triggerConditions": {
+      "acts": ["RISING_ACTION", "CLIMAX"],
+      "tensionRange": [6, 10],
+      "requiredWorldFlags": ["king_knows_player_exists"],
+      "forbiddenWorldFlags": ["heard_kings_proclamation"]
+    },
+    "mechanicalEffect": {
+      "hpChange": 0,
+      "xpAward": 45,
+      "itemGrant": null,
+      "worldFlagsSet": ["heard_kings_proclamation", "player_is_wanted"]
+    },
+    "cooldownTurns": 60,
+    "priority": 10
+  },
+  {
+    "id": "surprise_009",
+    "schemaVersion": "1.0",
+    "docType": "SURPRISE_EVENT",
+    "campaignId": "campaign_001",
+    "title": "The Shard Storm",
+    "narrativeDescription": "The sky above the Ashen Wastes darkens suddenly as a storm of shattered stone fragments sweeps in from the direction of the Citadel. The shards are small but moving fast, and the air crackles with residual cataclysmic energy. You have seconds to find cover. As you shelter, you notice something embedded in the wall beside you — a fragment of the old world, still intact, still warm.",
+    "triggerConditions": {
+      "acts": ["CLIMAX"],
+      "tensionRange": [6, 10],
+      "requiredWorldFlags": ["reached_ashen_wastes"],
+      "forbiddenWorldFlags": ["survived_shard_storm"]
+    },
+    "mechanicalEffect": {
+      "hpChange": -8,
+      "xpAward": 60,
+      "itemGrant": {"itemId": "item_intact_world_fragment", "quantity": 1},
+      "worldFlagsSet": ["survived_shard_storm", "found_world_fragment"]
+    },
+    "cooldownTurns": 30,
+    "priority": 8
+  },
+  {
+    "id": "surprise_010",
+    "schemaVersion": "1.0",
+    "docType": "SURPRISE_EVENT",
+    "campaignId": "campaign_001",
+    "title": "The Champion's Ghost",
+    "narrativeDescription": "In the corridors of the Shattered Citadel, you encounter something unexpected: a ghost. Not a monster — a memory. The echo of the King's champion as they were before the King broke them. The ghost does not attack. It looks at you with recognition and says, quietly: 'You were there too. At the beginning. You know how to end this without destroying everything again.' Then it fades.",
+    "triggerConditions": {
+      "acts": ["CLIMAX"],
+      "tensionRange": [7, 10],
+      "requiredWorldFlags": ["defeated_kings_champion", "knows_players_true_identity"],
+      "forbiddenWorldFlags": ["spoke_to_champions_ghost"]
+    },
+    "mechanicalEffect": {
+      "hpChange": 10,
+      "xpAward": 75,
+      "itemGrant": null,
+      "worldFlagsSet": ["spoke_to_champions_ghost", "knows_peaceful_resolution_exists"]
+    },
+    "cooldownTurns": 0,
+    "priority": 10
+  }
+]

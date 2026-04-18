@@ -1,0 +1,68 @@
+[
+  {
+    "id": "area_shrouded_vale",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Shrouded Vale",
+    "displayName": "The Shrouded Vale",
+    "narrativeDescription": "The lowest district of ruined Valdris, perpetually wrapped in mist from the city's shattered aqueducts. Crumbling tenements lean against each other like exhausted survivors. The mist muffles sound and hides movement — a blessing for those who live here, and a danger for those who do not know the paths. This is where you woke up. This is where the story begins.",
+    "minCharacterLevel": 1,
+    "tags": ["dark-fantasy", "exploration", "starting-area", "ruins"],
+    "connectedAreaIds": ["area_darkwood"]
+  },
+  {
+    "id": "area_darkwood",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Darkwood",
+    "displayName": "The Darkwood",
+    "narrativeDescription": "A forest that grew wild and strange after the cataclysm, fed by the residual energy that seeped into the soil. The trees are enormous and close-set, their canopies blocking all but the most determined light. The creatures here have been changed — warped by the same forces that shattered the world. The resistance uses the Darkwood as cover precisely because the enforcers are afraid to patrol it.",
+    "minCharacterLevel": 3,
+    "tags": ["dark-fantasy", "exploration", "wilderness", "combat"],
+    "connectedAreaIds": ["area_shrouded_vale", "area_ruined_keep"]
+  },
+  {
+    "id": "area_ruined_keep",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Ruined Keep",
+    "displayName": "The Ruined Keep",
+    "narrativeDescription": "A fortress that once guarded Valdris's eastern approach, now occupied by an elite garrison of the Shattered King's soldiers. The keep's walls are thick and well-maintained. Beneath it, however, the old vaults remain from the pre-cataclysm era, and the garrison does not know everything that is stored there.",
+    "minCharacterLevel": 4,
+    "tags": ["dark-fantasy", "exploration", "combat", "infiltration"],
+    "connectedAreaIds": ["area_darkwood", "area_cursed_marshes"]
+  },
+  {
+    "id": "area_cursed_marshes",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Cursed Marshes",
+    "displayName": "The Cursed Marshes",
+    "narrativeDescription": "A vast wetland poisoned by cataclysmic runoff, where the water glows faintly at night and the fog carries whispers of the dead. Travelers who linger too long report hearing voices that know their names. The marshes are the fastest route to the Shadow Citadel's outer approaches — if you can survive the crossing.",
+    "minCharacterLevel": 6,
+    "tags": ["dark-fantasy", "exploration", "hostile-environment", "horror"],
+    "connectedAreaIds": ["area_ruined_keep", "area_shadow_citadel"]
+  },
+  {
+    "id": "area_shadow_citadel",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Shadow Citadel",
+    "displayName": "The Shadow Citadel",
+    "narrativeDescription": "An ancient fortress that predates even the old world, built from black stone that absorbs light rather than reflecting it. The Shattered King's most elite forces are garrisoned here, guarding the final approach to the Void Throne. The citadel's towers are visible from the Cursed Marshes on clear days — a dark silhouette against an already dark sky.",
+    "minCharacterLevel": 8,
+    "tags": ["dark-fantasy", "exploration", "combat", "endgame"],
+    "connectedAreaIds": ["area_cursed_marshes", "area_void_throne"]
+  },
+  {
+    "id": "area_void_throne",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Void Throne",
+    "displayName": "The Void Throne",
+    "narrativeDescription": "The Shattered King's innermost sanctum, floating at the center of a void where the cataclysm's energy still burns in concentrated form. The throne itself is built from the bones of the old world — towers, temples, and palaces fused together by cataclysmic force. The cold blue light that emanates from it is visible from every corner of the Shattered Realm. This is the end of the road.",
+    "minCharacterLevel": 10,
+    "tags": ["dark-fantasy", "exploration", "endgame", "final-area", "boss"],
+    "connectedAreaIds": ["area_shadow_citadel"]
+  }
+]

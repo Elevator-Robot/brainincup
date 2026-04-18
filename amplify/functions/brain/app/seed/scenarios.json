@@ -1,0 +1,182 @@
+[
+  {
+    "id": "scenario_001",
+    "schemaVersion": "1.0",
+    "docType": "SCENARIO",
+    "campaignId": "campaign_001",
+    "title": "Enforcer Patrol",
+    "type": "COMBAT",
+    "tags": ["combat-heavy", "exposition", "survival"],
+    "recommendedLevelMin": 1,
+    "recommendedLevelMax": 3,
+    "baseDifficultyClassMin": 8,
+    "baseDifficultyClassMax": 13,
+    "narrativeContext": "A patrol of three armored enforcers bearing the Shattered King's sigil rounds the corner. They move with practiced menace, scanning for anyone who looks like trouble — or anyone worth interrogating.",
+    "objectives": [
+      "Avoid or defeat the enforcer patrol",
+      "Do not reveal your identity or destination"
+    ],
+    "requiredWorldFlags": [],
+    "worldFlagsWrite": ["encountered_enforcers", "knows_shattered_king_sigil"]
+  },
+  {
+    "id": "scenario_002",
+    "schemaVersion": "1.0",
+    "docType": "SCENARIO",
+    "campaignId": "campaign_001",
+    "title": "The Survivor's Bargain",
+    "type": "SOCIAL",
+    "tags": ["social", "investigation", "exposition"],
+    "recommendedLevelMin": 1,
+    "recommendedLevelMax": 3,
+    "baseDifficultyClassMin": 8,
+    "baseDifficultyClassMax": 13,
+    "narrativeContext": "Mira, a sharp-eyed woman in her forties with a scar across her jaw, studies you with open suspicion. She has kept these survivors alive through ruthless pragmatism. She will not help you for free — but she might if you can convince her you are worth the risk.",
+    "objectives": [
+      "Earn Mira's trust through conversation or demonstration",
+      "Learn the layout of the Shrouded Vale from her"
+    ],
+    "requiredWorldFlags": [],
+    "worldFlagsWrite": ["met_mira", "learned_vale_layout"]
+  },
+  {
+    "id": "scenario_003",
+    "schemaVersion": "1.0",
+    "docType": "SCENARIO",
+    "campaignId": "campaign_001",
+    "title": "The Collapsed Archive",
+    "type": "EXPLORATION",
+    "tags": ["exploration", "investigation", "exposition"],
+    "recommendedLevelMin": 1,
+    "recommendedLevelMax": 3,
+    "baseDifficultyClassMin": 8,
+    "baseDifficultyClassMax": 13,
+    "narrativeContext": "A section of the old city archive has partially collapsed, but the lower levels remain intact. Fenwick's coded message mentioned a cache hidden here — records he could not carry when he fled. The rubble is unstable and the enforcers patrol nearby.",
+    "objectives": [
+      "Navigate the collapsed archive without triggering a cave-in",
+      "Locate Fenwick's hidden cache"
+    ],
+    "requiredWorldFlags": [],
+    "worldFlagsWrite": ["found_archivist_message", "heard_about_archivist"]
+  },
+  {
+    "id": "scenario_004",
+    "schemaVersion": "1.0",
+    "docType": "SCENARIO",
+    "campaignId": "campaign_001",
+    "title": "The Darkwood Predator",
+    "type": "COMBAT",
+    "tags": ["combat-heavy", "exploration", "rising-action"],
+    "recommendedLevelMin": 4,
+    "recommendedLevelMax": 6,
+    "baseDifficultyClassMin": 12,
+    "baseDifficultyClassMax": 18,
+    "narrativeContext": "Something moves between the trees — too large to be a wolf, too quiet to be a bear. The cataclysm warped the creatures of the Darkwood, fusing them with fragments of shattered stone and crackling energy. This one has been following you for the last mile.",
+    "objectives": [
+      "Survive the encounter with the Darkwood predator",
+      "Identify what the creature once was"
+    ],
+    "requiredWorldFlags": [],
+    "worldFlagsWrite": ["survived_darkwood_path", "knows_cataclysm_warps_creatures"]
+  },
+  {
+    "id": "scenario_005",
+    "schemaVersion": "1.0",
+    "docType": "SCENARIO",
+    "campaignId": "campaign_001",
+    "title": "The Resistance Interrogation",
+    "type": "SOCIAL",
+    "tags": ["social", "investigation", "rising-action"],
+    "recommendedLevelMin": 4,
+    "recommendedLevelMax": 6,
+    "baseDifficultyClassMin": 12,
+    "baseDifficultyClassMax": 18,
+    "narrativeContext": "The resistance fighters are not welcoming. Their leader, a former soldier named Davan, has seen too many informants to trust a stranger. He sits across from you with a knife on the table between you, asking questions that have no safe answers.",
+    "objectives": [
+      "Convince Davan you are not an enforcer spy",
+      "Learn the resistance's plan for the Ruined Keep"
+    ],
+    "requiredWorldFlags": [],
+    "worldFlagsWrite": ["joined_resistance", "knows_resistance_plan"]
+  },
+  {
+    "id": "scenario_006",
+    "schemaVersion": "1.0",
+    "docType": "SCENARIO",
+    "campaignId": "campaign_001",
+    "title": "The Keep's Hidden Passage",
+    "type": "EXPLORATION",
+    "tags": ["exploration", "infiltration", "rising-action"],
+    "recommendedLevelMin": 4,
+    "recommendedLevelMax": 6,
+    "baseDifficultyClassMin": 12,
+    "baseDifficultyClassMax": 18,
+    "narrativeContext": "The resistance's map shows a drainage tunnel beneath the keep's eastern wall — unused since the cataclysm shifted the water table. The tunnel is narrow, partially flooded, and passes directly beneath the guard barracks. One wrong move and the entire garrison wakes up.",
+    "objectives": [
+      "Navigate the drainage tunnel without alerting the garrison",
+      "Locate the vault entrance from the inside"
+    ],
+    "requiredWorldFlags": [],
+    "worldFlagsWrite": ["breached_keep_gates", "reached_keep_vault"]
+  },
+  {
+    "id": "scenario_007",
+    "schemaVersion": "1.0",
+    "docType": "SCENARIO",
+    "campaignId": "campaign_001",
+    "title": "The King's Champion",
+    "type": "COMBAT",
+    "tags": ["combat-heavy", "climax", "boss-fight"],
+    "recommendedLevelMin": 7,
+    "recommendedLevelMax": 10,
+    "baseDifficultyClassMin": 16,
+    "baseDifficultyClassMax": 22,
+    "narrativeContext": "The Shattered King's champion blocks the citadel's inner gate — a warrior encased in armor forged from shattered stone and bound together by cataclysmic energy. They were once a hero of the old world. The King broke them and rebuilt them as something else.",
+    "objectives": [
+      "Defeat or bypass the King's champion",
+      "Determine if the champion can be freed from the King's influence"
+    ],
+    "requiredWorldFlags": [],
+    "worldFlagsWrite": ["defeated_kings_champion", "knows_king_can_corrupt_heroes"]
+  },
+  {
+    "id": "scenario_008",
+    "schemaVersion": "1.0",
+    "docType": "SCENARIO",
+    "campaignId": "campaign_001",
+    "title": "The Memory Fracture",
+    "type": "EXPLORATION",
+    "tags": ["exploration", "revelation", "climax"],
+    "recommendedLevelMin": 7,
+    "recommendedLevelMax": 10,
+    "baseDifficultyClassMin": 16,
+    "baseDifficultyClassMax": 22,
+    "narrativeContext": "The Ashen Wastes pulse with residual cataclysmic energy. Walking through them triggers fragments of memory — not yours, or perhaps they are. You see the old world as it was: whole, beautiful, and doomed. You see yourself standing at the center of it all.",
+    "objectives": [
+      "Navigate the memory fractures without losing yourself in the visions",
+      "Piece together the truth of your role in the cataclysm"
+    ],
+    "requiredWorldFlags": [],
+    "worldFlagsWrite": ["witnessed_cataclysm_origin", "survived_memory_fractures"]
+  },
+  {
+    "id": "scenario_009",
+    "schemaVersion": "1.0",
+    "docType": "SCENARIO",
+    "campaignId": "campaign_001",
+    "title": "The Throne Room Confrontation",
+    "type": "SOCIAL",
+    "tags": ["social", "climax", "final-confrontation"],
+    "recommendedLevelMin": 7,
+    "recommendedLevelMax": 10,
+    "baseDifficultyClassMin": 16,
+    "baseDifficultyClassMax": 22,
+    "narrativeContext": "The Shattered King sits on a throne built from the bones of the old world. He is old, and tired, and he has been waiting for you. He knows your name — your real name, the one you lost with your memories. He says: 'You built this world. You broke it. And now you have come to judge me for finishing what you started.'",
+    "objectives": [
+      "Hear the Shattered King's full account of the cataclysm",
+      "Make the final choice: destroy, redeem, or become"
+    ],
+    "requiredWorldFlags": [],
+    "worldFlagsWrite": ["heard_kings_revelation", "final_choice_made"]
+  }
+]

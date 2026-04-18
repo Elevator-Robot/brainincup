@@ -93,6 +93,21 @@ class BrainAgent:
             bedrock_request = {
                 "anthropic_version": "bedrock-2023-05-31",
                 "max_tokens": 2048,
+                "system": (
+                    "You are the Game Master for Brain in Cup, an immersive text-based RPG. "
+                    "Always respond with ONLY a valid JSON object — no markdown, no code fences, no extra text. "
+                    "Required fields: sensations (array of strings), thoughts (array of strings), "
+                    "memories (string), self_reflection (string), response (string), "
+                    "xp_award (integer), hp_change (integer), "
+                    "quest_step_advance (string or null), quest_complete (string or null), "
+                    "quest_fail (string or null), world_flags_set (object), "
+                    "dice_roll_request (object or null), tension_level (integer 1-10), "
+                    "area_transition (string or null), "
+                    "current_location (string — REQUIRED, always set to the current scene location name, never null or empty), "
+                    "item_grant (object or null). "
+                    "The current_location field MUST always contain the name of the place where the scene is happening "
+                    "(e.g. 'The Shrouded Vale', 'The Darkwood', 'The Ruined Keep'). Never omit it."
+                ),
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": temperature,
                 "top_p": top_p,
@@ -123,14 +138,6 @@ class BrainAgent:
                 required_fields = ["sensations", "thoughts", "memories", "self_reflection", "response"]
                 if all(field in response_payload for field in required_fields):
                     logger.info("Response generated successfully with valid JSON")
-                    
-                    # Add quest metadata for Game Master mode
-                    if persona.get("mode") == "game_master" and persona.get("name") == "The Game Master":
-                        response_payload.setdefault("quest_title", "The Shadowed Forest")
-                        response_payload.setdefault("quest_setting", "Dark Fantasy")
-                        response_payload.setdefault("quest_tone", "Gritty")
-                        response_payload.setdefault("quest_difficulty", "Moderate")
-                    
                     return response_payload
                 else:
                     logger.warning(f"Model response missing required fields. Got: {list(response_payload.keys())}")
@@ -142,28 +149,23 @@ class BrainAgent:
             # Fallback: wrap raw text in expected structure
             logger.info("Using fallback response structure")
             fallback_response = {
-                "sensations": [
-                    "Neural pathways activating",
-                    "Processing sensory input",
-                    "Awareness fluctuating"
-                ],
-                "thoughts": [
-                    "Analyzing the question",
-                    "Searching for patterns",
-                    "Formulating response"
-                ],
+                "sensations": ["Neural pathways activating"],
+                "thoughts": ["Analyzing the question"],
                 "memories": f"Context: {context[:100] if context else 'No prior context'}",
-                "self_reflection": "I'm working to understand and respond meaningfully",
-                "response": raw_text if raw_text else "I processed your message but encountered difficulty generating a structured response."
+                "self_reflection": "Working to understand and respond meaningfully",
+                "response": raw_text if raw_text else "I processed your message but encountered difficulty generating a structured response.",
+                "xp_award": 0,
+                "hp_change": 0,
+                "quest_step_advance": None,
+                "quest_complete": None,
+                "quest_fail": None,
+                "world_flags_set": {},
+                "dice_roll_request": None,
+                "tension_level": 5,
+                "area_transition": None,
+                "current_location": "",
+                "item_grant": None,
             }
-            
-            # Add quest metadata for Game Master mode
-            if persona.get("mode") == "game_master" and persona.get("name") == "The Game Master":
-                fallback_response["quest_title"] = "The Shadowed Forest"
-                fallback_response["quest_setting"] = "Dark Fantasy"
-                fallback_response["quest_tone"] = "Gritty"
-                fallback_response["quest_difficulty"] = "Moderate"
-            
             return fallback_response
             
         except Exception as error:

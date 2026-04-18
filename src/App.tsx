@@ -9,6 +9,8 @@ import InventoryManager, { type InventoryItem } from './components/InventoryMana
 import TroubleDice3D from './components/TroubleDice3D';
 import Panel from './components/ui/Panel';
 import { RPGLayout, LeftSidebar, CenterNarrative, RightStatus, BottomInput } from './components/ui/RPGLayout';
+import ContextWindowPanel from './components/ContextWindowPanel';
+import type { GameEvent } from './hooks/useContextPanel';
 import { normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import {
@@ -413,6 +415,19 @@ function App() {
   const [isDiceRolling, setIsDiceRolling] = useState(false);
   const [diceRollPulseId, setDiceRollPulseId] = useState(0);
   const [diceRollNonce, setDiceRollNonce] = useState(0);
+  const [gameEvents, setGameEvents] = useState<GameEvent[]>([]);
+
+  // PlayerState — authoritative game state synced via AppSync subscription
+  type PlayerStateRecord = Schema['PlayerState']['type'];
+  const [playerState, setPlayerState] = useState<PlayerStateRecord | null>(null);
+  // Optimistic snapshot: last confirmed state used for rollback
+  const confirmedPlayerStateRef = useRef<PlayerStateRecord | null>(null);
+  const optimisticRollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Task 11.4 — tracks the last requestId that triggered the dice animation to avoid re-triggering
+  const lastTriggeredDiceRequestIdRef = useRef<string | null>(null);
+
+  // Error toast state for optimistic rollback notifications
+  const [playerStateError, setPlayerStateError] = useState<string | null>(null);
   
   // Game Master data state
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
@@ -912,6 +927,14 @@ function App() {
     }
   }, []);
 
+  // Task 11.3 — cleanup optimistic rollback timer on unmount to prevent memory leaks
+  useEffect(() => () => {
+    if (optimisticRollbackTimerRef.current) {
+      clearTimeout(optimisticRollbackTimerRef.current);
+      optimisticRollbackTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     async function getUserAttributes() {
       try {
@@ -1181,6 +1204,22 @@ function App() {
               console.log('✅ MATCH: Including metadata - sensations:', brainResponse.sensations, 'thoughts:', brainResponse.thoughts);
               if (effectivePersonality === 'game_master') {
                 recordQuestStep(brainResponse);
+
+                // Extract location from the GM's JSON response and update adventureState immediately
+                // This is a fast-path that works before the Lambda's AppSync write propagates
+                try {
+                  const raw = brainResponse.response ?? '';
+                  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                  if (jsonMatch) {
+                    const parsed = JSON.parse(jsonMatch[0]);
+                    const loc = parsed.current_location || parsed.area_transition || parsed.location;
+                    if (loc && typeof loc === 'string' && loc.trim()) {
+                      setAdventureState(prev => prev ? { ...prev, currentLocation: loc.trim(), lastLocation: loc.trim() } : prev);
+                    }
+                  }
+                } catch {
+                  // Non-JSON response — ignore
+                }
               }
               
               // Add empty assistant message to start typing animation
@@ -1229,7 +1268,86 @@ function App() {
     }
   }, [conversationId, effectivePersonality, recordQuestStep]);
 
-  // Typing animation function
+  // Task 11.1 — PlayerState AppSync subscription
+  // Subscribes to PlayerState records for the active conversation and keeps local
+  // playerState in sync with authoritative DynamoDB values.
+  useEffect(() => {
+    if (!conversationId || effectivePersonality !== 'game_master') return;
+
+    // Guard: PlayerState model may not exist if the sandbox hasn't been redeployed
+    // after the schema was updated. Skip silently rather than crashing.
+    if (!dataClient.models.PlayerState) {
+      console.warn('PlayerState model not available — run `amplify sandbox` to deploy the updated schema.');
+      return;
+    }
+
+    const sub = dataClient.models.PlayerState.observeQuery({
+      filter: { campaignId: { eq: conversationId } },
+    }).subscribe({
+      next: ({ items }) => {
+        const latest = items[0] ?? null;
+        if (latest) {
+          setPlayerState(latest);
+          confirmedPlayerStateRef.current = latest;
+          // Clear any pending rollback timer — authoritative value arrived
+          if (optimisticRollbackTimerRef.current) {
+            clearTimeout(optimisticRollbackTimerRef.current);
+            optimisticRollbackTimerRef.current = null;
+          }
+          setPlayerStateError(null);
+
+          // Task 11.4 — wire pendingDiceRoll to dice animation
+          // Guard: only trigger if there is a non-expired, not-yet-triggered request.
+          const pending = latest.pendingDiceRoll as
+            | { requestId?: string; expiresAt?: string }
+            | null
+            | undefined;
+          if (pending?.requestId) {
+            const isExpired = pending.expiresAt
+              ? new Date(pending.expiresAt).getTime() < Date.now()
+              : false;
+            const alreadyTriggered =
+              lastTriggeredDiceRequestIdRef.current === pending.requestId;
+            if (!isExpired && !alreadyTriggered) {
+              lastTriggeredDiceRequestIdRef.current = pending.requestId;
+              setDiceRollNonce((n) => n + 1);
+              setIsDiceRolling(true);
+              setGameEvents((prev) => [...prev, { type: 'DICE_ROLL_REQUESTED' }]);
+            }
+          }
+        }
+      },
+      error: (err) => {
+        console.error('PlayerState subscription error:', err);
+      },
+    });
+
+    return () => sub.unsubscribe();
+  }, [conversationId, effectivePersonality]);
+
+  // Subscribe to GameMasterAdventure updates so currentLocation stays live
+  useEffect(() => {
+    if (!conversationId || effectivePersonality !== 'game_master') return;
+    if (!dataClient.models.GameMasterAdventure) return;
+
+    const sub = dataClient.models.GameMasterAdventure.observeQuery({
+      filter: { conversationId: { eq: conversationId } },
+    }).subscribe({
+      next: ({ items }) => {
+        const latest = items[0];
+        if (latest) {
+          setAdventureState(latest as AdventureRecord);
+        }
+      },
+      error: (err) => {
+        console.error('GameMasterAdventure subscription error:', err);
+      },
+    });
+
+    return () => sub.unsubscribe();
+  }, [conversationId, effectivePersonality]);
+
+
   const startTypingAnimation = (messageIndex: number, fullText: string) => {
     // Clear any existing typing animation
     if (typingIntervalRef.current) {
@@ -1309,6 +1427,28 @@ function App() {
     typingIntervalRef.current = setInterval(typeNextCharacter, 1000 / typingSpeed);
   };
 
+  // Task 11.2 — optimistic XP and HP update applied immediately on message submit.
+  // Task 11.3 — if subscription doesn't confirm within 10s, roll back and show error toast.
+  const applyOptimisticPlayerStateUpdate = useCallback(
+    (patch: Partial<PlayerStateRecord>) => {
+      setPlayerState((prev) => {
+        if (!prev) return prev;
+        const optimistic = { ...prev, ...patch };
+        // Schedule rollback if subscription doesn't confirm
+        if (optimisticRollbackTimerRef.current) {
+          clearTimeout(optimisticRollbackTimerRef.current);
+        }
+        optimisticRollbackTimerRef.current = setTimeout(() => {
+          setPlayerState(confirmedPlayerStateRef.current);
+          setPlayerStateError('Could not confirm stat update — reverted to last known state.');
+          optimisticRollbackTimerRef.current = null;
+        }, 10_000);
+        return optimistic;
+      });
+    },
+    [],
+  );
+
   const handleSendMessage = async (content: string, targetConversationId: string): Promise<void> => {
     try {
       setIsWaitingForResponse(true);
@@ -1333,6 +1473,37 @@ function App() {
       setIsWaitingForResponse(false);
     }
   };
+
+  // Task 11.5 — submitDiceResult: called after TroubleDice3D produces a result.
+  // Sends the dice value and requestId to the backend via AppSync mutation.
+  const submitDiceResult = useCallback(
+    async (diceValue: number) => {
+      const pending = playerState?.pendingDiceRoll as
+        | { requestId?: string; statName?: string; difficultyClass?: number }
+        | null
+        | undefined;
+      if (!pending?.requestId || !conversationId) return;
+
+      // Optimistic: clear pendingDiceRoll locally so the UI stops showing the pending state
+      applyOptimisticPlayerStateUpdate({ pendingDiceRoll: null });
+
+      try {
+        // The backend resolves the stat check and updates PlayerState via the stream.
+        // We write a Message with the dice result so the Lambda picks it up.
+        await dataClient.models.Message.create({
+          content: JSON.stringify({
+            type: 'DICE_RESULT',
+            requestId: pending.requestId,
+            diceValue,
+          }),
+          conversationId,
+        });
+      } catch (err) {
+        console.error('submitDiceResult failed:', err);
+      }
+    },
+    [playerState, conversationId, applyOptimisticPlayerStateUpdate],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1365,6 +1536,19 @@ function App() {
     setIsNewInteractionPrimed(false);
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setInputMessage('');
+
+    // Task 11.2 — optimistic XP update: apply a small baseline XP gain immediately
+    // so the Context_Window reflects the change before the DynamoDB write confirms.
+    // The authoritative value from the PlayerState subscription will reconcile this
+    // when it arrives (task 11.1). If it doesn't arrive within 10s, task 11.3 rolls back.
+    if (effectivePersonality === 'game_master' && playerState) {
+      // Snapshot the confirmed state before mutating so task 11.3 can roll back to it.
+      confirmedPlayerStateRef.current = playerState;
+      // Award a small baseline XP for player engagement (5 XP per turn).
+      const BASELINE_XP_PER_TURN = 5;
+      const optimisticXP = (playerState.currentXP ?? 0) + BASELINE_XP_PER_TURN;
+      applyOptimisticPlayerStateUpdate({ currentXP: optimisticXP });
+    }
 
     await handleSendMessage(userMessage, activeConversationId);
     // Assistant reply will come via subscription
@@ -1799,12 +1983,21 @@ function App() {
       setPendingCharacterDraft(null);
       setIsNewInteractionPrimed(false);
       await createCharacter(createdConversationId, characterData);
+      // Send opening scene trigger — GM narrates first
+      await handleSendMessage(
+        `[SYSTEM: Begin the adventure. The player's character is ${characterData.name}, a ${characterData.race} ${characterData.characterClass}. Open with a vivid scene-setting narration that establishes the location, atmosphere, and an immediate hook. Do not wait for the player to speak first.]`,
+        createdConversationId,
+      );
       return;
     }
     setPendingCharacterDraft(null);
     setIsNewInteractionPrimed(false);
     await createCharacter(conversationId, characterData);
-  }, [conversationId, createCharacter, createConversationWithMode, effectivePersonality]);
+    await handleSendMessage(
+      `[SYSTEM: Begin the adventure. The player's character is ${characterData.name}, a ${characterData.race} ${characterData.characterClass}. Open with a vivid scene-setting narration that establishes the location, atmosphere, and an immediate hook. Do not wait for the player to speak first.]`,
+      conversationId,
+    );
+  }, [conversationId, createCharacter, createConversationWithMode, effectivePersonality, handleSendMessage]);
 
   const handleCharacterCreationQuickStart = useCallback(async () => {
     const { calculateFinalStats, getAllRaces, getAllClasses } = await import('./game');
@@ -1841,12 +2034,20 @@ function App() {
       setPendingCharacterDraft(null);
       setIsNewInteractionPrimed(false);
       await createCharacter(createdConversationId, quickStartCharacter);
+      await handleSendMessage(
+        `[SYSTEM: Begin the adventure. The player's character is ${quickStartCharacter.name}, a ${quickStartCharacter.race} ${quickStartCharacter.characterClass}. Open with a vivid scene-setting narration that establishes the location, atmosphere, and an immediate hook. Do not wait for the player to speak first.]`,
+        createdConversationId,
+      );
       return;
     }
     setPendingCharacterDraft(null);
     setIsNewInteractionPrimed(false);
     await createCharacter(conversationId, quickStartCharacter);
-  }, [conversationId, createCharacter, createConversationWithMode, effectivePersonality]);
+    await handleSendMessage(
+      `[SYSTEM: Begin the adventure. The player's character is ${quickStartCharacter.name}, a ${quickStartCharacter.race} ${quickStartCharacter.characterClass}. Open with a vivid scene-setting narration that establishes the location, atmosphere, and an immediate hook. Do not wait for the player to speak first.]`,
+      conversationId,
+    );
+  }, [conversationId, createCharacter, createConversationWithMode, effectivePersonality, handleSendMessage]);
 
   const isGameMasterMode = effectivePersonality === 'game_master';
   const appThemeClass = isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain';
@@ -1908,19 +2109,14 @@ function App() {
   const hudQuestSteps = normalizedQuestSteps.length > 0 ? normalizedQuestSteps : derivedQuestSteps;
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
   const currentLocation = useMemo(() => {
-    // Use narrative structure location if available
-    if (adventureState?.currentLocation) {
-      return adventureState.currentLocation;
-    }
-    // Fallback logic
-    const candidates = [adventureState?.lastLocation, adventureState?.title];
-    const validLocation = candidates.find((value) => {
-      if (typeof value !== 'string') return false;
-      const normalized = value.trim().toLowerCase();
-      return normalized.length > 0 && normalized !== 'unknown' && normalized !== 'n/a';
-    });
-    return validLocation?.trim() || 'The Shrouded Vale';
-  }, [adventureState?.currentLocation, adventureState?.lastLocation, adventureState?.title]);
+    const PLACEHOLDER = /^(unknown|unknown location|n\/a|none|null|undefined)$/i;
+    const isValid = (v: string | null | undefined): v is string =>
+      typeof v === 'string' && v.trim().length > 0 && !PLACEHOLDER.test(v.trim());
+
+    if (isValid(adventureState?.currentLocation)) return adventureState!.currentLocation!;
+    if (isValid(adventureState?.lastLocation)) return adventureState!.lastLocation!;
+    return 'Unknown Location';
+  }, [adventureState?.currentLocation, adventureState?.lastLocation]);
   
   const currentAct = useMemo(() => {
     if (!adventureState?.currentAct) return 'I';
@@ -1996,18 +2192,27 @@ function App() {
     const value = Math.floor(Math.random() * sides) + 1;
     setLastManualDiceRoll({ value, sides });
     setDiceRollPulseId((prev) => prev + 1);
-    setInputMessage((prev) => {
-      const trimmed = prev.trim();
-      if (!trimmed) {
-        return `I rolled a d${sides}: ${value}. `;
-      }
-      return `${prev}${prev.endsWith(' ') ? '' : ' '}[d${sides}: ${value}] `;
-    });
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-    });
+
+    // Task 11.5 — if a pendingDiceRoll is active, submit the result to the backend
+    const hasPendingRoll = Boolean(
+      (playerState?.pendingDiceRoll as { requestId?: string } | null | undefined)?.requestId,
+    );
+    if (hasPendingRoll) {
+      await submitDiceResult(value);
+    } else {
+      setInputMessage((prev) => {
+        const trimmed = prev.trim();
+        if (!trimmed) {
+          return `I rolled a d${sides}: ${value}. `;
+        }
+        return `${prev}${prev.endsWith(' ') ? '' : ' '}[d${sides}: ${value}] `;
+      });
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
+    }
     setIsDiceRolling(false);
-  }, [canUseDiceRoll]);
+  }, [canUseDiceRoll, playerState, submitDiceResult]);
 
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
   const toggleCenterList = useCallback(() => {
@@ -2017,6 +2222,20 @@ function App() {
   return (
     <div className={`retro-rpg-ui ${appThemeClass} h-screen overflow-hidden relative`}>
 
+      {/* Task 11.3 — optimistic rollback error toast */}
+      {playerStateError && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl bg-brand-surface-elevated border border-brand-surface-border px-4 py-3 shadow-lg text-sm text-brand-text-secondary">
+          <span>{playerStateError}</span>
+          <button
+            type="button"
+            onClick={() => setPlayerStateError(null)}
+            className="ml-2 text-brand-text-muted hover:text-brand-text-primary transition-colors"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Desktop: Main Layout */}
       <div className="hidden lg:flex h-full retro-shell">
@@ -2281,7 +2500,7 @@ function App() {
                             </div>
                           )}
               
-                          {messages.map((message, index) => (
+                          {messages.filter(m => !m.content?.startsWith('[SYSTEM:')).map((message, index) => (
                             <div
                               key={index}
                               className={`retro-message-row flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -2537,65 +2756,33 @@ function App() {
                       </div>
                     ) : (
                       <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                        <div className="retro-right-section retro-right-section--character relative">
-                          <p className="retro-character-heading text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character</p>
-                          <div className="retro-character-identity mt-3 flex items-center gap-3">
-                            {characterDisplay.avatarSrc ? (
-                              <div className="retro-character-avatar-wrap">
-                                <img
-                                  src={characterDisplay.avatarSrc}
-                                  alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                                  className="retro-character-avatar h-16 w-16 rounded-xl object-cover object-center"
-                                />
-                              </div>
-                            ) : null}
-                            <div className="retro-character-meta min-w-0">
-                              <p className="truncate text-sm font-medium text-brand-text-primary">{characterDisplay.name || 'Adventurer'}</p>
-                              <p className="text-xs text-brand-text-muted">{currentLocation}</p>
-                            </div>
-                          </div>
-                        </div>
+                        {/* Context Window Panel — character sheet and dice history */}
+                        <ContextWindowPanel
+                          playerState={playerState ?? undefined}
+                          character={{
+                            name: characterDisplay.name,
+                            level: characterDisplay.level,
+                            currentHP: characterDisplay.hp.current,
+                            maxHP: characterDisplay.hp.max,
+                            stats: characterDisplay.stats,
+                            avatarSrc: characterDisplay.avatarSrc,
+                          }}
+                          currentLocation={currentLocation}
+                          activeQuests={[]}
+                          timelineEntries={messages
+                            .filter(m => !m.content?.startsWith('[SYSTEM:'))
+                            .map((m, i) => ({
+                            id: String(i),
+                            role: m.role,
+                            content: m.content ?? m.fullContent,
+                            sensations: m.sensations,
+                            thoughts: m.thoughts,
+                            location: currentLocation ?? undefined,
+                          }))}
+                          gameEvents={gameEvents}
+                        />
 
-                        <div className="retro-right-section">
-                          <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Stats & Health</p>
-                          <div className="mt-3 grid grid-cols-3 gap-2">
-                            <div className="retro-right-stat-tile">
-                              <div className="text-[10px] text-brand-text-muted">STR</div>
-                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.strength}</div>
-                            </div>
-                            <div className="retro-right-stat-tile">
-                              <div className="text-[10px] text-brand-text-muted">DEX</div>
-                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.dexterity}</div>
-                            </div>
-                            <div className="retro-right-stat-tile">
-                              <div className="text-[10px] text-brand-text-muted">CON</div>
-                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.constitution}</div>
-                            </div>
-                            <div className="retro-right-stat-tile">
-                              <div className="text-[10px] text-brand-text-muted">INT</div>
-                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.intelligence}</div>
-                            </div>
-                            <div className="retro-right-stat-tile">
-                              <div className="text-[10px] text-brand-text-muted">WIS</div>
-                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.wisdom}</div>
-                            </div>
-                            <div className="retro-right-stat-tile">
-                              <div className="text-[10px] text-brand-text-muted">CHA</div>
-                              <div className="text-base font-bold text-brand-text-primary">{characterDisplay.stats.charisma}</div>
-                            </div>
-                          </div>
-
-                          <div className="mt-3">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">HP</span>
-                              <span className="text-xs text-brand-text-secondary">{characterDisplay.hp.current} / {characterDisplay.hp.max}</span>
-                            </div>
-                            <div className="h-2 bg-brand-surface-hover/70 rounded-md border border-brand-surface-border/45 overflow-hidden">
-                              <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${characterDisplay.hp.percentage}%` }} />
-                            </div>
-                          </div>
-                        </div>
-
+                        {/* Inventory */}
                         <div className="retro-right-section retro-right-section--inventory">
                           <InventoryManager
                             inventory={characterDisplay.inventory}
@@ -2717,11 +2904,9 @@ function App() {
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">
                       Quest Log
                         </p>
-                        {adventureState ? (
-                          <p className="text-sm text-brand-text-primary font-medium truncate">
-                            {adventureState.title}
-                          </p>
-                        ) : null}
+                        <p className="text-sm text-brand-text-primary font-medium truncate">
+                          No active quest
+                        </p>
                       </div>
                     </div>
                     <svg 
@@ -2781,7 +2966,7 @@ function App() {
                       ) : null}
                       <div className="retro-character-meta retro-character-meta--compact min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
-                        <p className="text-sm text-brand-text-primary font-medium truncate">{currentLocation}</p>
+                        <p className="text-sm text-brand-text-primary font-medium truncate">{characterDisplay.name || 'Adventurer'}</p>
                       </div>
                     </div>
                     <svg 
@@ -2910,7 +3095,7 @@ function App() {
                 </div>
               )}
               
-              {messages.map((message, index) => (
+              {messages.filter(m => !m.content?.startsWith('[SYSTEM:')).map((message, index) => (
                 <div
                   key={index}
                   className={`retro-message-row flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}

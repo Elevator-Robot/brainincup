@@ -1,0 +1,90 @@
+[
+  {
+    "id": "area_shrouded_vale",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Shrouded Vale",
+    "displayName": "The Shrouded Vale",
+    "narrativeDescription": "The lowest district of ruined Valdris, perpetually wrapped in mist from the city's shattered aqueducts. Crumbling tenements lean against each other like exhausted survivors. The mist muffles sound and hides movement — a blessing for those who live here, and a danger for those who do not know the paths. This is where you woke up. This is where the story begins.",
+    "minCharacterLevel": 1,
+    "tags": ["starting-area", "ruins", "social", "exposition"],
+    "connectedAreaIds": ["area_broken_market", "area_archivist_tower"]
+  },
+  {
+    "id": "area_broken_market",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Broken Market",
+    "displayName": "The Broken Market",
+    "narrativeDescription": "Once the commercial heart of Valdris, the market district survived the cataclysm better than most — its stone stalls and vaulted arcades proved more resilient than the residential towers. Now it is a chaotic bazaar where scavengers trade salvage, information, and favors. The Shattered King's enforcers collect tribute here twice a week. Everyone knows the schedule. Everyone resents it.",
+    "minCharacterLevel": 1,
+    "tags": ["social", "commerce", "exposition", "urban-ruins"],
+    "connectedAreaIds": ["area_shrouded_vale", "area_archivist_tower", "area_darkwood"]
+  },
+  {
+    "id": "area_archivist_tower",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Archivist's Tower",
+    "displayName": "The Archivist's Tower",
+    "narrativeDescription": "A slender tower of pale stone that somehow survived the cataclysm intact, though it leans at an unsettling angle. Old Fenwick has lived here for thirty years, cataloguing what remains of the old world's knowledge. The tower's upper floors are accessible only by a rope ladder Fenwick pulls up at night. The lower floors smell of old paper, lamp oil, and secrets.",
+    "minCharacterLevel": 1,
+    "tags": ["social", "investigation", "exposition", "knowledge"],
+    "connectedAreaIds": ["area_shrouded_vale", "area_broken_market"]
+  },
+  {
+    "id": "area_darkwood",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Darkwood",
+    "displayName": "The Darkwood",
+    "narrativeDescription": "A forest that grew wild and strange after the cataclysm, fed by the residual energy that seeped into the soil. The trees are enormous and close-set, their canopies blocking all but the most determined light. The creatures here have been changed — warped by the same forces that shattered the world. The resistance uses the Darkwood as cover precisely because the enforcers are afraid to patrol it.",
+    "minCharacterLevel": 3,
+    "tags": ["exploration", "combat", "rising-action", "wilderness", "horror"],
+    "connectedAreaIds": ["area_broken_market", "area_ruined_keep", "area_sky_bridge"]
+  },
+  {
+    "id": "area_ruined_keep",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Ruined Keep",
+    "displayName": "The Ruined Keep",
+    "narrativeDescription": "A fortress that once guarded Valdris's eastern approach, now occupied by an elite garrison of the Shattered King's soldiers. The keep's walls are thick and well-maintained — the King's forces have invested in it as a regional stronghold. Beneath it, however, the old vaults remain from the pre-cataclysm era, and the garrison does not know everything that is stored there.",
+    "minCharacterLevel": 4,
+    "tags": ["combat", "infiltration", "rising-action", "military"],
+    "connectedAreaIds": ["area_darkwood", "area_sky_bridge"]
+  },
+  {
+    "id": "area_sky_bridge",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Sky Bridge",
+    "displayName": "The Sky Bridge",
+    "narrativeDescription": "A massive stone bridge spanning the void between two floating islands — a feat of engineering from the old world that the cataclysm somehow left intact. The bridge is the only reliable crossing to the Ashen Wastes and the Shattered Citadel beyond. A warlord named Kael controls it with an iron grip, charging tolls that most cannot afford and turning away those he deems unworthy. The wind at the bridge's midpoint is strong enough to knock an unprepared traveler into the void below.",
+    "minCharacterLevel": 6,
+    "tags": ["exploration", "social", "rising-action", "climax", "landmark"],
+    "connectedAreaIds": ["area_darkwood", "area_ruined_keep", "area_ashen_wastes"]
+  },
+  {
+    "id": "area_ashen_wastes",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Ashen Wastes",
+    "displayName": "The Ashen Wastes",
+    "narrativeDescription": "The devastated landscape surrounding the Shattered Citadel, where the cataclysm's energy still burns in the soil and the air tastes of ozone and old fire. Nothing grows here. The ground is cracked and glowing faintly at the fissures. The sky above is permanently overcast with ash clouds that occasionally rain down fragments of shattered stone. This is where the world ended. You can feel it.",
+    "minCharacterLevel": 8,
+    "tags": ["exploration", "combat", "climax", "endgame", "hostile-environment"],
+    "connectedAreaIds": ["area_sky_bridge", "area_shattered_citadel"]
+  },
+  {
+    "id": "area_shattered_citadel",
+    "schemaVersion": "1.0",
+    "docType": "AREA",
+    "title": "The Shattered Citadel",
+    "displayName": "The Shattered Citadel",
+    "narrativeDescription": "The Shattered King's fortress, built from the ruins of the old world's greatest structures — towers, temples, and palaces fused together by cataclysmic energy into a single impossible edifice. It floats at the center of the Ashen Wastes, tethered to the surrounding islands by chains of solidified energy. The throne room at its peak is visible from miles away, glowing with a cold blue light that never dims. This is the end of the road.",
+    "minCharacterLevel": 10,
+    "tags": ["combat", "climax", "endgame", "final-area", "boss"],
+    "connectedAreaIds": ["area_ashen_wastes"]
+  }
+]
