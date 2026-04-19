@@ -16,6 +16,7 @@ import boto3
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from opentelemetry import baggage, context as otel_context
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -24,6 +25,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+
+def _set_session_baggage(session_id: str) -> None:
+    """Set OTEL baggage key 'session.id' for session correlation in traces."""
+    ctx = baggage.set_baggage("session.id", session_id)
+    otel_context.attach(ctx)
 
 
 class BrainAgent:
@@ -76,6 +83,10 @@ class BrainAgent:
             prompt = event.get("prompt", "")
             persona = event.get("persona", {})
             context = event.get("context", "")
+            
+            # Set OTEL session baggage for trace correlation (Requirement 4.5, 5.1)
+            if context:
+                _set_session_baggage(context)
             
             logger.info(
                 "Processing request",

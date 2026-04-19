@@ -38,7 +38,7 @@ echo ""
 REPO="${REPO:-brain-agent}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 
-# Check if ECR image exists
+# Check if ECR image exists — use `npm run deploy:all` to also rebuild the runtime image
 echo "🔍 Checking for AgentCore container image..."
 CONTAINER_URI="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO:$IMAGE_TAG"
 

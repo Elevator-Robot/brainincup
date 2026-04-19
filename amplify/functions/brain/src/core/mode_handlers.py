@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import uuid
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from core.narrative_extractor import NarrativeExtractor, StoryAct, StoryBeat
@@ -481,16 +482,12 @@ class GameMasterModeHandler(BaseModeHandler):
         
         try:
             table = self.dynamodb_resource.Table(self.quest_step_table_name)
-            # Query by conversationId GSI to get quest steps for this conversation
-            response = table.query(
-                IndexName='conversationId',
-                KeyConditionExpression='conversationId = :convId',
+            # Scan filtered by conversationId (no GSI required)
+            response = table.scan(
+                FilterExpression='conversationId = :convId',
                 ExpressionAttributeValues={':convId': self.conversation_id},
-                ScanIndexForward=False,  # Most recent first
-                Limit=10,  # Last 10 quest steps
             )
-            
-            items = response.get('Items', [])
+            items = sorted(response.get('Items', []), key=lambda x: x.get('createdAt', ''), reverse=True)[:10]
             if not items:
                 return ""
             
