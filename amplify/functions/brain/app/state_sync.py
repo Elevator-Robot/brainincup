@@ -188,6 +188,19 @@ def apply_state_changes(
         if quest_id in player_state.active_quest_ids:
             player_state.active_quest_ids.remove(quest_id)
             player_state.completed_quest_ids.append(quest_id)
+            
+            # Auto-assign next quest in sequence if available and under limit
+            if area_registry and len(player_state.active_quest_ids) < 3:
+                quest_registry = [a for a in area_registry if a.get("docType") == "QUEST"]
+                next_quest = _find_next_quest(
+                    completed_quest_id=quest_id,
+                    quest_registry=quest_registry,
+                    completed_quest_ids=player_state.completed_quest_ids,
+                    active_quest_ids=player_state.active_quest_ids,
+                    player_level=player_state.current_level,
+                )
+                if next_quest:
+                    player_state.active_quest_ids.append(next_quest["id"])
 
     # 5. Quest fail
     if game_events.quest_fail:
@@ -267,3 +280,84 @@ def check_expired_dice_roll(player_state: PlayerState) -> bool:
         pass
 
     return False
+
+
+def sync_location_from_quest(
+    player_state: PlayerState,
+    quest_registry: list,
+    area_registry: list,
+) -> None:
+    """
+    Synchronize player location from their active quest's areaId.
+    This ensures location is always derived from the quest, not stored separately.
+    
+    If the player has an active quest with an areaId, update currentAreaId to match.
+    Also updates lastKnownLocation to the area's displayName.
+    """
+    if not player_state.active_quest_ids:
+        return
+    
+    # Get the first active quest
+    first_quest_id = player_state.active_quest_ids[0]
+    quest = next(
+        (q for q in quest_registry if q.get("id") == first_quest_id),
+        None,
+    )
+    
+    if not quest or not quest.get("areaId"):
+        return
+    
+    # Update currentAreaId from quest
+    quest_area_id = quest["areaId"]
+    player_state.current_area_id = quest_area_id
+    
+    # Update lastKnownLocation from area displayName
+    area = next(
+        (a for a in area_registry if a.get("id") == quest_area_id),
+        None,
+    )
+    if area:
+        player_state.last_known_location = area.get("displayName", quest_area_id)
+
+
+def _find_next_quest(
+    completed_quest_id: str,
+    quest_registry: list,
+    completed_quest_ids: list,
+    active_quest_ids: list,
+    player_level: int,
+) -> Optional[dict]:
+    """
+    Find the next quest to auto-assign after completing a quest.
+    
+    Returns the first quest that:
+    1. Has the completed quest as a prerequisite
+    2. Is not already completed or active
+    3. Player meets the minimum level requirement
+    """
+    for quest in quest_registry:
+        # Check if this quest requires the completed quest
+        prerequisites = quest.get("prerequisiteQuestIds", [])
+        if completed_quest_id not in prerequisites:
+            continue
+        
+        # Check if already completed or active
+        quest_id = quest.get("id")
+        if quest_id in completed_quest_ids or quest_id in active_quest_ids:
+            continue
+        
+        # Check level requirement
+        min_level = quest.get("minCharacterLevel", 1)
+        if player_level < min_level:
+            continue
+        
+        # Check all prerequisites are met
+        all_prereqs_met = all(
+            prereq in completed_quest_ids for prereq in prerequisites
+        )
+        if not all_prereqs_met:
+            continue
+        
+        return quest
+    
+    return None

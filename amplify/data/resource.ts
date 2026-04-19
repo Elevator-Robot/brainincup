@@ -56,11 +56,11 @@ const schema = a.schema({
     difficulty: a.string().default('Story-first'),
     safetyLevel: a.string().default('User Directed'),
     moodTag: a.string().default('Unsettled'),
-    lastLocation: a.string().default('Unknown'),
+    lastLocation: a.string().default('The Shrouded Vale'),
     lastStepId: a.string().default(''),
     
     // Narrative Structure Fields
-    currentLocation: a.string().default('Unknown Location'),
+    currentLocation: a.string().default('The Shrouded Vale'),
     currentScene: a.string().default(''),
     currentAct: a.enum(['EXPOSITION', 'RISING_ACTION', 'CLIMAX', 'FALLING_ACTION', 'RESOLUTION']),
     currentChapter: a.integer().default(1),

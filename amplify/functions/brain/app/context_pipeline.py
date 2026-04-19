@@ -144,19 +144,19 @@ class ContextEnrichmentPipeline:
         except Exception as exc:
             logger.warning("load_player_state failed for %s: %s", conversation_id, exc)
 
-        # Safe defaults
+        # Safe defaults - new characters start with quest_001 in area_shrouded_vale
         return {
             "currentLevel": 1,
             "currentXP": 0,
             "xpToNextLevel": 100,
-            "currentAreaId": "starting_area",
+            "currentAreaId": "area_shrouded_vale",
             "lastKnownLocation": "The Shrouded Vale",
             "currentActId": "",
             "currentChapterId": "",
             "currentSceneId": "",
             "currentHP": 20,
             "maxHP": 20,
-            "activeQuestIds": [],
+            "activeQuestIds": ["quest_001"],
             "completedQuestIds": [],
             "failedQuestIds": [],
             "diceRollLog": [],
@@ -400,8 +400,25 @@ class ContextEnrichmentPipeline:
             }
 
         # --- location ---
-        current_area_id = player_state.get("currentAreaId", "starting_area")
+        # Derive location from active quest's areaId (single source of truth)
+        active_quest_ids: list = player_state.get("activeQuestIds") or []
+        quest_docs = registry.get("QUEST", [])
         area_docs = registry.get("AREA", [])
+        
+        # Get current area from the first active quest
+        current_area_id = player_state.get("currentAreaId", "area_shrouded_vale")
+        if active_quest_ids:
+            first_quest_doc = next(
+                (
+                    (doc.get("body") or doc)
+                    for doc in quest_docs
+                    if (doc.get("body") or doc).get("id") == active_quest_ids[0]
+                ),
+                None,
+            )
+            if first_quest_doc and first_quest_doc.get("areaId"):
+                current_area_id = first_quest_doc["areaId"]
+        
         current_area_doc = next(
             (
                 (doc.get("body") or doc)
@@ -413,7 +430,7 @@ class ContextEnrichmentPipeline:
         display_name = (
             current_area_doc.get("displayName", current_area_id)
             if current_area_doc
-            else player_state.get("lastKnownLocation", current_area_id)
+            else player_state.get("lastKnownLocation", "The Shrouded Vale")
         )
         connected_area_ids = (
             current_area_doc.get("connectedAreaIds", []) if current_area_doc else []
@@ -454,8 +471,7 @@ class ContextEnrichmentPipeline:
         }
 
         # --- activeQuests ---
-        active_quest_ids: list = player_state.get("activeQuestIds") or []
-        quest_docs = registry.get("QUEST", [])
+        # Note: active_quest_ids and quest_docs already loaded above for location resolution
         active_quests = []
         for qid in active_quest_ids:
             quest_doc = next(

@@ -312,7 +312,7 @@ export default function ConversationList({
           // For Game Master mode, show location as preview
           const conversationLocation = conversation.id ? locationByConversation[conversation.id] : undefined;
           const previewText = isGameMasterConversation
-            ? (conversationLocation || 'Unknown Location')
+            ? (conversationLocation || 'The Shrouded Vale')
             : (conversation.id && latestMessageByConversation[conversation.id])
               ? latestMessageByConversation[conversation.id]
               : modeMeta.description;

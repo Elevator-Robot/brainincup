@@ -260,12 +260,12 @@ def handle_message_stream_event(record: dict) -> None:
     player_state = pipeline.load_player_state(conversation_id)
 
     # Check for expired dice roll and clear it before processing
-    from state_sync import PlayerState as PS, check_expired_dice_roll
+    from state_sync import PlayerState as PS, check_expired_dice_roll, sync_location_from_quest
     _ps_obj = PS(
         current_level=player_state.get("currentLevel", 1),
         current_xp=player_state.get("currentXP", 0),
         xp_to_next_level=player_state.get("xpToNextLevel", 100),
-        current_area_id=player_state.get("currentAreaId", "starting_area"),
+        current_area_id=player_state.get("currentAreaId", "area_shrouded_vale"),
         last_known_location=player_state.get("lastKnownLocation", ""),
         current_act_id=player_state.get("currentActId", ""),
         current_chapter_id=player_state.get("currentChapterId", ""),
@@ -274,6 +274,7 @@ def handle_message_stream_event(record: dict) -> None:
         max_hp=player_state.get("maxHP", 20),
         version=player_state.get("version", 1),
         pending_dice_roll=player_state.get("pendingDiceRoll"),
+        active_quest_ids=player_state.get("activeQuestIds", []),
     )
     if check_expired_dice_roll(_ps_obj):
         player_state["pendingDiceRoll"] = None
@@ -290,6 +291,14 @@ def handle_message_stream_event(record: dict) -> None:
         except Exception as exc:
             logger.warning("ContentRegistry load failed for %s: %s", campaign_id, exc)
             registry = {}
+    
+    # 2b. Sync location from active quest (single source of truth)
+    quest_registry = registry.get("QUEST", [])
+    area_registry = registry.get("AREA", [])
+    sync_location_from_quest(_ps_obj, quest_registry, area_registry)
+    # Write back synced location to player_state dict
+    player_state["currentAreaId"] = _ps_obj.current_area_id
+    player_state["lastKnownLocation"] = _ps_obj.last_known_location
 
     # 3. Evaluate pacing engine
     pacing_metrics = player_state.get("pacingMetrics") or {}

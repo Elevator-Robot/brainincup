@@ -2115,7 +2115,7 @@ function App() {
 
     if (isValid(adventureState?.currentLocation)) return adventureState!.currentLocation!;
     if (isValid(adventureState?.lastLocation)) return adventureState!.lastLocation!;
-    return 'Unknown Location';
+    return 'The Shrouded Vale';
   }, [adventureState?.currentLocation, adventureState?.lastLocation]);
   
   const currentAct = useMemo(() => {
