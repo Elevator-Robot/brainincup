@@ -148,7 +148,7 @@ class NarrativeExtractor:
             (is_valid, reason)
         """
         # If first location, always valid
-        if from_location == 'Unknown Location':
+        if from_location in ('The Shrouded Vale', 'Unknown Location'):
             return True, "Initial location"
         
         # Check if we have connectivity data

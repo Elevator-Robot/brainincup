@@ -228,3 +228,9 @@ docs/archive/
 .serena/
 
 # Documentation archive - temporary/helper docs not for version control
+#
+# Kiro
+.kiro
+
+# Mist MCPs
+.spec-workflow

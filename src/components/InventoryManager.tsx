@@ -87,6 +87,7 @@ export default function InventoryManager({
   const collapsedVisibleItems = 6;
   const visibleItems = isExpanded ? inventory : inventory.slice(0, collapsedVisibleItems);
   const hiddenItemCount = Math.max(inventory.length - visibleItems.length, 0);
+  const hasOverflow = inventory.length > collapsedVisibleItems;
 
   return (
     <div className="space-y-2">
@@ -98,10 +99,11 @@ export default function InventoryManager({
           </span>
           <button
             type="button"
-            onClick={() => setIsExpanded((prev) => !prev)}
+            onClick={() => hasOverflow && setIsExpanded((prev) => !prev)}
+            disabled={!hasOverflow}
             className={`retro-left-mode-button p-1.5 text-brand-text-primary transition-colors ${
               isExpanded ? 'retro-left-mode-button-active' : ''
-            }`}
+            } ${!hasOverflow ? 'opacity-30 cursor-not-allowed' : ''}`}
             aria-label={isExpanded ? 'Collapse inventory list' : 'Expand inventory list'}
           >
             <img

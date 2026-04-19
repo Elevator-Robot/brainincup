@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import uuid
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from core.narrative_extractor import NarrativeExtractor, StoryAct, StoryBeat
@@ -83,7 +84,7 @@ class GameMasterModeHandler(BaseModeHandler):
         
         # Track adventure state for narrative structure
         self.adventure_state = {
-            'currentLocation': 'Unknown Location',
+            'currentLocation': 'The Shrouded Vale',
             'currentScene': '',
             'currentAct': 'EXPOSITION',
             'currentChapter': 1,
@@ -481,16 +482,12 @@ class GameMasterModeHandler(BaseModeHandler):
         
         try:
             table = self.dynamodb_resource.Table(self.quest_step_table_name)
-            # Query by conversationId GSI to get quest steps for this conversation
-            response = table.query(
-                IndexName='conversationId',
-                KeyConditionExpression='conversationId = :convId',
+            # Scan filtered by conversationId (no GSI required)
+            response = table.scan(
+                FilterExpression='conversationId = :convId',
                 ExpressionAttributeValues={':convId': self.conversation_id},
-                ScanIndexForward=False,  # Most recent first
-                Limit=10,  # Last 10 quest steps
             )
-            
-            items = response.get('Items', [])
+            items = sorted(response.get('Items', []), key=lambda x: x.get('createdAt', ''), reverse=True)[:10]
             if not items:
                 return ""
             
@@ -759,7 +756,7 @@ class GameMasterModeHandler(BaseModeHandler):
                 adventure_item = response['Items'][0]
                 
                 # Load narrative structure fields if they exist
-                self.adventure_state['currentLocation'] = adventure_item.get('currentLocation', 'Unknown Location')
+                self.adventure_state['currentLocation'] = adventure_item.get('currentLocation', 'The Shrouded Vale')
                 self.adventure_state['currentScene'] = adventure_item.get('currentScene', '')
                 self.adventure_state['currentAct'] = adventure_item.get('currentAct', 'EXPOSITION')
                 self.adventure_state['currentChapter'] = adventure_item.get('currentChapter', 1)
@@ -863,11 +860,13 @@ class GameMasterModeHandler(BaseModeHandler):
                 
                 # Add to visited locations if new
                 if not any(loc['name'] == location_data['location'] for loc in self.adventure_state['visitedLocations']):
+                    # Check if this is the initial location
+                    is_initial = old_location in ('The Shrouded Vale', 'Unknown Location')
                     self.adventure_state['visitedLocations'].append({
                         'name': location_data['location'],
                         'firstVisited': datetime.utcnow().isoformat(),
                         'description': location_data['scene'] or '',
-                        'connectedTo': [old_location] if old_location != 'Unknown Location' else [],
+                        'connectedTo': [] if is_initial else [old_location],
                         'dangerLevel': 5,  # Default mid-range
                     })
                 

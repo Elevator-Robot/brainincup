@@ -10,6 +10,14 @@ import { Tags, CfnResource, CfnOutput } from 'aws-cdk-lib';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as aws_logs from 'aws-cdk-lib/aws-logs';
+import * as aws_s3 from 'aws-cdk-lib/aws-s3';
+import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as aws_cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import * as aws_sns from 'aws-cdk-lib/aws-sns';
+import * as aws_iam from 'aws-cdk-lib/aws-iam';
+import * as cr from 'aws-cdk-lib/custom-resources';
+import { Duration } from 'aws-cdk-lib';
 
 const readAgentCoreConfigFile = (): Record<string, string> => {
   const fileDir = dirname(fileURLToPath(import.meta.url));
@@ -54,6 +62,37 @@ const getAgentCoreConfig = (key: string): string | undefined => {
   return normalized ? normalized : undefined;
 };
 
+const VALID_RETENTION_DAYS = new Set([1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653]);
+
+export const getValidRetentionDays = (value: string | undefined): number => {
+  if (value === undefined) {
+    return 30;
+  }
+  const parsed = Number(value);
+  if (!VALID_RETENTION_DAYS.has(parsed)) {
+    const validValues = [...VALID_RETENTION_DAYS].join(', ');
+    throw new Error(`Invalid OBSERVABILITY_LOG_RETENTION_DAYS value: ${value}. Must be one of: ${validValues}`);
+  }
+  return parsed;
+};
+
+interface ObservabilityConfig {
+  invocationLoggingEnabled: boolean;   // default: true
+  agentcoreEnabled: boolean;           // default: true
+  logRetentionDays: number;            // default: 30, must be in CloudWatch valid set
+  s3BucketName?: string;               // optional
+  alarmSnsArn?: string;                // optional
+}
+
+const buildObservabilityConfig = (getConfig: (key: string) => string | undefined): ObservabilityConfig => {
+  const invocationLoggingEnabled = getConfig('OBSERVABILITY_INVOCATION_LOGGING_ENABLED') !== 'false';
+  const agentcoreEnabled = getConfig('OBSERVABILITY_AGENTCORE_ENABLED') !== 'false';
+  const logRetentionDays = getValidRetentionDays(getConfig('OBSERVABILITY_LOG_RETENTION_DAYS'));
+  const s3BucketName = getConfig('BEDROCK_INVOCATION_LOG_S3_BUCKET');
+  const alarmSnsArn = getConfig('OBSERVABILITY_ALARM_SNS_ARN');
+  return { invocationLoggingEnabled, agentcoreEnabled, logRetentionDays, s3BucketName, alarmSnsArn };
+};
+
 const backend = defineBackend({
   auth,
   data,
@@ -61,6 +100,9 @@ const backend = defineBackend({
 });
 
 const stack = backend.stack;
+
+// ─── Observability Infrastructure ────────────────────────────────────────────
+const obsConfig = buildObservabilityConfig(getAgentCoreConfig);
 
 const sanitizeRuntimeName = (value: string) => {
   const stripped = value.replace(/[^A-Za-z0-9_]/g, '') || 'BrainAgentRuntime';
@@ -162,6 +204,12 @@ if (!agentcoreRuntimeArn) {
         AWS_REGION: stack.region,
         OTEL_SERVICE_NAME: getAgentCoreConfig('OTEL_SERVICE_NAME') ?? 'brain-in-cup-agentcore-runtime',
         OTEL_PROPAGATORS: getAgentCoreConfig('OTEL_PROPAGATORS') ?? 'xray,tracecontext,baggage',
+        // AgentCore OTEL observability env vars (Requirement 4.2)
+        AGENT_OBSERVABILITY_ENABLED: obsConfig.agentcoreEnabled ? 'true' : 'false',
+        OTEL_PYTHON_DISTRO: 'aws_distro',
+        OTEL_PYTHON_CONFIGURATOR: 'aws_configurator',
+        OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
+        OTEL_RESOURCE_ATTRIBUTES: 'service.name=brain-in-cup-agentcore-runtime',
       },
       RoleArn: agentcoreRuntimeRole.roleArn,
       Description: 'Amazon Bedrock AgentCore runtime managed by Amplify Gen2 backend',
@@ -274,6 +322,265 @@ backend.addOutput({
   custom: {
     brainApiUrl: functionUrl.url,
   },
+});
+
+// ─── Observability Infrastructure ────────────────────────────────────────────
+if (obsConfig.invocationLoggingEnabled) {
+  // CloudWatch Log Group for Bedrock invocation logs
+  const bedrockLogGroup = new aws_logs.LogGroup(stack, 'BedrockInvocationLogGroup', {
+    logGroupName: `/aws/bedrock/invocations/${stack.stackName}`,
+    retention: obsConfig.logRetentionDays as aws_logs.RetentionDays,
+  });
+  Tags.of(bedrockLogGroup).add('DataClassification', 'GameContent');
+  Tags.of(bedrockLogGroup).add('RetentionPolicy', '30days');
+
+  // IAM Role for Bedrock to write to CloudWatch Logs
+  const bedrockLoggingRole = new aws_iam.Role(stack, 'BedrockLoggingRole', {
+    assumedBy: new aws_iam.ServicePrincipal('bedrock.amazonaws.com'),
+    description: 'IAM role for Bedrock model invocation logging to CloudWatch',
+  });
+  bedrockLoggingRole.addToPolicy(new aws_iam.PolicyStatement({
+    actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
+    resources: [bedrockLogGroup.logGroupArn],
+    effect: Effect.ALLOW,
+  }));
+
+  // Optional S3 bucket for large payloads
+  let s3Config: object | undefined;
+  if (obsConfig.s3BucketName) {
+    const invocationBucket = new aws_s3.Bucket(stack, 'BedrockInvocationBucket', {
+      bucketName: obsConfig.s3BucketName,
+    });
+    Tags.of(invocationBucket).add('DataClassification', 'GameContent');
+    Tags.of(invocationBucket).add('RetentionPolicy', '30days');
+    s3Config = {
+      bucketName: invocationBucket.bucketName,
+      keyPrefix: 'data/',
+    };
+  }
+
+  // Configure Bedrock model invocation logging via the Bedrock API (not a native CFN resource type)
+  const loggingConfig: Record<string, unknown> = {
+    textDataDeliveryEnabled: true,
+    cloudWatchConfig: {
+      logGroupName: bedrockLogGroup.logGroupName,
+      roleArn: bedrockLoggingRole.roleArn,
+    },
+    ...(s3Config ? { s3Config } : {}),
+  };
+
+  new cr.AwsCustomResource(stack, 'BedrockModelInvocationLogging', {
+    onCreate: {
+      service: 'Bedrock',
+      action: 'putModelInvocationLoggingConfiguration',
+      parameters: { loggingConfig },
+      physicalResourceId: cr.PhysicalResourceId.of(`BedrockInvocationLogging-${stack.stackName}`),
+    },
+    onUpdate: {
+      service: 'Bedrock',
+      action: 'putModelInvocationLoggingConfiguration',
+      parameters: { loggingConfig },
+      physicalResourceId: cr.PhysicalResourceId.of(`BedrockInvocationLogging-${stack.stackName}`),
+    },
+    onDelete: {
+      service: 'Bedrock',
+      action: 'deleteModelInvocationLoggingConfiguration',
+      parameters: {},
+      physicalResourceId: cr.PhysicalResourceId.of(`BedrockInvocationLogging-${stack.stackName}`),
+    },
+    policy: cr.AwsCustomResourcePolicy.fromStatements([
+      new aws_iam.PolicyStatement({
+        actions: [
+          'bedrock:PutModelInvocationLoggingConfiguration',
+          'bedrock:DeleteModelInvocationLoggingConfiguration',
+        ],
+        resources: ['*'],
+        effect: Effect.ALLOW,
+      }),
+      new aws_iam.PolicyStatement({
+        actions: ['iam:PassRole'],
+        resources: [bedrockLoggingRole.roleArn],
+        effect: Effect.ALLOW,
+      }),
+    ]),
+  });
+}
+
+// Enable CloudWatch Transaction Search (X-Ray prerequisite for GenAI Observability)
+new cr.AwsCustomResource(stack, 'TransactionSearchResourcePolicy', {
+  onCreate: {
+    service: 'CloudWatchLogs',
+    action: 'putResourcePolicy',
+    parameters: {
+      policyName: `TransactionSearchPolicy-${stack.stackName}`,
+      policyDocument: JSON.stringify({
+        Version: '2012-10-17',
+        Statement: [
+          {
+            Sid: 'AllowXRayToWriteSpans',
+            Effect: 'Allow',
+            Principal: { Service: 'xray.amazonaws.com' },
+            Action: 'logs:PutLogEvents',
+            Resource: [
+              `arn:aws:logs:${stack.region}:${stack.account}:log-group:aws/spans:*`,
+              `arn:aws:logs:${stack.region}:${stack.account}:log-group:/aws/application-signals/data:*`,
+            ],
+          },
+        ],
+      }),
+    },
+    physicalResourceId: cr.PhysicalResourceId.of(`TransactionSearchPolicy-${stack.stackName}`),
+  },
+  onDelete: {
+    service: 'CloudWatchLogs',
+    action: 'deleteResourcePolicy',
+    parameters: {
+      policyName: `TransactionSearchPolicy-${stack.stackName}`,
+    },
+  },
+  policy: cr.AwsCustomResourcePolicy.fromStatements([
+    new aws_iam.PolicyStatement({
+      actions: ['logs:PutResourcePolicy', 'logs:DeleteResourcePolicy'],
+      resources: ['*'],
+      effect: Effect.ALLOW,
+    }),
+  ]),
+});
+
+// ─── CloudWatch Alarms ────────────────────────────────────────────────────────
+
+// Alarm: InvocationErrors > 5 in 5 minutes (bedrock-agentcore namespace)
+const invocationErrorsAlarm = new aws_cloudwatch.Alarm(stack, 'BedrockAgentCoreInvocationErrorsAlarm', {
+  alarmName: `BrainInCup-${stack.stackName}-InvocationErrors`,
+  alarmDescription: 'AgentCore invocation error rate exceeded threshold',
+  metric: new aws_cloudwatch.Metric({
+    namespace: 'bedrock-agentcore',
+    metricName: 'InvocationErrors',
+    period: Duration.minutes(5),
+    statistic: 'Sum',
+  }),
+  threshold: 5,
+  evaluationPeriods: 1,
+  comparisonOperator: aws_cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+  treatMissingData: aws_cloudwatch.TreatMissingData.NOT_BREACHING,
+});
+
+// Alarm: InvocationLatency p99 > 30000 ms in 5 minutes (AWS/Bedrock namespace)
+const invocationLatencyAlarm = new aws_cloudwatch.Alarm(stack, 'BedrockInvocationLatencyAlarm', {
+  alarmName: `BrainInCup-${stack.stackName}-InvocationLatency-p99`,
+  alarmDescription: 'Bedrock invocation latency p99 exceeded 30 seconds',
+  metric: new aws_cloudwatch.Metric({
+    namespace: 'AWS/Bedrock',
+    metricName: 'InvocationLatency',
+    period: Duration.minutes(5),
+    statistic: 'p99',
+  }),
+  threshold: 30000,
+  evaluationPeriods: 1,
+  comparisonOperator: aws_cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+  treatMissingData: aws_cloudwatch.TreatMissingData.NOT_BREACHING,
+});
+
+// Add SNS action if configured
+if (obsConfig.alarmSnsArn) {
+  const snsAction = new aws_cloudwatch_actions.SnsAction(
+    aws_sns.Topic.fromTopicArn(stack, 'ObservabilityAlarmTopic', obsConfig.alarmSnsArn)
+  );
+  invocationErrorsAlarm.addAlarmAction(snsAction);
+  invocationLatencyAlarm.addAlarmAction(snsAction);
+} else {
+  // Emit alarm ARNs as output when no SNS topic is configured
+  new CfnOutput(stack, 'ObservabilityAlarmArns', {
+    value: [invocationErrorsAlarm.alarmArn, invocationLatencyAlarm.alarmArn].join(','),
+    description: 'CloudWatch alarm ARNs for Bedrock observability (configure OBSERVABILITY_ALARM_SNS_ARN to add SNS notifications)',
+  });
+}
+
+// ─── CloudWatch Dashboard ─────────────────────────────────────────────────────
+const dashboard = new aws_cloudwatch.Dashboard(stack, 'BrainInCupDashboard', {
+  dashboardName: `BrainInCup-${stack.stackName}`,
+});
+
+// Row 1: Lambda metrics
+dashboard.addWidgets(
+  new aws_cloudwatch.GraphWidget({
+    title: 'Lambda Invocations',
+    left: [new aws_cloudwatch.Metric({ namespace: 'AWS/Lambda', metricName: 'Invocations', dimensionsMap: { FunctionName: brainLambda.functionName }, statistic: 'Sum', period: Duration.minutes(5) })],
+  }),
+  new aws_cloudwatch.GraphWidget({
+    title: 'Lambda Errors',
+    left: [new aws_cloudwatch.Metric({ namespace: 'AWS/Lambda', metricName: 'Errors', dimensionsMap: { FunctionName: brainLambda.functionName }, statistic: 'Sum', period: Duration.minutes(5) })],
+  }),
+  new aws_cloudwatch.GraphWidget({
+    title: 'Lambda Duration (p99)',
+    left: [new aws_cloudwatch.Metric({ namespace: 'AWS/Lambda', metricName: 'Duration', dimensionsMap: { FunctionName: brainLambda.functionName }, statistic: 'p99', period: Duration.minutes(5) })],
+  }),
+);
+
+// Row 2: DynamoDB metrics
+dashboard.addWidgets(
+  new aws_cloudwatch.GraphWidget({
+    title: 'DynamoDB ThrottledRequests',
+    left: [
+      new aws_cloudwatch.Metric({ namespace: 'AWS/DynamoDB', metricName: 'ThrottledRequests', dimensionsMap: { TableName: messageTable.tableName }, statistic: 'Sum', period: Duration.minutes(5) }),
+      new aws_cloudwatch.Metric({ namespace: 'AWS/DynamoDB', metricName: 'ThrottledRequests', dimensionsMap: { TableName: conversationTable.tableName }, statistic: 'Sum', period: Duration.minutes(5) }),
+      new aws_cloudwatch.Metric({ namespace: 'AWS/DynamoDB', metricName: 'ThrottledRequests', dimensionsMap: { TableName: responseTable.tableName }, statistic: 'Sum', period: Duration.minutes(5) }),
+    ],
+  }),
+  new aws_cloudwatch.GraphWidget({
+    title: 'DynamoDB Consumed Read Capacity',
+    left: [
+      new aws_cloudwatch.Metric({ namespace: 'AWS/DynamoDB', metricName: 'ConsumedReadCapacityUnits', dimensionsMap: { TableName: messageTable.tableName }, statistic: 'Sum', period: Duration.minutes(5) }),
+      new aws_cloudwatch.Metric({ namespace: 'AWS/DynamoDB', metricName: 'ConsumedReadCapacityUnits', dimensionsMap: { TableName: conversationTable.tableName }, statistic: 'Sum', period: Duration.minutes(5) }),
+      new aws_cloudwatch.Metric({ namespace: 'AWS/DynamoDB', metricName: 'ConsumedReadCapacityUnits', dimensionsMap: { TableName: responseTable.tableName }, statistic: 'Sum', period: Duration.minutes(5) }),
+    ],
+  }),
+  new aws_cloudwatch.GraphWidget({
+    title: 'DynamoDB Consumed Write Capacity',
+    left: [
+      new aws_cloudwatch.Metric({ namespace: 'AWS/DynamoDB', metricName: 'ConsumedWriteCapacityUnits', dimensionsMap: { TableName: messageTable.tableName }, statistic: 'Sum', period: Duration.minutes(5) }),
+      new aws_cloudwatch.Metric({ namespace: 'AWS/DynamoDB', metricName: 'ConsumedWriteCapacityUnits', dimensionsMap: { TableName: conversationTable.tableName }, statistic: 'Sum', period: Duration.minutes(5) }),
+      new aws_cloudwatch.Metric({ namespace: 'AWS/DynamoDB', metricName: 'ConsumedWriteCapacityUnits', dimensionsMap: { TableName: responseTable.tableName }, statistic: 'Sum', period: Duration.minutes(5) }),
+    ],
+  }),
+);
+
+// Row 3: AppSync metrics
+const graphqlApiId = backend.data.resources.cfnResources.cfnGraphqlApi.attrApiId;
+dashboard.addWidgets(
+  new aws_cloudwatch.GraphWidget({
+    title: 'AppSync Latency',
+    left: [new aws_cloudwatch.Metric({ namespace: 'AWS/AppSync', metricName: 'Latency', dimensionsMap: { GraphQLAPIId: graphqlApiId }, statistic: 'p99', period: Duration.minutes(5) })],
+  }),
+  new aws_cloudwatch.GraphWidget({
+    title: 'AppSync 5XX Errors',
+    left: [new aws_cloudwatch.Metric({ namespace: 'AWS/AppSync', metricName: '5XXError', dimensionsMap: { GraphQLAPIId: graphqlApiId }, statistic: 'Sum', period: Duration.minutes(5) })],
+  }),
+  new aws_cloudwatch.GraphWidget({
+    title: 'AppSync 4XX Errors',
+    left: [new aws_cloudwatch.Metric({ namespace: 'AWS/AppSync', metricName: '4XXError', dimensionsMap: { GraphQLAPIId: graphqlApiId }, statistic: 'Sum', period: Duration.minutes(5) })],
+  }),
+);
+
+// Row 4: Bedrock metrics
+dashboard.addWidgets(
+  new aws_cloudwatch.GraphWidget({
+    title: 'Bedrock Invocations',
+    left: [new aws_cloudwatch.Metric({ namespace: 'AWS/Bedrock', metricName: 'Invocations', statistic: 'Sum', period: Duration.minutes(5) })],
+  }),
+  new aws_cloudwatch.GraphWidget({
+    title: 'Bedrock Invocation Latency',
+    left: [new aws_cloudwatch.Metric({ namespace: 'AWS/Bedrock', metricName: 'InvocationLatency', statistic: 'p99', period: Duration.minutes(5) })],
+  }),
+  new aws_cloudwatch.GraphWidget({
+    title: 'AgentCore Invocation Errors',
+    left: [new aws_cloudwatch.Metric({ namespace: 'bedrock-agentcore', metricName: 'InvocationErrors', statistic: 'Sum', period: Duration.minutes(5) })],
+  }),
+);
+
+new CfnOutput(stack, 'ObservabilityDashboardUrl', {
+  value: `https://${stack.region}.console.aws.amazon.com/cloudwatch/home?region=${stack.region}#dashboards:name=BrainInCup-${stack.stackName}`,
+  description: 'CloudWatch Dashboard URL for Brain in Cup observability',
 });
 
 export default backend;

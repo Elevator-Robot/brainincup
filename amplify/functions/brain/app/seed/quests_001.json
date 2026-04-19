@@ -1,0 +1,263 @@
+[
+  {
+    "id": "quest_001",
+    "schemaVersion": "1.0",
+    "docType": "QUEST",
+    "campaignId": "campaign_001",
+    "areaId": "area_shrouded_vale",
+    "title": "The Amnesiac's First Steps",
+    "description": "You have awakened with no memory in the ruins of Valdris. Piece together who you are and find shelter before the enforcers find you.",
+    "prerequisiteQuestIds": [],
+    "minCharacterLevel": 1,
+    "tags": ["investigation", "survival", "exposition"],
+    "steps": [
+      {
+        "index": 0,
+        "description": "Search the rubble around you for anything useful — a weapon, a clue, a name.",
+        "xpReward": 15,
+        "completionCondition": "flag:searched_initial_rubble"
+      },
+      {
+        "index": 1,
+        "description": "Follow the sound of voices to find other survivors.",
+        "xpReward": 20,
+        "completionCondition": "flag:found_survivor_camp"
+      },
+      {
+        "index": 2,
+        "description": "Speak with Mira, the camp's de facto leader, to learn what happened to Valdris.",
+        "xpReward": 25,
+        "completionCondition": "flag:spoke_to_mira"
+      }
+    ],
+    "successConditions": ["flag:found_survivor_camp", "flag:spoke_to_mira"],
+    "failureConditions": ["flag:captured_by_enforcers"],
+    "xpReward": 150,
+    "itemRewards": [
+      {"itemId": "item_worn_dagger", "quantity": 1},
+      {"itemId": "item_ration_pack", "quantity": 2}
+    ],
+    "worldFlagsRead": [],
+    "worldFlagsWrite": ["awakened_in_ruins", "found_survivor_camp", "met_mira"]
+  },
+  {
+    "id": "quest_002",
+    "schemaVersion": "1.0",
+    "docType": "QUEST",
+    "campaignId": "campaign_001",
+    "areaId": "area_shrouded_vale",
+    "title": "The Archivist's Plea",
+    "description": "Old Fenwick, the last archivist of Valdris, has been sending coded messages through the market. He claims to know who you are — but the enforcers are closing in on his tower.",
+    "prerequisiteQuestIds": ["quest_001"],
+    "minCharacterLevel": 1,
+    "tags": ["investigation", "social", "exposition"],
+    "steps": [
+      {
+        "index": 0,
+        "description": "Find the coded message hidden in the market stall of the rag-seller.",
+        "xpReward": 20,
+        "completionCondition": "flag:found_archivist_message"
+      },
+      {
+        "index": 1,
+        "description": "Decode the message using the cipher Mira taught you.",
+        "xpReward": 15,
+        "completionCondition": "flag:decoded_archivist_message"
+      },
+      {
+        "index": 2,
+        "description": "Reach the Archivist's Tower before the enforcers do.",
+        "xpReward": 30,
+        "completionCondition": "flag:reached_archivist_tower"
+      },
+      {
+        "index": 3,
+        "description": "Speak with Fenwick and learn what he knows about your past.",
+        "xpReward": 35,
+        "completionCondition": "flag:met_archivist"
+      }
+    ],
+    "successConditions": ["flag:met_archivist"],
+    "failureConditions": ["flag:archivist_captured", "flag:tower_burned_down"],
+    "xpReward": 250,
+    "itemRewards": [
+      {"itemId": "item_old_journal_fragment", "quantity": 1}
+    ],
+    "worldFlagsRead": ["found_survivor_camp", "met_mira"],
+    "worldFlagsWrite": ["met_archivist", "heard_about_archivist", "heard_about_enforcers"]
+  },
+  {
+    "id": "quest_003",
+    "schemaVersion": "1.0",
+    "docType": "QUEST",
+    "campaignId": "campaign_001",
+    "areaId": "area_darkwood",
+    "title": "Shadows in the Darkwood",
+    "description": "The resistance contact Fenwick mentioned lives deep in the Darkwood. But the forest has grown dangerous since the cataclysm — something hunts there now, and it is not natural.",
+    "prerequisiteQuestIds": ["quest_002"],
+    "minCharacterLevel": 3,
+    "tags": ["combat", "exploration", "rising-action"],
+    "steps": [
+      {
+        "index": 0,
+        "description": "Follow the trail markers Fenwick described into the Darkwood.",
+        "xpReward": 25,
+        "completionCondition": "flag:entered_darkwood"
+      },
+      {
+        "index": 1,
+        "description": "Survive the twisted creature that stalks the forest path.",
+        "xpReward": 50,
+        "completionCondition": "flag:survived_darkwood_path"
+      },
+      {
+        "index": 2,
+        "description": "Find the hidden camp of the resistance cell.",
+        "xpReward": 30,
+        "completionCondition": "flag:found_resistance_camp"
+      }
+    ],
+    "successConditions": ["flag:found_resistance_camp"],
+    "failureConditions": ["flag:killed_by_darkwood_creature"],
+    "xpReward": 300,
+    "itemRewards": [
+      {"itemId": "item_resistance_token", "quantity": 1},
+      {"itemId": "item_healing_potion", "quantity": 1}
+    ],
+    "worldFlagsRead": ["met_archivist", "left_valdris_ruins"],
+    "worldFlagsWrite": ["entered_darkwood", "survived_darkwood_path", "found_resistance_camp"]
+  },
+  {
+    "id": "quest_004",
+    "schemaVersion": "1.0",
+    "docType": "QUEST",
+    "campaignId": "campaign_001",
+    "areaId": "area_ruined_keep",
+    "title": "The Vault of Forgotten Names",
+    "description": "The resistance believes the Ruined Keep's vault contains records that could expose the Shattered King's true identity. You must infiltrate the keep and retrieve them before the King's soldiers destroy the evidence.",
+    "prerequisiteQuestIds": ["quest_003"],
+    "minCharacterLevel": 4,
+    "tags": ["combat", "infiltration", "rising-action"],
+    "steps": [
+      {
+        "index": 0,
+        "description": "Scout the keep's outer defenses and identify a weakness.",
+        "xpReward": 35,
+        "completionCondition": "flag:scouted_keep_defenses"
+      },
+      {
+        "index": 1,
+        "description": "Breach the keep's gates with the resistance's help.",
+        "xpReward": 60,
+        "completionCondition": "flag:breached_keep_gates"
+      },
+      {
+        "index": 2,
+        "description": "Descend to the vault beneath the keep.",
+        "xpReward": 40,
+        "completionCondition": "flag:reached_keep_vault"
+      },
+      {
+        "index": 3,
+        "description": "Retrieve the records and escape before reinforcements arrive.",
+        "xpReward": 65,
+        "completionCondition": "flag:found_vault_records"
+      }
+    ],
+    "successConditions": ["flag:found_vault_records"],
+    "failureConditions": ["flag:vault_records_destroyed", "flag:captured_in_keep"],
+    "xpReward": 450,
+    "itemRewards": [
+      {"itemId": "item_vault_records", "quantity": 1},
+      {"itemId": "item_enchanted_blade", "quantity": 1}
+    ],
+    "worldFlagsRead": ["joined_resistance", "found_resistance_camp"],
+    "worldFlagsWrite": ["breached_keep_gates", "found_vault_records", "king_knows_player_exists"]
+  },
+  {
+    "id": "quest_005",
+    "schemaVersion": "1.0",
+    "docType": "QUEST",
+    "campaignId": "campaign_001",
+    "areaId": "area_cursed_marshes",
+    "title": "The Truth in the Ashes",
+    "description": "The vault records point to a location in the Ashen Wastes where the cataclysm was deliberately triggered. You must reach it before the Shattered King can erase the last evidence of his crime.",
+    "prerequisiteQuestIds": ["quest_004"],
+    "minCharacterLevel": 7,
+    "tags": ["exploration", "revelation", "climax"],
+    "steps": [
+      {
+        "index": 0,
+        "description": "Cross the Sky Bridge to reach the Ashen Wastes.",
+        "xpReward": 75,
+        "completionCondition": "flag:crossed_sky_bridge"
+      },
+      {
+        "index": 1,
+        "description": "Navigate the burning path through the Ashen Wastes.",
+        "xpReward": 80,
+        "completionCondition": "flag:reached_ashen_wastes"
+      },
+      {
+        "index": 2,
+        "description": "Find the origin point of the cataclysm and witness the truth.",
+        "xpReward": 100,
+        "completionCondition": "flag:witnessed_cataclysm_origin"
+      }
+    ],
+    "successConditions": ["flag:witnessed_cataclysm_origin"],
+    "failureConditions": ["flag:origin_site_destroyed_by_king"],
+    "xpReward": 600,
+    "itemRewards": [
+      {"itemId": "item_shard_of_truth", "quantity": 1}
+    ],
+    "worldFlagsRead": ["found_vault_records", "crossed_sky_bridge"],
+    "worldFlagsWrite": ["witnessed_cataclysm_origin", "knows_players_true_identity", "reached_ashen_wastes"]
+  },
+  {
+    "id": "quest_006",
+    "schemaVersion": "1.0",
+    "docType": "QUEST",
+    "campaignId": "campaign_001",
+    "areaId": "area_shadow_citadel",
+    "title": "The Final Reckoning",
+    "description": "Armed with the truth, you must confront the Shattered King in his citadel. But the vault records revealed something else: you were there at the cataclysm. You were part of it. The King is not your enemy — he is your mirror.",
+    "prerequisiteQuestIds": ["quest_005"],
+    "minCharacterLevel": 9,
+    "tags": ["combat", "revelation", "climax", "final-boss"],
+    "steps": [
+      {
+        "index": 0,
+        "description": "Breach the Shattered Citadel's outer defenses.",
+        "xpReward": 100,
+        "completionCondition": "flag:breached_citadel_gates"
+      },
+      {
+        "index": 1,
+        "description": "Fight through the citadel's inner sanctum.",
+        "xpReward": 120,
+        "completionCondition": "flag:cleared_inner_sanctum"
+      },
+      {
+        "index": 2,
+        "description": "Reach the throne room and confront the Shattered King.",
+        "xpReward": 80,
+        "completionCondition": "flag:reached_throne_room"
+      },
+      {
+        "index": 3,
+        "description": "Make your final choice: destroy the King, redeem him, or become him.",
+        "xpReward": 200,
+        "completionCondition": "flag:final_choice_made"
+      }
+    ],
+    "successConditions": ["flag:final_choice_made"],
+    "failureConditions": ["flag:consumed_by_shattered_power"],
+    "xpReward": 1000,
+    "itemRewards": [
+      {"itemId": "item_crown_of_the_shattered_realm", "quantity": 1}
+    ],
+    "worldFlagsRead": ["witnessed_cataclysm_origin", "knows_players_true_identity", "reached_throne_room"],
+    "worldFlagsWrite": ["final_choice_made", "campaign_complete", "realm_fate_decided"]
+  }
+]

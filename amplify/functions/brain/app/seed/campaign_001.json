@@ -1,0 +1,224 @@
+{
+  "id": "campaign_001",
+  "schemaVersion": "1.0",
+  "docType": "CAMPAIGN",
+  "title": "The Shattered Realm",
+  "description": "An ancient cataclysm tore the world apart, leaving the land fractured into floating islands drifting through an endless sky. You awaken in the ruins of Valdris with no memory of who you are or how you survived. As you piece together your identity, you uncover a conspiracy that reaches back to the cataclysm itself — and a Shattered King who seeks to finish what was started.",
+  "maxLevel": 10,
+  "tags": ["dark-fantasy", "exploration"],
+  "acts": [
+    {
+      "id": "act_01",
+      "actType": "EXPOSITION",
+      "title": "Awakening in the Ruins",
+      "description": "The player awakens with no memory in the ruins of Valdris. They must survive, find allies, and begin to understand the shattered world around them.",
+      "chapters": [
+        {
+          "id": "ch_01_01",
+          "title": "The Shrouded Vale",
+          "xpReward": 50,
+          "scenes": [
+            {
+              "id": "sc_01_01_01",
+              "sequenceIndex": 0,
+              "title": "First Breath",
+              "eligibleScenarioIds": ["scenario_001", "scenario_002", "scenario_003"],
+              "requiredWorldFlags": []
+            },
+            {
+              "id": "sc_01_01_02",
+              "sequenceIndex": 1,
+              "title": "The Survivor's Camp",
+              "eligibleScenarioIds": ["scenario_001", "scenario_002", "scenario_003"],
+              "requiredWorldFlags": []
+            }
+          ]
+        },
+        {
+          "id": "ch_01_02",
+          "title": "The Broken Market",
+          "xpReward": 50,
+          "scenes": [
+            {
+              "id": "sc_01_02_01",
+              "sequenceIndex": 0,
+              "title": "Whispers in the Rubble",
+              "eligibleScenarioIds": ["scenario_001", "scenario_002", "scenario_003"],
+              "requiredWorldFlags": []
+            },
+            {
+              "id": "sc_01_02_02",
+              "sequenceIndex": 1,
+              "title": "The Enforcer's Toll",
+              "eligibleScenarioIds": ["scenario_001", "scenario_002", "scenario_003"],
+              "requiredWorldFlags": []
+            }
+          ]
+        },
+        {
+          "id": "ch_01_03",
+          "title": "The Archivist's Tower",
+          "xpReward": 50,
+          "scenes": [
+            {
+              "id": "sc_01_03_01",
+              "sequenceIndex": 0,
+              "title": "The Keeper of Memory",
+              "eligibleScenarioIds": ["scenario_001", "scenario_002", "scenario_003"],
+              "requiredWorldFlags": []
+            },
+            {
+              "id": "sc_01_03_02",
+              "sequenceIndex": 1,
+              "title": "Shadows in the Stacks",
+              "eligibleScenarioIds": ["scenario_001", "scenario_002", "scenario_003"],
+              "requiredWorldFlags": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "act_02",
+      "actType": "RISING_ACTION",
+      "title": "The Conspiracy Unravels",
+      "description": "Armed with fragments of memory and the archivist's knowledge, the player ventures beyond the ruins to uncover the network of power that sustains the Shattered King.",
+      "chapters": [
+        {
+          "id": "ch_02_01",
+          "title": "The Darkwood Crossing",
+          "xpReward": 50,
+          "scenes": [
+            {
+              "id": "sc_02_01_01",
+              "sequenceIndex": 0,
+              "title": "Into the Twisted Wood",
+              "eligibleScenarioIds": ["scenario_004", "scenario_005", "scenario_006"],
+              "requiredWorldFlags": []
+            },
+            {
+              "id": "sc_02_01_02",
+              "sequenceIndex": 1,
+              "title": "The Resistance Cell",
+              "eligibleScenarioIds": ["scenario_004", "scenario_005", "scenario_006"],
+              "requiredWorldFlags": []
+            }
+          ]
+        },
+        {
+          "id": "ch_02_02",
+          "title": "The Ruined Keep",
+          "xpReward": 50,
+          "scenes": [
+            {
+              "id": "sc_02_02_01",
+              "sequenceIndex": 0,
+              "title": "Siege Preparations",
+              "eligibleScenarioIds": ["scenario_004", "scenario_005", "scenario_006"],
+              "requiredWorldFlags": []
+            },
+            {
+              "id": "sc_02_02_02",
+              "sequenceIndex": 1,
+              "title": "The Vault Beneath",
+              "eligibleScenarioIds": ["scenario_004", "scenario_005", "scenario_006"],
+              "requiredWorldFlags": []
+            }
+          ]
+        },
+        {
+          "id": "ch_02_03",
+          "title": "The Sky Bridge",
+          "xpReward": 50,
+          "scenes": [
+            {
+              "id": "sc_02_03_01",
+              "sequenceIndex": 0,
+              "title": "The Warlord's Bargain",
+              "eligibleScenarioIds": ["scenario_004", "scenario_005", "scenario_006"],
+              "requiredWorldFlags": []
+            },
+            {
+              "id": "sc_02_03_02",
+              "sequenceIndex": 1,
+              "title": "Crossing Under Fire",
+              "eligibleScenarioIds": ["scenario_004", "scenario_005", "scenario_006"],
+              "requiredWorldFlags": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "act_03",
+      "actType": "CLIMAX",
+      "title": "The Shattered King's Throne",
+      "description": "The truth of the cataclysm and the player's own identity converge at the Shattered King's fortress. The final confrontation will determine the fate of the realm.",
+      "chapters": [
+        {
+          "id": "ch_03_01",
+          "title": "The Ashen Wastes",
+          "xpReward": 50,
+          "scenes": [
+            {
+              "id": "sc_03_01_01",
+              "sequenceIndex": 0,
+              "title": "The Burning Path",
+              "eligibleScenarioIds": ["scenario_007", "scenario_008", "scenario_009"],
+              "requiredWorldFlags": []
+            },
+            {
+              "id": "sc_03_01_02",
+              "sequenceIndex": 1,
+              "title": "Echoes of the Cataclysm",
+              "eligibleScenarioIds": ["scenario_007", "scenario_008", "scenario_009"],
+              "requiredWorldFlags": []
+            }
+          ]
+        },
+        {
+          "id": "ch_03_02",
+          "title": "The Shattered Citadel",
+          "xpReward": 50,
+          "scenes": [
+            {
+              "id": "sc_03_02_01",
+              "sequenceIndex": 0,
+              "title": "Breaching the Citadel",
+              "eligibleScenarioIds": ["scenario_007", "scenario_008", "scenario_009"],
+              "requiredWorldFlags": []
+            },
+            {
+              "id": "sc_03_02_02",
+              "sequenceIndex": 1,
+              "title": "The Inner Sanctum",
+              "eligibleScenarioIds": ["scenario_007", "scenario_008", "scenario_009"],
+              "requiredWorldFlags": []
+            }
+          ]
+        },
+        {
+          "id": "ch_03_03",
+          "title": "The Throne of Ruin",
+          "xpReward": 50,
+          "scenes": [
+            {
+              "id": "sc_03_03_01",
+              "sequenceIndex": 0,
+              "title": "The King's Revelation",
+              "eligibleScenarioIds": ["scenario_007", "scenario_008", "scenario_009"],
+              "requiredWorldFlags": []
+            },
+            {
+              "id": "sc_03_03_02",
+              "sequenceIndex": 1,
+              "title": "The Final Reckoning",
+              "eligibleScenarioIds": ["scenario_007", "scenario_008", "scenario_009"],
+              "requiredWorldFlags": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

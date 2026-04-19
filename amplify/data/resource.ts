@@ -56,11 +56,11 @@ const schema = a.schema({
     difficulty: a.string().default('Story-first'),
     safetyLevel: a.string().default('User Directed'),
     moodTag: a.string().default('Unsettled'),
-    lastLocation: a.string().default('Unknown'),
+    lastLocation: a.string().default('The Shrouded Vale'),
     lastStepId: a.string().default(''),
     
     // Narrative Structure Fields
-    currentLocation: a.string().default('Unknown Location'),
+    currentLocation: a.string().default('The Shrouded Vale'),
     currentScene: a.string().default(''),
     currentAct: a.enum(['EXPOSITION', 'RISING_ACTION', 'CLIMAX', 'FALLING_ACTION', 'RESOLUTION']),
     currentChapter: a.integer().default(1),
@@ -158,6 +158,77 @@ const schema = a.schema({
     toneTag: a.string().default('neutral'),
     createdAt: a.datetime(),
   }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
+
+  PlayerState: a.model({
+    id: a.id(),
+    campaignId: a.string(),
+    characterId: a.id(),
+    adventureId: a.id(),
+    currentLevel: a.integer().default(1),
+    currentXP: a.integer().default(0),
+    xpToNextLevel: a.integer().default(100),
+    currentAreaId: a.string().default('starting_area'),
+    lastKnownLocation: a.string().default('The Shrouded Vale'),
+    currentActId: a.string(),
+    currentChapterId: a.string(),
+    currentSceneId: a.string(),
+    activeQuestIds: a.json(),
+    completedQuestIds: a.json(),
+    failedQuestIds: a.json(),
+    diceRollLog: a.json(),
+    pacingMetrics: a.json(),
+    uiHints: a.json(),
+    pendingDiceRoll: a.json(),
+    owner: a.string(),
+    version: a.integer().default(1),
+  })
+    .secondaryIndexes((index) => [index('campaignId')])
+    .authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
+
+  WorldState: a.model({
+    id: a.id(),
+    campaignId: a.string(),
+    flags: a.json(),
+    owner: a.string(),
+    updatedAt: a.datetime(),
+    version: a.integer().default(1),
+  })
+    .secondaryIndexes((index) => [index('campaignId')])
+    .authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
+
+  ContentRegistry: a.model({
+    id: a.id(),
+    docType: a.enum(['CAMPAIGN', 'QUEST', 'SCENARIO', 'SURPRISE_EVENT', 'AREA']),
+    schemaVersion: a.string(),
+    campaignId: a.string(),
+    tags: a.string().array(),
+    body: a.json(),
+    updatedAt: a.datetime(),
+    createdAt: a.datetime(),
+  })
+    .secondaryIndexes((index) => [
+      index('campaignId'),
+      index('docType'),
+    ])
+    .authorization(allow => [
+      allow.authenticated().to(['read']),
+      allow.groups(['Admins']),
+    ]),
+
+  ActiveQuest: a.model({
+    id: a.id(),
+    playerStateId: a.id(),
+    questDefinitionId: a.string(),
+    campaignId: a.string(),
+    status: a.enum(['ACTIVE', 'COMPLETED', 'FAILED']),
+    currentStepIndex: a.integer().default(0),
+    totalSteps: a.integer(),
+    startedAt: a.datetime(),
+    completedAt: a.datetime(),
+    owner: a.string(),
+  })
+    .secondaryIndexes((index) => [index('playerStateId')])
+    .authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 });
 
 export const data = defineData({
