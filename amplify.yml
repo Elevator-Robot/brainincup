@@ -3,7 +3,7 @@ backend:
   phases:
     preBuild:
       commands:
-        - npm ci
+        - npm install
         - "echo Installing Python dependencies for Lambda layer"
         - "mkdir -p amplify/functions/brain/layer/python"
         - "pip install --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --only-binary=:all: -t amplify/functions/brain/layer/python -r amplify/functions/brain/layer/requirements.txt"
@@ -14,7 +14,7 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm ci
+        - npm install
     build:
       commands:
         - npm run build
