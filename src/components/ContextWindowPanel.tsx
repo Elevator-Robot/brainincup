@@ -29,8 +29,6 @@ interface ContextWindowPanelProps {
     currentLevel?: number;
     currentXP?: number;
     xpToNextLevel?: number;
-    currentHP?: number;
-    maxHP?: number;
     currentAreaId?: string;
     lastKnownLocation?: string;
     diceRollLog?: DiceRollEntry[];
@@ -90,8 +88,8 @@ function ContextWindowPanel({
           <CharacterSheetPanel
             name={character?.name}
             level={character?.level ?? playerState?.currentLevel}
-            currentHP={character?.currentHP ?? playerState?.currentHP}
-            maxHP={character?.maxHP ?? playerState?.maxHP}
+            currentHP={character?.currentHP}
+            maxHP={character?.maxHP}
             currentXP={playerState?.currentXP}
             xpToNextLevel={playerState?.xpToNextLevel}
             stats={character?.stats as CharacterSheetPanelProps['stats']}
