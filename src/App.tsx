@@ -2758,7 +2758,15 @@ function App() {
                       <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
                         {/* Context Window Panel — character sheet and dice history */}
                         <ContextWindowPanel
-                          playerState={playerState ?? undefined}
+                          playerState={playerState ? {
+                            currentLevel: playerState.currentLevel ?? undefined,
+                            currentXP: playerState.currentXP ?? undefined,
+                            xpToNextLevel: playerState.xpToNextLevel ?? undefined,
+                            currentAreaId: playerState.currentAreaId ?? undefined,
+                            lastKnownLocation: playerState.lastKnownLocation ?? undefined,
+                            diceRollLog: playerState.diceRollLog as any ?? undefined,
+                            pendingDiceRoll: playerState.pendingDiceRoll ?? undefined,
+                          } : undefined}
                           character={{
                             name: characterDisplay.name,
                             level: characterDisplay.level,
