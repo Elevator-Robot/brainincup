@@ -125,18 +125,18 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
           <section className="space-y-8 text-center lg:text-left">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 text-xs uppercase tracking-[0.35em] mx-auto lg:mx-0 text-brand-text-secondary">
               <span className="w-2 h-2 rounded-full bg-[rgba(226,190,112,0.95)] shadow-[0_0_18px_rgba(226,190,112,0.45)]" />
-              Text-Based RPG
+              Fantasy Adventure RPG
             </div>
 
             <div className="space-y-6">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold leading-tight text-brand-text-primary">
-                An AI Game Master for weird little adventures.
+                Create a character and begin your next adventure.
               </h1>
               <p className="text-base text-brand-text-secondary/80 max-w-2xl mx-auto lg:mx-0">
-                Brain in Cup is a playful text RPG where you create a hero, make risky choices, roll dice, collect gear, and let the story mutate around you.
+                Build a fantasy hero, explore branching quests, roll dice for important moments, and keep track of your campaign as it develops.
               </p>
               <ul className="space-y-3 text-left max-w-2xl mx-auto lg:mx-0">
-                {['Create a fantasy character with race, class, stats, and avatar', 'Play through chat with an AI Game Master that tracks your adventure', 'Use dice rolls, inventory, quest history, and live character context'].map((item) => (
+                {['Choose a race, class, avatar, and starting stats', 'Play through interactive quests with persistent campaign history', 'Manage dice rolls, inventory, character details, and quest progress'].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-brand-text-secondary/90">
                     <span className="mt-1 h-2 w-2 rounded-full bg-[rgba(226,190,112,0.95)]"></span>
                     <span>{item}</span>
@@ -144,7 +144,7 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
                 ))}
               </ul>
               <p className="text-sm text-brand-text-muted/80 italic">
-                Start a quest in a few clicks. Make trouble from there.
+                Designed for quick sessions, ongoing campaigns, and character-driven play.
               </p>
             </div>
           </section>
