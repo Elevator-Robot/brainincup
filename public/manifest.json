@@ -1,11 +1,11 @@
 {
   "name": "Brain In Cup",
   "short_name": "BrainCup",
-  "description": "AI consciousness simulation system",
+  "description": "A playful text-based RPG with an AI Game Master, character creation, dice rolls, inventory, and quest history.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#1a1a2e",
+  "background_color": "#02080c",
+  "theme_color": "#02080c",
   "orientation": "portrait-primary",
   "icons": [
     {
