@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { calculateFinalStats, getAllRaces, getAllClasses } from '../game';
+import { calculateFinalStats, getAllRaces, getAllClasses, getRace, getClass } from '../game';
 import {
   getAvatarOptionsForRace,
   getAvatarOptionById,
@@ -50,6 +50,26 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
   const classPickerRef = useRef<HTMLDivElement>(null);
 
   const availableAvatarOptions = useMemo(() => getAvatarOptionsForRace(race), [race]);
+  const selectedRace = useMemo(
+    () => raceOptions.find((raceOption) => raceOption.name === race),
+    [race],
+  );
+  const selectedClass = useMemo(
+    () => classOptions.find((classOption) => classOption.name === characterClass),
+    [characterClass],
+  );
+  const raceDetails = useMemo(
+    () => getRace(selectedRace?.id ?? 'terran'),
+    [selectedRace?.id],
+  );
+  const classDetails = useMemo(
+    () => getClass(selectedClass?.id ?? 'wanderer'),
+    [selectedClass?.id],
+  );
+  const previewStats = useMemo(
+    () => calculateFinalStats(selectedClass?.id ?? 'wanderer', selectedRace?.id ?? 'terran'),
+    [selectedClass?.id, selectedRace?.id],
+  );
 
   useEffect(() => {
     if (avatarId && availableAvatarOptions.some((avatarOption) => avatarOption.id === avatarId)) {
@@ -145,12 +165,12 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
   };
 
   const card = (
-    <div className={`${embedded ? 'w-full p-0' : 'retro-frame bg-brand-surface-elevated/95 border border-amber-700/35 rounded-2xl shadow-2xl max-w-md w-full p-4'} animate-slide-up`}>
+    <div className={`${embedded ? 'w-full p-0' : 'retro-frame bg-brand-surface-elevated/95 border border-amber-700/35 rounded-2xl shadow-2xl max-w-3xl w-full p-4'} animate-slide-up`}>
       
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label htmlFor={nameInputId} className="block text-sm font-medium text-brand-text-primary mb-1">
-            Your name?
+            Name
           </label>
           <input
             id={nameInputId}
@@ -173,7 +193,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
           <label id={`${racePickerId}-label`} className="mb-1 block text-sm font-medium text-brand-text-primary">
             Race
           </label>
-          <div ref={racePickerRef} className="relative">
+          <div ref={racePickerRef} className="character-forge-picker">
             <button
               id={racePickerId}
               type="button"
@@ -182,24 +202,16 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               aria-controls={`${racePickerId}-listbox`}
               aria-labelledby={`${racePickerId}-label ${racePickerId}`}
               onClick={() => setOpenPicker((prev) => (prev === 'race' ? null : 'race'))}
-              className="w-full rounded-xl border border-brand-surface-border/70 bg-brand-bg-secondary/70 px-3 py-2 text-left text-brand-text-primary shadow-[inset_0_1px_0_rgba(156,116,230,0.18)] transition-all duration-200 hover:border-brand-surface-border/90 hover:bg-brand-bg-tertiary/55 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45"
+              className="character-forge-select"
               disabled={isSubmitting}
             >
-              <span className="flex items-center justify-between gap-3">
-                <span>{race}</span>
-                <svg className={`h-4 w-4 text-brand-text-muted transition-transform duration-200 ${openPicker === 'race' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </span>
+              <span>{race}</span>
+              <svg className={`h-4 w-4 shrink-0 text-brand-text-muted transition-transform duration-200 ${openPicker === 'race' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
-            <div
-              id={`${racePickerId}-listbox`}
-              role="listbox"
-              aria-labelledby={`${racePickerId}-label`}
-              className={`absolute left-0 right-0 z-40 mt-2 origin-top overflow-hidden rounded-xl border border-brand-surface-border/80 bg-[linear-gradient(180deg,rgba(20,36,32,0.92)_0%,rgba(9,20,18,0.95)_100%)] shadow-[0_14px_30px_rgba(3,9,8,0.45)] transition-all duration-200 ${openPicker === 'race' ? 'max-h-56 scale-y-100 opacity-100' : 'pointer-events-none max-h-0 scale-y-95 opacity-0'}`}
-            >
-              <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
-              <div className="max-h-52 overflow-y-auto p-1.5">
+            {openPicker === 'race' && (
+              <div id={`${racePickerId}-listbox`} role="listbox" aria-labelledby={`${racePickerId}-label`} className="character-forge-options">
                 {raceOptions.map((raceOption) => {
                   const isSelected = raceOption.name === race;
                   return (
@@ -213,11 +225,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
                         setOpenPicker(null);
                         setError('');
                       }}
-                      className={`w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-                        isSelected
-                          ? 'bg-brand-accent-primary/20 text-brand-text-primary'
-                          : 'text-brand-text-secondary hover:bg-brand-surface-hover/55 hover:text-brand-text-primary'
-                      }`}
+                      className={`character-forge-option ${isSelected ? 'character-forge-option--selected' : ''}`}
                       disabled={isSubmitting}
                     >
                       {raceOption.name}
@@ -225,8 +233,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
                   );
                 })}
               </div>
-              <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/25 to-transparent" />
-            </div>
+            )}
           </div>
         </div>
 
@@ -234,7 +241,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
           <label id={`${classPickerId}-label`} className="mb-1 block text-sm font-medium text-brand-text-primary">
             Class
           </label>
-          <div ref={classPickerRef} className="relative">
+          <div ref={classPickerRef} className="character-forge-picker">
             <button
               id={classPickerId}
               type="button"
@@ -243,24 +250,16 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               aria-controls={`${classPickerId}-listbox`}
               aria-labelledby={`${classPickerId}-label ${classPickerId}`}
               onClick={() => setOpenPicker((prev) => (prev === 'class' ? null : 'class'))}
-              className="w-full rounded-xl border border-brand-surface-border/70 bg-brand-bg-secondary/70 px-3 py-2 text-left text-brand-text-primary shadow-[inset_0_1px_0_rgba(156,116,230,0.18)] transition-all duration-200 hover:border-brand-surface-border/90 hover:bg-brand-bg-tertiary/55 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45"
+              className="character-forge-select"
               disabled={isSubmitting}
             >
-              <span className="flex items-center justify-between gap-3">
-                <span>{characterClass}</span>
-                <svg className={`h-4 w-4 text-brand-text-muted transition-transform duration-200 ${openPicker === 'class' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </span>
+              <span>{characterClass}</span>
+              <svg className={`h-4 w-4 shrink-0 text-brand-text-muted transition-transform duration-200 ${openPicker === 'class' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
-            <div
-              id={`${classPickerId}-listbox`}
-              role="listbox"
-              aria-labelledby={`${classPickerId}-label`}
-              className={`absolute left-0 right-0 z-40 mt-2 origin-top overflow-hidden rounded-xl border border-brand-surface-border/80 bg-[linear-gradient(180deg,rgba(20,36,32,0.92)_0%,rgba(9,20,18,0.95)_100%)] shadow-[0_14px_30px_rgba(3,9,8,0.45)] transition-all duration-200 ${openPicker === 'class' ? 'max-h-56 scale-y-100 opacity-100' : 'pointer-events-none max-h-0 scale-y-95 opacity-0'}`}
-            >
-              <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
-              <div className="max-h-52 overflow-y-auto p-1.5">
+            {openPicker === 'class' && (
+              <div id={`${classPickerId}-listbox`} role="listbox" aria-labelledby={`${classPickerId}-label`} className="character-forge-options character-forge-options--tall">
                 {classOptions.map((classOption) => {
                   const isSelected = classOption.name === characterClass;
                   return (
@@ -274,11 +273,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
                         setOpenPicker(null);
                         setError('');
                       }}
-                      className={`w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-                        isSelected
-                          ? 'bg-brand-accent-primary/20 text-brand-text-primary'
-                          : 'text-brand-text-secondary hover:bg-brand-surface-hover/55 hover:text-brand-text-primary'
-                      }`}
+                      className={`character-forge-option ${isSelected ? 'character-forge-option--selected' : ''}`}
                       disabled={isSubmitting}
                     >
                       {classOption.name}
@@ -286,8 +281,26 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
                   );
                 })}
               </div>
-              <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/25 to-transparent" />
-            </div>
+            )}
+          </div>
+        </div>
+
+        <div className="character-forge-summary">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-brand-text-muted">Origin</p>
+            <p className="mt-1 text-xs leading-relaxed text-brand-text-secondary">{raceDetails?.description}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-brand-text-muted">Calling</p>
+            <p className="mt-1 text-xs leading-relaxed text-brand-text-secondary">{classDetails?.description}</p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {raceDetails?.traits.slice(0, 3).map((trait) => (
+              <span key={trait} className="character-forge-chip">{trait}</span>
+            ))}
+            {classDetails?.startingEquipment.slice(0, 3).map((item) => (
+              <span key={item} className="character-forge-chip character-forge-chip--gear">{item}</span>
+            ))}
           </div>
         </div>
 
@@ -327,6 +340,15 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
           {availableAvatarOptions.length > 0 && !avatarId && (
             <p className="mt-1 text-xs text-brand-text-muted">Select an avatar to continue.</p>
           )}
+        </div>
+
+        <div className="character-forge-stats">
+          {Object.entries(previewStats).map(([stat, value]) => (
+            <div key={stat} className="character-forge-stat">
+              <span>{stat.slice(0, 3).toUpperCase()}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
         </div>
 
         {error && (

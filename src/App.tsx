@@ -2436,7 +2436,9 @@ function App() {
                     </aside>
                   )}
 
-                  <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
+                  <section className={`retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden ${
+                    messages.length === 0 && showGameMasterCharacterFlow ? 'retro-chat-pane--character-setup' : ''
+                  }`}>
                     <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden flex flex-col">
                       {conversationId && isGameMasterMode && (
                         <div className="pointer-events-none absolute left-0 right-2 top-0 z-20 px-3 pt-2">
@@ -2480,13 +2482,21 @@ function App() {
                             </div>
                           )}
               
-                          {messages.length === 0 && !isContentLoading && conversationId && (
+                          {messages.length === 0 && !isContentLoading && (conversationId || showGameMasterCharacterFlow) && (
                             <div className="flex justify-center items-center h-full min-h-[300px]">
-                              <div className="text-center space-y-3 mt-64">
-                                <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
-                                  {emptyStateTitle}
+                              <div className="empty-adventure-stage text-center">
+                                <div className="empty-adventure-stage__sigil" aria-hidden="true">
+                                  <span />
                                 </div>
-                                <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
+                                <p className="empty-adventure-stage__eyebrow">
+                                  {showGameMasterCharacterFlow ? 'Forge Your Adventurer' : emptyStateTitle}
+                                </p>
+                                <h1 className="empty-adventure-stage__title">
+                                  {showGameMasterCharacterFlow ? 'The first page waits.' : 'The next scene waits.'}
+                                </h1>
+                                <p className="empty-adventure-stage__line">
+                                  {showGameMasterCharacterFlow ? 'Choose a face, a calling, and a name. The world will answer.' : 'Make a move when you are ready.'}
+                                </p>
                               </div>
                             </div>
                           )}

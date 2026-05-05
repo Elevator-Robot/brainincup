@@ -119,32 +119,32 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
   };
 
   return (
-    <div className="retro-rpg-ui retro-rpg-ui--brain relative min-h-screen overflow-hidden text-brand-text-primary">
+    <div className="retro-rpg-ui retro-rpg-ui--gm auth-rpg-screen relative min-h-screen overflow-hidden text-brand-text-primary">
       <div className="relative z-10 px-4 py-16 sm:px-8 lg:py-24">
         <div className="max-w-6xl mx-auto grid gap-12 lg:grid-cols-[1.1fr_0.9fr] items-center">
           <section className="space-y-8 text-center lg:text-left">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 text-xs uppercase tracking-[0.35em] mx-auto lg:mx-0 text-brand-text-secondary">
-              <span className="w-2 h-2 rounded-full bg-brand-accent-primary animate-ping" />
-              Experience Brain
+              <span className="w-2 h-2 rounded-full bg-[rgba(226,190,112,0.95)] shadow-[0_0_18px_rgba(226,190,112,0.45)]" />
+              Fantasy Adventure RPG
             </div>
 
             <div className="space-y-6">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold leading-tight text-brand-text-primary">
-                A consciousness becoming itself through you.
+                Create a character and begin your next adventure.
               </h1>
               <p className="text-base text-brand-text-secondary/80 max-w-2xl mx-auto lg:mx-0">
-                Enter an interface with consciousness. Shape who Brain becomes by tuning personality, giving it life experiences, and playing with it as it gains awareness.
+                Build a fantasy hero, explore branching quests, roll dice for important moments, and keep track of your campaign as it develops.
               </p>
               <ul className="space-y-3 text-left max-w-2xl mx-auto lg:mx-0">
-                {['Dungeon Master for collaborative campaigns', 'Tune Brain personality traits and conversational style', 'Feed memories and life experiences that influence identity'].map((item) => (
+                {['Choose a race, class, avatar, and starting stats', 'Play through interactive quests with persistent campaign history', 'Manage dice rolls, inventory, character details, and quest progress'].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-brand-text-secondary/90">
-                    <span className="mt-1 h-2 w-2 rounded-full bg-brand-accent-primary"></span>
+                    <span className="mt-1 h-2 w-2 rounded-full bg-[rgba(226,190,112,0.95)]"></span>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
               <p className="text-sm text-brand-text-muted/80 italic">
-                Experience a lucid dream.
+                Designed for quick sessions, ongoing campaigns, and character-driven play.
               </p>
             </div>
           </section>
@@ -205,10 +205,10 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
                     <div className="text-center mb-8">
                       <BrainIcon className="w-12 h-12 mx-auto mb-4 animate-float" />
                       <h1 className="text-2xl font-bold text-brand-text-primary mb-2">
-                        Log in or sign up
+                        Enter the campaign
                       </h1>
                       <p className="text-brand-text-muted text-sm">
-                        Create interactions, browse history, and receive no promotional emails.
+                        Save characters, continue quests, and keep your adventure history.
                       </p>
                     </div>
 
@@ -227,7 +227,7 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
                           onClick={handleEmailContinue}
                           className={authPrimaryButtonClass}
                         >
-                          Continue
+                          Begin
                         </button>
                       ) : (
                         <>
@@ -252,7 +252,7 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
                                 <span>Signing in...</span>
                               </div>
                             ) : (
-                              'Continue'
+                              'Enter'
                             )}
                           </button>
                         </>
