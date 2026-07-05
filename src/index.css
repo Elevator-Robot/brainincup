@@ -588,7 +588,23 @@ textarea.w-full:focus {
   background: transparent;
 }
 
-.retro-shell-left   { grid-column: 1; min-height: 0; display: flex; flex-direction: column; }
+.retro-shell-left {
+  grid-column: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.retro-shell-left::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent, rgba(94, 234, 212, 0.35), transparent);
+  pointer-events: none;
+}
 .retro-shell-center { grid-column: 2; min-height: 0; display: flex; flex-direction: column; }
 .retro-shell-right  { grid-column: 3; min-height: 0; display: flex; flex-direction: column; }
 
