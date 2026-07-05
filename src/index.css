@@ -583,7 +583,7 @@ textarea.w-full:focus {
 
 .retro-shell {
   display: grid;
-  grid-template-columns: 4rem 1fr minmax(16.5rem, 19rem);
+  grid-template-columns: 4.5rem 1fr minmax(16.5rem, 19rem);
   grid-template-rows: 1fr;
   background: transparent;
 }
@@ -603,9 +603,9 @@ textarea.w-full:focus {
 }
 
 .retro-left-panel-icon-only {
-  width: 4rem;
-  min-width: 4rem;
-  max-width: 4rem;
+  width: 4.5rem;
+  min-width: 4.5rem;
+  max-width: 4.5rem;
   overflow: visible !important;
   z-index: 30;
 }
@@ -1114,8 +1114,6 @@ textarea.w-full:focus {
 }
 
 .retro-left-container {
-  border-right: 1px solid rgba(174, 247, 234, 0.15);
-  padding-right: 0;
   overflow: visible;
 }
 
