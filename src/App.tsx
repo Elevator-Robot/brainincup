@@ -2354,6 +2354,7 @@ function App() {
                                 </div>
                               </div>
                             </div>
+                            <div className="mt-3 h-px bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
                           </div>
                         </div>
                       )}
