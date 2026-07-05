@@ -2413,7 +2413,7 @@ function App() {
                               >
                                 <div
                                   className={`retro-message message-bubble backdrop-blur-sm transition-all duration-300 animate-slide-up ${
-                                    `rounded-2xl px-4 py-3 hover:scale-[1.02] ${
+                                    `rounded-2xl px-4 py-3 hover:brightness-110 ${
                                       message.role === 'user'
                                         ? 'retro-message-user text-white'
                                         : 'retro-message-assistant text-brand-text-primary'
@@ -2985,7 +2985,7 @@ function App() {
                     className="flex flex-col gap-2 max-w-[85%]"
                   >
                     <div
-                      className={`retro-message message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] animate-slide-up ${
+                      className={`retro-message message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm transition-all duration-300 hover:brightness-110 animate-slide-up ${
                         message.role === 'user'
                           ? 'retro-message-user text-white'
                           : 'retro-message-assistant text-brand-text-primary'
