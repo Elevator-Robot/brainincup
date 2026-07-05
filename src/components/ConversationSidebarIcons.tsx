@@ -7,13 +7,11 @@ const dataClient = generateClient<Schema>();
 
 interface ConversationSidebarIconsProps {
   onSelectConversation: (conversationId: string) => void;
-  selectedConversationId: string | null;
   refreshKey: number;
 }
 
 export default function ConversationSidebarIcons({
   onSelectConversation,
-  selectedConversationId,
   refreshKey,
 }: ConversationSidebarIconsProps) {
   const [icons, setIcons] = useState<Array<{ id: string; avatarSrc: string; title: string; preview: string }>>([]);
@@ -119,11 +117,7 @@ export default function ConversationSidebarIcons({
               if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
               setHoveredId(null);
             }}
-            className={`h-10 w-10 rounded-xl overflow-hidden border transition-all duration-200 flex items-center justify-center shrink-0 ${
-              selectedConversationId === icon.id
-                ? 'border-brand-accent-primary/55 ring-1 ring-brand-accent-primary/30'
-                : 'border-brand-surface-border/40 hover:border-brand-surface-border/70'
-            }`}
+            className="h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0"
           >
             {icon.avatarSrc ? (
               <img
