@@ -5,6 +5,18 @@ import { getAvatarSrcById } from '../constants/gameMasterAvatars';
 
 const dataClient = generateClient<Schema>();
 
+const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
+
+const readStoredAvatarId = (conversationId: string): string => {
+  if (typeof window === 'undefined' || !conversationId) return '';
+  try {
+    const raw = window.localStorage.getItem(GM_CONVERSATION_AVATAR_STORAGE_KEY);
+    if (!raw) return '';
+    const parsed = JSON.parse(raw) as Record<string, string>;
+    return parsed[conversationId] ?? '';
+  } catch { return ''; }
+};
+
 interface ConversationSidebarIconsProps {
   onSelectConversation: (conversationId: string) => void;
   refreshKey: number;
@@ -68,7 +80,9 @@ export default function ConversationSidebarIcons({
                 characters = result.data;
               }
               const character = characters?.[0];
-              avatarSrc = getAvatarSrcById(character?.avatarId ?? '');
+              const characterAvatarId = character?.avatarId ?? '';
+              const resolvedAvatarId = characterAvatarId || readStoredAvatarId(conv.id);
+              avatarSrc = resolvedAvatarId ? getAvatarSrcById(resolvedAvatarId) : '';
 
               if (!preview) {
                 try {

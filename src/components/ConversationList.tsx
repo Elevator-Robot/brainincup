@@ -48,7 +48,7 @@ const sanitizeConversationTitle = (rawTitle?: string | null): string => {
     .replace(/\b(?:brain|quest)\b/gi, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
-  return withoutBlockedWords || 'Untitled Interaction';
+  return withoutBlockedWords || 'Untitled Chat';
 };
 
 const normalizeConversationModeForFilter = (mode?: string | null): string => {
@@ -346,7 +346,7 @@ export default function ConversationList({
               <div
                 role="button"
                 tabIndex={0}
-                title={deleteSelectionMode ? 'Select interaction for deletion' : 'Open interaction'}
+                title={deleteSelectionMode ? 'Select chat for deletion' : 'Open chat'}
                 onClick={() => {
                   if (!conversation.id) return;
                   if (deleteSelectionMode) {
@@ -406,7 +406,7 @@ export default function ConversationList({
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Search..."
-          aria-label="Search interactions"
+          aria-label="Search chats"
           className="w-full rounded-full border border-white/12 bg-white/[0.05] py-2 pl-10 pr-3 text-sm text-brand-text-primary placeholder:text-brand-text-muted placeholder:opacity-70 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/40"
         />
       </div>
@@ -416,7 +416,7 @@ export default function ConversationList({
         <div className="flex justify-center items-center h-28">
           <div className="text-slate-400 flex items-center gap-2">
             <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-            Loading interactions...
+            Loading chats...
           </div>
         </div>
       ) : conversationsToShow.length === 0 ? (
@@ -427,8 +427,8 @@ export default function ConversationList({
                 d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
           </div>
-          <div className="text-brand-text-primary text-sm font-medium mb-2">No interactions yet</div>
-          <div className="text-brand-text-muted text-xs">Use the sidebar to begin a new interaction</div>
+          <div className="text-brand-text-primary text-sm font-medium mb-2">No chats yet</div>
+          <div className="text-brand-text-muted text-xs">Use the sidebar to begin a new chat</div>
         </div>
       ) : (
         <div className="space-y-3.5">

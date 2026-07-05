@@ -208,7 +208,7 @@ export default function CustomAuth({ onAuthSuccess }: CustomAuthProps) {
                         Log in or sign up
                       </h1>
                       <p className="text-brand-text-muted text-sm">
-                        Create interactions, browse history, and receive no promotional emails.
+                        Create chats, browse history, and receive no promotional emails.
                       </p>
                     </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { fetchUserAttributes, signOut, deleteUser } from 'aws-amplify/auth';
+import { fetchUserAttributes, signOut } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
 import InstallPrompt from './components/InstallPrompt';
@@ -66,7 +66,6 @@ const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
 const LAST_CONVERSATION_STORAGE_KEY_PREFIX = 'lastConversationId';
 const UI_MOBILE_INFO_EXPANDED_KEY = 'uiMobileInfoExpanded';
 const UI_MOBILE_CHARACTER_EXPANDED_KEY = 'uiMobileCharacterExpanded';
-const ACCOUNT_DELETE_CONFIRM_TEXT = 'DELETE';
 
 const getLastConversationStorageKey = (mode: string): string =>
   `${LAST_CONVERSATION_STORAGE_KEY_PREFIX}:${normalizePersonalityMode(mode)}`;
@@ -395,10 +394,6 @@ function App() {
   );
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen] = useState(false);
-  const [deleteAccountConfirmValue, setDeleteAccountConfirmValue] = useState('');
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [deleteAccountError, setDeleteAccountError] = useState('');
   const [conversationListRefreshKey, setConversationListRefreshKey] = useState(0);
   const [draggingConversationId, setDraggingConversationId] = useState<string | null>(null);
   const [isTrashDragOver, setIsTrashDragOver] = useState(false);
@@ -1784,7 +1779,6 @@ function App() {
     if (!conversationId) return;
     setIsProfileMenuOpen(false);
 
-    const deletingActiveConversation = conversationId;
     try {
       if (!isTestModeEnabled()) {
         await dataClient.models.Conversation.delete({ id: conversationId });
@@ -1883,43 +1877,11 @@ function App() {
     }
   };
 
-  const openDeleteAccountConfirm = () => {
-    setDeleteAccountError('');
-    setDeleteAccountConfirmValue('');
-    setIsProfileMenuOpen(false);
-    setIsDeleteAccountConfirmOpen(true);
-  };
-
-  const closeDeleteAccountConfirm = () => {
-    if (isDeletingAccount) return;
-    setIsDeleteAccountConfirmOpen(false);
-    setDeleteAccountConfirmValue('');
-    setDeleteAccountError('');
-  };
-
-  const handleDeleteAccount = async () => {
-    if (deleteAccountConfirmValue !== ACCOUNT_DELETE_CONFIRM_TEXT) {
-      setDeleteAccountError('Please type DELETE to confirm.');
-      return;
-    }
-
-    setIsDeletingAccount(true);
-    setDeleteAccountError('');
-    try {
-      await deleteUser();
-      window.location.reload();
-    } catch (error) {
-      console.error('Error deleting account:', error);
-      setDeleteAccountError('Unable to delete account right now. Please try again.');
-      setIsDeletingAccount(false);
-    }
-  };
-
   const handleCharacterCreationComplete = useCallback(async (characterData: CharacterCreationInput) => {
     if (!conversationId) {
       const createdConversationId = await createConversationWithMode(effectivePersonality);
       if (!createdConversationId) {
-        throw new Error('Unable to create interaction');
+        throw new Error('Unable to create chat');
       }
       setPendingCharacterDraft(null);
       setIsNewInteractionPrimed(false);
@@ -1970,7 +1932,7 @@ function App() {
     if (!conversationId) {
       const createdConversationId = await createConversationWithMode(effectivePersonality);
       if (!createdConversationId) {
-        throw new Error('Unable to create interaction');
+        throw new Error('Unable to create chat');
       }
       setPendingCharacterDraft(null);
       setIsNewInteractionPrimed(false);
@@ -2187,9 +2149,9 @@ function App() {
                       onClick={handleNewConversation}
                       disabled={isWaitingForResponse || isSelectingConversation}
                       className="retro-icon-button retro-tooltip-trigger h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
-                      aria-label="Start new interaction"
-                      title="New interaction"
-                      data-tooltip="New interaction"
+                      aria-label="Start new chat"
+                      title="New chat"
+                      data-tooltip="New chat"
                       data-tooltip-position="right"
                     >
                       <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
@@ -2209,10 +2171,14 @@ function App() {
                       onDragOver={handleTrashDragOver}
                       onDragLeave={handleTrashDragLeave}
                       onDrop={handleTrashDrop}
-                      className="retro-icon-button retro-tooltip-trigger mb-2 h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
-                      aria-label="Delete current conversation"
+                      className={`retro-icon-button retro-tooltip-trigger mb-2 h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
+                        isTrashDragOver
+                          ? 'border-brand-status-error/70 bg-brand-status-error/28 text-brand-status-error scale-[1.16] shadow-[0_12px_26px_rgba(239,68,68,0.34)]'
+                          : 'border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75'
+                      } disabled:cursor-not-allowed disabled:opacity-45`}
+                      aria-label="Delete current chat"
                       disabled={!conversationId}
-                      data-tooltip={conversationId ? 'Delete current conversation' : 'No conversation to delete'}
+                      data-tooltip={conversationId ? 'Delete current chat' : 'No chat to delete'}
                       data-tooltip-position="right"
                     >
                       <svg
@@ -2264,13 +2230,14 @@ function App() {
                         </button>
                         <button
                           type="button"
-                          onClick={openDeleteAccountConfirm}
-                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error"
+                          onClick={() => { void handleSidebarDeleteAction(); }}
+                          disabled={!conversationId}
+                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error disabled:opacity-45 disabled:cursor-not-allowed"
                         >
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
                           </svg>
-                          Delete account
+                          Delete chat
                         </button>
                       </div>
                     )}
@@ -2292,7 +2259,7 @@ function App() {
             className="sr-only"
           >
             {isWaitingForResponse && 'AI is thinking...'}
-            {messages.length > 0 && `Interaction has ${messages.length} messages`}
+            {messages.length > 0 && `Chat has ${messages.length} messages`}
           </div>
 
           <div className="retro-center-container flex-1 min-h-0">
@@ -2521,7 +2488,7 @@ function App() {
                                       ? 'Brain is thinking...'
                                       : conversationId
                                         ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
-                                        : (isNewInteractionPrimed ? 'New interaction ready. Start typing...' : 'Start a new conversation...')
+                                        : (isNewInteractionPrimed ? 'New chat ready. Start typing...' : 'Start a new conversation...')
                                   }
                                   className="retro-input-textarea w-full px-3 py-2.5 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
                                   rows={1}
@@ -2570,11 +2537,11 @@ function App() {
                 {!hasSelectedConversation ? (
                   <div className="flex h-full items-center justify-center p-5">
                     <div className="text-center">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">No Interaction Selected</p>
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">No Chat Selected</p>
                       <p className="mt-2 text-sm text-brand-text-secondary">
                         {isNewInteractionPrimed
-                          ? 'New interaction draft ready. Start typing to create it.'
-                          : 'Select an interaction to view live details here.'}
+                          ? 'New chat draft ready. Start typing to create it.'
+                          : 'Select a chat to view live details here.'}
                       </p>
                     </div>
                   </div>
@@ -2713,12 +2680,12 @@ function App() {
                 onClick={handleNewConversation}
                 disabled={isWaitingForResponse || isSelectingConversation}
                 className="mb-2.5 w-full flex items-center gap-3 rounded-xl border border-brand-surface-border/45 bg-brand-bg-secondary/65 px-2.5 py-2 text-left transition-all duration-200 hover:border-brand-surface-border/65 hover:bg-brand-bg-tertiary/55 disabled:cursor-not-allowed disabled:opacity-45"
-                aria-label="Start new interaction"
+                aria-label="Start new chat"
               >
                 <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
                   <img src="/addChat.svg" alt="" aria-hidden="true" className="h-4.5 w-4.5 object-contain brightness-0 invert" />
                 </span>
-                <span className="text-sm font-medium text-brand-text-primary">New Interaction</span>
+                <span className="text-sm font-medium text-brand-text-primary">New Chat</span>
               </button>
               {/* Mode toggle buttons removed - mode is now hardcoded to game_master */}
             </div>
@@ -2899,7 +2866,7 @@ function App() {
           className="sr-only"
         >
           {isWaitingForResponse && 'AI is thinking...'}
-          {messages.length > 0 && `Interaction has ${messages.length} messages`}
+          {messages.length > 0 && `Chat has ${messages.length} messages`}
         </div>
 
         {/* Enhanced Chat Area with glass morphism design */}
@@ -3092,7 +3059,7 @@ function App() {
                             ? 'Brain is thinking...'
                             : conversationId
                               ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
-                              : (isNewInteractionPrimed ? 'New interaction ready. Start typing...' : 'Start a new conversation...')
+                              : (isNewInteractionPrimed ? 'New chat ready. Start typing...' : 'Start a new conversation...')
                         }
                         className="retro-input-textarea w-full px-3 py-2 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-sm leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
                         rows={1}
@@ -3138,50 +3105,6 @@ function App() {
 
       {/* Install Prompt */}
       <InstallPrompt />
-
-      {isDeleteAccountConfirmOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/65 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-5 shadow-glass-lg">
-            <p className="text-xs uppercase tracking-[0.22em] text-brand-text-muted">Account Settings</p>
-            <h2 className="mt-2 text-lg font-semibold text-brand-text-primary">Delete account</h2>
-            <p className="mt-2 text-sm text-brand-text-secondary">
-              This permanently removes your account. Type <span className="font-semibold text-brand-text-primary">{ACCOUNT_DELETE_CONFIRM_TEXT}</span> to confirm.
-            </p>
-            <input
-              type="text"
-              value={deleteAccountConfirmValue}
-              onChange={(event) => {
-                setDeleteAccountConfirmValue(event.target.value);
-                setDeleteAccountError('');
-              }}
-              placeholder={ACCOUNT_DELETE_CONFIRM_TEXT}
-              className="mt-4 w-full rounded-xl border border-brand-surface-border/60 bg-brand-surface-hover/70 px-3 py-2 text-sm text-brand-text-primary placeholder:text-brand-text-muted focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45"
-              disabled={isDeletingAccount}
-            />
-            {deleteAccountError ? (
-              <p className="mt-2 text-sm text-brand-status-error">{deleteAccountError}</p>
-            ) : null}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeDeleteAccountConfirm}
-                className="rounded-xl border border-brand-surface-border/60 px-3 py-2 text-sm text-brand-text-secondary hover:bg-brand-surface-hover/55"
-                disabled={isDeletingAccount}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteAccount}
-                className="rounded-xl bg-brand-status-error/85 px-3 py-2 text-sm font-medium text-white hover:bg-brand-status-error disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isDeletingAccount || deleteAccountConfirmValue !== ACCOUNT_DELETE_CONFIRM_TEXT}
-              >
-                {isDeletingAccount ? 'Deleting…' : 'Delete account'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );
