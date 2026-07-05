@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
-import { getAvatarOptionById } from '../constants/gameMasterAvatars';
+import { getAvatarSrcById } from '../constants/gameMasterAvatars';
 
 const dataClient = generateClient<Schema>();
 
@@ -68,8 +68,7 @@ export default function ConversationSidebarIcons({
                 characters = result.data;
               }
               const character = characters?.[0];
-              const avatarId = getAvatarOptionById(character?.avatarId ?? '')?.id ?? '';
-              avatarSrc = avatarId ? (getAvatarOptionById(avatarId)?.src ?? '') : '';
+              avatarSrc = getAvatarSrcById(character?.avatarId ?? '');
 
               if (!preview) {
                 try {
@@ -117,7 +116,7 @@ export default function ConversationSidebarIcons({
               if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
               setHoveredId(null);
             }}
-            className="h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0"
+            className="h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border border-brand-surface-border/40 bg-brand-surface-secondary/50"
           >
             {icon.avatarSrc ? (
               <img

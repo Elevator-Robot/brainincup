@@ -400,8 +400,6 @@ function App() {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState('');
   const [conversationListRefreshKey, setConversationListRefreshKey] = useState(0);
-  const [isBulkDeleteMode, setIsBulkDeleteMode] = useState(false);
-  const [bulkDeleteConversationIds, setBulkDeleteConversationIds] = useState<Set<string>>(new Set());
   const [draggingConversationId, setDraggingConversationId] = useState<string | null>(null);
   const [isTrashDragOver, setIsTrashDragOver] = useState(false);
   const [isNewInteractionPrimed, setIsNewInteractionPrimed] = useState(false);
@@ -1690,8 +1688,6 @@ function App() {
     setDraggingConversationId(null);
     setIsTrashDragOver(false);
     setExpandedMessageIndex(null);
-    setIsBulkDeleteMode(false);
-    setBulkDeleteConversationIds(new Set());
     setIsNewInteractionPrimed(false);
 
     if (shouldShowCharacterFlow) {
@@ -1785,52 +1781,35 @@ function App() {
   // Keeping setPersonalityMode for compatibility with drag-drop logic
 
   const handleSidebarDeleteAction = useCallback(async () => {
-    if (!isBulkDeleteMode) {
-      setIsProfileMenuOpen(false);
-      setBulkDeleteConversationIds(new Set());
-      setIsBulkDeleteMode(true);
-      return;
-    }
+    if (!conversationId) return;
+    setIsProfileMenuOpen(false);
 
-    const idsToDelete = Array.from(bulkDeleteConversationIds);
-    if (idsToDelete.length === 0) {
-      setIsBulkDeleteMode(false);
-      return;
-    }
-
-    const activeConversationDeleted = conversationId ? idsToDelete.includes(conversationId) : false;
-
+    const deletingActiveConversation = conversationId;
     try {
       if (!isTestModeEnabled()) {
-        await Promise.all(
-          idsToDelete.map((id) => dataClient.models.Conversation.delete({ id }))
-        );
+        await dataClient.models.Conversation.delete({ id: conversationId });
       }
 
-      idsToDelete.forEach((id) => removeStoredConversationAvatar(id));
+      removeStoredConversationAvatar(conversationId);
 
-      if (activeConversationDeleted) {
-        if (typeof window !== 'undefined') {
-          window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
-        }
-        setIsSelectingConversation(false);
-        setConversationId(null);
-        setPendingCharacterDraft(null);
-        setMessages([]);
-        setIsWaitingForResponse(false);
-        setAdventureState(null);
-        setQuestSteps([]);
-        setCharacterState(null);
-        setShowCharacterCreation(false);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
       }
+      setIsSelectingConversation(false);
+      setConversationId(null);
+      setPendingCharacterDraft(null);
+      setMessages([]);
+      setIsWaitingForResponse(false);
+      setAdventureState(null);
+      setQuestSteps([]);
+      setCharacterState(null);
+      setShowCharacterCreation(false);
 
       setConversationListRefreshKey((prev) => prev + 1);
-      setBulkDeleteConversationIds(new Set());
-      setIsBulkDeleteMode(false);
     } catch (error) {
-      console.error('Error deleting selected conversations:', error);
+      console.error('Error deleting conversation:', error);
     }
-  }, [bulkDeleteConversationIds, conversationId, effectivePersonality, isBulkDeleteMode]);
+  }, [conversationId, effectivePersonality]);
 
   const deleteConversationById = useCallback(async (targetConversationId: string) => {
     if (!targetConversationId) return;
@@ -1869,18 +1848,17 @@ function App() {
   }, [conversationId, effectivePersonality]);
 
   const handleTrashDragOver = useCallback((event: React.DragEvent<HTMLButtonElement>) => {
-    if (isBulkDeleteMode || !draggingConversationId) return;
+    if (!draggingConversationId) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     setIsTrashDragOver(true);
-  }, [draggingConversationId, isBulkDeleteMode]);
+  }, [draggingConversationId]);
 
   const handleTrashDragLeave = useCallback(() => {
     setIsTrashDragOver(false);
   }, []);
 
   const handleTrashDrop = useCallback((event: React.DragEvent<HTMLButtonElement>) => {
-    if (isBulkDeleteMode) return;
     event.preventDefault();
     const droppedConversationId =
       event.dataTransfer.getData('application/x-conversation-id')
@@ -1893,7 +1871,7 @@ function App() {
       setIsTrashDragOver(false);
       setDraggingConversationId(null);
     }
-  }, [deleteConversationById, draggingConversationId, isBulkDeleteMode]);
+  }, [deleteConversationById, draggingConversationId]);
 
 
   const handleSignOut = async () => {
@@ -2231,28 +2209,14 @@ function App() {
                       onDragOver={handleTrashDragOver}
                       onDragLeave={handleTrashDragLeave}
                       onDrop={handleTrashDrop}
-                      className={`retro-icon-button retro-tooltip-trigger mb-2 h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
-                        isTrashDragOver
-                          ? 'border-brand-status-error/70 bg-brand-status-error/28 text-brand-status-error scale-[1.16] shadow-[0_12px_26px_rgba(239,68,68,0.34)]'
-                          : isBulkDeleteMode
-                            ? 'border-brand-status-error/55 bg-brand-status-error/18 text-brand-status-error scale-[1.14] shadow-[0_10px_22px_rgba(239,68,68,0.28)]'
-                            : 'border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary'
-                      }`}
-                      aria-label={
-                        isBulkDeleteMode
-                          ? `Delete ${bulkDeleteConversationIds.size} selected interaction${bulkDeleteConversationIds.size === 1 ? '' : 's'}`
-                          : 'Enter interaction deletion mode'
-                      }
-                      title={
-                        isBulkDeleteMode
-                          ? `Delete selected (${bulkDeleteConversationIds.size})`
-                          : 'Select interactions to delete'
-                      }
-                      data-tooltip={isBulkDeleteMode ? 'Delete selected interactions' : 'Select interactions to delete'}
+                      className="retro-icon-button retro-tooltip-trigger mb-2 h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
+                      aria-label="Delete current conversation"
+                      disabled={!conversationId}
+                      data-tooltip={conversationId ? 'Delete current conversation' : 'No conversation to delete'}
                       data-tooltip-position="right"
                     >
                       <svg
-                        className={`transition-all duration-200 ${(isBulkDeleteMode || isTrashDragOver) ? 'h-5 w-5' : 'h-4 w-4'}`}
+                        className="h-4 w-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -2360,7 +2324,7 @@ function App() {
 
                       <div
                         ref={desktopScrollContainerRef}
-                        className="flex-1 overflow-y-auto pr-2 pb-4"
+                        className="flex-1 overflow-y-auto pr-2"
                       >
                         <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
                           {/* Mode indicator removed */}
@@ -2536,6 +2500,9 @@ function App() {
                           <div ref={messagesEndRef} />
                         </div>
                       </div>
+                    </div>
+                    <div className="mx-auto w-full max-w-4xl px-3">
+                      <div className="h-px bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
                     </div>
                     {!isInputLocked && (
                       <BottomInput className="px-0 pt-3 shrink-0">
