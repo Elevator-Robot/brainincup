@@ -2600,7 +2600,7 @@ function App() {
               </div>
           </main>
         <aside className="retro-shell-right">
-          <div className="retro-right-container flex flex-col h-full">
+          <div className="retro-right-container flex flex-col h-full overflow-y-auto">
                 {!hasSelectedConversation ? (
                   <div className="flex h-full items-center justify-center p-5">
                     <div className="text-center">
