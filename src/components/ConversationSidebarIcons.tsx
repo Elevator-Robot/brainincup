@@ -1,0 +1,154 @@
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { generateClient } from 'aws-amplify/data';
+import type { Schema } from '../../amplify/data/resource';
+import { getAvatarOptionById } from '../constants/gameMasterAvatars';
+
+const dataClient = generateClient<Schema>();
+
+interface ConversationSidebarIconsProps {
+  onSelectConversation: (conversationId: string) => void;
+  selectedConversationId: string | null;
+  refreshKey: number;
+}
+
+export default function ConversationSidebarIcons({
+  onSelectConversation,
+  selectedConversationId,
+  refreshKey,
+}: ConversationSidebarIconsProps) {
+  const [icons, setIcons] = useState<Array<{ id: string; avatarSrc: string; title: string; preview: string }>>([]);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+  const loadIcons = useCallback(async () => {
+    try {
+      const { data } = await dataClient.models.Conversation.list();
+      const sorted = (data || []).sort((a, b) => {
+        const aDate = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const bDate = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return bDate - aDate;
+      });
+
+      const results = await Promise.all(
+        sorted.map(async (conv) => {
+          if (!conv.id) return null;
+          let avatarSrc = '';
+          let preview = '';
+
+          try {
+            const { data: messageData } = await dataClient.models.Message.list({
+              filter: { conversationId: { eq: conv.id } },
+              limit: 1,
+            });
+            const latest = (messageData || []).sort((a, b) => {
+              const aDate = new Date(a.timestamp || a.createdAt || 0).getTime();
+              const bDate = new Date(b.timestamp || b.createdAt || 0).getTime();
+              return bDate - aDate;
+            })[0];
+            if (latest?.content) {
+              preview = latest.content;
+            }
+          } catch { /* ignore */ }
+
+          const mode = conv.personalityMode || '';
+          if (mode === 'game_master' || mode === 'rpg_dm') {
+            try {
+              let characters;
+              try {
+                const result = await dataClient.models.GameMasterCharacter.list({
+                  filter: { conversationId: { eq: conv.id } },
+                  limit: 1,
+                  authMode: 'userPool',
+                });
+                characters = result.data;
+              } catch {
+                const result = await dataClient.models.GameMasterCharacter.list({
+                  filter: { conversationId: { eq: conv.id } },
+                  limit: 1,
+                });
+                characters = result.data;
+              }
+              const character = characters?.[0];
+              const avatarId = getAvatarOptionById(character?.avatarId ?? '')?.id ?? '';
+              avatarSrc = avatarId ? (getAvatarOptionById(avatarId)?.src ?? '') : '';
+
+              if (!preview) {
+                try {
+                  const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
+                    filter: { conversationId: { eq: conv.id } },
+                    limit: 1,
+                  });
+                  const location = adventureData?.[0]?.currentLocation;
+                  if (location) preview = location;
+                } catch { /* ignore */ }
+              }
+            } catch { /* ignore */ }
+          }
+
+          return {
+            id: conv.id,
+            avatarSrc,
+            title: conv.title || 'Untitled',
+            preview: preview || 'No messages yet',
+          };
+        })
+      );
+
+      setIcons(results.filter(Boolean) as Array<{ id: string; avatarSrc: string; title: string; preview: string }>);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    loadIcons();
+  }, [loadIcons, refreshKey]);
+
+  return (
+    <div className="flex w-full flex-col items-center gap-2 overflow-y-auto flex-1 min-h-0 py-1">
+      {icons.map((icon) => (
+        <div key={icon.id} className="relative">
+          <button
+            type="button"
+            onClick={() => onSelectConversation(icon.id)}
+            onMouseEnter={(e) => {
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setTooltipPos({ x: rect.right + 10, y: rect.top + rect.height / 2 });
+              hoverTimeoutRef.current = setTimeout(() => setHoveredId(icon.id), 300);
+            }}
+            onMouseLeave={() => {
+              if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+              setHoveredId(null);
+            }}
+            className={`h-10 w-10 rounded-xl overflow-hidden border transition-all duration-200 flex items-center justify-center shrink-0 ${
+              selectedConversationId === icon.id
+                ? 'border-brand-accent-primary/55 ring-1 ring-brand-accent-primary/30'
+                : 'border-brand-surface-border/40 hover:border-brand-surface-border/70'
+            }`}
+          >
+            {icon.avatarSrc ? (
+              <img
+                src={icon.avatarSrc}
+                alt=""
+                className="h-full w-full object-cover object-center"
+              />
+            ) : (
+              <span className="text-xs font-semibold text-brand-text-muted uppercase">
+                {icon.title.charAt(0)}
+              </span>
+            )}
+          </button>
+
+          {hoveredId === icon.id && (
+            <div
+              className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-brand-surface-border/40 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
+              style={{ left: tooltipPos.x, top: tooltipPos.y, transform: 'translateY(-50%)' }}
+            >
+              <p className="text-sm font-semibold text-brand-text-primary truncate">{icon.title}</p>
+              <p className="text-xs text-brand-text-muted mt-0.5 line-clamp-2">{icon.preview}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}

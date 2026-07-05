@@ -4,11 +4,11 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
 import InstallPrompt from './components/InstallPrompt';
 import CharacterCreation from './components/CharacterCreation';
-import ConversationList from './components/ConversationList';
+import ConversationSidebarIcons from './components/ConversationSidebarIcons';
 import InventoryManager, { type InventoryItem } from './components/InventoryManager';
 import TroubleDice3D from './components/TroubleDice3D';
-import Panel from './components/ui/Panel';
-import { RPGLayout, LeftSidebar, CenterNarrative, RightStatus, BottomInput } from './components/ui/RPGLayout';
+// import Panel from './components/ui/Panel';
+import { BottomInput } from './components/ui/RPGLayout';
 import ContextWindowPanel from './components/ContextWindowPanel';
 import type { GameEvent } from './hooks/useContextPanel';
 import { normalizePersonalityMode } from './constants/personalityModes';
@@ -64,7 +64,6 @@ const formatModelErrors = (errors: unknown): string => {
 
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
 const LAST_CONVERSATION_STORAGE_KEY_PREFIX = 'lastConversationId';
-const UI_CENTER_LIST_COLLAPSED_KEY = 'uiCenterListCollapsed';
 const UI_MOBILE_INFO_EXPANDED_KEY = 'uiMobileInfoExpanded';
 const UI_MOBILE_CHARACTER_EXPANDED_KEY = 'uiMobileCharacterExpanded';
 const ACCOUNT_DELETE_CONFIRM_TEXT = 'DELETE';
@@ -394,16 +393,12 @@ function App() {
   const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(() =>
     readStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, false)
   );
-  const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen] = useState(false);
   const [deleteAccountConfirmValue, setDeleteAccountConfirmValue] = useState('');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState('');
-  const [isCenterListCollapsed, setIsCenterListCollapsed] = useState(() =>
-    readStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, false)
-  );
   const [conversationListRefreshKey, setConversationListRefreshKey] = useState(0);
   const [isBulkDeleteMode, setIsBulkDeleteMode] = useState(false);
   const [bulkDeleteConversationIds, setBulkDeleteConversationIds] = useState<Set<string>>(new Set());
@@ -967,10 +962,6 @@ function App() {
   // Mode persistence removed - mode is now hardcoded to game_master
 
   useEffect(() => {
-    writeStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, isCenterListCollapsed);
-  }, [isCenterListCollapsed]);
-
-  useEffect(() => {
     writeStoredBoolean(UI_MOBILE_INFO_EXPANDED_KEY, mobileInfoExpanded);
   }, [mobileInfoExpanded]);
 
@@ -1109,21 +1100,6 @@ function App() {
       desktopScrollContainerRef.current.scrollTop = desktopScrollContainerRef.current.scrollHeight;
     }
   }, [messages.length]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + D toggles debug info (dev only)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-        e.preventDefault();
-        setShowDebugInfo(prev => !prev);
-      }
-
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   // Cleanup typing animation when conversation changes or component unmounts
   useEffect(() => {
@@ -1808,19 +1784,6 @@ function App() {
   // handleModeSelected removed - mode selection UI removed
   // Keeping setPersonalityMode for compatibility with drag-drop logic
 
-  const handleToggleBulkDeleteConversation = useCallback((targetConversationId: string) => {
-    if (!targetConversationId) return;
-    setBulkDeleteConversationIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(targetConversationId)) {
-        next.delete(targetConversationId);
-      } else {
-        next.add(targetConversationId);
-      }
-      return next;
-    });
-  }, []);
-
   const handleSidebarDeleteAction = useCallback(async () => {
     if (!isBulkDeleteMode) {
       setIsProfileMenuOpen(false);
@@ -2215,10 +2178,6 @@ function App() {
   }, [canUseDiceRoll, playerState, submitDiceResult]);
 
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
-  const toggleCenterList = useCallback(() => {
-    setIsCenterListCollapsed((prev) => !prev);
-  }, []);
-
   return (
     <div className={`retro-rpg-ui ${appThemeClass} h-screen overflow-hidden relative`}>
 
@@ -2238,48 +2197,13 @@ function App() {
       )}
 
       {/* Desktop: Main Layout */}
-      <div className="hidden lg:flex h-full retro-shell">
-        {/* Main Content Area - Desktop */}
-        <main 
-          className="retro-main flex-1 flex flex-col min-w-0 overflow-hidden relative px-4 pb-4 pt-4"
-        >
-          <div className="retro-nav-align-grid retro-nav-align-grid--left-collapsed">
-            <nav className="retro-nav sticky top-0 z-40 bg-brand-surface-elevated/90 backdrop-blur-xl border-b border-brand-surface-border/40 rounded-3xl mb-4">
-              <div className="flex items-center justify-between px-6 py-4">
-                <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowDebugInfo((prev) => !prev)}
-                    className={`retro-icon-button retro-tooltip-trigger w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
-                      showDebugInfo ? 'retro-left-mode-button retro-left-mode-button-active' : ''
-                    }`}
-                    aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
-                    data-tooltip={showDebugInfo ? 'Hide debug data' : 'Show debug data'}
-                    data-tooltip-position="bottom"
-                  >
-                    <img src="/debug.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
-                  </button>
-                </div>
-              </div>
-            </nav>
-          </div>
-
-          {/* Screen reader live region for message updates */}
-          <div
-            aria-live="polite"
-            aria-atomic="true"
-            className="sr-only"
-          >
-            {isWaitingForResponse && 'AI is thinking...'}
-            {messages.length > 0 && `Interaction has ${messages.length} messages`}
-          </div>
-
-          <RPGLayout className="rpg-grid--left-collapsed">
-            <LeftSidebar>
-              <Panel className="retro-left-panel retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-2 py-3">
-                <div className="flex h-full flex-col items-center justify-between gap-4">
-                  <div className="flex w-full flex-col items-center gap-2">
+      <div className="hidden lg:flex flex-col h-full">
+        <div className="flex-1 min-h-0 grid retro-shell">
+        {/* Left Sidebar - full height */}
+        <aside className="retro-shell-left">
+          <div className="retro-left-container retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-2">
+                <div className="flex h-full flex-col items-center gap-4">
+                  <div className="flex w-full flex-col items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={handleNewConversation}
@@ -2294,6 +2218,12 @@ function App() {
                     </button>
                     {/* Mode toggle buttons removed - mode is now hardcoded to game_master */}
                   </div>
+
+                  <ConversationSidebarIcons
+                    onSelectConversation={handleSelectConversation}
+                    selectedConversationId={conversationId}
+                    refreshKey={conversationListRefreshKey}
+                  />
 
                   <div ref={profileMenuRef} className="relative z-40">
                     <button
@@ -2383,65 +2313,32 @@ function App() {
                     )}
                   </div>
                 </div>
-              </Panel>
-            </LeftSidebar>
+              </div>
+            </aside>
 
-            <CenterNarrative>
-              <Panel variant="inset" className="flex-1 min-h-0 p-4">
-                <div className={`retro-center-split h-full min-h-0 ${isGameMasterMode ? (isCenterListCollapsed ? 'retro-center-split--list-collapsed' : '') : 'retro-center-split--brain'}`}>
-                  {isGameMasterMode && (
-                    <aside className={`retro-interactions-pane relative h-full min-h-0 overflow-visible ${isCenterListCollapsed ? 'retro-interactions-pane-collapsed' : 'retro-interactions-pane-expanded'}`}>
-                      <button
-                        type="button"
-                        onClick={toggleCenterList}
-                        className={`retro-divider-handle absolute right-0 top-1/2 z-20 ${isCenterListCollapsed ? 'retro-divider-handle-collapsed' : ''}`}
-                        aria-label={isCenterListCollapsed ? 'Expand interactions list' : 'Collapse interactions list'}
-                        aria-pressed={!isCenterListCollapsed}
-                      >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M8 6h8M8 12h8M8 18h8" />
-                        </svg>
-                      </button>
-                      <div
-                        aria-hidden={isCenterListCollapsed}
-                        className={`retro-interactions-content h-full ${
-                          isCenterListCollapsed ? 'retro-interactions-content--collapsed pointer-events-none' : 'retro-interactions-content--expanded'
-                        }`}
-                      >
-                        <div className="px-3 pb-2 pt-1 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">
-                        Interactions
-                        </div>
-                        <div className="h-full overflow-y-auto pr-2">
-                          <ConversationList
-                            onSelectConversation={(selectedConversationId) => {
-                              void handleSelectConversation(selectedConversationId);
-                            }}
-                            selectedConversationId={conversationId}
-                            refreshKey={conversationListRefreshKey}
-                            activeMode={effectivePersonality}
-                            deleteSelectionMode={isBulkDeleteMode}
-                            selectedDeleteIds={bulkDeleteConversationIds}
-                            onToggleDeleteSelection={handleToggleBulkDeleteConversation}
-                            onConversationDragStart={(targetConversationId) => {
-                              if (isBulkDeleteMode) return;
-                              setDraggingConversationId(targetConversationId);
-                            }}
-                            onConversationDragEnd={() => {
-                              setDraggingConversationId(null);
-                              setIsTrashDragOver(false);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </aside>
-                  )}
+          <main 
+            className="retro-shell-center retro-main flex flex-col min-w-0 overflow-hidden relative px-4 pb-4 pt-4"
+          >
+          <div className="text-center mb-4 flex-shrink-0">
+            <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide relative inline-block after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-full after:h-[2px] after:bg-gradient-to-r after:from-transparent after:via-brand-accent-primary after:to-transparent after:rounded-full after:shadow-[0_0_8px_rgba(94,234,212,0.5)]">Brain in Cup</span>
+          </div>
+          {/* Screen reader live region for message updates */}
+          <div
+            aria-live="polite"
+            aria-atomic="true"
+            className="sr-only"
+          >
+            {isWaitingForResponse && 'AI is thinking...'}
+            {messages.length > 0 && `Interaction has ${messages.length} messages`}
+          </div>
 
-                  <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
-                    <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="retro-center-container flex-1 min-h-0">
+              <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
+                <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden flex flex-col">
                       {conversationId && isGameMasterMode && (
-                        <div className="pointer-events-none absolute left-0 right-2 top-0 z-20 px-3 pt-2">
+                        <div className="px-3 pt-2 shrink-0">
                           <div className="mx-auto max-w-4xl">
-                            <Panel variant="header" className="retro-status-strip retro-status-strip-floating !px-5 !py-3.5 !rounded-2xl">
+                            <div className="retro-status-strip retro-status-strip-floating">
                               <div className="grid grid-cols-3 items-end text-center">
                                 <div className="text-left">
                                   <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Day</p>
@@ -2456,14 +2353,14 @@ function App() {
                                   <p className="text-lg font-light text-brand-text-primary">{currentAct} • Ch. {currentChapter}</p>
                                 </div>
                               </div>
-                            </Panel>
+                            </div>
                           </div>
                         </div>
                       )}
 
                       <div
                         ref={desktopScrollContainerRef}
-                        className={`flex-1 overflow-y-auto pr-2 pb-4 ${conversationId && isGameMasterMode ? 'pt-24' : ''}`}
+                        className="flex-1 overflow-y-auto pr-2 pb-4"
                       >
                         <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
                           {/* Mode indicator removed */}
@@ -2634,18 +2531,6 @@ function App() {
                             </div>
                           )}
               
-                          {/* Enhanced Debug info - now toggleable */}
-                          {showDebugInfo && (
-                            <div className="mt-6 glass rounded-2xl p-4 animate-fade-in">
-                              <h3 className="text-sm font-medium text-brand-text-primary mb-2">Debug Information</h3>
-                              <div className="text-xs text-brand-text-muted space-y-1">
-                                <p>Interaction ID: {conversationId || 'None'}</p>
-                                <p>User: {userAttributes?.sub || 'Unknown'}</p>
-                                <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
-                                <p>Messages count: {messages.length}</p>
-                              </div>
-                            </div>
-                          )}
                   
                           {/* Invisible element to scroll to - at the bottom */}
                           <div ref={messagesEndRef} />
@@ -2711,12 +2596,10 @@ function App() {
                       </BottomInput>
                     )}
                   </section>
-                </div>
-              </Panel>
-            </CenterNarrative>
-
-            <RightStatus>
-              <Panel className="retro-right-panel flex-1 flex flex-col text-brand-text-primary !rounded-xl">
+              </div>
+          </main>
+        <aside className="retro-shell-right">
+          <div className="retro-right-container flex flex-col h-full">
                 {!hasSelectedConversation ? (
                   <div className="flex h-full items-center justify-center p-5">
                     <div className="text-center">
@@ -2825,7 +2708,7 @@ function App() {
                   )
                 ) : (
                   <div className="flex h-full flex-col gap-4 p-5">
-                    <Panel variant="inset" className="p-4 !rounded-xl">
+                    <div className="retro-mental-state-section">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
                       <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
@@ -2835,17 +2718,15 @@ function App() {
                         />
                       </div>
                       <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
-                    </Panel>
+                    </div>
 
                     {/* Mode indicator removed */}
 
                   </div>
                 )}
-              </Panel>
-            </RightStatus>
-          </RPGLayout>
-          
-        </main>
+          </div>
+        </aside>
+      </div>
       </div>
 
       {/* Mobile: Main Content Area */}
@@ -2857,20 +2738,6 @@ function App() {
           <div className="px-4 py-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowDebugInfo((prev) => !prev)}
-                  className={`retro-icon-button retro-tooltip-trigger w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
-                    showDebugInfo ? 'retro-left-mode-button retro-left-mode-button-active' : ''
-                  }`}
-                  aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
-                  data-tooltip={showDebugInfo ? 'Hide debug data' : 'Show debug data'}
-                  data-tooltip-position="bottom"
-                >
-                  <img src="/debug.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
-                </button>
-              </div>
             </div>
 
             <div>

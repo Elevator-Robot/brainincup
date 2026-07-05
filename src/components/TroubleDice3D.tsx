@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { CuboidCollider, Physics, RigidBody, type RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 
@@ -186,6 +186,14 @@ function DiceBody({ rollNonce, isRolling }: Pick<TroubleDice3DProps, 'rollNonce'
   );
 }
 
+function SceneBackground() {
+  const { scene } = useThree();
+  useEffect(() => {
+    scene.background = new THREE.Color('#0e2924');
+  }, [scene]);
+  return null;
+}
+
 export default function TroubleDice3D({ rollNonce, isRolling, displayValue, pulseId }: TroubleDice3DProps) {
   return (
     <span className="retro-three-dice-shell" aria-hidden="true">
@@ -197,6 +205,7 @@ export default function TroubleDice3D({ rollNonce, isRolling, displayValue, puls
           gl={{ antialias: true, alpha: true }}
           shadows={false}
         >
+          <SceneBackground />
           <ambientLight intensity={0.34} />
           <hemisphereLight intensity={0.72} color="#b28cff" groundColor="#143f4f" />
           <directionalLight position={[3.2, 4.4, 2.2]} intensity={1.12} color="#f2f6ff" />
