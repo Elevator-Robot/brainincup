@@ -2201,8 +2201,8 @@ function App() {
         <div className="flex-1 min-h-0 grid retro-shell">
         {/* Left Sidebar - full height */}
         <aside className="retro-shell-left">
-          <div className="retro-left-container retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-2">
-                <div className="flex h-full flex-col items-center gap-4">
+          <div className="retro-left-container retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-3">
+                <div className="flex h-full flex-col items-center gap-5 py-4">
                   <div className="flex w-full flex-col items-center gap-2 shrink-0">
                     <button
                       type="button"
@@ -2221,7 +2221,6 @@ function App() {
 
                   <ConversationSidebarIcons
                     onSelectConversation={handleSelectConversation}
-                    selectedConversationId={conversationId}
                     refreshKey={conversationListRefreshKey}
                   />
 
