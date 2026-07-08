@@ -52,8 +52,9 @@ const sanitizeConversationTitle = (rawTitle?: string | null): string => {
 };
 
 const normalizeConversationModeForFilter = (mode?: string | null): string => {
-  if (!mode) return 'default';
+  if (!mode) return 'brain';
   if (mode === 'rpg_dm') return 'game_master';
+  if (mode === 'default') return 'brain';
   return mode;
 };
 
@@ -79,7 +80,7 @@ export default function ConversationList({
   onSelectConversation,
   selectedConversationId,
   refreshKey,
-  activeMode = 'default',
+  activeMode = 'brain',
   deleteSelectionMode = false,
   selectedDeleteIds,
   onToggleDeleteSelection,
@@ -115,7 +116,7 @@ export default function ConversationList({
           {
             id: 'test-conversation-1',
             title: 'My AI Discussion',
-            personalityMode: 'default',
+            personalityMode: 'brain',
             createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
             updatedAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
           },

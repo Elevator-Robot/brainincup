@@ -10,6 +10,7 @@ import TroubleDice3D from './components/TroubleDice3D';
 // import Panel from './components/ui/Panel';
 import { BottomInput } from './components/ui/RPGLayout';
 import ContextWindowPanel from './components/ContextWindowPanel';
+import ModeSelector from './components/ModeSelector';
 import type { GameEvent } from './hooks/useContextPanel';
 import { normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
@@ -384,6 +385,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [selectedMode, setSelectedMode] = useState<PersonalityModeId | null>(null);
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [mobileInfoExpanded, setMobileInfoExpanded] = useState(() =>
@@ -472,10 +474,10 @@ function App() {
   }, [characterState, conversationId]);
   
   // Personality mode state
-  // Mode selection UI removed - defaulting to game_master mode
-  // Backend mode handlers remain intact for future integration
-  const setPersonalityMode = (_mode: string) => {}; // No-op for compatibility
-  const effectivePersonality = 'game_master';
+  const effectivePersonality = selectedMode ?? 'brain';
+  const setPersonalityMode = (mode: PersonalityModeId) => {
+    setSelectedMode(mode);
+  };
 
   const ensureAdventureState = useCallback(async (convId: string, modeOverride?: string): Promise<AdventureRecord | null> => {
     const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
@@ -994,7 +996,7 @@ function App() {
           try {
             // Verify the conversation still exists
             const { data: conversation } = await dataClient.models.Conversation.get({ id: lastConversationId });
-            const conversationMode = normalizePersonalityMode(conversation?.personalityMode || 'default');
+            const conversationMode = normalizePersonalityMode(conversation?.personalityMode || 'brain');
             if (conversation && conversationMode === effectivePersonality) {
               await handleSelectConversation(lastConversationId);
               return;
@@ -1010,7 +1012,7 @@ function App() {
         // Load existing conversations
         const { data: conversations } = await dataClient.models.Conversation.list();
         const modeFilteredConversations = (conversations || []).filter((conversation) => {
-          const mode = normalizePersonalityMode(conversation.personalityMode || 'default');
+          const mode = normalizePersonalityMode(conversation.personalityMode || 'brain');
           return mode === effectivePersonality;
         });
         
@@ -1583,7 +1585,7 @@ function App() {
       });
       
       if (conversationData) {
-        const storedMode = conversationData.personalityMode || 'default';
+        const storedMode = conversationData.personalityMode || 'brain';
         const normalizedMode = normalizePersonalityMode(storedMode);
         if (normalizedMode !== effectivePersonality) {
           console.warn('Refusing to select cross-mode interaction:', {
@@ -2125,6 +2127,12 @@ function App() {
   }, [canUseDiceRoll, playerState, submitDiceResult]);
 
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
+
+  // Show mode selector if no mode is selected
+  if (!selectedMode) {
+    return <ModeSelector onSelectMode={setPersonalityMode} />;
+  }
+
   return (
     <div className={`retro-rpg-ui ${appThemeClass} h-screen overflow-hidden relative`}>
 

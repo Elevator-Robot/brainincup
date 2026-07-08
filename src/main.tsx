@@ -79,9 +79,9 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 function AuthWrapper() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [initialModeTheme, setInitialModeTheme] = useState<'default' | 'game_master'>(() => {
-    if (typeof window === 'undefined') return 'default';
-    return window.localStorage.getItem('lastPersonalityMode') === 'game_master' ? 'game_master' : 'default';
+  const [initialModeTheme, setInitialModeTheme] = useState<'brain' | 'game_master'>(() => {
+    if (typeof window === 'undefined') return 'brain';
+    return window.localStorage.getItem('lastPersonalityMode') === 'game_master' ? 'game_master' : 'brain';
   });
 
   useEffect(() => {
@@ -127,7 +127,7 @@ function AuthWrapper() {
 
   const handleAuthSuccess = () => {
     console.log('Auth success callback triggered');
-    setInitialModeTheme(window.localStorage.getItem('lastPersonalityMode') === 'game_master' ? 'game_master' : 'default');
+    setInitialModeTheme(window.localStorage.getItem('lastPersonalityMode') === 'game_master' ? 'game_master' : 'brain');
     checkAuthState();
   };
 
