@@ -4,8 +4,68 @@ export type CharacterAvatarOption = {
   id: string;
   label: string;
   src: string;
+  srcWebp: string;
+  srcThumbnail: string;
+  srcMedium: string;
   race: PlayableRaceKey;
   classTag?: string;
+};
+
+let cachedImageCDNUrl: string | null = null;
+
+const getImageCDNUrl = (): string => {
+  if (cachedImageCDNUrl !== null) {
+    return cachedImageCDNUrl;
+  }
+
+  try {
+    const outputs = (window as unknown as { __AMPLIFY_OUTPUTS__?: { custom?: { imageCDNUrl?: string } } }).__AMPLIFY_OUTPUTS__;
+    const cdnUrl = outputs?.custom?.imageCDNUrl;
+    if (cdnUrl && typeof cdnUrl === 'string' && cdnUrl.startsWith('https://')) {
+      cachedImageCDNUrl = cdnUrl;
+      return cdnUrl;
+    }
+  } catch {
+    // Ignore errors reading from window
+  }
+
+  cachedImageCDNUrl = '';
+  return '';
+};
+
+const buildAvatarSrc = (fileName: string): string => {
+  const cdnUrl = getImageCDNUrl();
+  const baseName = fileName.replace(/\.(png|jpe?g)$/i, '');
+  if (cdnUrl) {
+    return `${cdnUrl}/avatars/${baseName}.webp`;
+  }
+  return `/images/avatars/${baseName}.webp`;
+};
+
+const buildAvatarSrcThumbnail = (fileName: string): string => {
+  const cdnUrl = getImageCDNUrl();
+  const baseName = fileName.replace(/\.(png|jpe?g)$/i, '');
+  if (cdnUrl) {
+    return `${cdnUrl}/avatars/thumbnails/${baseName}.webp`;
+  }
+  return `/images/avatars/thumbnails/${baseName}.webp`;
+};
+
+const buildAvatarSrcMedium = (fileName: string): string => {
+  const cdnUrl = getImageCDNUrl();
+  const baseName = fileName.replace(/\.(png|jpe?g)$/i, '');
+  if (cdnUrl) {
+    return `${cdnUrl}/avatars/medium/${baseName}.webp`;
+  }
+  return `/images/avatars/medium/${baseName}.webp`;
+};
+
+const buildAvatarSrcFallback = (fileName: string): string => {
+  const cdnUrl = getImageCDNUrl();
+  if (cdnUrl) {
+    return `${cdnUrl}/avatars/${fileName}`;
+  }
+  return `/images/avatars/${fileName}`;
 };
 
 const AVATAR_FILE_NAMES_FALLBACK = [
@@ -115,7 +175,10 @@ const parseAvatarFileName = (fileName: string): ParsedAvatar | null => {
   return {
     id: classTag ? `${idBase}-${classTag}` : idBase,
     label: classTag ? `${label} (${classTag})` : label,
-    src: `/images/avatars/${fileName}`,
+    src: buildAvatarSrcFallback(fileName),
+    srcWebp: buildAvatarSrc(fileName),
+    srcThumbnail: buildAvatarSrcThumbnail(fileName),
+    srcMedium: buildAvatarSrcMedium(fileName),
     race,
     classTag,
     order,
@@ -135,6 +198,9 @@ export const CHARACTER_AVATAR_OPTIONS: CharacterAvatarOption[] = AVATAR_FILE_NAM
     id: option.id,
     label: option.label,
     src: option.src,
+    srcWebp: option.srcWebp,
+    srcThumbnail: option.srcThumbnail,
+    srcMedium: option.srcMedium,
     race: option.race,
     classTag: option.classTag,
   }));
@@ -201,3 +267,12 @@ export const getAvatarOptionById = (avatarId: string): CharacterAvatarOption | u
 
 export const getAvatarSrcById = (avatarId: string): string =>
   getAvatarOptionById(avatarId)?.src ?? getAvatarOptionById(DEFAULT_CHARACTER_AVATAR_ID)?.src ?? '';
+
+export const getAvatarWebpSrcById = (avatarId: string): string =>
+  getAvatarOptionById(avatarId)?.srcWebp ?? getAvatarOptionById(DEFAULT_CHARACTER_AVATAR_ID)?.srcWebp ?? '';
+
+export const getAvatarThumbnailSrcById = (avatarId: string): string =>
+  getAvatarOptionById(avatarId)?.srcThumbnail ?? getAvatarOptionById(DEFAULT_CHARACTER_AVATAR_ID)?.srcThumbnail ?? '';
+
+export const getAvatarMediumSrcById = (avatarId: string): string =>
+  getAvatarOptionById(avatarId)?.srcMedium ?? getAvatarOptionById(DEFAULT_CHARACTER_AVATAR_ID)?.srcMedium ?? '';

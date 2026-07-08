@@ -449,7 +449,11 @@ function App() {
     const avatarId = getAvatarOptionById(characterState?.avatarId ?? '')?.id
       ?? getAvatarOptionById(getStoredConversationAvatarId(conversationId))?.id
       ?? '';
-    const avatarSrc = avatarId ? (getAvatarOptionById(avatarId)?.src ?? '') : '';
+    const avatarOption = avatarId ? getAvatarOptionById(avatarId) : undefined;
+    const avatarSrc = avatarOption?.src ?? '';
+    const avatarSrcWebp = avatarOption?.srcWebp ?? '';
+    const avatarSrcThumbnail = avatarOption?.srcThumbnail ?? '';
+    const avatarSrcMedium = avatarOption?.srcMedium ?? '';
     
     return {
       name: characterState?.name || 'Adventurer',
@@ -458,6 +462,9 @@ function App() {
       level: characterState?.level || 1,
       avatarId,
       avatarSrc,
+      avatarSrcWebp,
+      avatarSrcThumbnail,
+      avatarSrcMedium,
       stats,
       hp,
       inventory,
@@ -2591,6 +2598,7 @@ function App() {
                             maxHP: characterDisplay.hp.max,
                             stats: characterDisplay.stats,
                             avatarSrc: characterDisplay.avatarSrc,
+                            avatarSrcWebp: characterDisplay.avatarSrcWebp,
                           }}
                           currentLocation={currentLocation}
                           activeQuests={[]}
@@ -2766,11 +2774,16 @@ function App() {
                     <div className="retro-character-identity retro-character-identity--compact flex items-center gap-3 min-w-0">
                       {characterDisplay.avatarSrc ? (
                         <div className="retro-character-avatar-wrap">
-                          <img
-                            src={characterDisplay.avatarSrc}
-                            alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                            className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0"
-                          />
+                          <picture>
+                            <source srcSet={characterDisplay.avatarSrcWebp} type="image/webp" />
+                            <img
+                              src={characterDisplay.avatarSrc}
+                              alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                              loading="lazy"
+                              decoding="async"
+                              className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0"
+                            />
+                          </picture>
                         </div>
                       ) : null}
                       <div className="retro-character-meta retro-character-meta--compact min-w-0 flex-1">

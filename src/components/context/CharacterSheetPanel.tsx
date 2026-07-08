@@ -7,6 +7,7 @@ interface CharacterSheetPanelProps {
   xpToNextLevel?: number;
   currentLocation?: string;
   avatarSrc?: string;
+  avatarSrcWebp?: string;
   stats?: {
     strength?: number;
     dexterity?: number;
@@ -41,6 +42,7 @@ function CharacterSheetPanel({
   xpToNextLevel = 100,
   currentLocation,
   avatarSrc,
+  avatarSrcWebp,
   stats = {},
   levelUpAnimating = false,
 }: CharacterSheetPanelProps) {
@@ -54,11 +56,16 @@ function CharacterSheetPanel({
       <div className="retro-character-identity flex items-center gap-3">
         {avatarSrc && (
           <div className="retro-character-avatar-wrap">
-            <img
-              src={avatarSrc}
-              alt={`${name} avatar`}
-              className="retro-character-avatar h-14 w-14 rounded-xl object-cover object-center"
-            />
+            <picture>
+              {avatarSrcWebp && <source srcSet={avatarSrcWebp} type="image/webp" />}
+              <img
+                src={avatarSrc}
+                alt={`${name} avatar`}
+                loading="lazy"
+                decoding="async"
+                className="retro-character-avatar h-14 w-14 rounded-xl object-cover object-center"
+              />
+            </picture>
           </div>
         )}
         <div className="retro-character-meta flex-1 min-w-0">

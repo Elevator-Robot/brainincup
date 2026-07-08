@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
-import { getAvatarSrcById } from '../constants/gameMasterAvatars';
+import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
 
 const dataClient = generateClient<Schema>();
 
@@ -26,7 +26,7 @@ export default function ConversationSidebarIcons({
   onSelectConversation,
   refreshKey,
 }: ConversationSidebarIconsProps) {
-  const [icons, setIcons] = useState<Array<{ id: string; avatarSrc: string; title: string; preview: string }>>([]);
+  const [icons, setIcons] = useState<Array<{ id: string; avatarSrc: string; avatarSrcWebp: string; title: string; preview: string }>>([]);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -44,6 +44,7 @@ export default function ConversationSidebarIcons({
         sorted.map(async (conv) => {
           if (!conv.id) return null;
           let avatarSrc = '';
+          let avatarSrcWebp = '';
           let preview = '';
 
           try {
@@ -83,6 +84,7 @@ export default function ConversationSidebarIcons({
               const characterAvatarId = character?.avatarId ?? '';
               const resolvedAvatarId = characterAvatarId || readStoredAvatarId(conv.id);
               avatarSrc = resolvedAvatarId ? getAvatarSrcById(resolvedAvatarId) : '';
+              avatarSrcWebp = resolvedAvatarId ? getAvatarWebpSrcById(resolvedAvatarId) : '';
 
               if (!preview) {
                 try {
@@ -100,13 +102,14 @@ export default function ConversationSidebarIcons({
           return {
             id: conv.id,
             avatarSrc,
+            avatarSrcWebp,
             title: conv.title || 'Untitled',
             preview: preview || 'No messages yet',
           };
         })
       );
 
-      setIcons(results.filter(Boolean) as Array<{ id: string; avatarSrc: string; title: string; preview: string }>);
+      setIcons(results.filter(Boolean) as Array<{ id: string; avatarSrc: string; avatarSrcWebp: string; title: string; preview: string }>);
     } catch { /* ignore */ }
   }, []);
 
@@ -133,11 +136,16 @@ export default function ConversationSidebarIcons({
             className="h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border border-brand-surface-border/40 bg-brand-surface-secondary/50"
           >
             {icon.avatarSrc ? (
-              <img
-                src={icon.avatarSrc}
-                alt=""
-                className="h-full w-full object-cover object-center"
-              />
+              <picture>
+                <source srcSet={icon.avatarSrcWebp} type="image/webp" />
+                <img
+                  src={icon.avatarSrc}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover object-center"
+                />
+              </picture>
             ) : (
               <span className="text-xs font-semibold text-brand-text-muted uppercase">
                 {icon.title.charAt(0)}

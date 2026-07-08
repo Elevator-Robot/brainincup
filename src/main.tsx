@@ -11,9 +11,40 @@ import '@fontsource/medievalsharp/400.css';
 import './index.css';
 import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
+import { CHARACTER_AVATAR_OPTIONS } from './constants/gameMasterAvatars';
 
+(window as unknown as { __AMPLIFY_OUTPUTS__: typeof outputs }).__AMPLIFY_OUTPUTS__ = outputs;
 console.log('Amplify outputs (mock):', outputs);
 Amplify.configure(outputs);
+
+// Preload critical avatars for faster initial render
+const preloadCriticalAvatars = () => {
+  const criticalRaces = ['terran', 'goblin', 'elvin'];
+  const criticalAvatars = CHARACTER_AVATAR_OPTIONS
+    .filter(avatar => criticalRaces.includes(avatar.race))
+    .slice(0, 3); // Preload first 3 avatars from each critical race
+
+  criticalAvatars.forEach(avatar => {
+    // Preload WebP version
+    const linkWebp = document.createElement('link');
+    linkWebp.rel = 'preload';
+    linkWebp.as = 'image';
+    linkWebp.href = avatar.srcWebp;
+    linkWebp.type = 'image/webp';
+    document.head.appendChild(linkWebp);
+
+    // Preload thumbnail for avatar selection
+    const linkThumb = document.createElement('link');
+    linkThumb.rel = 'preload';
+    linkThumb.as = 'image';
+    linkThumb.href = avatar.srcThumbnail;
+    linkThumb.type = 'image/webp';
+    document.head.appendChild(linkThumb);
+  });
+};
+
+// Run preloading after a short delay to not block initial render
+setTimeout(preloadCriticalAvatars, 100);
 
 // Add auth event listeners
 import { Hub } from 'aws-amplify/utils';

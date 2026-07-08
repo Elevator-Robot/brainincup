@@ -41,6 +41,7 @@ interface ContextWindowPanelProps {
     maxHP?: number;
     stats?: Record<string, number>;
     avatarSrc?: string;
+    avatarSrcWebp?: string;
   };
   currentLocation?: string;
   activeQuests?: Quest[];
@@ -95,6 +96,7 @@ function ContextWindowPanel({
             stats={character?.stats as CharacterSheetPanelProps['stats']}
             currentLocation={currentLocation ?? playerState?.lastKnownLocation}
             avatarSrc={character?.avatarSrc}
+            avatarSrcWebp={character?.avatarSrcWebp}
             levelUpAnimating={levelUpAnimating}
           />
         )}

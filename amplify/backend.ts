@@ -6,7 +6,7 @@ import { PolicyStatement, Effect, ManagedPolicy, Role, ServicePrincipal } from '
 import { EventSourceMapping, StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import { FunctionUrlAuthType, HttpMethod } from 'aws-cdk-lib/aws-lambda';
 import { StreamViewType } from 'aws-cdk-lib/aws-dynamodb';
-import { Tags, CfnResource, CfnOutput } from 'aws-cdk-lib';
+import { Tags, CfnResource, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +17,8 @@ import * as aws_cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as aws_sns from 'aws-cdk-lib/aws-sns';
 import * as aws_iam from 'aws-cdk-lib/aws-iam';
 import * as cr from 'aws-cdk-lib/custom-resources';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as cloudfront_origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Duration } from 'aws-cdk-lib';
 
 const readAgentCoreConfigFile = (): Record<string, string> => {
@@ -100,6 +102,93 @@ const backend = defineBackend({
 });
 
 const stack = backend.stack;
+
+// ─── Image CDN (S3 + CloudFront) ────────────────────────────────────────────
+const imageBucket = new aws_s3.Bucket(stack, 'ImageCDNBucket', {
+  bucketName: `brainincup-images-${stack.account}-${stack.region}`,
+  blockPublicAccess: aws_s3.BlockPublicAccess.BLOCK_ALL,
+  encryption: aws_s3.BucketEncryption.S3_MANAGED,
+  enforceSSL: true,
+  versioned: false,
+  removalPolicy: RemovalPolicy.RETAIN,
+});
+
+const imageOAC = new cloudfront.S3OriginAccessControl(stack, 'ImageCDNOAC', {
+  description: 'OAC for BrainInCup image CDN',
+});
+
+const imageCachePolicy = new cloudfront.CachePolicy(stack, 'ImageCachePolicy', {
+  cachePolicyName: `BrainInCup-ImageCache-${stack.stackName}`,
+  comment: 'Optimized cache policy for static game images',
+  defaultTtl: Duration.days(30),
+  maxTtl: Duration.days(365),
+  minTtl: Duration.days(1),
+  headerBehavior: cloudfront.CacheHeaderBehavior.none(),
+  queryStringBehavior: cloudfront.CacheQueryStringBehavior.none(),
+  cookieBehavior: cloudfront.CacheCookieBehavior.none(),
+  enableAcceptEncodingGzip: true,
+  enableAcceptEncodingBrotli: true,
+});
+
+const imageResponseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(stack, 'ImageResponseHeadersPolicy', {
+  responseHeadersPolicyName: `BrainInCup-ImageHeaders-${stack.stackName}`,
+  comment: 'CORS and caching headers for image CDN',
+  corsBehavior: {
+    accessControlAllowCredentials: false,
+    accessControlAllowHeaders: ['*'],
+    accessControlAllowMethods: ['GET', 'HEAD', 'OPTIONS'],
+    accessControlAllowOrigins: ['*'],
+    accessControlExposeHeaders: [],
+    accessControlMaxAge: Duration.seconds(86400),
+    originOverride: true,
+  },
+  customHeadersBehavior: {
+    customHeaders: [
+      {
+        header: 'X-Cache-Status',
+        value: 'HIT',
+        override: false,
+      },
+    ],
+  },
+});
+
+const imageDistribution = new cloudfront.Distribution(stack, 'ImageCDN', {
+  comment: `BrainInCup Image CDN - ${stack.stackName}`,
+  defaultBehavior: {
+    origin: cloudfront_origins.S3BucketOrigin.withOriginAccessControl(imageBucket, {
+      originAccessControl: imageOAC,
+    }),
+    viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+    allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+    cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+    cachePolicy: imageCachePolicy,
+    responseHeadersPolicy: imageResponseHeadersPolicy,
+    compress: true,
+  },
+  priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+  httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
+  minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+  enableIpv6: true,
+  enableLogging: false,
+});
+
+imageBucket.grantRead(new aws_iam.ServicePrincipal('cloudfront.amazonaws.com'));
+
+new CfnOutput(stack, 'ImageCDNDomainName', {
+  value: imageDistribution.distributionDomainName,
+  description: 'CloudFront domain name for image CDN',
+});
+
+new CfnOutput(stack, 'ImageCDNUrl', {
+  value: `https://${imageDistribution.distributionDomainName}`,
+  description: 'Full URL for image CDN',
+});
+
+new CfnOutput(stack, 'ImageBucketName', {
+  value: imageBucket.bucketName,
+  description: 'S3 bucket name for image storage',
+});
 
 // ─── Observability Infrastructure ────────────────────────────────────────────
 const obsConfig = buildObservabilityConfig(getAgentCoreConfig);
@@ -317,10 +406,12 @@ brainLambda.addToRolePolicy(new PolicyStatement({
   effect: Effect.ALLOW,
 }));
 
-// Add Lambda function URL to outputs so frontend can call it
+// Add Lambda function URL and Image CDN to outputs so frontend can use them
 backend.addOutput({
   custom: {
     brainApiUrl: functionUrl.url,
+    imageCDNUrl: `https://${imageDistribution.distributionDomainName}`,
+    imageBucketName: imageBucket.bucketName,
   },
 });
 
