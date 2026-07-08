@@ -11,7 +11,9 @@
     "delete:sandbox": "bash ./scripts/delete-sandbox.sh",
     "deploy:sandbox": "bash ./scripts/deploy-sandbox.sh",
     "deploy:runtime": "bash ./scripts/update-agent-image.sh",
-    "deploy:all": "bash ./scripts/update-agent-image.sh && bash ./scripts/deploy-sandbox.sh",
+    "deploy:images": "bash ./scripts/sync-images-to-cdn.sh",
+    "optimize:images": "bash ./scripts/optimize-images.sh",
+    "deploy:all": "bash ./scripts/update-agent-image.sh && bash ./scripts/deploy-sandbox.sh && bash ./scripts/sync-images-to-cdn.sh",
     "logs": "bash ./scripts/fetch-logs.sh"
   },
   "dependencies": {

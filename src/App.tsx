@@ -1,14 +1,14 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { fetchUserAttributes, signOut, deleteUser } from 'aws-amplify/auth';
+import { fetchUserAttributes, signOut } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
 import InstallPrompt from './components/InstallPrompt';
 import CharacterCreation from './components/CharacterCreation';
-import ConversationList from './components/ConversationList';
+import ConversationSidebarIcons from './components/ConversationSidebarIcons';
 import InventoryManager, { type InventoryItem } from './components/InventoryManager';
 import TroubleDice3D from './components/TroubleDice3D';
-import Panel from './components/ui/Panel';
-import { RPGLayout, LeftSidebar, CenterNarrative, RightStatus, BottomInput } from './components/ui/RPGLayout';
+// import Panel from './components/ui/Panel';
+import { BottomInput } from './components/ui/RPGLayout';
 import ContextWindowPanel from './components/ContextWindowPanel';
 import type { GameEvent } from './hooks/useContextPanel';
 import { normalizePersonalityMode } from './constants/personalityModes';
@@ -64,10 +64,8 @@ const formatModelErrors = (errors: unknown): string => {
 
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
 const LAST_CONVERSATION_STORAGE_KEY_PREFIX = 'lastConversationId';
-const UI_CENTER_LIST_COLLAPSED_KEY = 'uiCenterListCollapsed';
 const UI_MOBILE_INFO_EXPANDED_KEY = 'uiMobileInfoExpanded';
 const UI_MOBILE_CHARACTER_EXPANDED_KEY = 'uiMobileCharacterExpanded';
-const ACCOUNT_DELETE_CONFIRM_TEXT = 'DELETE';
 
 const getLastConversationStorageKey = (mode: string): string =>
   `${LAST_CONVERSATION_STORAGE_KEY_PREFIX}:${normalizePersonalityMode(mode)}`;
@@ -394,19 +392,9 @@ function App() {
   const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(() =>
     readStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, false)
   );
-  const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen] = useState(false);
-  const [deleteAccountConfirmValue, setDeleteAccountConfirmValue] = useState('');
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [deleteAccountError, setDeleteAccountError] = useState('');
-  const [isCenterListCollapsed, setIsCenterListCollapsed] = useState(() =>
-    readStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, false)
-  );
   const [conversationListRefreshKey, setConversationListRefreshKey] = useState(0);
-  const [isBulkDeleteMode, setIsBulkDeleteMode] = useState(false);
-  const [bulkDeleteConversationIds, setBulkDeleteConversationIds] = useState<Set<string>>(new Set());
   const [draggingConversationId, setDraggingConversationId] = useState<string | null>(null);
   const [isTrashDragOver, setIsTrashDragOver] = useState(false);
   const [isNewInteractionPrimed, setIsNewInteractionPrimed] = useState(false);
@@ -461,7 +449,11 @@ function App() {
     const avatarId = getAvatarOptionById(characterState?.avatarId ?? '')?.id
       ?? getAvatarOptionById(getStoredConversationAvatarId(conversationId))?.id
       ?? '';
-    const avatarSrc = avatarId ? (getAvatarOptionById(avatarId)?.src ?? '') : '';
+    const avatarOption = avatarId ? getAvatarOptionById(avatarId) : undefined;
+    const avatarSrc = avatarOption?.src ?? '';
+    const avatarSrcWebp = avatarOption?.srcWebp ?? '';
+    const avatarSrcThumbnail = avatarOption?.srcThumbnail ?? '';
+    const avatarSrcMedium = avatarOption?.srcMedium ?? '';
     
     return {
       name: characterState?.name || 'Adventurer',
@@ -470,6 +462,9 @@ function App() {
       level: characterState?.level || 1,
       avatarId,
       avatarSrc,
+      avatarSrcWebp,
+      avatarSrcThumbnail,
+      avatarSrcMedium,
       stats,
       hp,
       inventory,
@@ -967,10 +962,6 @@ function App() {
   // Mode persistence removed - mode is now hardcoded to game_master
 
   useEffect(() => {
-    writeStoredBoolean(UI_CENTER_LIST_COLLAPSED_KEY, isCenterListCollapsed);
-  }, [isCenterListCollapsed]);
-
-  useEffect(() => {
     writeStoredBoolean(UI_MOBILE_INFO_EXPANDED_KEY, mobileInfoExpanded);
   }, [mobileInfoExpanded]);
 
@@ -1109,21 +1100,6 @@ function App() {
       desktopScrollContainerRef.current.scrollTop = desktopScrollContainerRef.current.scrollHeight;
     }
   }, [messages.length]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + D toggles debug info (dev only)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-        e.preventDefault();
-        setShowDebugInfo(prev => !prev);
-      }
-
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   // Cleanup typing animation when conversation changes or component unmounts
   useEffect(() => {
@@ -1714,8 +1690,6 @@ function App() {
     setDraggingConversationId(null);
     setIsTrashDragOver(false);
     setExpandedMessageIndex(null);
-    setIsBulkDeleteMode(false);
-    setBulkDeleteConversationIds(new Set());
     setIsNewInteractionPrimed(false);
 
     if (shouldShowCharacterFlow) {
@@ -1808,66 +1782,35 @@ function App() {
   // handleModeSelected removed - mode selection UI removed
   // Keeping setPersonalityMode for compatibility with drag-drop logic
 
-  const handleToggleBulkDeleteConversation = useCallback((targetConversationId: string) => {
-    if (!targetConversationId) return;
-    setBulkDeleteConversationIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(targetConversationId)) {
-        next.delete(targetConversationId);
-      } else {
-        next.add(targetConversationId);
-      }
-      return next;
-    });
-  }, []);
-
   const handleSidebarDeleteAction = useCallback(async () => {
-    if (!isBulkDeleteMode) {
-      setIsProfileMenuOpen(false);
-      setBulkDeleteConversationIds(new Set());
-      setIsBulkDeleteMode(true);
-      return;
-    }
-
-    const idsToDelete = Array.from(bulkDeleteConversationIds);
-    if (idsToDelete.length === 0) {
-      setIsBulkDeleteMode(false);
-      return;
-    }
-
-    const activeConversationDeleted = conversationId ? idsToDelete.includes(conversationId) : false;
+    if (!conversationId) return;
+    setIsProfileMenuOpen(false);
 
     try {
       if (!isTestModeEnabled()) {
-        await Promise.all(
-          idsToDelete.map((id) => dataClient.models.Conversation.delete({ id }))
-        );
+        await dataClient.models.Conversation.delete({ id: conversationId });
       }
 
-      idsToDelete.forEach((id) => removeStoredConversationAvatar(id));
+      removeStoredConversationAvatar(conversationId);
 
-      if (activeConversationDeleted) {
-        if (typeof window !== 'undefined') {
-          window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
-        }
-        setIsSelectingConversation(false);
-        setConversationId(null);
-        setPendingCharacterDraft(null);
-        setMessages([]);
-        setIsWaitingForResponse(false);
-        setAdventureState(null);
-        setQuestSteps([]);
-        setCharacterState(null);
-        setShowCharacterCreation(false);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
       }
+      setIsSelectingConversation(false);
+      setConversationId(null);
+      setPendingCharacterDraft(null);
+      setMessages([]);
+      setIsWaitingForResponse(false);
+      setAdventureState(null);
+      setQuestSteps([]);
+      setCharacterState(null);
+      setShowCharacterCreation(false);
 
       setConversationListRefreshKey((prev) => prev + 1);
-      setBulkDeleteConversationIds(new Set());
-      setIsBulkDeleteMode(false);
     } catch (error) {
-      console.error('Error deleting selected conversations:', error);
+      console.error('Error deleting conversation:', error);
     }
-  }, [bulkDeleteConversationIds, conversationId, effectivePersonality, isBulkDeleteMode]);
+  }, [conversationId, effectivePersonality]);
 
   const deleteConversationById = useCallback(async (targetConversationId: string) => {
     if (!targetConversationId) return;
@@ -1906,18 +1849,17 @@ function App() {
   }, [conversationId, effectivePersonality]);
 
   const handleTrashDragOver = useCallback((event: React.DragEvent<HTMLButtonElement>) => {
-    if (isBulkDeleteMode || !draggingConversationId) return;
+    if (!draggingConversationId) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     setIsTrashDragOver(true);
-  }, [draggingConversationId, isBulkDeleteMode]);
+  }, [draggingConversationId]);
 
   const handleTrashDragLeave = useCallback(() => {
     setIsTrashDragOver(false);
   }, []);
 
   const handleTrashDrop = useCallback((event: React.DragEvent<HTMLButtonElement>) => {
-    if (isBulkDeleteMode) return;
     event.preventDefault();
     const droppedConversationId =
       event.dataTransfer.getData('application/x-conversation-id')
@@ -1930,7 +1872,7 @@ function App() {
       setIsTrashDragOver(false);
       setDraggingConversationId(null);
     }
-  }, [deleteConversationById, draggingConversationId, isBulkDeleteMode]);
+  }, [deleteConversationById, draggingConversationId]);
 
 
   const handleSignOut = async () => {
@@ -1942,43 +1884,11 @@ function App() {
     }
   };
 
-  const openDeleteAccountConfirm = () => {
-    setDeleteAccountError('');
-    setDeleteAccountConfirmValue('');
-    setIsProfileMenuOpen(false);
-    setIsDeleteAccountConfirmOpen(true);
-  };
-
-  const closeDeleteAccountConfirm = () => {
-    if (isDeletingAccount) return;
-    setIsDeleteAccountConfirmOpen(false);
-    setDeleteAccountConfirmValue('');
-    setDeleteAccountError('');
-  };
-
-  const handleDeleteAccount = async () => {
-    if (deleteAccountConfirmValue !== ACCOUNT_DELETE_CONFIRM_TEXT) {
-      setDeleteAccountError('Please type DELETE to confirm.');
-      return;
-    }
-
-    setIsDeletingAccount(true);
-    setDeleteAccountError('');
-    try {
-      await deleteUser();
-      window.location.reload();
-    } catch (error) {
-      console.error('Error deleting account:', error);
-      setDeleteAccountError('Unable to delete account right now. Please try again.');
-      setIsDeletingAccount(false);
-    }
-  };
-
   const handleCharacterCreationComplete = useCallback(async (characterData: CharacterCreationInput) => {
     if (!conversationId) {
       const createdConversationId = await createConversationWithMode(effectivePersonality);
       if (!createdConversationId) {
-        throw new Error('Unable to create interaction');
+        throw new Error('Unable to create chat');
       }
       setPendingCharacterDraft(null);
       setIsNewInteractionPrimed(false);
@@ -2029,7 +1939,7 @@ function App() {
     if (!conversationId) {
       const createdConversationId = await createConversationWithMode(effectivePersonality);
       if (!createdConversationId) {
-        throw new Error('Unable to create interaction');
+        throw new Error('Unable to create chat');
       }
       setPendingCharacterDraft(null);
       setIsNewInteractionPrimed(false);
@@ -2215,10 +2125,6 @@ function App() {
   }, [canUseDiceRoll, playerState, submitDiceResult]);
 
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
-  const toggleCenterList = useCallback(() => {
-    setIsCenterListCollapsed((prev) => !prev);
-  }, []);
-
   return (
     <div className={`retro-rpg-ui ${appThemeClass} h-screen overflow-hidden relative`}>
 
@@ -2238,62 +2144,32 @@ function App() {
       )}
 
       {/* Desktop: Main Layout */}
-      <div className="hidden lg:flex h-full retro-shell">
-        {/* Main Content Area - Desktop */}
-        <main 
-          className="retro-main flex-1 flex flex-col min-w-0 overflow-hidden relative px-4 pb-4 pt-4"
-        >
-          <div className="retro-nav-align-grid retro-nav-align-grid--left-collapsed">
-            <nav className="retro-nav sticky top-0 z-40 bg-brand-surface-elevated/90 backdrop-blur-xl border-b border-brand-surface-border/40 rounded-3xl mb-4">
-              <div className="flex items-center justify-between px-6 py-4">
-                <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowDebugInfo((prev) => !prev)}
-                    className={`retro-icon-button retro-tooltip-trigger w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
-                      showDebugInfo ? 'retro-left-mode-button retro-left-mode-button-active' : ''
-                    }`}
-                    aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
-                    data-tooltip={showDebugInfo ? 'Hide debug data' : 'Show debug data'}
-                    data-tooltip-position="bottom"
-                  >
-                    <img src="/debug.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
-                  </button>
-                </div>
-              </div>
-            </nav>
-          </div>
-
-          {/* Screen reader live region for message updates */}
-          <div
-            aria-live="polite"
-            aria-atomic="true"
-            className="sr-only"
-          >
-            {isWaitingForResponse && 'AI is thinking...'}
-            {messages.length > 0 && `Interaction has ${messages.length} messages`}
-          </div>
-
-          <RPGLayout className="rpg-grid--left-collapsed">
-            <LeftSidebar>
-              <Panel className="retro-left-panel retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-2 py-3">
-                <div className="flex h-full flex-col items-center justify-between gap-4">
-                  <div className="flex w-full flex-col items-center gap-2">
+      <div className="hidden lg:flex flex-col h-full">
+        <div className="flex-1 min-h-0 grid retro-shell">
+        {/* Left Sidebar - full height */}
+        <aside className="retro-shell-left">
+          <div className="retro-left-container retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-3">
+                <div className="flex h-full flex-col items-center gap-5 py-4">
+                  <div className="flex w-full flex-col items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={handleNewConversation}
                       disabled={isWaitingForResponse || isSelectingConversation}
                       className="retro-icon-button retro-tooltip-trigger h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
-                      aria-label="Start new interaction"
-                      title="New interaction"
-                      data-tooltip="New interaction"
+                      aria-label="Start new chat"
+                      title="New chat"
+                      data-tooltip="New chat"
                       data-tooltip-position="right"
                     >
                       <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
                     </button>
                     {/* Mode toggle buttons removed - mode is now hardcoded to game_master */}
                   </div>
+
+                  <ConversationSidebarIcons
+                    onSelectConversation={handleSelectConversation}
+                    refreshKey={conversationListRefreshKey}
+                  />
 
                   <div ref={profileMenuRef} className="relative z-40">
                     <button
@@ -2305,25 +2181,15 @@ function App() {
                       className={`retro-icon-button retro-tooltip-trigger mb-2 h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
                         isTrashDragOver
                           ? 'border-brand-status-error/70 bg-brand-status-error/28 text-brand-status-error scale-[1.16] shadow-[0_12px_26px_rgba(239,68,68,0.34)]'
-                          : isBulkDeleteMode
-                            ? 'border-brand-status-error/55 bg-brand-status-error/18 text-brand-status-error scale-[1.14] shadow-[0_10px_22px_rgba(239,68,68,0.28)]'
-                            : 'border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary'
-                      }`}
-                      aria-label={
-                        isBulkDeleteMode
-                          ? `Delete ${bulkDeleteConversationIds.size} selected interaction${bulkDeleteConversationIds.size === 1 ? '' : 's'}`
-                          : 'Enter interaction deletion mode'
-                      }
-                      title={
-                        isBulkDeleteMode
-                          ? `Delete selected (${bulkDeleteConversationIds.size})`
-                          : 'Select interactions to delete'
-                      }
-                      data-tooltip={isBulkDeleteMode ? 'Delete selected interactions' : 'Select interactions to delete'}
+                          : 'border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75'
+                      } disabled:cursor-not-allowed disabled:opacity-45`}
+                      aria-label="Delete current chat"
+                      disabled={!conversationId}
+                      data-tooltip={conversationId ? 'Delete current chat' : 'No chat to delete'}
                       data-tooltip-position="right"
                     >
                       <svg
-                        className={`transition-all duration-200 ${(isBulkDeleteMode || isTrashDragOver) ? 'h-5 w-5' : 'h-4 w-4'}`}
+                        className="h-4 w-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -2371,77 +2237,45 @@ function App() {
                         </button>
                         <button
                           type="button"
-                          onClick={openDeleteAccountConfirm}
-                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error"
+                          onClick={() => { void handleSidebarDeleteAction(); }}
+                          disabled={!conversationId}
+                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error disabled:opacity-45 disabled:cursor-not-allowed"
                         >
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
                           </svg>
-                          Delete account
+                          Delete chat
                         </button>
                       </div>
                     )}
                   </div>
                 </div>
-              </Panel>
-            </LeftSidebar>
+              </div>
+            </aside>
 
-            <CenterNarrative>
-              <Panel variant="inset" className="flex-1 min-h-0 p-4">
-                <div className={`retro-center-split h-full min-h-0 ${isGameMasterMode ? (isCenterListCollapsed ? 'retro-center-split--list-collapsed' : '') : 'retro-center-split--brain'}`}>
-                  {isGameMasterMode && (
-                    <aside className={`retro-interactions-pane relative h-full min-h-0 overflow-visible ${isCenterListCollapsed ? 'retro-interactions-pane-collapsed' : 'retro-interactions-pane-expanded'}`}>
-                      <button
-                        type="button"
-                        onClick={toggleCenterList}
-                        className={`retro-divider-handle absolute right-0 top-1/2 z-20 ${isCenterListCollapsed ? 'retro-divider-handle-collapsed' : ''}`}
-                        aria-label={isCenterListCollapsed ? 'Expand interactions list' : 'Collapse interactions list'}
-                        aria-pressed={!isCenterListCollapsed}
-                      >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M8 6h8M8 12h8M8 18h8" />
-                        </svg>
-                      </button>
-                      <div
-                        aria-hidden={isCenterListCollapsed}
-                        className={`retro-interactions-content h-full ${
-                          isCenterListCollapsed ? 'retro-interactions-content--collapsed pointer-events-none' : 'retro-interactions-content--expanded'
-                        }`}
-                      >
-                        <div className="px-3 pb-2 pt-1 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">
-                        Interactions
-                        </div>
-                        <div className="h-full overflow-y-auto pr-2">
-                          <ConversationList
-                            onSelectConversation={(selectedConversationId) => {
-                              void handleSelectConversation(selectedConversationId);
-                            }}
-                            selectedConversationId={conversationId}
-                            refreshKey={conversationListRefreshKey}
-                            activeMode={effectivePersonality}
-                            deleteSelectionMode={isBulkDeleteMode}
-                            selectedDeleteIds={bulkDeleteConversationIds}
-                            onToggleDeleteSelection={handleToggleBulkDeleteConversation}
-                            onConversationDragStart={(targetConversationId) => {
-                              if (isBulkDeleteMode) return;
-                              setDraggingConversationId(targetConversationId);
-                            }}
-                            onConversationDragEnd={() => {
-                              setDraggingConversationId(null);
-                              setIsTrashDragOver(false);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </aside>
-                  )}
+          <main 
+            className="retro-shell-center retro-main flex flex-col min-w-0 overflow-hidden relative px-4 pb-4 pt-4"
+          >
+          <div className="text-center mb-4 flex-shrink-0">
+            <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide relative inline-block after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-full after:h-[2px] after:bg-gradient-to-r after:from-transparent after:via-brand-accent-primary after:to-transparent after:rounded-full after:shadow-[0_0_8px_rgba(94,234,212,0.5)]">Brain in Cup</span>
+          </div>
+          {/* Screen reader live region for message updates */}
+          <div
+            aria-live="polite"
+            aria-atomic="true"
+            className="sr-only"
+          >
+            {isWaitingForResponse && 'AI is thinking...'}
+            {messages.length > 0 && `Chat has ${messages.length} messages`}
+          </div>
 
-                  <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
-                    <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="retro-center-container flex-1 min-h-0">
+              <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
+                <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden flex flex-col">
                       {conversationId && isGameMasterMode && (
-                        <div className="pointer-events-none absolute left-0 right-2 top-0 z-20 px-3 pt-2">
+                        <div className="px-3 pt-2 shrink-0">
                           <div className="mx-auto max-w-4xl">
-                            <Panel variant="header" className="retro-status-strip retro-status-strip-floating !px-5 !py-3.5 !rounded-2xl">
+                            <div className="retro-status-strip retro-status-strip-floating">
                               <div className="grid grid-cols-3 items-end text-center">
                                 <div className="text-left">
                                   <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Day</p>
@@ -2456,14 +2290,15 @@ function App() {
                                   <p className="text-lg font-light text-brand-text-primary">{currentAct} • Ch. {currentChapter}</p>
                                 </div>
                               </div>
-                            </Panel>
+                            </div>
+                            <div className="mt-3 h-px bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
                           </div>
                         </div>
                       )}
 
                       <div
                         ref={desktopScrollContainerRef}
-                        className={`flex-1 overflow-y-auto pr-2 pb-4 ${conversationId && isGameMasterMode ? 'pt-24' : ''}`}
+                        className="flex-1 overflow-y-auto pr-2"
                       >
                         <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
                           {/* Mode indicator removed */}
@@ -2515,7 +2350,7 @@ function App() {
                               >
                                 <div
                                   className={`retro-message message-bubble backdrop-blur-sm transition-all duration-300 animate-slide-up ${
-                                    `rounded-2xl px-4 py-3 hover:scale-[1.02] ${
+                                    `rounded-2xl px-4 py-3 hover:brightness-110 ${
                                       message.role === 'user'
                                         ? 'retro-message-user text-white'
                                         : 'retro-message-assistant text-brand-text-primary'
@@ -2634,23 +2469,14 @@ function App() {
                             </div>
                           )}
               
-                          {/* Enhanced Debug info - now toggleable */}
-                          {showDebugInfo && (
-                            <div className="mt-6 glass rounded-2xl p-4 animate-fade-in">
-                              <h3 className="text-sm font-medium text-brand-text-primary mb-2">Debug Information</h3>
-                              <div className="text-xs text-brand-text-muted space-y-1">
-                                <p>Interaction ID: {conversationId || 'None'}</p>
-                                <p>User: {userAttributes?.sub || 'Unknown'}</p>
-                                <p>Waiting for response: {isWaitingForResponse ? 'Yes' : 'No'}</p>
-                                <p>Messages count: {messages.length}</p>
-                              </div>
-                            </div>
-                          )}
                   
                           {/* Invisible element to scroll to - at the bottom */}
                           <div ref={messagesEndRef} />
                         </div>
                       </div>
+                    </div>
+                    <div className="mx-auto w-full max-w-4xl px-3">
+                      <div className="h-px bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
                     </div>
                     {!isInputLocked && (
                       <BottomInput className="px-0 pt-3 shrink-0">
@@ -2669,7 +2495,7 @@ function App() {
                                       ? 'Brain is thinking...'
                                       : conversationId
                                         ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
-                                        : (isNewInteractionPrimed ? 'New interaction ready. Start typing...' : 'Start a new conversation...')
+                                        : (isNewInteractionPrimed ? 'New chat ready. Start typing...' : 'Start a new conversation...')
                                   }
                                   className="retro-input-textarea w-full px-3 py-2.5 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
                                   rows={1}
@@ -2711,20 +2537,18 @@ function App() {
                       </BottomInput>
                     )}
                   </section>
-                </div>
-              </Panel>
-            </CenterNarrative>
-
-            <RightStatus>
-              <Panel className="retro-right-panel flex-1 flex flex-col text-brand-text-primary !rounded-xl">
+              </div>
+          </main>
+        <aside className="retro-shell-right">
+          <div className="retro-right-container flex flex-col h-full overflow-y-auto">
                 {!hasSelectedConversation ? (
                   <div className="flex h-full items-center justify-center p-5">
                     <div className="text-center">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">No Interaction Selected</p>
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">No Chat Selected</p>
                       <p className="mt-2 text-sm text-brand-text-secondary">
                         {isNewInteractionPrimed
-                          ? 'New interaction draft ready. Start typing to create it.'
-                          : 'Select an interaction to view live details here.'}
+                          ? 'New chat draft ready. Start typing to create it.'
+                          : 'Select a chat to view live details here.'}
                       </p>
                     </div>
                   </div>
@@ -2774,6 +2598,7 @@ function App() {
                             maxHP: characterDisplay.hp.max,
                             stats: characterDisplay.stats,
                             avatarSrc: characterDisplay.avatarSrc,
+                            avatarSrcWebp: characterDisplay.avatarSrcWebp,
                           }}
                           currentLocation={currentLocation}
                           activeQuests={[]}
@@ -2825,7 +2650,7 @@ function App() {
                   )
                 ) : (
                   <div className="flex h-full flex-col gap-4 p-5">
-                    <Panel variant="inset" className="p-4 !rounded-xl">
+                    <div className="retro-mental-state-section">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
                       <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
@@ -2835,17 +2660,15 @@ function App() {
                         />
                       </div>
                       <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
-                    </Panel>
+                    </div>
 
                     {/* Mode indicator removed */}
 
                   </div>
                 )}
-              </Panel>
-            </RightStatus>
-          </RPGLayout>
-          
-        </main>
+          </div>
+        </aside>
+      </div>
       </div>
 
       {/* Mobile: Main Content Area */}
@@ -2857,20 +2680,6 @@ function App() {
           <div className="px-4 py-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowDebugInfo((prev) => !prev)}
-                  className={`retro-icon-button retro-tooltip-trigger w-9 h-9 rounded-lg flex items-center justify-center hover:bg-brand-surface-hover transition-colors ${
-                    showDebugInfo ? 'retro-left-mode-button retro-left-mode-button-active' : ''
-                  }`}
-                  aria-label={showDebugInfo ? 'Hide debug information' : 'Show debug information'}
-                  data-tooltip={showDebugInfo ? 'Hide debug data' : 'Show debug data'}
-                  data-tooltip-position="bottom"
-                >
-                  <img src="/debug.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
-                </button>
-              </div>
             </div>
 
             <div>
@@ -2879,12 +2688,12 @@ function App() {
                 onClick={handleNewConversation}
                 disabled={isWaitingForResponse || isSelectingConversation}
                 className="mb-2.5 w-full flex items-center gap-3 rounded-xl border border-brand-surface-border/45 bg-brand-bg-secondary/65 px-2.5 py-2 text-left transition-all duration-200 hover:border-brand-surface-border/65 hover:bg-brand-bg-tertiary/55 disabled:cursor-not-allowed disabled:opacity-45"
-                aria-label="Start new interaction"
+                aria-label="Start new chat"
               >
                 <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
                   <img src="/addChat.svg" alt="" aria-hidden="true" className="h-4.5 w-4.5 object-contain brightness-0 invert" />
                 </span>
-                <span className="text-sm font-medium text-brand-text-primary">New Interaction</span>
+                <span className="text-sm font-medium text-brand-text-primary">New Chat</span>
               </button>
               {/* Mode toggle buttons removed - mode is now hardcoded to game_master */}
             </div>
@@ -2965,11 +2774,16 @@ function App() {
                     <div className="retro-character-identity retro-character-identity--compact flex items-center gap-3 min-w-0">
                       {characterDisplay.avatarSrc ? (
                         <div className="retro-character-avatar-wrap">
-                          <img
-                            src={characterDisplay.avatarSrc}
-                            alt={`${characterDisplay.name || 'Adventurer'} avatar`}
-                            className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0"
-                          />
+                          <picture>
+                            <source srcSet={characterDisplay.avatarSrcWebp} type="image/webp" />
+                            <img
+                              src={characterDisplay.avatarSrc}
+                              alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                              loading="lazy"
+                              decoding="async"
+                              className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0"
+                            />
+                          </picture>
                         </div>
                       ) : null}
                       <div className="retro-character-meta retro-character-meta--compact min-w-0 flex-1">
@@ -3065,7 +2879,7 @@ function App() {
           className="sr-only"
         >
           {isWaitingForResponse && 'AI is thinking...'}
-          {messages.length > 0 && `Interaction has ${messages.length} messages`}
+          {messages.length > 0 && `Chat has ${messages.length} messages`}
         </div>
 
         {/* Enhanced Chat Area with glass morphism design */}
@@ -3117,7 +2931,7 @@ function App() {
                     className="flex flex-col gap-2 max-w-[85%]"
                   >
                     <div
-                      className={`retro-message message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] animate-slide-up ${
+                      className={`retro-message message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm transition-all duration-300 hover:brightness-110 animate-slide-up ${
                         message.role === 'user'
                           ? 'retro-message-user text-white'
                           : 'retro-message-assistant text-brand-text-primary'
@@ -3258,7 +3072,7 @@ function App() {
                             ? 'Brain is thinking...'
                             : conversationId
                               ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
-                              : (isNewInteractionPrimed ? 'New interaction ready. Start typing...' : 'Start a new conversation...')
+                              : (isNewInteractionPrimed ? 'New chat ready. Start typing...' : 'Start a new conversation...')
                         }
                         className="retro-input-textarea w-full px-3 py-2 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-sm leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
                         rows={1}
@@ -3304,50 +3118,6 @@ function App() {
 
       {/* Install Prompt */}
       <InstallPrompt />
-
-      {isDeleteAccountConfirmOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/65 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-5 shadow-glass-lg">
-            <p className="text-xs uppercase tracking-[0.22em] text-brand-text-muted">Account Settings</p>
-            <h2 className="mt-2 text-lg font-semibold text-brand-text-primary">Delete account</h2>
-            <p className="mt-2 text-sm text-brand-text-secondary">
-              This permanently removes your account. Type <span className="font-semibold text-brand-text-primary">{ACCOUNT_DELETE_CONFIRM_TEXT}</span> to confirm.
-            </p>
-            <input
-              type="text"
-              value={deleteAccountConfirmValue}
-              onChange={(event) => {
-                setDeleteAccountConfirmValue(event.target.value);
-                setDeleteAccountError('');
-              }}
-              placeholder={ACCOUNT_DELETE_CONFIRM_TEXT}
-              className="mt-4 w-full rounded-xl border border-brand-surface-border/60 bg-brand-surface-hover/70 px-3 py-2 text-sm text-brand-text-primary placeholder:text-brand-text-muted focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45"
-              disabled={isDeletingAccount}
-            />
-            {deleteAccountError ? (
-              <p className="mt-2 text-sm text-brand-status-error">{deleteAccountError}</p>
-            ) : null}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeDeleteAccountConfirm}
-                className="rounded-xl border border-brand-surface-border/60 px-3 py-2 text-sm text-brand-text-secondary hover:bg-brand-surface-hover/55"
-                disabled={isDeletingAccount}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteAccount}
-                className="rounded-xl bg-brand-status-error/85 px-3 py-2 text-sm font-medium text-white hover:bg-brand-status-error disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isDeletingAccount || deleteAccountConfirmValue !== ACCOUNT_DELETE_CONFIRM_TEXT}
-              >
-                {isDeletingAccount ? 'Deleting…' : 'Delete account'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

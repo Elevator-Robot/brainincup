@@ -41,7 +41,7 @@ def is_default_conversation_title(title: str | None, personality_mode: str) -> b
     if not normalized:
         return True
     lowered = normalized.lower()
-    if lowered in {"new interaction", "untitled interaction"}:
+    if lowered in {"new interaction", "untitled interaction", "new chat", "untitled chat"}:
         return True
     expected_prefix = "Quest •" if personality_mode == "game_master" else "Brain •"
     return normalized.startswith(expected_prefix)

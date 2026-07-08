@@ -4,7 +4,7 @@ import { ClientSchema } from '@aws-amplify/backend';
 const schema = a.schema({
   Conversation: a.model({
     id: a.id(),
-    title: a.string().default('New Interaction'),
+    title: a.string().default('New Chat'),
     participants: a.string().array(),
     personalityMode: a.string().default('default'),
     messages: a.hasMany('Message', 'conversationId'),

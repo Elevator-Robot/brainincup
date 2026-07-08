@@ -313,11 +313,16 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
                   aria-label={`Select ${avatarOption.label}`}
                   disabled={isSubmitting}
                 >
-                  <img
-                    src={avatarOption.src}
-                    alt={avatarOption.label}
-                    className="h-20 w-full rounded-md object-cover object-center transition-all duration-200 group-hover:scale-[1.08]"
-                  />
+                  <picture>
+                    <source srcSet={avatarOption.srcWebp} type="image/webp" />
+                    <img
+                      src={avatarOption.src}
+                      alt={avatarOption.label}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-20 w-full rounded-md object-cover object-center transition-all duration-200 group-hover:scale-[1.08]"
+                    />
+                  </picture>
                 </button>
               ))}
             </div>

@@ -41,6 +41,7 @@ interface ContextWindowPanelProps {
     maxHP?: number;
     stats?: Record<string, number>;
     avatarSrc?: string;
+    avatarSrcWebp?: string;
   };
   currentLocation?: string;
   activeQuests?: Quest[];
@@ -83,7 +84,7 @@ function ContextWindowPanel({
       </div>
 
       {/* Panel content with opacity transition */}
-      <div className="flex-1 overflow-y-auto transition-opacity duration-200">
+      <div className="flex-1 transition-opacity duration-200">
         {activePanel === 'character' && (
           <CharacterSheetPanel
             name={character?.name}
@@ -95,6 +96,7 @@ function ContextWindowPanel({
             stats={character?.stats as CharacterSheetPanelProps['stats']}
             currentLocation={currentLocation ?? playerState?.lastKnownLocation}
             avatarSrc={character?.avatarSrc}
+            avatarSrcWebp={character?.avatarSrcWebp}
             levelUpAnimating={levelUpAnimating}
           />
         )}
