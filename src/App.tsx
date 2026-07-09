@@ -2000,7 +2000,6 @@ function App() {
   const isGameMasterContentLoading = isGameMasterMode && Boolean(conversationId) && (isSelectingConversation || isLoadingCharacter || isLoadingAdventure);
   const hasGameMasterCharacterReady = Boolean(characterState || pendingCharacterDraft);
   const showGameMasterCharacterFlow = showCharacterCreation && isGameMasterMode && !isGameMasterContentLoading;
-  const hasSelectedConversation = Boolean(conversationId) || showGameMasterCharacterFlow;
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && !hasGameMasterCharacterReady;
   const websiteUserProfile = useMemo(() => {
     const attrs = userAttributes ?? {};
@@ -2558,18 +2557,7 @@ function App() {
           </main>
         <aside className="retro-shell-right">
           <div className="retro-right-container flex flex-col h-full overflow-y-auto">
-                {!hasSelectedConversation ? (
-                  <div className="flex h-full items-center justify-center p-5">
-                    <div className="text-center">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">No Chat Selected</p>
-                      <p className="mt-2 text-sm text-brand-text-secondary">
-                        {isNewInteractionPrimed
-                          ? 'New chat draft ready. Start typing to create it.'
-                          : 'Select a chat to view live details here.'}
-                      </p>
-                    </div>
-                  </div>
-                ) : isGameMasterMode ? (
+                {isGameMasterMode ? (
                     showRightPanelCharacterCreation ? (
                       <div className="flex h-full flex-col p-5 overflow-y-auto">
                         <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
