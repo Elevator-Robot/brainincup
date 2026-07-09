@@ -10,7 +10,6 @@ import TroubleDice3D from './components/TroubleDice3D';
 // import Panel from './components/ui/Panel';
 import { BottomInput } from './components/ui/RPGLayout';
 import ContextWindowPanel from './components/ContextWindowPanel';
-import ModeSelector from './components/ModeSelector';
 import type { GameEvent } from './hooks/useContextPanel';
 import { normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
@@ -385,7 +384,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [selectedMode, setSelectedMode] = useState<PersonalityModeId | null>(null);
+  const [brainConversationId, setBrainConversationId] = useState<string | null>(null);
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [mobileInfoExpanded, setMobileInfoExpanded] = useState(() =>
@@ -473,10 +472,12 @@ function App() {
     };
   }, [characterState, conversationId]);
   
-  // Personality mode state
-  const effectivePersonality = selectedMode ?? 'brain';
+  // Determine current mode based on active conversation
+  const effectivePersonality: PersonalityModeId = conversationId === brainConversationId ? 'brain' : 'game_master';
   const setPersonalityMode = (mode: PersonalityModeId) => {
-    setSelectedMode(mode);
+    if (mode === 'brain' && brainConversationId) {
+      setConversationId(brainConversationId);
+    }
   };
 
   const ensureAdventureState = useCallback(async (convId: string, modeOverride?: string): Promise<AdventureRecord | null> => {
@@ -953,6 +954,51 @@ function App() {
     }
     getUserAttributes();
   }, []);
+
+  // Initialize or load the singular Brain conversation
+  useEffect(() => {
+    async function initializeBrainConversation() {
+      if (!userAttributes || brainConversationId) return;
+      
+      try {
+        const currentUserId = userAttributes.sub || userAttributes.email || 'anonymous';
+        
+        // Look for existing Brain conversation
+        const { data: conversations } = await dataClient.models.Conversation.list({
+          filter: { personalityMode: { eq: 'brain' } },
+        });
+        
+        if (conversations && conversations.length > 0) {
+          // Use the existing Brain conversation
+          const brainConv = conversations[0];
+          if (brainConv?.id) {
+            setBrainConversationId(brainConv.id);
+            // Auto-select Brain conversation if no other conversation is active
+            if (!conversationId) {
+              await handleSelectConversation(brainConv.id);
+            }
+          }
+        } else {
+          // Create the singular Brain conversation
+          const { data: newConversation } = await dataClient.models.Conversation.create({
+            title: 'Brain',
+            participants: [currentUserId],
+            personalityMode: 'brain',
+          });
+          
+          if (newConversation?.id) {
+            setBrainConversationId(newConversation.id);
+            // Auto-select Brain conversation
+            await handleSelectConversation(newConversation.id);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing Brain conversation:', error);
+      }
+    }
+    
+    initializeBrainConversation();
+  }, [userAttributes, brainConversationId, conversationId]);
 
   // Save conversationId scoped by mode to prevent cross-talk between modes.
   useEffect(() => {
@@ -1675,9 +1721,10 @@ function App() {
 
   const handleNewConversation = async () => {
     adventureFetchLock.current = null;
-    const shouldShowCharacterFlow = effectivePersonality === 'game_master';
+    // New conversations are always game_master mode
+    const newConversationMode: PersonalityModeId = 'game_master';
     if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
+      window.localStorage.removeItem(getLastConversationStorageKey(newConversationMode));
     }
     setIsSelectingConversation(false);
     setConversationId(null);
@@ -1688,26 +1735,17 @@ function App() {
     setQuestSteps([]);
     setCharacterState(null);
     setPendingCharacterDraft(null);
-    setShowCharacterCreation(shouldShowCharacterFlow);
+    setShowCharacterCreation(true);
     setDraggingConversationId(null);
     setIsTrashDragOver(false);
     setExpandedMessageIndex(null);
     setIsNewInteractionPrimed(false);
 
-    if (shouldShowCharacterFlow) {
-      return;
-    }
-
     setIsSelectingConversation(true);
     try {
-      const createdConversationId = await createConversationWithMode(effectivePersonality);
+      const createdConversationId = await createConversationWithMode(newConversationMode);
       if (!createdConversationId) {
         return;
-      }
-      if (!shouldShowCharacterFlow) {
-        requestAnimationFrame(() => {
-          inputRef.current?.focus();
-        });
       }
     } finally {
       setIsSelectingConversation(false);
@@ -2128,11 +2166,6 @@ function App() {
 
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
 
-  // Show mode selector if no mode is selected
-  if (!selectedMode) {
-    return <ModeSelector onSelectMode={setPersonalityMode} />;
-  }
-
   return (
     <div className={`retro-rpg-ui ${appThemeClass} h-screen overflow-hidden relative`}>
 
@@ -2176,6 +2209,11 @@ function App() {
 
                   <ConversationSidebarIcons
                     onSelectConversation={handleSelectConversation}
+                    onSelectBrain={() => {
+                      if (brainConversationId) {
+                        handleSelectConversation(brainConversationId);
+                      }
+                    }}
                     refreshKey={conversationListRefreshKey}
                   />
 

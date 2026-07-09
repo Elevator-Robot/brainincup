@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
+import { normalizePersonalityMode } from '../constants/personalityModes';
 
 const dataClient = generateClient<Schema>();
 
@@ -19,11 +20,13 @@ const readStoredAvatarId = (conversationId: string): string => {
 
 interface ConversationSidebarIconsProps {
   onSelectConversation: (conversationId: string) => void;
+  onSelectBrain: () => void;
   refreshKey: number;
 }
 
 export default function ConversationSidebarIcons({
   onSelectConversation,
+  onSelectBrain,
   refreshKey,
 }: ConversationSidebarIconsProps) {
   const [icons, setIcons] = useState<Array<{ id: string; avatarSrc: string; avatarSrcWebp: string; title: string; preview: string }>>([]);
@@ -40,8 +43,14 @@ export default function ConversationSidebarIcons({
         return bDate - aDate;
       });
 
+      // Filter out Brain conversation - only show GM conversations
+      const gmConversations = sorted.filter(conv => {
+        const mode = normalizePersonalityMode(conv.personalityMode || 'brain');
+        return mode === 'game_master';
+      });
+
       const results = await Promise.all(
-        sorted.map(async (conv) => {
+        gmConversations.map(async (conv) => {
           if (!conv.id) return null;
           let avatarSrc = '';
           let avatarSrcWebp = '';
@@ -62,42 +71,39 @@ export default function ConversationSidebarIcons({
             }
           } catch { /* ignore */ }
 
-          const mode = conv.personalityMode || '';
-          if (mode === 'game_master' || mode === 'rpg_dm') {
+          try {
+            let characters;
             try {
-              let characters;
-              try {
-                const result = await dataClient.models.GameMasterCharacter.list({
-                  filter: { conversationId: { eq: conv.id } },
-                  limit: 1,
-                  authMode: 'userPool',
-                });
-                characters = result.data;
-              } catch {
-                const result = await dataClient.models.GameMasterCharacter.list({
-                  filter: { conversationId: { eq: conv.id } },
-                  limit: 1,
-                });
-                characters = result.data;
-              }
-              const character = characters?.[0];
-              const characterAvatarId = character?.avatarId ?? '';
-              const resolvedAvatarId = characterAvatarId || readStoredAvatarId(conv.id);
-              avatarSrc = resolvedAvatarId ? getAvatarSrcById(resolvedAvatarId) : '';
-              avatarSrcWebp = resolvedAvatarId ? getAvatarWebpSrcById(resolvedAvatarId) : '';
+              const result = await dataClient.models.GameMasterCharacter.list({
+                filter: { conversationId: { eq: conv.id } },
+                limit: 1,
+                authMode: 'userPool',
+              });
+              characters = result.data;
+            } catch {
+              const result = await dataClient.models.GameMasterCharacter.list({
+                filter: { conversationId: { eq: conv.id } },
+                limit: 1,
+              });
+              characters = result.data;
+            }
+            const character = characters?.[0];
+            const characterAvatarId = character?.avatarId ?? '';
+            const resolvedAvatarId = characterAvatarId || readStoredAvatarId(conv.id);
+            avatarSrc = resolvedAvatarId ? getAvatarSrcById(resolvedAvatarId) : '';
+            avatarSrcWebp = resolvedAvatarId ? getAvatarWebpSrcById(resolvedAvatarId) : '';
 
-              if (!preview) {
-                try {
-                  const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
-                    filter: { conversationId: { eq: conv.id } },
-                    limit: 1,
-                  });
-                  const location = adventureData?.[0]?.currentLocation;
-                  if (location) preview = location;
-                } catch { /* ignore */ }
-              }
-            } catch { /* ignore */ }
-          }
+            if (!preview) {
+              try {
+                const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
+                  filter: { conversationId: { eq: conv.id } },
+                  limit: 1,
+                });
+                const location = adventureData?.[0]?.currentLocation;
+                if (location) preview = location;
+              } catch { /* ignore */ }
+            }
+          } catch { /* ignore */ }
 
           return {
             id: conv.id,
@@ -119,6 +125,55 @@ export default function ConversationSidebarIcons({
 
   return (
     <div className="flex w-full flex-col items-center gap-2 overflow-y-auto flex-1 min-h-0 py-1">
+      {/* Brain avatar - always at top */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={onSelectBrain}
+          onMouseEnter={(e) => {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setTooltipPos({ x: rect.right + 10, y: rect.top + rect.height / 2 });
+            hoverTimeoutRef.current = setTimeout(() => setHoveredId('brain'), 300);
+          }}
+          onMouseLeave={() => {
+            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+            setHoveredId(null);
+          }}
+          className="h-12 w-12 rounded-xl overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border-2 border-violet-400/60 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 shadow-[0_0_12px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:scale-105"
+        >
+          <img
+            src="/brain-icon.svg"
+            alt="Brain"
+            className="h-8 w-8 object-contain brightness-0 invert"
+            onError={(e) => {
+              // Fallback to emoji if SVG doesn't exist
+              e.currentTarget.style.display = 'none';
+              const parent = e.currentTarget.parentElement;
+              if (parent && !parent.querySelector('.brain-fallback')) {
+                const span = document.createElement('span');
+                span.className = 'brain-fallback text-2xl';
+                span.textContent = '🧠';
+                parent.appendChild(span);
+              }
+            }}
+          />
+        </button>
+
+        {hoveredId === 'brain' && (
+          <div
+            className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-violet-400/40 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
+            style={{ left: tooltipPos.x, top: tooltipPos.y, transform: 'translateY(-50%)' }}
+          >
+            <p className="text-sm font-semibold text-brand-text-primary">Brain</p>
+            <p className="text-xs text-brand-text-muted mt-0.5">Return to consciousness</p>
+          </div>
+        )}
+      </div>
+
+      {/* Separator */}
+      <div className="w-8 h-px bg-brand-surface-border/50 my-1" />
+
+      {/* GM conversation icons */}
       {icons.map((icon) => (
         <div key={icon.id} className="relative">
           <button
