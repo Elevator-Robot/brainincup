@@ -1016,9 +1016,10 @@ function App() {
   }, [conversationId]);
 
   // Auto-load the last active conversation on app start
+  // This runs independently of Brain conversation initialization to prevent flash
   useEffect(() => {
     async function autoLoadConversation() {
-      if (!userAttributes || conversationId || !brainConversationId) return;
+      if (!userAttributes || conversationId) return;
       
       try {
         // For test mode, auto-select test conversation or create new one
@@ -1032,7 +1033,7 @@ function App() {
           return;
         }
 
-        // Check for last active conversation (any mode)
+        // Check for last active conversation (any mode) - do this FIRST
         const lastConversationId = localStorage.getItem('lastActiveConversationId');
         if (lastConversationId) {
           try {
@@ -1049,8 +1050,10 @@ function App() {
           }
         }
 
-        // No stored conversation — default to Brain
-        await handleSelectConversation(brainConversationId);
+        // No stored conversation — wait for Brain conversation to be ready, then select it
+        if (brainConversationId) {
+          await handleSelectConversation(brainConversationId);
+        }
       } catch (error) {
         console.error('❌ Error auto-loading conversation:', error);
       }
