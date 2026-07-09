@@ -21,12 +21,14 @@ const readStoredAvatarId = (conversationId: string): string => {
 interface ConversationSidebarIconsProps {
   onSelectConversation: (conversationId: string) => void;
   onSelectBrain: () => void;
+  activeConversationId: string | null;
   refreshKey: number;
 }
 
 export default function ConversationSidebarIcons({
   onSelectConversation,
   onSelectBrain,
+  activeConversationId,
   refreshKey,
 }: ConversationSidebarIconsProps) {
   const [icons, setIcons] = useState<Array<{ id: string; avatarSrc: string; avatarSrcWebp: string; title: string; preview: string }>>([]);
@@ -139,7 +141,11 @@ export default function ConversationSidebarIcons({
             if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
             setHoveredId(null);
           }}
-          className="h-12 w-12 rounded-xl transition-all duration-200 flex items-center justify-center shrink-0 border-2 border-violet-400/60 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 shadow-[0_0_12px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:scale-110"
+          className={`h-12 w-12 rounded-xl transition-all duration-200 flex items-center justify-center shrink-0 border-2 ${
+            activeConversationId === 'brain'
+              ? 'border-violet-400/80 bg-gradient-to-br from-violet-500/40 to-fuchsia-500/40 shadow-[inset_0_2px_8px_rgba(139,92,246,0.5)] scale-95'
+              : 'border-violet-400/60 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 shadow-[0_0_12px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:scale-110'
+          }`}
         >
           <img
             src="/brain-icon.svg"
@@ -189,7 +195,11 @@ export default function ConversationSidebarIcons({
               if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
               setHoveredId(null);
             }}
-            className="h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border border-brand-surface-border/40 bg-brand-surface-secondary/50"
+            className={`h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border ${
+              activeConversationId === icon.id
+                ? 'border-amber-400/80 shadow-[inset_0_2px_6px_rgba(0,0,0,0.4)] scale-95 bg-brand-surface-secondary/80'
+                : 'border-brand-surface-border/40 bg-brand-surface-secondary/50 hover:border-brand-surface-border/60'
+            }`}
           >
             {icon.avatarSrc ? (
               <picture>

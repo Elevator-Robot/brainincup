@@ -965,17 +965,11 @@ function App() {
         });
         
         if (conversations && conversations.length > 0) {
-          // Use the existing Brain conversation
           const brainConv = conversations[0];
           if (brainConv?.id) {
             setBrainConversationId(brainConv.id);
-            // Auto-select Brain conversation if no other conversation is active
-            if (!conversationId) {
-              await handleSelectConversation(brainConv.id);
-            }
           }
         } else {
-          // Create the singular Brain conversation
           const { data: newConversation } = await dataClient.models.Conversation.create({
             title: 'Brain',
             participants: [currentUserId],
@@ -984,8 +978,6 @@ function App() {
           
           if (newConversation?.id) {
             setBrainConversationId(newConversation.id);
-            // Auto-select Brain conversation
-            await handleSelectConversation(newConversation.id);
           }
         }
       } catch (error) {
@@ -994,7 +986,7 @@ function App() {
     }
     
     initializeBrainConversation();
-  }, [userAttributes, brainConversationId, conversationId]);
+  }, [userAttributes, brainConversationId]);
 
   // Save conversationId scoped by mode to prevent cross-talk between modes.
   useEffect(() => {
@@ -2204,6 +2196,7 @@ function App() {
                         handleSelectConversation(brainConversationId);
                       }
                     }}
+                    activeConversationId={conversationId === brainConversationId ? 'brain' : conversationId}
                     refreshKey={conversationListRefreshKey}
                   />
 
