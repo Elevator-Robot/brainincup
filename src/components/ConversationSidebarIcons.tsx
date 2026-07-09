@@ -143,7 +143,7 @@ export default function ConversationSidebarIcons({
           }}
           className={`h-12 w-12 rounded-xl transition-all duration-200 flex items-center justify-center shrink-0 border-2 ${
             activeConversationId === 'brain'
-              ? 'border-violet-400/80 bg-gradient-to-br from-violet-500/40 to-fuchsia-500/40 shadow-[inset_0_2px_8px_rgba(139,92,246,0.5)] scale-95'
+              ? 'border-brand-surface-border/80 bg-brand-surface-dark/80 shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)] scale-95'
               : 'border-violet-400/60 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 shadow-[0_0_12px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:scale-110'
           }`}
         >

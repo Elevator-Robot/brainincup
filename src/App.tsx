@@ -1005,13 +1005,19 @@ function App() {
     writeStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, mobileCharSheetExpanded);
   }, [mobileCharSheetExpanded]);
 
-  // Auto-load most recent conversation on app start (do not auto-create drafts).
+  // Save the last active conversation ID for restoration on refresh
+  useEffect(() => {
+    if (conversationId) {
+      localStorage.setItem('lastActiveConversationId', conversationId);
+    }
+  }, [conversationId]);
+
+  // Auto-load the last active conversation on app start
   useEffect(() => {
     async function autoLoadConversation() {
-      if (!userAttributes || conversationId) return; // Don't run if already have conversation or no user
+      if (!userAttributes || conversationId || !brainConversationId) return;
       
       try {
-        
         // For test mode, auto-select test conversation or create new one
         if (isTestModeEnabled()) {
           if (isNoConversationsTestMode()) {
@@ -1023,51 +1029,32 @@ function App() {
           return;
         }
 
-        // Check for last conversation ID scoped to the currently active mode.
-        const lastConversationStorageKey = getLastConversationStorageKey(effectivePersonality);
-        const lastConversationId = localStorage.getItem(lastConversationStorageKey);
+        // Check for last active conversation (any mode)
+        const lastConversationId = localStorage.getItem('lastActiveConversationId');
         if (lastConversationId) {
           try {
-            // Verify the conversation still exists
             const { data: conversation } = await dataClient.models.Conversation.get({ id: lastConversationId });
-            const conversationMode = normalizePersonalityMode(conversation?.personalityMode || 'brain');
-            if (conversation && conversationMode === effectivePersonality) {
+            if (conversation) {
               await handleSelectConversation(lastConversationId);
               return;
             } else {
-              localStorage.removeItem(lastConversationStorageKey);
+              localStorage.removeItem('lastActiveConversationId');
             }
           } catch (error) {
             console.error('❌ Error verifying last conversation:', error);
-            localStorage.removeItem(lastConversationStorageKey);
+            localStorage.removeItem('lastActiveConversationId');
           }
         }
 
-        // Load existing conversations
-        const { data: conversations } = await dataClient.models.Conversation.list();
-        const modeFilteredConversations = (conversations || []).filter((conversation) => {
-          const mode = normalizePersonalityMode(conversation.personalityMode || 'brain');
-          return mode === effectivePersonality;
-        });
-        
-        if (modeFilteredConversations.length > 0) {
-          // Sort by most recent and select the first one
-          const sortedConversations = modeFilteredConversations.sort((a, b) => {
-            const aDate = new Date(a.updatedAt || a.createdAt || 0);
-            const bDate = new Date(b.updatedAt || b.createdAt || 0);
-            return bDate.getTime() - aDate.getTime();
-          });
-          
-          const mostRecentConversation = sortedConversations[0];
-          await handleSelectConversation(mostRecentConversation.id!);
-        }
+        // No stored conversation — default to Brain
+        await handleSelectConversation(brainConversationId);
       } catch (error) {
         console.error('❌ Error auto-loading conversation:', error);
       }
     }
 
     autoLoadConversation();
-  }, [userAttributes, effectivePersonality]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userAttributes, brainConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ensure scroll to bottom on initial load and page refresh
   useEffect(() => {
