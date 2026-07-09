@@ -379,7 +379,6 @@ function GameMasterHud({ adventure, questSteps, character, isLoadingCharacter, o
 }
 
 function App() {
-  const [isLoading, setIsLoading] = useState(true);
   const [userAttributes, setUserAttributes] = useState<Record<string, string | undefined> | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -940,16 +939,13 @@ function App() {
         if (isTestModeEnabled()) {
           console.log('✅ Test mode: Setting mock user attributes');
           setUserAttributes({ sub: 'test-user-123', email: 'test@example.com' });
-          setIsLoading(false);
           return;
         }
 
         const attributes = await fetchUserAttributes();
         setUserAttributes(attributes);
-        setIsLoading(false);
       } catch (error) {
         console.error('❌ Error fetching user attributes:', error);
-        setIsLoading(false);
       }
     }
     getUserAttributes();
@@ -2005,8 +2001,6 @@ function App() {
   const hasGameMasterCharacterReady = Boolean(characterState || pendingCharacterDraft);
   const showGameMasterCharacterFlow = showCharacterCreation && isGameMasterMode && !isGameMasterContentLoading;
   const hasSelectedConversation = Boolean(conversationId) || showGameMasterCharacterFlow;
-  const isContentLoading = isLoading || isGameMasterContentLoading;
-  const isRightPanelLoading = (hasSelectedConversation || isGameMasterMode) && (isSelectingConversation || isContentLoading);
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && !hasGameMasterCharacterReady;
   const websiteUserProfile = useMemo(() => {
     const attrs = userAttributes ?? {};
@@ -2575,22 +2569,7 @@ function App() {
                       </p>
                     </div>
                   </div>
-                ) : isRightPanelLoading ? (
-                  <div className="flex h-full items-center justify-center p-5">
-                    <div className="flex items-center gap-2 text-brand-text-muted">
-                      <div className="h-5 w-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-sm uppercase tracking-[0.22em]">Loading</span>
-                    </div>
-                  </div>
                 ) : isGameMasterMode ? (
-                  isGameMasterContentLoading ? (
-                    <div className="flex h-full items-center justify-center p-5">
-                      <div className="flex items-center gap-2 text-brand-text-muted">
-                        <div className="h-5 w-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm uppercase tracking-[0.22em]">Loading</span>
-                      </div>
-                    </div>
-                  ) : (
                     showRightPanelCharacterCreation ? (
                       <div className="flex h-full flex-col p-5 overflow-y-auto">
                         <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
@@ -2670,7 +2649,6 @@ function App() {
 
                       </div>
                     )
-                  )
                 ) : (
                   <div className="flex h-full flex-col gap-4 p-5">
                     <div className="retro-mental-state-section">
