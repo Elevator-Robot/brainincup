@@ -197,7 +197,7 @@ export default function ConversationSidebarIcons({
             }}
             className={`h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border ${
               activeConversationId === icon.id
-                ? 'border-amber-400/80 shadow-[inset_0_2px_6px_rgba(0,0,0,0.4)] scale-95 bg-brand-surface-secondary/80'
+                ? 'border-brand-surface-border/60 bg-brand-surface-dark/60 scale-95'
                 : 'border-brand-surface-border/40 bg-brand-surface-secondary/50 hover:border-brand-surface-border/60'
             }`}
           >
