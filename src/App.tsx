@@ -960,18 +960,10 @@ function App() {
   }, []);
 
   // Initialize or load the singular Brain conversation
-  // Only runs if there's no stored conversation to restore
+  // Always runs to ensure brainConversationId is set
   useEffect(() => {
     async function initializeBrainConversation() {
       if (!userAttributes || brainConversationId) {
-        return;
-      }
-      
-      // Check if we have a stored conversation to restore first
-      const lastConversationId = localStorage.getItem('lastActiveConversationId');
-      
-      if (lastConversationId) {
-        // Will be handled by auto-load effect, skip Brain initialization
         return;
       }
       
