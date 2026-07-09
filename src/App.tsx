@@ -2358,16 +2358,7 @@ function App() {
                             </div>
                           )}
               
-              {isContentLoading && (
-                            <div className="flex justify-center items-center h-full min-h-[200px]">
-                              <div className="text-slate-400 flex items-center gap-2">
-                                <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                    Loading...
-                              </div>
-                            </div>
-                          )}
-              
-                          {messages.filter(m => !m.content?.startsWith('[SYSTEM:')).map((message, index) => (
+              {messages.filter(m => !m.content?.startsWith('[SYSTEM:')).map((message, index) => (
                             <div
                               key={index}
                               className={`retro-message-row flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -2926,15 +2917,6 @@ function App() {
                     onComplete={handleCharacterCreationComplete}
                     onCancel={handleCharacterCreationQuickStart}
                   />
-                </div>
-              )}
-              
-              {isContentLoading && (
-                <div className="flex justify-center items-center h-full min-h-[200px]">
-                  <div className="text-slate-400 flex items-center gap-2">
-                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                    Loading...
-                  </div>
                 </div>
               )}
               
