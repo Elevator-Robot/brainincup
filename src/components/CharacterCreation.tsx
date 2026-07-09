@@ -307,7 +307,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
                   }}
                   className={`group relative overflow-hidden rounded-lg p-0.5 transition-all duration-200 disabled:opacity-60 ${
                     avatarOption.id === avatarId
-                      ? 'shadow-[0_0_0_1px_rgba(168,85,247,0.45),0_10px_24px_rgba(44,14,84,0.28)]'
+                      ? 'scale-95 border-2 border-brand-surface-border/60 bg-brand-surface-dark/60'
                       : 'hover:scale-[1.08] hover:-translate-y-1 hover:shadow-[0_16px_28px_rgba(28,16,56,0.34)]'
                   }`}
                   aria-label={`Select ${avatarOption.label}`}
