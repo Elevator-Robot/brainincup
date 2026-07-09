@@ -18,7 +18,7 @@ import {
   getAvatarOptionsForRace,
   getAvatarOptionById,
 } from './constants/gameMasterAvatars';
-import { isNoConversationsTestMode, isTestModeEnabled } from './utils/testMode';
+import { isTestModeEnabled } from './utils/testMode';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -382,7 +382,11 @@ function App() {
   const [userAttributes, setUserAttributes] = useState<Record<string, string | undefined> | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  // Initialize conversationId from localStorage synchronously to prevent UI flash on refresh
+  const [conversationId, setConversationId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('lastActiveConversationId');
+  });
   const [brainConversationId, setBrainConversationId] = useState<string | null>(null);
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
@@ -472,7 +476,8 @@ function App() {
   }, [characterState, conversationId]);
   
   // Determine current mode based on active conversation
-  const effectivePersonality: PersonalityModeId = conversationId === brainConversationId ? 'brain' : 'game_master';
+  // Only 'brain' when we have an actual brain conversation loaded (not null === null)
+  const effectivePersonality: PersonalityModeId = conversationId && conversationId === brainConversationId ? 'brain' : 'game_master';
   const setPersonalityMode = (mode: PersonalityModeId) => {
     if (mode === 'brain' && brainConversationId) {
       setConversationId(brainConversationId);
@@ -958,26 +963,18 @@ function App() {
   // Only runs if there's no stored conversation to restore
   useEffect(() => {
     async function initializeBrainConversation() {
-      console.log('🧠 initializeBrainConversation effect running');
-      console.log('  - userAttributes:', !!userAttributes);
-      console.log('  - brainConversationId:', brainConversationId);
-      
       if (!userAttributes || brainConversationId) {
-        console.log('  ⏭️  Skipping Brain initialization');
         return;
       }
       
       // Check if we have a stored conversation to restore first
       const lastConversationId = localStorage.getItem('lastActiveConversationId');
-      console.log('  📖 localStorage lastActiveConversationId:', lastConversationId);
       
       if (lastConversationId) {
         // Will be handled by auto-load effect, skip Brain initialization
-        console.log('  ⏭️  Skipping Brain init - stored conversation exists');
         return;
       }
       
-      console.log('  🔄 No stored conversation, initializing Brain...');
       try {
         const currentUserId = userAttributes.sub || userAttributes.email || 'anonymous';
         
@@ -989,11 +986,9 @@ function App() {
         if (conversations && conversations.length > 0) {
           const brainConv = conversations[0];
           if (brainConv?.id) {
-            console.log('  ✅ Found existing Brain conversation:', brainConv.id);
             setBrainConversationId(brainConv.id);
           }
         } else {
-          console.log('  ➕ Creating new Brain conversation...');
           const { data: newConversation } = await dataClient.models.Conversation.create({
             title: 'Brain',
             participants: [currentUserId],
@@ -1001,7 +996,6 @@ function App() {
           });
           
           if (newConversation?.id) {
-            console.log('  ✅ Created new Brain conversation:', newConversation.id);
             setBrainConversationId(newConversation.id);
           }
         }
@@ -1033,119 +1027,30 @@ function App() {
   // Save the last active conversation ID for restoration on refresh
   useEffect(() => {
     if (conversationId) {
-      console.log('📝 Saving conversationId to localStorage:', conversationId);
       localStorage.setItem('lastActiveConversationId', conversationId);
     }
   }, [conversationId]);
 
-  // Track if we've already attempted auto-load to prevent multiple runs
-  const autoLoadAttemptedRef = useRef(false);
-  const brainFallbackAttemptedRef = useRef(false);
-
-  // Track if we've attempted auto-load to prevent UI flash
-  const [autoLoadComplete, setAutoLoadComplete] = useState(false);
-
-  // Auto-load the last active conversation on app start
-  // This runs as soon as we have userAttributes, WITHOUT waiting for brainConversationId
+  // On mount: if we have a stored conversationId (from localStorage init), load its data.
+  // If not, wait for Brain conversation to be ready and load that.
+  const initialLoadDoneRef = useRef(false);
   useEffect(() => {
-    async function autoLoadStoredConversation() {
-      console.log('🔄 autoLoadStoredConversation effect running');
-      console.log('  - userAttributes:', !!userAttributes);
-      console.log('  - conversationId:', conversationId);
-      console.log('  - autoLoadAttemptedRef.current:', autoLoadAttemptedRef.current);
-      
-      if (!userAttributes || conversationId) {
-        console.log('  ⏭️  Skipping auto-load');
-        setAutoLoadComplete(true);
-        return;
-      }
-      
-      // Set ref atomically to prevent double execution in StrictMode
-      if (autoLoadAttemptedRef.current) {
-        console.log('  ⏭️  Already attempted, skipping');
-        setAutoLoadComplete(true);
-        return;
-      }
-      autoLoadAttemptedRef.current = true;
-      
-      try {
-        // For test mode, auto-select test conversation or create new one
-        if (isTestModeEnabled()) {
-          if (isNoConversationsTestMode()) {
-            console.log('✅ Test mode: No conversations, waiting for first submit');
-          } else {
-            console.log('✅ Test mode: Auto-selecting test conversation');
-            setConversationId('test-conversation-1');
-          }
-          setAutoLoadComplete(true);
-          return;
-        }
+    if (!userAttributes || initialLoadDoneRef.current) return;
 
-        // Check for last active conversation (any mode) - do this FIRST
-        const lastConversationId = localStorage.getItem('lastActiveConversationId');
-        console.log('  📖 localStorage lastActiveConversationId:', lastConversationId);
-        
-        if (lastConversationId) {
-          try {
-            const { data: conversation } = await dataClient.models.Conversation.get({ id: lastConversationId });
-            console.log('  ✅ Found stored conversation:', conversation?.id);
-            if (conversation) {
-              console.log('  🎯 Loading stored conversation:', lastConversationId);
-              await handleSelectConversation(lastConversationId);
-              setAutoLoadComplete(true);
-              return;
-            } else {
-              console.log('  ❌ Stored conversation not found, removing from localStorage');
-              localStorage.removeItem('lastActiveConversationId');
-            }
-          } catch (error) {
-            console.error('❌ Error verifying last conversation:', error);
-            localStorage.removeItem('lastActiveConversationId');
-          }
-        }
-        
-        // No stored conversation found - will be handled by the Brain fallback effect
-        // Don't set autoLoadComplete here - let the Brain fallback effect handle it
-        console.log('  ℹ️  No stored conversation found, waiting for Brain fallback');
-      } catch (error) {
-        console.error('❌ Error auto-loading conversation:', error);
-        // Only set complete if there was an error (not just "no stored conversation")
-        setAutoLoadComplete(true);
+    async function loadInitialConversation() {
+      if (conversationId) {
+        // We have a stored conversation — load its data
+        initialLoadDoneRef.current = true;
+        await handleSelectConversation(conversationId);
+      } else if (brainConversationId) {
+        // No stored conversation — load Brain
+        initialLoadDoneRef.current = true;
+        await handleSelectConversation(brainConversationId);
       }
     }
 
-    autoLoadStoredConversation();
-  }, [userAttributes]); // Only depends on userAttributes, NOT brainConversationId
-
-  // Fallback: Load Brain conversation if no stored conversation was found
-  useEffect(() => {
-    async function loadBrainIfNoStoredConversation() {
-      console.log('🧠 loadBrainIfNoStoredConversation effect running');
-      console.log('  - userAttributes:', !!userAttributes);
-      console.log('  - conversationId:', conversationId);
-      console.log('  - brainConversationId:', brainConversationId);
-      console.log('  - brainFallbackAttemptedRef.current:', brainFallbackAttemptedRef.current);
-      
-      if (!userAttributes || conversationId || !brainConversationId) {
-        console.log('  ⏭️  Skipping Brain fallback');
-        return;
-      }
-      
-      // Set ref atomically to prevent double execution in StrictMode
-      if (brainFallbackAttemptedRef.current) {
-        console.log('  ⏭️  Already attempted, skipping');
-        return;
-      }
-      brainFallbackAttemptedRef.current = true;
-      
-      // Only run if we haven't already loaded a stored conversation
-      console.log('  🎯 Loading Brain conversation as fallback:', brainConversationId);
-      await handleSelectConversation(brainConversationId);
-      setAutoLoadComplete(true);
-    }
-
-    loadBrainIfNoStoredConversation();
-  }, [userAttributes, brainConversationId]);
+    loadInitialConversation();
+  }, [userAttributes, conversationId, brainConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ensure scroll to bottom on initial load and page refresh
   useEffect(() => {
@@ -2218,15 +2123,6 @@ function App() {
   }, [canUseDiceRoll, playerState, submitDiceResult]);
 
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
-
-  // Don't render main UI until we've determined which conversation to load
-  if (!autoLoadComplete) {
-    return (
-      <div className="retro-rpg-ui retro-rpg-ui--brain h-screen overflow-hidden relative flex items-center justify-center">
-        <div className="text-brand-text-primary">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <div className={`retro-rpg-ui ${appThemeClass} h-screen overflow-hidden relative`}>
