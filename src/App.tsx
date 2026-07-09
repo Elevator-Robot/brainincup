@@ -776,20 +776,23 @@ function App() {
         setIsLoadingAdventure(false);
         return;
       }
-      const character = await fetchCharacter(convId);
-      if (!character) {
-        setAdventureState(null);
-        setQuestSteps([]);
+
+      // Fetch character and adventure state in parallel
+      const [character, adventure] = await Promise.all([
+        fetchCharacter(convId),
+        ensureAdventureState(convId, activeMode),
+      ]);
+
+      if (!character || !adventure || !adventure.id) {
+        if (!character) {
+          setAdventureState(null);
+          setQuestSteps([]);
+        }
         adventureFetchLock.current = null;
         setIsLoadingAdventure(false);
         return;
       }
 
-      const adventure = await ensureAdventureState(convId, activeMode);
-      if (!adventure || !adventure.id) {
-        adventureFetchLock.current = null;
-        return;
-      }
       const adventureId = adventure.id as string;
       
       try {

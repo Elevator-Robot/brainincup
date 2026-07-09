@@ -7,6 +7,16 @@ import { normalizePersonalityMode } from '../constants/personalityModes';
 const dataClient = generateClient<Schema>();
 
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
+const CONVERSATION_CACHE_KEY = 'conversationMetadataCache';
+
+type ConversationMetadata = {
+  id: string;
+  avatarSrc: string;
+  avatarSrcWebp: string;
+  title: string;
+  preview: string;
+  updatedAt: string;
+};
 
 const readStoredAvatarId = (conversationId: string): string => {
   if (typeof window === 'undefined' || !conversationId) return '';
@@ -16,6 +26,22 @@ const readStoredAvatarId = (conversationId: string): string => {
     const parsed = JSON.parse(raw) as Record<string, string>;
     return parsed[conversationId] ?? '';
   } catch { return ''; }
+};
+
+const readConversationCache = (): ConversationMetadata[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(CONVERSATION_CACHE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as ConversationMetadata[];
+  } catch { return []; }
+};
+
+const writeConversationCache = (metadata: ConversationMetadata[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CONVERSATION_CACHE_KEY, JSON.stringify(metadata));
+  } catch { /* ignore */ }
 };
 
 interface ConversationSidebarIconsProps {
@@ -37,6 +63,12 @@ export default function ConversationSidebarIcons({
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   const loadIcons = useCallback(async () => {
+    // Show cached data immediately for instant load
+    const cached = readConversationCache();
+    if (cached.length > 0) {
+      setIcons(cached);
+    }
+
     try {
       const { data } = await dataClient.models.Conversation.list();
       const sorted = (data || []).sort((a, b) => {
@@ -51,61 +83,47 @@ export default function ConversationSidebarIcons({
         return mode === 'game_master';
       });
 
+      // Fetch all data in parallel for better performance
       const results = await Promise.all(
         gmConversations.map(async (conv) => {
           if (!conv.id) return null;
-          let avatarSrc = '';
-          let avatarSrcWebp = '';
-          let preview = '';
 
-          try {
-            const { data: messageData } = await dataClient.models.Message.list({
+          // Fetch character and latest message in parallel
+          const [characterResult, messageResult] = await Promise.all([
+            dataClient.models.GameMasterCharacter.list({
               filter: { conversationId: { eq: conv.id } },
               limit: 1,
-            });
-            const latest = (messageData || []).sort((a, b) => {
-              const aDate = new Date(a.timestamp || a.createdAt || 0).getTime();
-              const bDate = new Date(b.timestamp || b.createdAt || 0).getTime();
-              return bDate - aDate;
-            })[0];
-            if (latest?.content) {
-              preview = latest.content;
-            }
-          } catch { /* ignore */ }
+              authMode: 'userPool',
+            }).catch(() => null),
+            dataClient.models.Message.list({
+              filter: { conversationId: { eq: conv.id } },
+              limit: 1,
+            }).catch(() => null),
+          ]);
 
-          try {
-            let characters;
+          // Get avatar from character or stored fallback
+          const character = characterResult?.data?.[0];
+          const characterAvatarId = character?.avatarId ?? '';
+          const resolvedAvatarId = characterAvatarId || readStoredAvatarId(conv.id);
+          const avatarSrc = resolvedAvatarId ? getAvatarSrcById(resolvedAvatarId) : '';
+          const avatarSrcWebp = resolvedAvatarId ? getAvatarWebpSrcById(resolvedAvatarId) : '';
+
+          // Get preview from message or adventure location
+          let preview = '';
+          const latestMessage = messageResult?.data?.[0];
+          if (latestMessage?.content) {
+            preview = latestMessage.content;
+          } else {
+            // Fallback to adventure location
             try {
-              const result = await dataClient.models.GameMasterCharacter.list({
-                filter: { conversationId: { eq: conv.id } },
-                limit: 1,
-                authMode: 'userPool',
-              });
-              characters = result.data;
-            } catch {
-              const result = await dataClient.models.GameMasterCharacter.list({
+              const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
                 filter: { conversationId: { eq: conv.id } },
                 limit: 1,
               });
-              characters = result.data;
-            }
-            const character = characters?.[0];
-            const characterAvatarId = character?.avatarId ?? '';
-            const resolvedAvatarId = characterAvatarId || readStoredAvatarId(conv.id);
-            avatarSrc = resolvedAvatarId ? getAvatarSrcById(resolvedAvatarId) : '';
-            avatarSrcWebp = resolvedAvatarId ? getAvatarWebpSrcById(resolvedAvatarId) : '';
-
-            if (!preview) {
-              try {
-                const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
-                  filter: { conversationId: { eq: conv.id } },
-                  limit: 1,
-                });
-                const location = adventureData?.[0]?.currentLocation;
-                if (location) preview = location;
-              } catch { /* ignore */ }
-            }
-          } catch { /* ignore */ }
+              const location = adventureData?.[0]?.currentLocation;
+              if (location) preview = location;
+            } catch { /* ignore */ }
+          }
 
           return {
             id: conv.id,
@@ -113,11 +131,16 @@ export default function ConversationSidebarIcons({
             avatarSrcWebp,
             title: conv.title || 'Untitled',
             preview: preview || 'No messages yet',
+            updatedAt: conv.updatedAt || conv.createdAt || '',
           };
         })
       );
 
-      setIcons(results.filter(Boolean) as Array<{ id: string; avatarSrc: string; avatarSrcWebp: string; title: string; preview: string }>);
+      const filteredResults = results.filter(Boolean) as ConversationMetadata[];
+      setIcons(filteredResults);
+      
+      // Update cache with fresh data
+      writeConversationCache(filteredResults);
     } catch { /* ignore */ }
   }, []);
 
