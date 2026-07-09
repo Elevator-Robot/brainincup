@@ -2358,15 +2358,7 @@ function App() {
                             </div>
                           )}
               
-                          {messages.length === 0 && !isContentLoading && conversationId && (
-                            <div className="flex justify-center items-center h-full min-h-[300px]">
-                              <div className="text-center space-y-3 mt-64">
-                                <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
-                              </div>
-                            </div>
-                          )}
-              
-                          {isContentLoading && (
+              {isContentLoading && (
                             <div className="flex justify-center items-center h-full min-h-[200px]">
                               <div className="text-slate-400 flex items-center gap-2">
                                 <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
@@ -2934,14 +2926,6 @@ function App() {
                     onComplete={handleCharacterCreationComplete}
                     onCancel={handleCharacterCreationQuickStart}
                   />
-                </div>
-              )}
-              
-              {messages.length === 0 && !isContentLoading && conversationId && !showMobileInlineCharacterCreation && (
-                <div className="flex justify-center items-center h-full min-h-[300px]">
-                  <div className="retro-empty-state text-center space-y-3 px-4 mt-64">
-                    <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
-                  </div>
                 </div>
               )}
               
