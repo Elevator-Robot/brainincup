@@ -2008,9 +2008,6 @@ function App() {
   const isContentLoading = isLoading || isGameMasterContentLoading;
   const isRightPanelLoading = (hasSelectedConversation || isGameMasterMode) && (isSelectingConversation || isContentLoading);
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && !hasGameMasterCharacterReady;
-  const emptyStateTitle = (isSelectingConversation || isGameMasterContentLoading)
-    ? 'LOADING'
-    : (isGameMasterCharacterRequired ? 'Create Your Character' : 'No Conversation');
   const websiteUserProfile = useMemo(() => {
     const attrs = userAttributes ?? {};
     const joinedName = [attrs.given_name, attrs.family_name]
@@ -2364,9 +2361,6 @@ function App() {
                           {messages.length === 0 && !isContentLoading && conversationId && (
                             <div className="flex justify-center items-center h-full min-h-[300px]">
                               <div className="text-center space-y-3 mt-64">
-                                <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
-                                  {emptyStateTitle}
-                                </div>
                                 <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
                               </div>
                             </div>
@@ -2946,9 +2940,6 @@ function App() {
               {messages.length === 0 && !isContentLoading && conversationId && !showMobileInlineCharacterCreation && (
                 <div className="flex justify-center items-center h-full min-h-[300px]">
                   <div className="retro-empty-state text-center space-y-3 px-4 mt-64">
-                    <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
-                      {emptyStateTitle}
-                    </div>
                     <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
                   </div>
                 </div>
