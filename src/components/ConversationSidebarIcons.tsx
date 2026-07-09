@@ -2,10 +2,21 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
+import { normalizePersonalityMode } from '../constants/personalityModes';
 
 const dataClient = generateClient<Schema>();
 
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
+const CONVERSATION_CACHE_KEY = 'conversationMetadataCache';
+
+type ConversationMetadata = {
+  id: string;
+  avatarSrc: string;
+  avatarSrcWebp: string;
+  title: string;
+  preview: string;
+  updatedAt: string;
+};
 
 const readStoredAvatarId = (conversationId: string): string => {
   if (typeof window === 'undefined' || !conversationId) return '';
@@ -17,13 +28,33 @@ const readStoredAvatarId = (conversationId: string): string => {
   } catch { return ''; }
 };
 
+const readConversationCache = (): ConversationMetadata[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(CONVERSATION_CACHE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as ConversationMetadata[];
+  } catch { return []; }
+};
+
+const writeConversationCache = (metadata: ConversationMetadata[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CONVERSATION_CACHE_KEY, JSON.stringify(metadata));
+  } catch { /* ignore */ }
+};
+
 interface ConversationSidebarIconsProps {
   onSelectConversation: (conversationId: string) => void;
+  onSelectBrain: () => void;
+  activeConversationId: string | null;
   refreshKey: number;
 }
 
 export default function ConversationSidebarIcons({
   onSelectConversation,
+  onSelectBrain,
+  activeConversationId,
   refreshKey,
 }: ConversationSidebarIconsProps) {
   const [icons, setIcons] = useState<Array<{ id: string; avatarSrc: string; avatarSrcWebp: string; title: string; preview: string }>>([]);
@@ -32,6 +63,12 @@ export default function ConversationSidebarIcons({
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   const loadIcons = useCallback(async () => {
+    // Show cached data immediately for instant load
+    const cached = readConversationCache();
+    if (cached.length > 0) {
+      setIcons(cached);
+    }
+
     try {
       const { data } = await dataClient.models.Conversation.list();
       const sorted = (data || []).sort((a, b) => {
@@ -40,62 +77,51 @@ export default function ConversationSidebarIcons({
         return bDate - aDate;
       });
 
-      const results = await Promise.all(
-        sorted.map(async (conv) => {
-          if (!conv.id) return null;
-          let avatarSrc = '';
-          let avatarSrcWebp = '';
-          let preview = '';
+      // Filter out Brain conversation - only show GM conversations
+      const gmConversations = sorted.filter(conv => {
+        const mode = normalizePersonalityMode(conv.personalityMode || 'brain');
+        return mode === 'game_master';
+      });
 
-          try {
-            const { data: messageData } = await dataClient.models.Message.list({
+      // Fetch all data in parallel for better performance
+      const results = await Promise.all(
+        gmConversations.map(async (conv) => {
+          if (!conv.id) return null;
+
+          // Fetch character and latest message in parallel
+          const [characterResult, messageResult] = await Promise.all([
+            dataClient.models.GameMasterCharacter.list({
               filter: { conversationId: { eq: conv.id } },
               limit: 1,
-            });
-            const latest = (messageData || []).sort((a, b) => {
-              const aDate = new Date(a.timestamp || a.createdAt || 0).getTime();
-              const bDate = new Date(b.timestamp || b.createdAt || 0).getTime();
-              return bDate - aDate;
-            })[0];
-            if (latest?.content) {
-              preview = latest.content;
-            }
-          } catch { /* ignore */ }
+              authMode: 'userPool',
+            }).catch(() => null),
+            dataClient.models.Message.list({
+              filter: { conversationId: { eq: conv.id } },
+              limit: 1,
+            }).catch(() => null),
+          ]);
 
-          const mode = conv.personalityMode || '';
-          if (mode === 'game_master' || mode === 'rpg_dm') {
+          // Get avatar from character or stored fallback
+          const character = characterResult?.data?.[0];
+          const characterAvatarId = character?.avatarId ?? '';
+          const resolvedAvatarId = characterAvatarId || readStoredAvatarId(conv.id);
+          const avatarSrc = resolvedAvatarId ? getAvatarSrcById(resolvedAvatarId) : '';
+          const avatarSrcWebp = resolvedAvatarId ? getAvatarWebpSrcById(resolvedAvatarId) : '';
+
+          // Get preview from message or adventure location
+          let preview = '';
+          const latestMessage = messageResult?.data?.[0];
+          if (latestMessage?.content) {
+            preview = latestMessage.content;
+          } else {
+            // Fallback to adventure location
             try {
-              let characters;
-              try {
-                const result = await dataClient.models.GameMasterCharacter.list({
-                  filter: { conversationId: { eq: conv.id } },
-                  limit: 1,
-                  authMode: 'userPool',
-                });
-                characters = result.data;
-              } catch {
-                const result = await dataClient.models.GameMasterCharacter.list({
-                  filter: { conversationId: { eq: conv.id } },
-                  limit: 1,
-                });
-                characters = result.data;
-              }
-              const character = characters?.[0];
-              const characterAvatarId = character?.avatarId ?? '';
-              const resolvedAvatarId = characterAvatarId || readStoredAvatarId(conv.id);
-              avatarSrc = resolvedAvatarId ? getAvatarSrcById(resolvedAvatarId) : '';
-              avatarSrcWebp = resolvedAvatarId ? getAvatarWebpSrcById(resolvedAvatarId) : '';
-
-              if (!preview) {
-                try {
-                  const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
-                    filter: { conversationId: { eq: conv.id } },
-                    limit: 1,
-                  });
-                  const location = adventureData?.[0]?.currentLocation;
-                  if (location) preview = location;
-                } catch { /* ignore */ }
-              }
+              const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
+                filter: { conversationId: { eq: conv.id } },
+                limit: 1,
+              });
+              const location = adventureData?.[0]?.currentLocation;
+              if (location) preview = location;
             } catch { /* ignore */ }
           }
 
@@ -105,11 +131,16 @@ export default function ConversationSidebarIcons({
             avatarSrcWebp,
             title: conv.title || 'Untitled',
             preview: preview || 'No messages yet',
+            updatedAt: conv.updatedAt || conv.createdAt || '',
           };
         })
       );
 
-      setIcons(results.filter(Boolean) as Array<{ id: string; avatarSrc: string; avatarSrcWebp: string; title: string; preview: string }>);
+      const filteredResults = results.filter(Boolean) as ConversationMetadata[];
+      setIcons(filteredResults);
+      
+      // Update cache with fresh data
+      writeConversationCache(filteredResults);
     } catch { /* ignore */ }
   }, []);
 
@@ -118,8 +149,62 @@ export default function ConversationSidebarIcons({
   }, [loadIcons, refreshKey]);
 
   return (
-    <div className="flex w-full flex-col items-center gap-2 overflow-y-auto flex-1 min-h-0 py-1">
-      {icons.map((icon) => (
+    <div className="flex w-full flex-col items-center flex-1 min-h-0">
+      {/* Brain avatar - always at top, outside scroll area */}
+      <div className="relative shrink-0 py-2">
+        <button
+          type="button"
+          onClick={onSelectBrain}
+          onMouseEnter={(e) => {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setTooltipPos({ x: rect.right + 10, y: rect.top + rect.height / 2 });
+            hoverTimeoutRef.current = setTimeout(() => setHoveredId('brain'), 300);
+          }}
+          onMouseLeave={() => {
+            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+            setHoveredId(null);
+          }}
+          className={`h-12 w-12 rounded-xl transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none ${
+            activeConversationId === 'brain'
+              ? 'border-brand-surface-border/60 bg-brand-surface-dark/60 scale-95'
+              : 'border-violet-400/60 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 shadow-[0_0_12px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:scale-110'
+          }`}
+        >
+          <img
+            src="/brain-icon.svg"
+            alt="Brain"
+            className="h-8 w-8 object-contain brightness-0 invert"
+            onError={(e) => {
+              // Fallback to emoji if SVG doesn't exist
+              e.currentTarget.style.display = 'none';
+              const parent = e.currentTarget.parentElement;
+              if (parent && !parent.querySelector('.brain-fallback')) {
+                const span = document.createElement('span');
+                span.className = 'brain-fallback text-2xl';
+                span.textContent = '🧠';
+                parent.appendChild(span);
+              }
+            }}
+          />
+        </button>
+
+        {hoveredId === 'brain' && (
+          <div
+            className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-violet-400/40 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
+            style={{ left: tooltipPos.x, top: tooltipPos.y, transform: 'translateY(-50%)' }}
+          >
+            <p className="text-sm font-semibold text-brand-text-primary">Brain</p>
+            <p className="text-xs text-brand-text-muted mt-0.5">Return to consciousness</p>
+          </div>
+        )}
+      </div>
+
+      {/* Separator */}
+      <div className="w-8 h-px bg-brand-surface-border/50 shrink-0" />
+
+      {/* GM conversation icons - scrollable area */}
+      <div className="flex w-full flex-col items-center gap-2 overflow-y-auto flex-1 min-h-0 py-2">
+        {icons.map((icon) => (
         <div key={icon.id} className="relative">
           <button
             type="button"
@@ -133,7 +218,11 @@ export default function ConversationSidebarIcons({
               if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
               setHoveredId(null);
             }}
-            className="h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border border-brand-surface-border/40 bg-brand-surface-secondary/50"
+            className={`h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none ${
+              activeConversationId === icon.id
+                ? 'border-brand-accent-primary/80 bg-brand-surface-dark/80 scale-95 shadow-lg'
+                : 'border-brand-surface-border/40 bg-brand-surface-secondary/50 hover:border-brand-surface-border/60'
+            }`}
           >
             {icon.avatarSrc ? (
               <picture>
@@ -164,6 +253,7 @@ export default function ConversationSidebarIcons({
           )}
         </div>
       ))}
+      </div>
     </div>
   );
 }

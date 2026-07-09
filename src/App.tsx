@@ -18,7 +18,7 @@ import {
   getAvatarOptionsForRace,
   getAvatarOptionById,
 } from './constants/gameMasterAvatars';
-import { isNoConversationsTestMode, isTestModeEnabled } from './utils/testMode';
+import { isTestModeEnabled } from './utils/testMode';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -379,11 +379,15 @@ function GameMasterHud({ adventure, questSteps, character, isLoadingCharacter, o
 }
 
 function App() {
-  const [isLoading, setIsLoading] = useState(true);
   const [userAttributes, setUserAttributes] = useState<Record<string, string | undefined> | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  // Initialize conversationId from localStorage synchronously to prevent UI flash on refresh
+  const [conversationId, setConversationId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('lastActiveConversationId');
+  });
+  const [brainConversationId, setBrainConversationId] = useState<string | null>(null);
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [mobileInfoExpanded, setMobileInfoExpanded] = useState(() =>
@@ -471,11 +475,14 @@ function App() {
     };
   }, [characterState, conversationId]);
   
-  // Personality mode state
-  // Mode selection UI removed - defaulting to game_master mode
-  // Backend mode handlers remain intact for future integration
-  const setPersonalityMode = (_mode: string) => {}; // No-op for compatibility
-  const effectivePersonality = 'game_master';
+  // Determine current mode based on active conversation
+  // Only 'brain' when we have an actual brain conversation loaded (not null === null)
+  const effectivePersonality: PersonalityModeId = conversationId && conversationId === brainConversationId ? 'brain' : 'game_master';
+  const setPersonalityMode = (mode: PersonalityModeId) => {
+    if (mode === 'brain' && brainConversationId) {
+      setConversationId(brainConversationId);
+    }
+  };
 
   const ensureAdventureState = useCallback(async (convId: string, modeOverride?: string): Promise<AdventureRecord | null> => {
     const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
@@ -774,20 +781,23 @@ function App() {
         setIsLoadingAdventure(false);
         return;
       }
-      const character = await fetchCharacter(convId);
-      if (!character) {
-        setAdventureState(null);
-        setQuestSteps([]);
+
+      // Fetch character and adventure state in parallel
+      const [character, adventure] = await Promise.all([
+        fetchCharacter(convId),
+        ensureAdventureState(convId, activeMode),
+      ]);
+
+      if (!character || !adventure || !adventure.id) {
+        if (!character) {
+          setAdventureState(null);
+          setQuestSteps([]);
+        }
         adventureFetchLock.current = null;
         setIsLoadingAdventure(false);
         return;
       }
 
-      const adventure = await ensureAdventureState(convId, activeMode);
-      if (!adventure || !adventure.id) {
-        adventureFetchLock.current = null;
-        return;
-      }
       const adventureId = adventure.id as string;
       
       try {
@@ -937,20 +947,65 @@ function App() {
         if (isTestModeEnabled()) {
           console.log('✅ Test mode: Setting mock user attributes');
           setUserAttributes({ sub: 'test-user-123', email: 'test@example.com' });
-          setIsLoading(false);
           return;
         }
 
         const attributes = await fetchUserAttributes();
         setUserAttributes(attributes);
-        setIsLoading(false);
       } catch (error) {
         console.error('❌ Error fetching user attributes:', error);
-        setIsLoading(false);
       }
     }
     getUserAttributes();
   }, []);
+
+  // Initialize or load the singular Brain conversation
+  // Only runs if there's no stored conversation to restore
+  useEffect(() => {
+    async function initializeBrainConversation() {
+      if (!userAttributes || brainConversationId) {
+        return;
+      }
+      
+      // Check if we have a stored conversation to restore first
+      const lastConversationId = localStorage.getItem('lastActiveConversationId');
+      
+      if (lastConversationId) {
+        // Will be handled by auto-load effect, skip Brain initialization
+        return;
+      }
+      
+      try {
+        const currentUserId = userAttributes.sub || userAttributes.email || 'anonymous';
+        
+        // Look for existing Brain conversation
+        const { data: conversations } = await dataClient.models.Conversation.list({
+          filter: { personalityMode: { eq: 'brain' } },
+        });
+        
+        if (conversations && conversations.length > 0) {
+          const brainConv = conversations[0];
+          if (brainConv?.id) {
+            setBrainConversationId(brainConv.id);
+          }
+        } else {
+          const { data: newConversation } = await dataClient.models.Conversation.create({
+            title: 'Brain',
+            participants: [currentUserId],
+            personalityMode: 'brain',
+          });
+          
+          if (newConversation?.id) {
+            setBrainConversationId(newConversation.id);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing Brain conversation:', error);
+      }
+    }
+    
+    initializeBrainConversation();
+  }, [userAttributes, brainConversationId]);
 
   // Save conversationId scoped by mode to prevent cross-talk between modes.
   useEffect(() => {
@@ -969,69 +1024,33 @@ function App() {
     writeStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, mobileCharSheetExpanded);
   }, [mobileCharSheetExpanded]);
 
-  // Auto-load most recent conversation on app start (do not auto-create drafts).
+  // Save the last active conversation ID for restoration on refresh
   useEffect(() => {
-    async function autoLoadConversation() {
-      if (!userAttributes || conversationId) return; // Don't run if already have conversation or no user
-      
-      try {
-        
-        // For test mode, auto-select test conversation or create new one
-        if (isTestModeEnabled()) {
-          if (isNoConversationsTestMode()) {
-            console.log('✅ Test mode: No conversations, waiting for first submit');
-          } else {
-            console.log('✅ Test mode: Auto-selecting test conversation');
-            setConversationId('test-conversation-1');
-          }
-          return;
-        }
+    if (conversationId) {
+      localStorage.setItem('lastActiveConversationId', conversationId);
+    }
+  }, [conversationId]);
 
-        // Check for last conversation ID scoped to the currently active mode.
-        const lastConversationStorageKey = getLastConversationStorageKey(effectivePersonality);
-        const lastConversationId = localStorage.getItem(lastConversationStorageKey);
-        if (lastConversationId) {
-          try {
-            // Verify the conversation still exists
-            const { data: conversation } = await dataClient.models.Conversation.get({ id: lastConversationId });
-            const conversationMode = normalizePersonalityMode(conversation?.personalityMode || 'default');
-            if (conversation && conversationMode === effectivePersonality) {
-              await handleSelectConversation(lastConversationId);
-              return;
-            } else {
-              localStorage.removeItem(lastConversationStorageKey);
-            }
-          } catch (error) {
-            console.error('❌ Error verifying last conversation:', error);
-            localStorage.removeItem(lastConversationStorageKey);
-          }
-        }
+  // On mount: if we have a stored conversationId (from localStorage init), load its data.
+  // If not, wait for Brain conversation to be ready and load that.
+  const initialLoadDoneRef = useRef(false);
+  useEffect(() => {
+    if (!userAttributes || initialLoadDoneRef.current) return;
 
-        // Load existing conversations
-        const { data: conversations } = await dataClient.models.Conversation.list();
-        const modeFilteredConversations = (conversations || []).filter((conversation) => {
-          const mode = normalizePersonalityMode(conversation.personalityMode || 'default');
-          return mode === effectivePersonality;
-        });
-        
-        if (modeFilteredConversations.length > 0) {
-          // Sort by most recent and select the first one
-          const sortedConversations = modeFilteredConversations.sort((a, b) => {
-            const aDate = new Date(a.updatedAt || a.createdAt || 0);
-            const bDate = new Date(b.updatedAt || b.createdAt || 0);
-            return bDate.getTime() - aDate.getTime();
-          });
-          
-          const mostRecentConversation = sortedConversations[0];
-          await handleSelectConversation(mostRecentConversation.id!);
-        }
-      } catch (error) {
-        console.error('❌ Error auto-loading conversation:', error);
+    async function loadInitialConversation() {
+      if (conversationId) {
+        // We have a stored conversation — load its data
+        initialLoadDoneRef.current = true;
+        await handleSelectConversation(conversationId);
+      } else if (brainConversationId) {
+        // No stored conversation — load Brain
+        initialLoadDoneRef.current = true;
+        await handleSelectConversation(brainConversationId);
       }
     }
 
-    autoLoadConversation();
-  }, [userAttributes, effectivePersonality]); // eslint-disable-line react-hooks/exhaustive-deps
+    loadInitialConversation();
+  }, [userAttributes, conversationId, brainConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ensure scroll to bottom on initial load and page refresh
   useEffect(() => {
@@ -1583,17 +1602,10 @@ function App() {
       });
       
       if (conversationData) {
-        const storedMode = conversationData.personalityMode || 'default';
+        const storedMode = conversationData.personalityMode || 'brain';
         const normalizedMode = normalizePersonalityMode(storedMode);
-        if (normalizedMode !== effectivePersonality) {
-          console.warn('Refusing to select cross-mode interaction:', {
-            selectedConversationId,
-            normalizedMode,
-            effectivePersonality,
-          });
-          setIsWaitingForResponse(false);
-          return;
-        }
+        
+        // Load conversation based on its mode
         if (normalizedMode === 'game_master') {
           setShowCharacterCreation(false);
           const character = await fetchCharacter(selectedConversationId);
@@ -1673,9 +1685,10 @@ function App() {
 
   const handleNewConversation = async () => {
     adventureFetchLock.current = null;
-    const shouldShowCharacterFlow = effectivePersonality === 'game_master';
+    // New conversations are always game_master mode
+    const newConversationMode: PersonalityModeId = 'game_master';
     if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(getLastConversationStorageKey(effectivePersonality));
+      window.localStorage.removeItem(getLastConversationStorageKey(newConversationMode));
     }
     setIsSelectingConversation(false);
     setConversationId(null);
@@ -1686,26 +1699,17 @@ function App() {
     setQuestSteps([]);
     setCharacterState(null);
     setPendingCharacterDraft(null);
-    setShowCharacterCreation(shouldShowCharacterFlow);
+    setShowCharacterCreation(true);
     setDraggingConversationId(null);
     setIsTrashDragOver(false);
     setExpandedMessageIndex(null);
     setIsNewInteractionPrimed(false);
 
-    if (shouldShowCharacterFlow) {
-      return;
-    }
-
     setIsSelectingConversation(true);
     try {
-      const createdConversationId = await createConversationWithMode(effectivePersonality);
+      const createdConversationId = await createConversationWithMode(newConversationMode);
       if (!createdConversationId) {
         return;
-      }
-      if (!shouldShowCharacterFlow) {
-        requestAnimationFrame(() => {
-          inputRef.current?.focus();
-        });
       }
     } finally {
       setIsSelectingConversation(false);
@@ -1964,13 +1968,7 @@ function App() {
   const isGameMasterContentLoading = isGameMasterMode && Boolean(conversationId) && (isSelectingConversation || isLoadingCharacter || isLoadingAdventure);
   const hasGameMasterCharacterReady = Boolean(characterState || pendingCharacterDraft);
   const showGameMasterCharacterFlow = showCharacterCreation && isGameMasterMode && !isGameMasterContentLoading;
-  const hasSelectedConversation = Boolean(conversationId) || showGameMasterCharacterFlow;
-  const isContentLoading = isLoading || isGameMasterContentLoading;
-  const isRightPanelLoading = (hasSelectedConversation || isGameMasterMode) && (isSelectingConversation || isContentLoading);
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && !hasGameMasterCharacterReady;
-  const emptyStateTitle = (isSelectingConversation || isGameMasterContentLoading)
-    ? 'LOADING'
-    : (isGameMasterCharacterRequired ? 'Create Your Character' : 'No Conversation');
   const websiteUserProfile = useMemo(() => {
     const attrs = userAttributes ?? {};
     const joinedName = [attrs.given_name, attrs.family_name]
@@ -2125,6 +2123,7 @@ function App() {
   }, [canUseDiceRoll, playerState, submitDiceResult]);
 
   const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
+
   return (
     <div className={`retro-rpg-ui ${appThemeClass} h-screen overflow-hidden relative`}>
 
@@ -2168,6 +2167,12 @@ function App() {
 
                   <ConversationSidebarIcons
                     onSelectConversation={handleSelectConversation}
+                    onSelectBrain={() => {
+                      if (brainConversationId) {
+                        handleSelectConversation(brainConversationId);
+                      }
+                    }}
+                    activeConversationId={conversationId === brainConversationId ? 'brain' : conversationId}
                     refreshKey={conversationListRefreshKey}
                   />
 
@@ -2315,27 +2320,7 @@ function App() {
                             </div>
                           )}
               
-                          {messages.length === 0 && !isContentLoading && conversationId && (
-                            <div className="flex justify-center items-center h-full min-h-[300px]">
-                              <div className="text-center space-y-3 mt-64">
-                                <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
-                                  {emptyStateTitle}
-                                </div>
-                                <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
-                              </div>
-                            </div>
-                          )}
-              
-                          {isContentLoading && (
-                            <div className="flex justify-center items-center h-full min-h-[200px]">
-                              <div className="text-slate-400 flex items-center gap-2">
-                                <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                    Loading...
-                              </div>
-                            </div>
-                          )}
-              
-                          {messages.filter(m => !m.content?.startsWith('[SYSTEM:')).map((message, index) => (
+              {messages.filter(m => !m.content?.startsWith('[SYSTEM:')).map((message, index) => (
                             <div
                               key={index}
                               className={`retro-message-row flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -2541,33 +2526,7 @@ function App() {
           </main>
         <aside className="retro-shell-right">
           <div className="retro-right-container flex flex-col h-full overflow-y-auto">
-                {!hasSelectedConversation ? (
-                  <div className="flex h-full items-center justify-center p-5">
-                    <div className="text-center">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">No Chat Selected</p>
-                      <p className="mt-2 text-sm text-brand-text-secondary">
-                        {isNewInteractionPrimed
-                          ? 'New chat draft ready. Start typing to create it.'
-                          : 'Select a chat to view live details here.'}
-                      </p>
-                    </div>
-                  </div>
-                ) : isRightPanelLoading ? (
-                  <div className="flex h-full items-center justify-center p-5">
-                    <div className="flex items-center gap-2 text-brand-text-muted">
-                      <div className="h-5 w-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-sm uppercase tracking-[0.22em]">Loading</span>
-                    </div>
-                  </div>
-                ) : isGameMasterMode ? (
-                  isGameMasterContentLoading ? (
-                    <div className="flex h-full items-center justify-center p-5">
-                      <div className="flex items-center gap-2 text-brand-text-muted">
-                        <div className="h-5 w-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm uppercase tracking-[0.22em]">Loading</span>
-                      </div>
-                    </div>
-                  ) : (
+                {isGameMasterMode ? (
                     showRightPanelCharacterCreation ? (
                       <div className="flex h-full flex-col p-5 overflow-y-auto">
                         <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
@@ -2647,7 +2606,6 @@ function App() {
 
                       </div>
                     )
-                  )
                 ) : (
                   <div className="flex h-full flex-col gap-4 p-5">
                     <div className="retro-mental-state-section">
@@ -2894,26 +2852,6 @@ function App() {
                     onComplete={handleCharacterCreationComplete}
                     onCancel={handleCharacterCreationQuickStart}
                   />
-                </div>
-              )}
-              
-              {messages.length === 0 && !isContentLoading && conversationId && !showMobileInlineCharacterCreation && (
-                <div className="flex justify-center items-center h-full min-h-[300px]">
-                  <div className="retro-empty-state text-center space-y-3 px-4 mt-64">
-                    <div className="text-xs uppercase tracking-[0.4em] text-brand-text-muted">
-                      {emptyStateTitle}
-                    </div>
-                    <div className="w-16 h-1 mx-auto bg-gradient-to-r from-transparent via-brand-accent-primary/60 to-transparent rounded-full" />
-                  </div>
-                </div>
-              )}
-              
-              {isContentLoading && (
-                <div className="flex justify-center items-center h-full min-h-[200px]">
-                  <div className="text-slate-400 flex items-center gap-2">
-                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                    Loading...
-                  </div>
                 </div>
               )}
               
