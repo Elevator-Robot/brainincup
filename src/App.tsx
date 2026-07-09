@@ -955,9 +955,17 @@ function App() {
   }, []);
 
   // Initialize or load the singular Brain conversation
+  // Only runs if there's no stored conversation to restore
   useEffect(() => {
     async function initializeBrainConversation() {
       if (!userAttributes || brainConversationId) return;
+      
+      // Check if we have a stored conversation to restore first
+      const lastConversationId = localStorage.getItem('lastActiveConversationId');
+      if (lastConversationId) {
+        // Will be handled by auto-load effect, skip Brain initialization
+        return;
+      }
       
       try {
         const currentUserId = userAttributes.sub || userAttributes.email || 'anonymous';
@@ -1015,11 +1023,14 @@ function App() {
     }
   }, [conversationId]);
 
+  // Track if we've already attempted auto-load to prevent multiple runs
+  const autoLoadAttemptedRef = useRef(false);
+
   // Auto-load the last active conversation on app start
-  // This runs independently of Brain conversation initialization to prevent flash
+  // This runs as soon as we have userAttributes, without waiting for brainConversationId
   useEffect(() => {
     async function autoLoadConversation() {
-      if (!userAttributes || conversationId) return;
+      if (!userAttributes || conversationId || autoLoadAttemptedRef.current) return;
       
       try {
         // For test mode, auto-select test conversation or create new one
@@ -1039,6 +1050,7 @@ function App() {
           try {
             const { data: conversation } = await dataClient.models.Conversation.get({ id: lastConversationId });
             if (conversation) {
+              autoLoadAttemptedRef.current = true;
               await handleSelectConversation(lastConversationId);
               return;
             } else {
@@ -1051,7 +1063,9 @@ function App() {
         }
 
         // No stored conversation — wait for Brain conversation to be ready, then select it
-        if (brainConversationId) {
+        // We need to wait for brainConversationId to be set
+        if (brainConversationId && !autoLoadAttemptedRef.current) {
+          autoLoadAttemptedRef.current = true;
           await handleSelectConversation(brainConversationId);
         }
       } catch (error) {
