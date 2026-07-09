@@ -105,7 +105,6 @@ const stack = backend.stack;
 
 // ─── Image CDN (S3 + CloudFront) ────────────────────────────────────────────
 const imageBucket = new aws_s3.Bucket(stack, 'ImageCDNBucket', {
-  bucketName: `brainincup-images-${stack.account}-${stack.region}`,
   blockPublicAccess: aws_s3.BlockPublicAccess.BLOCK_ALL,
   encryption: aws_s3.BucketEncryption.S3_MANAGED,
   enforceSSL: true,
