@@ -124,9 +124,9 @@ export default function ConversationSidebarIcons({
   }, [loadIcons, refreshKey]);
 
   return (
-    <div className="flex w-full flex-col items-center gap-2 overflow-y-auto flex-1 min-h-0 py-1">
-      {/* Brain avatar - always at top */}
-      <div className="relative">
+    <div className="flex w-full flex-col items-center flex-1 min-h-0">
+      {/* Brain avatar - always at top, outside scroll area */}
+      <div className="relative shrink-0 py-2">
         <button
           type="button"
           onClick={onSelectBrain}
@@ -139,7 +139,7 @@ export default function ConversationSidebarIcons({
             if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
             setHoveredId(null);
           }}
-          className="h-12 w-12 rounded-xl overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border-2 border-violet-400/60 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 shadow-[0_0_12px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:scale-105"
+          className="h-12 w-12 rounded-xl transition-all duration-200 flex items-center justify-center shrink-0 border-2 border-violet-400/60 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 shadow-[0_0_12px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:scale-110"
         >
           <img
             src="/brain-icon.svg"
@@ -171,10 +171,11 @@ export default function ConversationSidebarIcons({
       </div>
 
       {/* Separator */}
-      <div className="w-8 h-px bg-brand-surface-border/50 my-1" />
+      <div className="w-8 h-px bg-brand-surface-border/50 shrink-0" />
 
-      {/* GM conversation icons */}
-      {icons.map((icon) => (
+      {/* GM conversation icons - scrollable area */}
+      <div className="flex w-full flex-col items-center gap-2 overflow-y-auto flex-1 min-h-0 py-2">
+        {icons.map((icon) => (
         <div key={icon.id} className="relative">
           <button
             type="button"
@@ -219,6 +220,7 @@ export default function ConversationSidebarIcons({
           )}
         </div>
       ))}
+      </div>
     </div>
   );
 }
