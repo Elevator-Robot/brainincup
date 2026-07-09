@@ -1040,6 +1040,7 @@ function App() {
 
   // Track if we've already attempted auto-load to prevent multiple runs
   const autoLoadAttemptedRef = useRef(false);
+  const brainFallbackAttemptedRef = useRef(false);
 
   // Track if we've attempted auto-load to prevent UI flash
   const [autoLoadComplete, setAutoLoadComplete] = useState(false);
@@ -1104,10 +1105,11 @@ function App() {
         }
         
         // No stored conversation found - will be handled by the Brain fallback effect
+        // Don't set autoLoadComplete here - let the Brain fallback effect handle it
         console.log('  ℹ️  No stored conversation found, waiting for Brain fallback');
-        setAutoLoadComplete(true);
       } catch (error) {
         console.error('❌ Error auto-loading conversation:', error);
+        // Only set complete if there was an error (not just "no stored conversation")
         setAutoLoadComplete(true);
       }
     }
@@ -1122,7 +1124,7 @@ function App() {
       console.log('  - userAttributes:', !!userAttributes);
       console.log('  - conversationId:', conversationId);
       console.log('  - brainConversationId:', brainConversationId);
-      console.log('  - autoLoadAttemptedRef.current:', autoLoadAttemptedRef.current);
+      console.log('  - brainFallbackAttemptedRef.current:', brainFallbackAttemptedRef.current);
       
       if (!userAttributes || conversationId || !brainConversationId) {
         console.log('  ⏭️  Skipping Brain fallback');
@@ -1130,11 +1132,11 @@ function App() {
       }
       
       // Set ref atomically to prevent double execution in StrictMode
-      if (autoLoadAttemptedRef.current) {
+      if (brainFallbackAttemptedRef.current) {
         console.log('  ⏭️  Already attempted, skipping');
         return;
       }
-      autoLoadAttemptedRef.current = true;
+      brainFallbackAttemptedRef.current = true;
       
       // Only run if we haven't already loaded a stored conversation
       console.log('  🎯 Loading Brain conversation as fallback:', brainConversationId);
