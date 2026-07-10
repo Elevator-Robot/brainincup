@@ -2605,7 +2605,7 @@ function App() {
                       <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 transition-all duration-500"
+                          className="h-full rounded-full bg-gradient-to-r from-white/40 via-white/60 to-white/40 backdrop-blur-sm shadow-[inset_0_1px_2px_rgba(255,255,255,0.3),0_0_8px_rgba(255,255,255,0.2)] transition-all duration-500"
                           style={{ width: `${mentalStateIntensity}%` }}
                         />
                       </div>
