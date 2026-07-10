@@ -35,16 +35,15 @@ const getImageCDNUrl = (): string => {
 
 const buildAvatarSrc = (fileName: string): string => {
   const cdnUrl = getImageCDNUrl();
-  const baseName = fileName.replace(/\.(png|jpe?g)$/i, '');
   if (cdnUrl) {
-    return `${cdnUrl}/avatars/${baseName}.webp`;
+    return `${cdnUrl}/avatars/${fileName}`;
   }
-  return `/images/avatars/${baseName}.webp`;
+  return `/images/avatars/${fileName}`;
 };
 
 const buildAvatarSrcThumbnail = (fileName: string): string => {
   const cdnUrl = getImageCDNUrl();
-  const baseName = fileName.replace(/\.(png|jpe?g)$/i, '');
+  const baseName = fileName.replace(/\.webp$/i, '');
   if (cdnUrl) {
     return `${cdnUrl}/avatars/thumbnails/${baseName}.webp`;
   }
@@ -53,48 +52,49 @@ const buildAvatarSrcThumbnail = (fileName: string): string => {
 
 const buildAvatarSrcMedium = (fileName: string): string => {
   const cdnUrl = getImageCDNUrl();
-  const baseName = fileName.replace(/\.(png|jpe?g)$/i, '');
+  const baseName = fileName.replace(/\.webp$/i, '');
   if (cdnUrl) {
     return `${cdnUrl}/avatars/medium/${baseName}.webp`;
   }
   return `/images/avatars/medium/${baseName}.webp`;
 };
 
-const AVATAR_FILE_NAMES_FALLBACK = [
-  'elvin-01.png',
-  'elvin-02.png',
-  'elvin-03.png',
-  'elvin-04.png',
-  'elvin-05.png',
-  'elvin-06.png',
-  'goblin-01.png',
-  'goblin-02.png',
-  'goblin-03.png',
-  'orc-01.png',
-  'orc-02.png',
-  'orc-03.png',
-  'orc-04.png',
-  'orc-05.png',
-  'orc-06.png',
-  'terran-01.png',
-  'terran-02.png',
-  'terran-03.png',
-  'terran-04.png',
-  'terran-05.png',
-  'terran-06.png',
-  'troll-01.png',
-  'troll-02.png',
-  'troll-03.png',
-  'troll-04.png',
+const AVATAR_FILE_NAMES = [
+  'elvin-01.webp',
+  'elvin-02.webp',
+  'elvin-03.webp',
+  'elvin-04.webp',
+  'elvin-05.webp',
+  'elvin-06.webp',
+  'goblin-01.webp',
+  'goblin-02.webp',
+  'goblin-03.webp',
+  'halfling-01.webp',
+  'halfling-02.webp',
+  'halfling-03.webp',
+  'halfling-04.webp',
+  'halfling-05.webp',
+  'halfling-06.webp',
+  'orc-01.webp',
+  'orc-02.webp',
+  'orc-03.webp',
+  'orc-04.webp',
+  'orc-05.webp',
+  'orc-06.webp',
+  'terran-01.webp',
+  'terran-02.webp',
+  'terran-03.webp',
+  'terran-04.webp',
+  'terran-05.webp',
+  'terran-06.webp',
+  'terran-07.webp',
+  'troll-01.webp',
+  'troll-02.webp',
+  'troll-03.webp',
+  'troll-04.webp',
+  'troll-05.webp',
+  'troll-06.webp',
 ] as const;
-
-const AVATAR_IMAGE_MODULES = import.meta.glob('/public/images/avatars/*.webp');
-
-const AVATAR_FILE_NAMES = (
-  Object.keys(AVATAR_IMAGE_MODULES)
-    .map((path) => path.split('/').pop() ?? '')
-    .filter((fileName): fileName is string => fileName.length > 0)
-);
 
 const RACE_LABELS: Record<PlayableRaceKey, string> = {
   goblin: 'Goblin',
@@ -144,7 +144,7 @@ const normalizeRaceKey = (race: string | null | undefined): PlayableRaceKey | nu
   return allowedRaces.has(normalized as PlayableRaceKey) ? (normalized as PlayableRaceKey) : null;
 };
 
-const AVATAR_FILE_PATTERN = /^([a-z0-9]+)(?:-([a-z0-9-]+))?-(\d{1,3})\.(png|jpe?g|webp|avif|svg)$/i;
+const AVATAR_FILE_PATTERN = /^([a-z0-9]+)(?:-([a-z0-9-]+))?-(\d{1,3})\.webp$/i;
 
 type ParsedAvatar = CharacterAvatarOption & { order: number };
 
@@ -180,7 +180,6 @@ const parseAvatarFileName = (fileName: string): ParsedAvatar | null => {
 };
 
 export const CHARACTER_AVATAR_OPTIONS: CharacterAvatarOption[] = AVATAR_FILE_NAMES
-  .concat(AVATAR_FILE_NAMES.length > 0 ? [] : [...AVATAR_FILE_NAMES_FALLBACK])
   .map(parseAvatarFileName)
   .filter((value): value is ParsedAvatar => value !== null)
   .sort((a, b) => {
