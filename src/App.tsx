@@ -382,10 +382,14 @@ function App() {
   const [userAttributes, setUserAttributes] = useState<Record<string, string | undefined> | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  // Initialize conversationId from localStorage synchronously to prevent UI flash on refresh
+  // Initialize both conversationId and personality mode from localStorage synchronously
   const [conversationId, setConversationId] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('lastActiveConversationId');
+  });
+  const [storedPersonalityMode, setStoredPersonalityMode] = useState<'brain' | 'game_master'>(() => {
+    if (typeof window === 'undefined') return 'game_master';
+    return (localStorage.getItem('lastPersonalityMode') as 'brain' | 'game_master') || 'game_master';
   });
   const [brainConversationId, setBrainConversationId] = useState<string | null>(null);
 
@@ -476,9 +480,22 @@ function App() {
   }, [characterState, conversationId]);
   
   // Determine current mode based on active conversation
-  // Only 'brain' when we have an actual brain conversation loaded (not null === null)
-  const effectivePersonality: PersonalityModeId = conversationId && conversationId === brainConversationId ? 'brain' : 'game_master';
+  // Use stored mode on initial load, then sync with actual conversation state
+  const effectivePersonality: PersonalityModeId = useMemo(() => {
+    // If we have a brainConversationId and it matches, we're in brain mode
+    if (brainConversationId && conversationId === brainConversationId) {
+      return 'brain';
+    }
+    // If we have a conversationId but brainConversationId isn't set yet, use stored mode
+    if (conversationId && !brainConversationId) {
+      return storedPersonalityMode;
+    }
+    // Default to game_master
+    return 'game_master';
+  }, [conversationId, brainConversationId, storedPersonalityMode]);
   const setPersonalityMode = (mode: PersonalityModeId) => {
+    setStoredPersonalityMode(mode);
+    localStorage.setItem('lastPersonalityMode', mode);
     if (mode === 'brain' && brainConversationId) {
       setConversationId(brainConversationId);
     }
@@ -960,18 +977,10 @@ function App() {
   }, []);
 
   // Initialize or load the singular Brain conversation
-  // Only runs if there's no stored conversation to restore
+  // Always runs to ensure brainConversationId is set
   useEffect(() => {
     async function initializeBrainConversation() {
       if (!userAttributes || brainConversationId) {
-        return;
-      }
-      
-      // Check if we have a stored conversation to restore first
-      const lastConversationId = localStorage.getItem('lastActiveConversationId');
-      
-      if (lastConversationId) {
-        // Will be handled by auto-load effect, skip Brain initialization
         return;
       }
       
@@ -1024,12 +1033,13 @@ function App() {
     writeStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, mobileCharSheetExpanded);
   }, [mobileCharSheetExpanded]);
 
-  // Save the last active conversation ID for restoration on refresh
+  // Save the last active conversation ID and personality mode for restoration on refresh
   useEffect(() => {
     if (conversationId) {
       localStorage.setItem('lastActiveConversationId', conversationId);
+      localStorage.setItem('lastPersonalityMode', effectivePersonality);
     }
-  }, [conversationId]);
+  }, [conversationId, effectivePersonality]);
 
   // On mount: if we have a stored conversationId (from localStorage init), load its data.
   // If not, wait for Brain conversation to be ready and load that.
@@ -1605,6 +1615,9 @@ function App() {
         const storedMode = conversationData.personalityMode || 'brain';
         const normalizedMode = normalizePersonalityMode(storedMode);
         
+        // Update personality mode to match the conversation type
+        setPersonalityMode(normalizedMode);
+        
         // Load conversation based on its mode
         if (normalizedMode === 'game_master') {
           setShowCharacterCreation(false);
@@ -2169,6 +2182,7 @@ function App() {
                     onSelectConversation={handleSelectConversation}
                     onSelectBrain={() => {
                       if (brainConversationId) {
+                        setPersonalityMode('brain');
                         handleSelectConversation(brainConversationId);
                       }
                     }}
@@ -2613,7 +2627,7 @@ function App() {
                       <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 transition-all duration-500"
+                          className="h-full rounded-full bg-gradient-to-r from-white/40 via-white/60 to-white/40 backdrop-blur-sm shadow-[inset_0_1px_2px_rgba(255,255,255,0.3),0_0_8px_rgba(255,255,255,0.2)] transition-all duration-500"
                           style={{ width: `${mentalStateIntensity}%` }}
                         />
                       </div>
