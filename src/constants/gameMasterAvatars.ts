@@ -60,14 +60,6 @@ const buildAvatarSrcMedium = (fileName: string): string => {
   return `/images/avatars/medium/${baseName}.webp`;
 };
 
-const buildAvatarSrcFallback = (fileName: string): string => {
-  const cdnUrl = getImageCDNUrl();
-  if (cdnUrl) {
-    return `${cdnUrl}/avatars/${fileName}`;
-  }
-  return `/images/avatars/${fileName}`;
-};
-
 const AVATAR_FILE_NAMES_FALLBACK = [
   'elvin-01.png',
   'elvin-02.png',
@@ -96,7 +88,7 @@ const AVATAR_FILE_NAMES_FALLBACK = [
   'troll-04.png',
 ] as const;
 
-const AVATAR_IMAGE_MODULES = import.meta.glob('/public/images/avatars/*.png');
+const AVATAR_IMAGE_MODULES = import.meta.glob('/public/images/avatars/*.webp');
 
 const AVATAR_FILE_NAMES = (
   Object.keys(AVATAR_IMAGE_MODULES)
@@ -172,11 +164,13 @@ const parseAvatarFileName = (fileName: string): ParsedAvatar | null => {
   const idBase = `${race}-${orderId}`;
   const label = `${RACE_LABELS[race]} ${order}`;
 
+  const webpSrc = buildAvatarSrc(fileName);
+
   return {
     id: classTag ? `${idBase}-${classTag}` : idBase,
     label: classTag ? `${label} (${classTag})` : label,
-    src: buildAvatarSrcFallback(fileName),
-    srcWebp: buildAvatarSrc(fileName),
+    src: webpSrc,
+    srcWebp: webpSrc,
     srcThumbnail: buildAvatarSrcThumbnail(fileName),
     srcMedium: buildAvatarSrcMedium(fileName),
     race,
