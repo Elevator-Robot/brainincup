@@ -96,7 +96,7 @@ const AVATAR_FILE_NAMES_FALLBACK = [
   'troll-04.png',
 ] as const;
 
-const AVATAR_IMAGE_MODULES = import.meta.glob('/public/images/avatars/*.{png,jpg,jpeg,webp,avif,svg}');
+const AVATAR_IMAGE_MODULES = import.meta.glob('/public/images/avatars/*.png');
 
 const AVATAR_FILE_NAMES = (
   Object.keys(AVATAR_IMAGE_MODULES)
