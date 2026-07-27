@@ -44,18 +44,24 @@ const writeConversationCache = (metadata: ConversationMetadata[]) => {
   } catch { /* ignore */ }
 };
 
+const CHAT_LIMIT = 3;
+
 interface ConversationSidebarIconsProps {
   onSelectConversation: (conversationId: string) => void;
   onSelectBrain: () => void;
+  onNewConversation: () => void;
   activeConversationId: string | null;
   refreshKey: number;
+  isDisabled: boolean;
 }
 
 export default function ConversationSidebarIcons({
   onSelectConversation,
   onSelectBrain,
+  onNewConversation,
   activeConversationId,
   refreshKey,
+  isDisabled,
 }: ConversationSidebarIconsProps) {
   const [icons, setIcons] = useState<Array<{ id: string; avatarSrc: string; avatarSrcWebp: string; title: string; preview: string }>>([]);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -204,7 +210,7 @@ export default function ConversationSidebarIcons({
 
       {/* GM conversation icons - scrollable area */}
       <div className="flex w-full flex-col items-center gap-2 overflow-y-auto flex-1 min-h-0 py-2">
-        {icons.map((icon) => (
+        {icons.filter(icon => icon.avatarSrc).map((icon) => (
         <div key={icon.id} className="relative">
           <button
             type="button"
@@ -224,22 +230,16 @@ export default function ConversationSidebarIcons({
                 : 'border-brand-surface-border/40 bg-brand-surface-secondary/50 hover:border-brand-surface-border/60'
             }`}
           >
-            {icon.avatarSrc ? (
-              <picture>
-                <source srcSet={icon.avatarSrcWebp} type="image/webp" />
-                <img
-                  src={icon.avatarSrc}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-cover object-center"
-                />
-              </picture>
-            ) : (
-              <span className="text-xs font-semibold text-brand-text-muted uppercase">
-                {icon.title.charAt(0)}
-              </span>
-            )}
+            <picture>
+              <source srcSet={icon.avatarSrcWebp} type="image/webp" />
+              <img
+                src={icon.avatarSrc}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover object-center"
+              />
+            </picture>
           </button>
 
           {hoveredId === icon.id && (
@@ -253,6 +253,24 @@ export default function ConversationSidebarIcons({
           )}
         </div>
       ))}
+
+        {/* New chat plus button - at bottom, only visible when under chat limit */}
+        {icons.filter(icon => icon.avatarSrc).length < CHAT_LIMIT && (
+          <button
+            type="button"
+            onClick={onNewConversation}
+            disabled={isDisabled}
+            className="plus-button h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
+            aria-label="Start new chat"
+            data-tooltip="New chat"
+            data-tooltip-position="right"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="10" y1="4" x2="10" y2="16" />
+              <line x1="4" y1="10" x2="16" y2="10" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );

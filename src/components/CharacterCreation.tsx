@@ -345,7 +345,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               className="flex-1 rounded-xl border border-brand-surface-border/45 bg-brand-surface-elevated/55 px-3 py-1.5 text-sm font-medium text-brand-text-secondary backdrop-blur-md transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-elevated/70 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isSubmitting}
             >
-              Quick
+              Cancel
             </button>
           )}
           <button
