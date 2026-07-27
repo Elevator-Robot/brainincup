@@ -102,8 +102,41 @@ function ContextWindowPanel({
         )}
 
         {activePanel === 'character' && !character && (
-          <div className="p-4 text-center text-brand-text-muted text-xs">
-            No character yet
+          <div className="p-4 space-y-3 animate-pulse">
+            {/* Avatar + name skeleton */}
+            <div className="flex items-center gap-3">
+              <div className="h-14 w-14 rounded-xl bg-brand-surface-hover" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 bg-brand-surface-hover rounded w-2/3" />
+                <div className="h-2 bg-brand-surface-hover rounded w-1/3" />
+              </div>
+            </div>
+            {/* HP bar skeleton */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between">
+                <div className="h-2 bg-brand-surface-hover rounded w-6" />
+                <div className="h-2 bg-brand-surface-hover rounded w-10" />
+              </div>
+              <div className="h-1.5 bg-brand-surface-hover rounded-full w-full" />
+            </div>
+            {/* XP bar skeleton */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between">
+                <div className="h-2 bg-brand-surface-hover rounded w-6" />
+                <div className="h-2 bg-brand-surface-hover rounded w-10" />
+              </div>
+              <div className="h-1.5 bg-brand-surface-hover rounded-full w-full" />
+            </div>
+            {/* Stats grid skeleton */}
+            <div className="grid grid-cols-3 gap-1.5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-brand-surface-hover rounded-lg p-1.5 space-y-1">
+                  <div className="h-1.5 bg-brand-surface-dark/50 rounded w-6 mx-auto" />
+                  <div className="h-3 bg-brand-surface-dark/50 rounded w-4 mx-auto" />
+                  <div className="h-1.5 bg-brand-surface-dark/50 rounded w-3 mx-auto" />
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
