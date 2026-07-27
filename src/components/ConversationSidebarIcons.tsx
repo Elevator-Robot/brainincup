@@ -80,7 +80,7 @@ export default function ConversationSidebarIcons({
       const sorted = (data || []).sort((a, b) => {
         const aDate = new Date(a.updatedAt || a.createdAt || 0).getTime();
         const bDate = new Date(b.updatedAt || b.createdAt || 0).getTime();
-        return bDate - aDate;
+        return aDate - bDate;
       });
 
       // Filter out Brain conversation - only show GM conversations
