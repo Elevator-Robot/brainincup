@@ -14,7 +14,7 @@ from agents import (
     SelfAgent,
     DepthAgent,
 )
-from core.config import setup_agentcore_client, setup_prompt_template, setup_parser
+from core.config import setup_client, setup_prompt_template, setup_parser
 from core.mode_handlers import create_mode_handler
 
 # Set up logging
@@ -33,7 +33,7 @@ class Controller:
         self.personality_mode = personality_mode or "default"
         prompt_template, persona_config = setup_prompt_template(self.personality_mode)
         parser = setup_parser()
-        agentcore_client = setup_agentcore_client()
+        agentcore_client = setup_client()
 
         # Initialize agents
         self.perception_agent = PerceptionAgent(

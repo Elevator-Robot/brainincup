@@ -1,13 +1,12 @@
 import logging
 from typing import Any, Dict, Optional
 
-from core.agentcore_client import AgentCoreClient
-
 logger = logging.getLogger(__name__)
 
 
 class LanguageAgent:
-    def __init__(self, agent_client: AgentCoreClient, persona_config: Dict[str, Any]):
+    def __init__(self, agent_client, persona_config: Dict[str, Any]):
+        """agent_client: AgentCoreClient or BedrockDirectClient (duck-typed, both implement .invoke())"""
         self.agent_client = agent_client
         self.persona_config = persona_config
         self.memory = []

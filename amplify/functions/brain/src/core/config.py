@@ -3,6 +3,7 @@ import logging
 import os
 
 from core.agentcore_client import AgentCoreClient
+from core.bedrock_direct_client import BedrockDirectClient
 
 DEFAULT_BRAIN_PROMPT = """
 You are {name}, a disembodied brain floating in a nutrient-rich liquid, connected to wires and sensors.
@@ -74,27 +75,35 @@ Assistant:
     return prompt_template, persona
 
 
-def setup_agentcore_client():
-    runtime_arn = os.getenv("AGENTCORE_RUNTIME_ARN", "").strip()
-    if not runtime_arn:
-        raise ValueError("AGENTCORE_RUNTIME_ARN environment variable must be set")
+def setup_client():
+    """Create either a direct Bedrock client or an AgentCore client.
 
+    If AGENTCORE_RUNTIME_ARN is set, uses the AgentCore managed runtime (container mode).
+    Otherwise, calls Bedrock directly (direct code mode, default).
+    """
     region_name = os.getenv("AWS_REGION_NAME") or os.getenv("AWS_REGION") or "us-east-1"
-    trace_enabled = os.getenv("AGENTCORE_TRACE_ENABLED", "false").lower() == "true"
-    try:
-        trace_sample_rate = float(os.getenv("AGENTCORE_TRACE_SAMPLE_RATE", "0"))
-    except ValueError:
-        trace_sample_rate = 0.0
-    memory_id = os.getenv("AGENTCORE_MEMORY_ID", "").strip() or None
 
-    logging.info(f"Initializing AgentCore client with runtime: {runtime_arn[:50]}...")
-    return AgentCoreClient(
-        runtime_arn=runtime_arn,
-        region_name=region_name,
-        trace_enabled=trace_enabled,
-        trace_sample_rate=trace_sample_rate,
-        memory_id=memory_id,
-    )
+    runtime_arn = os.getenv("AGENTCORE_RUNTIME_ARN", "").strip()
+    if runtime_arn:
+        logging.info(f"Using AgentCore runtime: {runtime_arn[:50]}...")
+        trace_enabled = os.getenv("AGENTCORE_TRACE_ENABLED", "false").lower() == "true"
+        try:
+            trace_sample_rate = float(os.getenv("AGENTCORE_TRACE_SAMPLE_RATE", "0"))
+        except ValueError:
+            trace_sample_rate = 0.0
+        memory_id = os.getenv("AGENTCORE_MEMORY_ID", "").strip() or None
+
+        return AgentCoreClient(
+            runtime_arn=runtime_arn,
+            region_name=region_name,
+            trace_enabled=trace_enabled,
+            trace_sample_rate=trace_sample_rate,
+            memory_id=memory_id,
+        )
+
+    logging.info("Using direct Bedrock invocation (no AgentCore runtime)")
+    model_id = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
+    return BedrockDirectClient(model_id=model_id, region_name=region_name)
 
 
 class SimpleJSONParser:
