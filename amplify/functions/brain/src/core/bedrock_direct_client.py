@@ -7,7 +7,7 @@ import boto3
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL_ID = "anthropic.claude-3-sonnet-20240229-v1:0"
+DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
 class BedrockDirectClient:
@@ -50,7 +50,6 @@ class BedrockDirectClient:
             "system": system_prompt,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temperature,
-            "top_p": top_p,
         }
 
         try:
@@ -64,6 +63,7 @@ class BedrockDirectClient:
                 raw_text = content[0].get("text", "")
             else:
                 raw_text = ""
+                logger.error("Bedrock returned empty content", extra={"model_id": self.model_id, "response": model_response})
 
             try:
                 return json.loads(raw_text)
@@ -71,7 +71,7 @@ class BedrockDirectClient:
                 return {"response": raw_text}
 
         except Exception as error:
-            logger.error("Bedrock direct invocation failed", exc_info=error)
+            logger.error("Bedrock direct invocation failed", extra={"model_id": self.model_id, "error_type": type(error).__name__}, exc_info=error)
             return {
                 "sensations": ["Error processing input"],
                 "thoughts": ["System malfunction"],

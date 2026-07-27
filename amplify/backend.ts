@@ -231,7 +231,7 @@ brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResource
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
 // Add Bedrock model ID env var for direct invocation
-brainLambda.addEnvironment('BEDROCK_MODEL_ID', getAgentCoreConfig('BEDROCK_MODEL_ID') ?? 'anthropic.claude-3-sonnet-20240229-v1:0');
+brainLambda.addEnvironment('BEDROCK_MODEL_ID', getAgentCoreConfig('BEDROCK_MODEL_ID') ?? 'us.anthropic.claude-haiku-4-5-20251001-v1:0');
 
 // Note: Previously this code created an AWS::BedrockAgentCore::Runtime with a
 // container image. The Lambda now calls Bedrock directly, eliminating the
@@ -251,7 +251,21 @@ new EventSourceMapping(stack, 'BrainMessageMapping', {
 
 brainLambda.addToRolePolicy(new PolicyStatement({
   actions: ['bedrock:InvokeModel'],
-  resources: [`arn:aws:bedrock:${stack.region}::foundation-model/*`],
+  resources: [
+    `arn:aws:bedrock:${stack.region}::foundation-model/*`,
+    `arn:aws:bedrock:${stack.region}:${stack.account}:inference-profile/*`,
+    'arn:aws:bedrock:*::foundation-model/*',
+    `arn:aws:bedrock:*:${stack.account}:inference-profile/*`,
+  ],
+  effect: Effect.ALLOW,
+}));
+
+brainLambda.addToRolePolicy(new PolicyStatement({
+  actions: [
+    'aws-marketplace:ViewSubscriptions',
+    'aws-marketplace:Subscribe',
+  ],
+  resources: ['*'],
   effect: Effect.ALLOW,
 }));
 

@@ -42,7 +42,7 @@ class BrainAgent:
     """
     
     def __init__(self):
-        self.model_id = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
+        self.model_id = os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
         self.bedrock_client = boto3.client('bedrock-runtime', region_name=os.getenv("AWS_REGION", "us-east-1"))
         logger.info(f"BrainAgent initialized with model: {self.model_id}")
     

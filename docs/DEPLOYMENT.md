@@ -75,7 +75,7 @@ The original AgentCore container setup is preserved and ready to use. To switch 
 
 Optional settings in `.env.agentcore`:
 
-- `BEDROCK_MODEL_ID`: Bedrock model to use (default: `anthropic.claude-3-sonnet-20240229-v1:0`)
+- `BEDROCK_MODEL_ID`: Bedrock model to use (default: `us.anthropic.claude-haiku-4-5-20251001-v1:0`)
 - `AGENTCORE_TRACE_ENABLED`: Enable tracing (default: `true`)
 - `AGENTCORE_TRACE_SAMPLE_RATE`: Trace sample rate 0.0-1.0 (default: `1.0`)
 
