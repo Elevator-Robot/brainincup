@@ -34,7 +34,6 @@ For technical implementation details and architecture diagrams, see [Backend Arc
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Docker (for local development of the AI runtime)
 
 ### Quick Start
 
@@ -82,6 +81,9 @@ The app works best when installed on mobile devices:
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build locally
 - `npm run lint` - Run code quality checks
+- `npm run deploy:sandbox` - Deploy backend infrastructure (no Docker needed)
+- `npm run deploy:all` - Full deployment
+- `npm run deploy:container` - Deploy using AgentCore container mode (requires Docker)
 
 ### Troubleshooting
 

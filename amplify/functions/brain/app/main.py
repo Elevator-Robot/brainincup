@@ -2,7 +2,10 @@
 Brain Lambda — DynamoDB stream handler for the brain function.
 
 Handles Message table stream events, runs the ContextEnrichmentPipeline,
-invokes AgentCore, and writes the BrainResponse back via AppSync.
+invokes Bedrock directly, and writes the BrainResponse back via AppSync.
+
+Previously this routed through a separate AgentCore container runtime.
+The agent-runtime/ directory and Dockerfile are kept for fallback.
 """
 
 from __future__ import annotations
@@ -44,44 +47,61 @@ game event fields in your JSON response: xp_award, hp_change, quest_step_advance
 quest_fail, world_flags_set, dice_roll_request, tension_level, area_transition, current_location, item_grant."""
 
 # ---------------------------------------------------------------------------
-# AgentCore invocation
+# Direct Bedrock invocation (replaces AgentCore container hop)
 # ---------------------------------------------------------------------------
 
-def _get_agentcore_endpoint() -> str:
-    return os.environ.get("AGENTCORE_ENDPOINT", "http://localhost:8080")
+BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
 
 
-def invoke_agentcore(prompt: str, conversation_id: str) -> dict:
+def _get_bedrock_client():
+    return boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+
+
+def invoke_bedrock(prompt: str, conversation_id: str) -> dict:
     """
-    Invoke the AgentCore runtime with the enriched prompt.
+    Invoke Bedrock directly with the enriched prompt.
+    Previously this was an HTTP call to the AgentCore container runtime.
     Returns the parsed JSON response dict.
     """
-    import urllib.request
+    bedrock_request = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 2048,
+        "system": GAME_MASTER_SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 1.0,
+        "top_p": 1.0,
+    }
 
-    endpoint = _get_agentcore_endpoint()
-    payload = json.dumps({
-        "prompt": prompt,
-        "persona": {
-            "name": "The Game Master",
-            "mode": "game_master",
-            "temperature": 1.0,
-            "top_p": 1.0,
-        },
-        "context": conversation_id,
-        "message": {"id": conversation_id, "owner": ""},
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        f"{endpoint}/invocations",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+        client = _get_bedrock_client()
+        response = client.invoke_model(
+            modelId=BEDROCK_MODEL_ID,
+            body=json.dumps(bedrock_request)
+        )
+        model_response = json.loads(response['body'].read())
+        content = model_response.get("content", [])
+        if content and isinstance(content, list) and len(content) > 0:
+            raw_text = content[0].get("text", "")
+        else:
+            raw_text = ""
+
+        try:
+            response_payload = json.loads(raw_text)
+            required_fields = ["sensations", "thoughts", "memories", "self_reflection", "response"]
+            if all(field in response_payload for field in required_fields):
+                return response_payload
+        except json.JSONDecodeError:
+            pass
+
+        return {
+            "sensations": ["Neural pathways activating"],
+            "thoughts": ["Analyzing the question"],
+            "memories": f"Context: {conversation_id}",
+            "self_reflection": "Working to understand and respond meaningfully",
+            "response": raw_text if raw_text else "I processed your message but encountered difficulty generating a structured response.",
+        }
     except Exception as exc:
-        logger.error("AgentCore invocation failed: %s", exc)
+        logger.error("Bedrock invocation failed: %s", exc)
         return {
             "response": "The Game Master is momentarily unavailable.",
             "sensations": [],
@@ -328,8 +348,8 @@ def handle_message_stream_event(record: dict) -> None:
     )
     prompt = (message_content or "") + game_context_block
 
-    # 7. Invoke AgentCore
-    agent_response = invoke_agentcore(prompt, conversation_id)
+    # 7. Invoke Bedrock directly (was AgentCore container runtime)
+    agent_response = invoke_bedrock(prompt, conversation_id)
 
     # 8. Write BrainResponse
     write_brain_response(conversation_id, message_id, agent_response)

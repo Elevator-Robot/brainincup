@@ -2,11 +2,11 @@ import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { brain } from './functions/brain/resource';
-import { PolicyStatement, Effect, ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { EventSourceMapping, StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import { FunctionUrlAuthType, HttpMethod } from 'aws-cdk-lib/aws-lambda';
 import { StreamViewType } from 'aws-cdk-lib/aws-dynamodb';
-import { Tags, CfnResource, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
+import { Tags, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -192,12 +192,6 @@ new CfnOutput(stack, 'ImageBucketName', {
 // ─── Observability Infrastructure ────────────────────────────────────────────
 const obsConfig = buildObservabilityConfig(getAgentCoreConfig);
 
-const sanitizeRuntimeName = (value: string) => {
-  const stripped = value.replace(/[^A-Za-z0-9_]/g, '') || 'BrainAgentRuntime';
-  const prefixed = /^[A-Za-z]/.test(stripped) ? stripped : `Brain${stripped}`;
-  return prefixed.slice(0, 48);
-};
-
 // Add tags to all resources in the stack
 Tags.of(stack).add('Project', 'BrainInCup');
 Tags.of(stack).add('Environment', stack.stackName.includes('sandbox') ? 'development' : 'production');
@@ -236,109 +230,16 @@ brainLambda.addEnvironment('ADVENTURE_TABLE_NAME', adventureTable.tableName);
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
-const agentcoreContainerUri = getAgentCoreConfig('AGENTCORE_CONTAINER_URI');
-// Generate unique runtime name based on stack name and account to avoid conflicts
-const baseRuntimeName = sanitizeRuntimeName(stack.stackName);
-const defaultRuntimeName = `${baseRuntimeName}-${stack.account.slice(-4)}`;
-const requestedRuntimeName = getAgentCoreConfig('AGENTCORE_RUNTIME_NAME') ?? defaultRuntimeName;
-let agentcoreRuntimeArn = getAgentCoreConfig('AGENTCORE_RUNTIME_ARN');
+// Add Bedrock model ID env var for direct invocation
+brainLambda.addEnvironment('BEDROCK_MODEL_ID', getAgentCoreConfig('BEDROCK_MODEL_ID') ?? 'anthropic.claude-3-sonnet-20240229-v1:0');
 
-// If no ARN is provided, require container URI to create runtime
-if (!agentcoreRuntimeArn) {
-  if (!agentcoreContainerUri) {
-    throw new Error(
-      'AgentCore runtime is required. Please provide either:\n' +
-      '  - AGENTCORE_RUNTIME_ARN (existing runtime ARN)\n' +
-      '  - AGENTCORE_CONTAINER_URI (to create new runtime)\n' +
-      'See docs/archive/AGENTCORE_RUNTIME_SETUP.md for setup instructions.'
-    );
-  }
-
-  // Create the runtime since ARN wasn't provided
-  const agentcoreRuntimeRole = new Role(stack, 'AgentCoreRuntimeRole', {
-    assumedBy: new ServicePrincipal('bedrock-agentcore.amazonaws.com'),
-    description: 'Execution role for Amazon Bedrock AgentCore runtime',
-  });
-  agentcoreRuntimeRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess'));
-  agentcoreRuntimeRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ContainerRegistryReadOnly'));
-  
-  // Add CloudWatch Logs permissions for runtime logging
-  agentcoreRuntimeRole.addToPolicy(new PolicyStatement({
-    actions: [
-      'logs:CreateLogGroup',
-      'logs:CreateLogStream',
-      'logs:PutLogEvents',
-    ],
-    resources: [
-      `arn:aws:logs:${stack.region}:${stack.account}:log-group:/aws/bedrock-agentcore/runtimes/*`,
-    ],
-    effect: Effect.ALLOW,
-  }));
-
-  const runtimeResource = new CfnResource(stack, 'AgentCoreRuntime', {
-    type: 'AWS::BedrockAgentCore::Runtime',
-    properties: {
-      AgentRuntimeName: sanitizeRuntimeName(requestedRuntimeName),
-      AgentRuntimeArtifact: {
-        ContainerConfiguration: {
-          ContainerUri: agentcoreContainerUri,
-        },
-      },
-      NetworkConfiguration: {
-        NetworkMode: getAgentCoreConfig('AGENTCORE_NETWORK_MODE') ?? 'PUBLIC',
-      },
-      EnvironmentVariables: {
-        LOG_LEVEL: getAgentCoreConfig('AGENTCORE_RUNTIME_LOG_LEVEL') ?? 'INFO',
-        AWS_REGION: stack.region,
-        OTEL_SERVICE_NAME: getAgentCoreConfig('OTEL_SERVICE_NAME') ?? 'brain-in-cup-agentcore-runtime',
-        OTEL_PROPAGATORS: getAgentCoreConfig('OTEL_PROPAGATORS') ?? 'xray,tracecontext,baggage',
-        // AgentCore OTEL observability env vars (Requirement 4.2)
-        AGENT_OBSERVABILITY_ENABLED: obsConfig.agentcoreEnabled ? 'true' : 'false',
-        OTEL_PYTHON_DISTRO: 'aws_distro',
-        OTEL_PYTHON_CONFIGURATOR: 'aws_configurator',
-        OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
-        OTEL_RESOURCE_ATTRIBUTES: 'service.name=brain-in-cup-agentcore-runtime',
-      },
-      RoleArn: agentcoreRuntimeRole.roleArn,
-      Description: 'Amazon Bedrock AgentCore runtime managed by Amplify Gen2 backend',
-      Tags: {
-        Project: 'BrainInCup',
-        ManagedBy: 'Amplify',
-      },
-    },
-  });
-
-  agentcoreRuntimeArn = runtimeResource.getAtt('AgentRuntimeArn').toString();
-
-  new CfnOutput(stack, 'AgentCoreRuntimeArn', {
-    value: agentcoreRuntimeArn,
-    description: 'ARN of the provisioned Amazon Bedrock AgentCore runtime',
-  });
-}
-
-// Now agentcoreRuntimeArn is guaranteed to be set
-brainLambda.addEnvironment('AGENTCORE_RUNTIME_ARN', agentcoreRuntimeArn);
-brainLambda.addEnvironment('AGENTCORE_TRACE_ENABLED', getAgentCoreConfig('AGENTCORE_TRACE_ENABLED') ?? 'true');
-brainLambda.addEnvironment('AGENTCORE_TRACE_SAMPLE_RATE', getAgentCoreConfig('AGENTCORE_TRACE_SAMPLE_RATE') ?? '1.0');
-const agentcoreMemoryId = getAgentCoreConfig('AGENTCORE_MEMORY_ID');
-if (agentcoreMemoryId) {
-  brainLambda.addEnvironment('AGENTCORE_MEMORY_ID', agentcoreMemoryId);
-}
-const agentcoreMemorySemanticStrategyId = getAgentCoreConfig('AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID');
-if (agentcoreMemorySemanticStrategyId) {
-  brainLambda.addEnvironment('AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID', agentcoreMemorySemanticStrategyId);
-}
-const agentcoreMemoryStrategyId = getAgentCoreConfig('AGENTCORE_MEMORY_STRATEGY_ID');
-if (agentcoreMemoryStrategyId) {
-  brainLambda.addEnvironment('AGENTCORE_MEMORY_STRATEGY_ID', agentcoreMemoryStrategyId);
-}
-const agentcoreMemoryCharacterStrategyId = getAgentCoreConfig('AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID');
-if (agentcoreMemoryCharacterStrategyId) {
-  brainLambda.addEnvironment('AGENTCORE_MEMORY_CHARACTER_STRATEGY_ID', agentcoreMemoryCharacterStrategyId);
-}
-const agentcoreMemoryResource = agentcoreMemoryId
-  ? `arn:aws:bedrock-agentcore:${stack.region}:${stack.account}:memory/${agentcoreMemoryId}`
-  : '*';
+// Note: Previously this code created an AWS::BedrockAgentCore::Runtime with a
+// container image. The Lambda now calls Bedrock directly, eliminating the
+// container hop. The agent-runtime/ directory, Dockerfile, and related
+// resources are preserved for easy fallback.
+//
+// To switch back to container mode, uncomment the AgentCore runtime block
+// (see agent-runtime/README.md for instructions).
 
 // Note: Layer is already defined in amplify/functions/brain/resource.ts
 
@@ -349,21 +250,8 @@ new EventSourceMapping(stack, 'BrainMessageMapping', {
 });
 
 brainLambda.addToRolePolicy(new PolicyStatement({
-  actions: ['bedrock-agentcore:InvokeAgentRuntime', 'bedrock-agentcore:InvokeAgentRuntimeForUser'],
-  resources: agentcoreRuntimeArn ? [
-    agentcoreRuntimeArn,
-    `${agentcoreRuntimeArn}/*`,
-  ] : ['*'],
-  effect: Effect.ALLOW,
-}));
-
-brainLambda.addToRolePolicy(new PolicyStatement({
-  actions: [
-    'bedrock-agentcore:CreateEvent',
-    'bedrock-agentcore:RetrieveMemoryRecords',
-    'bedrock-agentcore:BatchCreateMemoryRecords',
-  ],
-  resources: [agentcoreMemoryResource],
+  actions: ['bedrock:InvokeModel'],
+  resources: [`arn:aws:bedrock:${stack.region}::foundation-model/*`],
   effect: Effect.ALLOW,
 }));
 
@@ -539,22 +427,6 @@ new cr.AwsCustomResource(stack, 'TransactionSearchResourcePolicy', {
 
 // ─── CloudWatch Alarms ────────────────────────────────────────────────────────
 
-// Alarm: InvocationErrors > 5 in 5 minutes (bedrock-agentcore namespace)
-const invocationErrorsAlarm = new aws_cloudwatch.Alarm(stack, 'BedrockAgentCoreInvocationErrorsAlarm', {
-  alarmName: `BrainInCup-${stack.stackName}-InvocationErrors`,
-  alarmDescription: 'AgentCore invocation error rate exceeded threshold',
-  metric: new aws_cloudwatch.Metric({
-    namespace: 'bedrock-agentcore',
-    metricName: 'InvocationErrors',
-    period: Duration.minutes(5),
-    statistic: 'Sum',
-  }),
-  threshold: 5,
-  evaluationPeriods: 1,
-  comparisonOperator: aws_cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-  treatMissingData: aws_cloudwatch.TreatMissingData.NOT_BREACHING,
-});
-
 // Alarm: InvocationLatency p99 > 30000 ms in 5 minutes (AWS/Bedrock namespace)
 const invocationLatencyAlarm = new aws_cloudwatch.Alarm(stack, 'BedrockInvocationLatencyAlarm', {
   alarmName: `BrainInCup-${stack.stackName}-InvocationLatency-p99`,
@@ -576,13 +448,12 @@ if (obsConfig.alarmSnsArn) {
   const snsAction = new aws_cloudwatch_actions.SnsAction(
     aws_sns.Topic.fromTopicArn(stack, 'ObservabilityAlarmTopic', obsConfig.alarmSnsArn)
   );
-  invocationErrorsAlarm.addAlarmAction(snsAction);
   invocationLatencyAlarm.addAlarmAction(snsAction);
 } else {
   // Emit alarm ARNs as output when no SNS topic is configured
   new CfnOutput(stack, 'ObservabilityAlarmArns', {
-    value: [invocationErrorsAlarm.alarmArn, invocationLatencyAlarm.alarmArn].join(','),
-    description: 'CloudWatch alarm ARNs for Bedrock observability (configure OBSERVABILITY_ALARM_SNS_ARN to add SNS notifications)',
+    value: invocationLatencyAlarm.alarmArn,
+    description: 'CloudWatch alarm ARN for Bedrock latency (configure OBSERVABILITY_ALARM_SNS_ARN to add SNS notifications)',
   });
 }
 
@@ -661,10 +532,6 @@ dashboard.addWidgets(
   new aws_cloudwatch.GraphWidget({
     title: 'Bedrock Invocation Latency',
     left: [new aws_cloudwatch.Metric({ namespace: 'AWS/Bedrock', metricName: 'InvocationLatency', statistic: 'p99', period: Duration.minutes(5) })],
-  }),
-  new aws_cloudwatch.GraphWidget({
-    title: 'AgentCore Invocation Errors',
-    left: [new aws_cloudwatch.Metric({ namespace: 'bedrock-agentcore', metricName: 'InvocationErrors', statistic: 'Sum', period: Duration.minutes(5) })],
   }),
 );
 

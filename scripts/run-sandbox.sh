@@ -17,15 +17,5 @@ if [ -n "${EXISTING_SANDBOX_PIDS// }" ]; then
   exit 1
 fi
 
-echo "== Setup AgentCore env =="
-# shellcheck source=/dev/null
-source "${SCRIPT_DIR}/setup-agentcore-env.sh" <<< "y"
-
-if [ -z "${AGENTCORE_RUNTIME_ARN:-}" ] && [ -z "${AGENTCORE_CONTAINER_URI:-}" ]; then
-  echo "❌ Error: AgentCore runtime configuration is missing."
-  echo "Set AGENTCORE_RUNTIME_ARN or AGENTCORE_CONTAINER_URI, then rerun."
-  exit 1
-fi
-
-echo "== Run Amplify sandbox =="
+echo "🚀 Running Amplify sandbox (direct Bedrock mode)..."
 NODE_OPTIONS=--no-experimental-webstorage npx ampx sandbox --once

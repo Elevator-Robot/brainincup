@@ -15,10 +15,6 @@ Builds the Lambda layer with Python dependencies for the Brain function.
 ./scripts/build-lambda-layer.sh
 ```
 
-**Requirements**:
-- Docker (recommended) OR Python 3.12 with pip
-- Internet connection to download dependencies
-
 **What it does**:
 1. Cleans existing layer directory
 2. Installs Python packages for Linux x86_64 / Python 3.12
@@ -31,19 +27,17 @@ Builds the Lambda layer with Python dependencies for the Brain function.
 - When Lambda import errors occur
 - When switching between development machines
 
-**Troubleshooting**:
-- If Docker not available, script automatically falls back to pip with platform flags
-- Start Docker Desktop if you see "Docker daemon not running"
-- See `amplify/functions/brain/README.md` for detailed troubleshooting
-
 ## Quick Reference
 
 ```bash
 # Build Lambda layer
 ./scripts/build-lambda-layer.sh
 
-# Deploy to sandbox
-npx ampx sandbox --profile brain
+# Deploy to sandbox (direct Bedrock mode, no Docker)
+./scripts/deploy-sandbox.sh
+
+# Deploy with container (requires Docker)
+./scripts/update-agent-image.sh && ./scripts/deploy-sandbox.sh
 
 # Local development
 npm run dev
