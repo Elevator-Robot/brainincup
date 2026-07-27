@@ -15,7 +15,6 @@ import { normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import {
   chooseAutoAvatarId,
-  getAvatarOptionsForRace,
   getAvatarOptionById,
 } from './constants/gameMasterAvatars';
 import { isTestModeEnabled } from './utils/testMode';
@@ -436,25 +435,27 @@ function App() {
   const characterCreationLock = useRef(false);
   const adventureFetchLock = useRef<string | null>(null);
   
-  // Helper to get character display data with fallbacks
+  // Helper to get character display data — returns null when no character exists
   const getCharacterData = useCallback(() => {
+    if (!characterState) return null;
+    
     const stats = {
-      strength: characterState?.strength || 10,
-      dexterity: characterState?.dexterity || 12,
-      constitution: characterState?.constitution || 14,
-      intelligence: characterState?.intelligence || 16,
-      wisdom: characterState?.wisdom || 13,
-      charisma: characterState?.charisma || 11,
+      strength: characterState.strength ?? 10,
+      dexterity: characterState.dexterity ?? 10,
+      constitution: characterState.constitution ?? 10,
+      intelligence: characterState.intelligence ?? 10,
+      wisdom: characterState.wisdom ?? 10,
+      charisma: characterState.charisma ?? 10,
     };
     
     const hp = {
-      current: characterState?.currentHP || 12,
-      max: characterState?.maxHP || 12,
-      percentage: ((characterState?.currentHP || 12) / (characterState?.maxHP || 12)) * 100,
+      current: characterState.currentHP ?? 0,
+      max: characterState.maxHP ?? 0,
+      percentage: characterState.maxHP ? ((characterState.currentHP ?? 0) / characterState.maxHP) * 100 : 0,
     };
     
-    const inventory = parseInventoryItems(characterState?.inventory);
-    const avatarId = getAvatarOptionById(characterState?.avatarId ?? '')?.id
+    const inventory = parseInventoryItems(characterState.inventory);
+    const avatarId = getAvatarOptionById(characterState.avatarId ?? '')?.id
       ?? getAvatarOptionById(getStoredConversationAvatarId(conversationId))?.id
       ?? '';
     const avatarOption = avatarId ? getAvatarOptionById(avatarId) : undefined;
@@ -464,10 +465,10 @@ function App() {
     const avatarSrcMedium = avatarOption?.srcMedium ?? '';
     
     return {
-      name: characterState?.name || 'Adventurer',
-      race: characterState?.race || 'Wanderer',
-      characterClass: characterState?.characterClass || 'Wanderer',
-      level: characterState?.level || 1,
+      name: characterState.name ?? '',
+      race: characterState.race ?? '',
+      characterClass: characterState.characterClass ?? '',
+      level: characterState.level ?? 1,
       avatarId,
       avatarSrc,
       avatarSrcWebp,
@@ -1926,55 +1927,28 @@ function App() {
     );
   }, [conversationId, createCharacter, createConversationWithMode, effectivePersonality, handleSendMessage]);
 
-  const handleCharacterCreationQuickStart = useCallback(async () => {
-    const { calculateFinalStats, getAllRaces, getAllClasses } = await import('./game');
-    const raceOptions = getAllRaces();
-    const classOptions = getAllClasses();
-    if (raceOptions.length === 0 || classOptions.length === 0) {
-      throw new Error('No races or classes are configured for quick start');
-    }
-
-    const selectedRace = raceOptions[Math.floor(Math.random() * raceOptions.length)];
-    const selectedClass = classOptions[Math.floor(Math.random() * classOptions.length)];
-    const raceAvatarOptions = getAvatarOptionsForRace(selectedRace.name);
-    const randomAvatarId = raceAvatarOptions.length > 0
-      ? raceAvatarOptions[Math.floor(Math.random() * raceAvatarOptions.length)].id
-      : chooseAutoAvatarId({
-        name: 'Adventurer',
-        race: selectedRace.name,
-        characterClass: selectedClass.name,
-      });
-    const stats = calculateFinalStats(selectedClass.id, selectedRace.id);
-    const quickStartCharacter: CharacterCreationInput = {
-      name: 'Adventurer',
-      race: selectedRace.name,
-      characterClass: selectedClass.name,
-      avatarId: randomAvatarId,
-      ...stats,
-    };
-
-    if (!conversationId) {
-      const createdConversationId = await createConversationWithMode(effectivePersonality);
-      if (!createdConversationId) {
-        throw new Error('Unable to create chat');
+  const handleCharacterCreationCancel = useCallback(async () => {
+    if (conversationId) {
+      try {
+        if (!isTestModeEnabled()) {
+          await dataClient.models.Conversation.delete({ id: conversationId });
+        }
+        removeStoredConversationAvatar(conversationId);
+      } catch (error) {
+        console.error('Error deleting conversation on cancel:', error);
       }
-      setPendingCharacterDraft(null);
-      setIsNewInteractionPrimed(false);
-      await createCharacter(createdConversationId, quickStartCharacter);
-      await handleSendMessage(
-        `[SYSTEM: Begin the adventure. The player's character is ${quickStartCharacter.name}, a ${quickStartCharacter.race} ${quickStartCharacter.characterClass}. Open with a vivid scene-setting narration that establishes the location, atmosphere, and an immediate hook. Do not wait for the player to speak first.]`,
-        createdConversationId,
-      );
-      return;
     }
+    setConversationId(null);
+    setMessages([]);
+    setInputMessage('');
+    setIsWaitingForResponse(false);
+    setAdventureState(null);
+    setQuestSteps([]);
+    setCharacterState(null);
     setPendingCharacterDraft(null);
-    setIsNewInteractionPrimed(false);
-    await createCharacter(conversationId, quickStartCharacter);
-    await handleSendMessage(
-      `[SYSTEM: Begin the adventure. The player's character is ${quickStartCharacter.name}, a ${quickStartCharacter.race} ${quickStartCharacter.characterClass}. Open with a vivid scene-setting narration that establishes the location, atmosphere, and an immediate hook. Do not wait for the player to speak first.]`,
-      conversationId,
-    );
-  }, [conversationId, createCharacter, createConversationWithMode, effectivePersonality, handleSendMessage]);
+    setShowCharacterCreation(false);
+    setConversationListRefreshKey((prev) => prev + 1);
+  }, [conversationId]);
 
   const isGameMasterMode = effectivePersonality === 'game_master';
   const appThemeClass = isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain';
@@ -2036,7 +2010,7 @@ function App() {
 
     if (isValid(adventureState?.currentLocation)) return adventureState!.currentLocation!;
     if (isValid(adventureState?.lastLocation)) return adventureState!.lastLocation!;
-    return 'The Shrouded Vale';
+    return undefined;
   }, [adventureState?.currentLocation, adventureState?.lastLocation]);
   
   const currentAct = useMemo(() => {
@@ -2162,22 +2136,6 @@ function App() {
         <aside className="retro-shell-left">
           <div className="retro-left-container retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-3">
                 <div className="flex h-full flex-col items-center gap-5 py-4">
-                  <div className="flex w-full flex-col items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleNewConversation}
-                      disabled={isWaitingForResponse || isSelectingConversation}
-                      className="retro-icon-button retro-tooltip-trigger h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
-                      aria-label="Start new chat"
-                      title="New chat"
-                      data-tooltip="New chat"
-                      data-tooltip-position="right"
-                    >
-                      <img src="/addChat.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain brightness-0 invert" />
-                    </button>
-                    {/* Mode toggle buttons removed - mode is now hardcoded to game_master */}
-                  </div>
-
                   <ConversationSidebarIcons
                     onSelectConversation={handleSelectConversation}
                     onSelectBrain={() => {
@@ -2186,8 +2144,10 @@ function App() {
                         handleSelectConversation(brainConversationId);
                       }
                     }}
+                    onNewConversation={handleNewConversation}
                     activeConversationId={conversationId === brainConversationId ? 'brain' : conversationId}
                     refreshKey={conversationListRefreshKey}
+                    isDisabled={isWaitingForResponse || isSelectingConversation}
                   />
 
                   <div ref={profileMenuRef} className="relative z-40">
@@ -2548,7 +2508,7 @@ function App() {
                           inline
                           embedded
                           onComplete={handleCharacterCreationComplete}
-                          onCancel={handleCharacterCreationQuickStart}
+                          onCancel={handleCharacterCreationCancel}
                         />
                       </div>
                     ) : (
@@ -2564,7 +2524,7 @@ function App() {
                             diceRollLog: playerState.diceRollLog as any ?? undefined,
                             pendingDiceRoll: playerState.pendingDiceRoll ?? undefined,
                           } : undefined}
-                          character={{
+                          character={characterDisplay ? {
                             name: characterDisplay.name,
                             level: characterDisplay.level,
                             currentHP: characterDisplay.hp.current,
@@ -2572,7 +2532,7 @@ function App() {
                             stats: characterDisplay.stats,
                             avatarSrc: characterDisplay.avatarSrc,
                             avatarSrcWebp: characterDisplay.avatarSrcWebp,
-                          }}
+                          } : undefined}
                           currentLocation={currentLocation}
                           activeQuests={[]}
                           timelineEntries={messages
@@ -2589,6 +2549,7 @@ function App() {
                         />
 
                         {/* Inventory */}
+                        {characterDisplay && (
                         <div className="retro-right-section retro-right-section--inventory">
                           <InventoryManager
                             inventory={characterDisplay.inventory}
@@ -2596,6 +2557,7 @@ function App() {
                             isUpdating={false}
                           />
                         </div>
+                        )}
 
                         <button
                           type="button"
@@ -2655,25 +2617,13 @@ function App() {
             </div>
 
             <div>
-              <button
-                type="button"
-                onClick={handleNewConversation}
-                disabled={isWaitingForResponse || isSelectingConversation}
-                className="mb-2.5 w-full flex items-center gap-3 rounded-xl border border-brand-surface-border/45 bg-brand-bg-secondary/65 px-2.5 py-2 text-left transition-all duration-200 hover:border-brand-surface-border/65 hover:bg-brand-bg-tertiary/55 disabled:cursor-not-allowed disabled:opacity-45"
-                aria-label="Start new chat"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-surface-border/60 bg-brand-surface-secondary/45 text-brand-text-primary">
-                  <img src="/addChat.svg" alt="" aria-hidden="true" className="h-4.5 w-4.5 object-contain brightness-0 invert" />
-                </span>
-                <span className="text-sm font-medium text-brand-text-primary">New Chat</span>
-              </button>
               {/* Mode toggle buttons removed - mode is now hardcoded to game_master */}
             </div>
           </div>
         </nav>
 
         {/* Floating Expandable Header Bars - Side by Side - Only for Game Master mode */}
-        {effectivePersonality === 'game_master' && characterState && !isGameMasterContentLoading && (
+        {effectivePersonality === 'game_master' && characterState && characterDisplay && !isGameMasterContentLoading && (
           <div className="retro-mobile-bars lg:hidden sticky top-0 z-40 pt-safe">
             <div className="flex gap-2 mx-4 mt-4 items-start">
               {/* First Bar - Quest Log */}
@@ -2750,7 +2700,7 @@ function App() {
                             <source srcSet={characterDisplay.avatarSrcWebp} type="image/webp" />
                             <img
                               src={characterDisplay.avatarSrc}
-                              alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                              alt={`${characterDisplay.name} avatar`}
                               loading="lazy"
                               decoding="async"
                               className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0"
@@ -2760,7 +2710,7 @@ function App() {
                       ) : null}
                       <div className="retro-character-meta retro-character-meta--compact min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
-                        <p className="text-sm text-brand-text-primary font-medium truncate">{characterDisplay.name || 'Adventurer'}</p>
+                        <p className="text-sm text-brand-text-primary font-medium truncate">{characterDisplay.name}</p>
                       </div>
                     </div>
                     <svg 
@@ -2776,8 +2726,8 @@ function App() {
                   </button>
 
                   {/* Expanded Character Sheet Content */}
-                  {mobileCharSheetExpanded && adventureState && !isGameMasterContentLoading && characterState && (() => {
-                    const charData = getCharacterData();
+                  {mobileCharSheetExpanded && adventureState && !isGameMasterContentLoading && characterState && characterDisplay && (() => {
+                    const charData = characterDisplay;
                     return (
                       <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
                         {/* Stats */}
@@ -2864,7 +2814,7 @@ function App() {
                   <CharacterCreation
                     inline
                     onComplete={handleCharacterCreationComplete}
-                    onCancel={handleCharacterCreationQuickStart}
+                    onCancel={handleCharacterCreationCancel}
                   />
                 </div>
               )}

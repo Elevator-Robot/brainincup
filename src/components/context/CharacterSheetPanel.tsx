@@ -34,20 +34,24 @@ function statModifier(value: number): string {
 }
 
 function CharacterSheetPanel({
-  name = 'Adventurer',
-  level = 1,
-  currentHP = 10,
-  maxHP = 10,
-  currentXP = 0,
-  xpToNextLevel = 100,
+  name,
+  level,
+  currentHP,
+  maxHP,
+  currentXP,
+  xpToNextLevel,
   currentLocation,
   avatarSrc,
   avatarSrcWebp,
-  stats = {},
+  stats,
   levelUpAnimating = false,
 }: CharacterSheetPanelProps) {
-  const hpPercent = maxHP > 0 ? Math.min(100, (currentHP / maxHP) * 100) : 0;
-  const xpPercent = xpToNextLevel > 0 ? Math.min(100, (currentXP / xpToNextLevel) * 100) : 0;
+  const resolvedHP = currentHP ?? 0;
+  const resolvedMaxHP = maxHP ?? 0;
+  const hpPercent = resolvedMaxHP > 0 ? Math.min(100, (resolvedHP / resolvedMaxHP) * 100) : 0;
+  const resolvedXP = currentXP ?? 0;
+  const resolvedXPMax = xpToNextLevel ?? 100;
+  const xpPercent = resolvedXPMax > 0 ? Math.min(100, (resolvedXP / resolvedXPMax) * 100) : 0;
   const hpBarColor = hpPercent <= 25 ? 'bg-brand-status-error' : 'bg-green-500';
 
   return (
@@ -89,7 +93,7 @@ function CharacterSheetPanel({
       <div>
         <div className="flex justify-between text-[10px] text-brand-text-muted mb-1">
           <span>HP</span>
-          <span>{currentHP} / {maxHP}</span>
+          <span>{resolvedHP} / {resolvedMaxHP}</span>
         </div>
         <div className="w-full bg-brand-surface-border rounded-full h-1.5">
           <div
@@ -103,7 +107,7 @@ function CharacterSheetPanel({
       <div>
         <div className="flex justify-between text-[10px] text-brand-text-muted mb-1">
           <span>XP</span>
-          <span>{currentXP} / {xpToNextLevel}</span>
+          <span>{resolvedXP} / {resolvedXPMax}</span>
         </div>
         <div className="w-full bg-brand-surface-border rounded-full h-1.5">
           <div
@@ -116,7 +120,7 @@ function CharacterSheetPanel({
       {/* Stats grid */}
       <div className="grid grid-cols-3 gap-1.5">
         {STAT_LABELS.map(([key, label]) => {
-          const value = stats[key] ?? 10;
+          const value = stats?.[key] ?? 0;
           return (
             <div
               key={key}
