@@ -102,7 +102,7 @@ def setup_client():
         )
 
     logging.info("Using direct Bedrock invocation (no AgentCore runtime)")
-    model_id = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
+    model_id = os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
     return BedrockDirectClient(model_id=model_id, region_name=region_name)
 
 

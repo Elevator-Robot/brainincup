@@ -42,9 +42,15 @@ class LanguageAgent:
                 trace_metadata=metadata.get("trace_id"),
                 runtime_user_id=metadata.get("owner"),
             )
-            return response or self._fallback_response()
+            if not response:
+                logger.error("Agent returned empty response", extra={"session_id": session_id})
+                return self._fallback_response()
+            if isinstance(response, dict) and "sensations" in response and response.get("sensations") == ["Error processing input"]:
+                logger.error("Agent returned error response", extra={"response": response, "session_id": session_id})
+                return self._fallback_response()
+            return response
         except Exception as error:
-            logger.error("AgentCore invocation failed", exc_info=error)
+            logger.error("Agent invocation failed", exc_info=error)
             return self._fallback_response()
 
     @staticmethod
