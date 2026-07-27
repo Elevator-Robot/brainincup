@@ -13,7 +13,7 @@ interface WorldMapPanelProps {
 }
 
 function WorldMapPanel({
-  currentLocation = 'The Shrouded Vale',
+  currentLocation,
   visitedLocations = [],
   connectedAreas = [],
   characterLevel = 1,

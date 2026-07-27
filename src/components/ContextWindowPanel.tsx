@@ -85,20 +85,26 @@ function ContextWindowPanel({
 
       {/* Panel content with opacity transition */}
       <div className="flex-1 transition-opacity duration-200">
-        {activePanel === 'character' && (
+        {activePanel === 'character' && character && (
           <CharacterSheetPanel
-            name={character?.name}
-            level={character?.level ?? playerState?.currentLevel}
-            currentHP={character?.currentHP}
-            maxHP={character?.maxHP}
+            name={character.name}
+            level={character.level ?? playerState?.currentLevel}
+            currentHP={character.currentHP}
+            maxHP={character.maxHP}
             currentXP={playerState?.currentXP}
             xpToNextLevel={playerState?.xpToNextLevel}
-            stats={character?.stats as CharacterSheetPanelProps['stats']}
+            stats={character.stats as CharacterSheetPanelProps['stats']}
             currentLocation={currentLocation ?? playerState?.lastKnownLocation}
-            avatarSrc={character?.avatarSrc}
-            avatarSrcWebp={character?.avatarSrcWebp}
+            avatarSrc={character.avatarSrc}
+            avatarSrcWebp={character.avatarSrcWebp}
             levelUpAnimating={levelUpAnimating}
           />
+        )}
+
+        {activePanel === 'character' && !character && (
+          <div className="p-4 text-center text-brand-text-muted text-xs">
+            No character yet
+          </div>
         )}
 
         {activePanel === 'quests' && (

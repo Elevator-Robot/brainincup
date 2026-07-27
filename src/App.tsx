@@ -435,25 +435,27 @@ function App() {
   const characterCreationLock = useRef(false);
   const adventureFetchLock = useRef<string | null>(null);
   
-  // Helper to get character display data with fallbacks
+  // Helper to get character display data — returns null when no character exists
   const getCharacterData = useCallback(() => {
+    if (!characterState) return null;
+    
     const stats = {
-      strength: characterState?.strength || 10,
-      dexterity: characterState?.dexterity || 12,
-      constitution: characterState?.constitution || 14,
-      intelligence: characterState?.intelligence || 16,
-      wisdom: characterState?.wisdom || 13,
-      charisma: characterState?.charisma || 11,
+      strength: characterState.strength ?? 10,
+      dexterity: characterState.dexterity ?? 10,
+      constitution: characterState.constitution ?? 10,
+      intelligence: characterState.intelligence ?? 10,
+      wisdom: characterState.wisdom ?? 10,
+      charisma: characterState.charisma ?? 10,
     };
     
     const hp = {
-      current: characterState?.currentHP || 12,
-      max: characterState?.maxHP || 12,
-      percentage: ((characterState?.currentHP || 12) / (characterState?.maxHP || 12)) * 100,
+      current: characterState.currentHP ?? 0,
+      max: characterState.maxHP ?? 0,
+      percentage: characterState.maxHP ? ((characterState.currentHP ?? 0) / characterState.maxHP) * 100 : 0,
     };
     
-    const inventory = parseInventoryItems(characterState?.inventory);
-    const avatarId = getAvatarOptionById(characterState?.avatarId ?? '')?.id
+    const inventory = parseInventoryItems(characterState.inventory);
+    const avatarId = getAvatarOptionById(characterState.avatarId ?? '')?.id
       ?? getAvatarOptionById(getStoredConversationAvatarId(conversationId))?.id
       ?? '';
     const avatarOption = avatarId ? getAvatarOptionById(avatarId) : undefined;
@@ -463,10 +465,10 @@ function App() {
     const avatarSrcMedium = avatarOption?.srcMedium ?? '';
     
     return {
-      name: characterState?.name || 'Adventurer',
-      race: characterState?.race || 'Wanderer',
-      characterClass: characterState?.characterClass || 'Wanderer',
-      level: characterState?.level || 1,
+      name: characterState.name ?? '',
+      race: characterState.race ?? '',
+      characterClass: characterState.characterClass ?? '',
+      level: characterState.level ?? 1,
       avatarId,
       avatarSrc,
       avatarSrcWebp,
@@ -2008,7 +2010,7 @@ function App() {
 
     if (isValid(adventureState?.currentLocation)) return adventureState!.currentLocation!;
     if (isValid(adventureState?.lastLocation)) return adventureState!.lastLocation!;
-    return 'The Shrouded Vale';
+    return undefined;
   }, [adventureState?.currentLocation, adventureState?.lastLocation]);
   
   const currentAct = useMemo(() => {
@@ -2522,7 +2524,7 @@ function App() {
                             diceRollLog: playerState.diceRollLog as any ?? undefined,
                             pendingDiceRoll: playerState.pendingDiceRoll ?? undefined,
                           } : undefined}
-                          character={{
+                          character={characterDisplay ? {
                             name: characterDisplay.name,
                             level: characterDisplay.level,
                             currentHP: characterDisplay.hp.current,
@@ -2530,7 +2532,7 @@ function App() {
                             stats: characterDisplay.stats,
                             avatarSrc: characterDisplay.avatarSrc,
                             avatarSrcWebp: characterDisplay.avatarSrcWebp,
-                          }}
+                          } : undefined}
                           currentLocation={currentLocation}
                           activeQuests={[]}
                           timelineEntries={messages
@@ -2547,6 +2549,7 @@ function App() {
                         />
 
                         {/* Inventory */}
+                        {characterDisplay && (
                         <div className="retro-right-section retro-right-section--inventory">
                           <InventoryManager
                             inventory={characterDisplay.inventory}
@@ -2554,6 +2557,7 @@ function App() {
                             isUpdating={false}
                           />
                         </div>
+                        )}
 
                         <button
                           type="button"
@@ -2619,7 +2623,7 @@ function App() {
         </nav>
 
         {/* Floating Expandable Header Bars - Side by Side - Only for Game Master mode */}
-        {effectivePersonality === 'game_master' && characterState && !isGameMasterContentLoading && (
+        {effectivePersonality === 'game_master' && characterState && characterDisplay && !isGameMasterContentLoading && (
           <div className="retro-mobile-bars lg:hidden sticky top-0 z-40 pt-safe">
             <div className="flex gap-2 mx-4 mt-4 items-start">
               {/* First Bar - Quest Log */}
@@ -2696,7 +2700,7 @@ function App() {
                             <source srcSet={characterDisplay.avatarSrcWebp} type="image/webp" />
                             <img
                               src={characterDisplay.avatarSrc}
-                              alt={`${characterDisplay.name || 'Adventurer'} avatar`}
+                              alt={`${characterDisplay.name} avatar`}
                               loading="lazy"
                               decoding="async"
                               className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0"
@@ -2706,7 +2710,7 @@ function App() {
                       ) : null}
                       <div className="retro-character-meta retro-character-meta--compact min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
-                        <p className="text-sm text-brand-text-primary font-medium truncate">{characterDisplay.name || 'Adventurer'}</p>
+                        <p className="text-sm text-brand-text-primary font-medium truncate">{characterDisplay.name}</p>
                       </div>
                     </div>
                     <svg 
@@ -2722,8 +2726,8 @@ function App() {
                   </button>
 
                   {/* Expanded Character Sheet Content */}
-                  {mobileCharSheetExpanded && adventureState && !isGameMasterContentLoading && characterState && (() => {
-                    const charData = getCharacterData();
+                  {mobileCharSheetExpanded && adventureState && !isGameMasterContentLoading && characterState && characterDisplay && (() => {
+                    const charData = characterDisplay;
                     return (
                       <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
                         {/* Stats */}
