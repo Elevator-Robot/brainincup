@@ -208,6 +208,11 @@ export default function ConversationSidebarIcons({
       {/* Separator */}
       <div className="w-8 h-px bg-brand-surface-border/50 shrink-0" />
 
+      {/* Chat count indicator */}
+      <div className="text-[10px] font-medium text-brand-text-muted/50 tracking-wider shrink-0 pt-2 pb-1">
+        {icons.filter(icon => icon.avatarSrc).length}/{CHAT_LIMIT}
+      </div>
+
       {/* GM conversation icons - scrollable area */}
       <div className="flex w-full flex-col items-center gap-2 overflow-y-auto flex-1 min-h-0 py-2">
         {icons.filter(icon => icon.avatarSrc).map((icon) => (
