@@ -20,6 +20,7 @@ import {
 import { isTestModeEnabled } from './utils/testMode';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -2323,7 +2324,7 @@ function App() {
                                     }
                                   }}
                                 >
-                                  <p className="leading-relaxed whitespace-pre-wrap break-words">
+                                  <div className="break-words">
                                     {isGameMasterMode && (
                                       <span className={`mb-1 block text-[11px] uppercase tracking-[0.22em] ${
                                         message.role === 'user' ? 'text-teal-200/75' : 'text-brand-text-muted'
@@ -2332,11 +2333,11 @@ function App() {
                                       </span>
                                     )}
                                      <ReactMarkdown
-                                      remarkPlugins={[remarkGfm]}
+                                      remarkPlugins={[remarkGfm, remarkBreaks]}
                                       components={{
-                                        p: ({children}) => <p className="leading-relaxed break-words mb-1.5 last:mb-0">{children}</p>,
-                                        ul: ({children}) => <ul className="list-disc pl-5 space-y-0.5 mb-1.5 last:mb-0">{children}</ul>,
-                                        ol: ({children}) => <ol className="list-decimal pl-5 space-y-0.5 mb-1.5 last:mb-0">{children}</ol>,
+                                        p: ({children}) => <p className="leading-relaxed break-words" style={{margin: '0 0 2px 0'}}>{children}</p>,
+                                        ul: ({children}) => <ul className="list-disc pl-5 space-y-0 mb-0.5 last:mb-0">{children}</ul>,
+                                        ol: ({children}) => <ol className="list-decimal pl-5 space-y-0 mb-0.5 last:mb-0">{children}</ol>,
                                         li: ({children}) => <li className="leading-relaxed">{children}</li>,
                                         strong: ({children}) => <strong className="font-bold text-brand-accent-primary">{children}</strong>,
                                         em: ({children}) => <em className="italic text-brand-text-muted">{children}</em>,
@@ -2345,22 +2346,22 @@ function App() {
                                           return isInline ? (
                                             <code className="px-1.5 py-0.5 rounded bg-brand-surface-elevated/50 text-purple-300 text-sm font-mono" {...props}>{children}</code>
                                           ) : (
-                                            <code className="block p-3 rounded-lg bg-brand-surface-elevated/50 text-sm font-mono overflow-x-auto whitespace-pre-wrap my-1.5" {...props}>{children}</code>
+                                            <code className="block p-3 rounded-lg bg-brand-surface-elevated/50 text-sm font-mono overflow-x-auto whitespace-pre-wrap my-0.5" {...props}>{children}</code>
                                           );
                                         },
                                         blockquote: ({children}) => (
-                                          <blockquote className="border-l-2 border-brand-accent-primary/50 pl-4 italic text-brand-text-muted my-1.5">{children}</blockquote>
+                                          <blockquote className="border-l-2 border-brand-accent-primary/50 pl-4 italic text-brand-text-muted my-0.5">{children}</blockquote>
                                         ),
-                                        h1: ({children}) => <h1 className="text-xl font-bold text-brand-accent-primary mb-1.5 mt-2">{children}</h1>,
-                                        h2: ({children}) => <h2 className="text-lg font-bold text-brand-accent-primary mb-1 mt-1.5">{children}</h2>,
-                                        h3: ({children}) => <h3 className="text-base font-bold text-brand-text-primary mb-1 mt-1.5">{children}</h3>,
+                                         h1: ({children}) => <h1 className="text-xl font-bold text-brand-accent-primary mb-0.5 mt-0.5">{children}</h1>,
+                                         h2: ({children}) => <h2 className="text-lg font-bold text-brand-accent-primary mb-0.5">{children}</h2>,
+                                         h3: ({children}) => <h3 className="text-base font-bold text-brand-text-primary mb-0.5">{children}</h3>,
                                         a: ({href, children}) => <a href={href} className="text-brand-accent-primary underline hover:text-brand-accent-secondary transition-colors" target="_blank" rel="noopener noreferrer">{children}</a>,
-                                        hr: () => <hr className="border-brand-surface-border/50 my-2" />,
+                                        hr: () => <hr className="border-brand-surface-border/50 my-0.5" />,
                                       }}
                                     >
                                       {message.content}
                                     </ReactMarkdown>
-                                  </p>
+                                  </div>
                                 </div>
 
                                 {/* Show additional details when expanded */}
@@ -2871,7 +2872,7 @@ function App() {
                         }
                       }}
                     >
-                      <p className="leading-relaxed whitespace-pre-wrap break-words text-sm">
+                      <div className="break-words text-sm">
                         {isGameMasterMode && (
                           <span className={`mb-1 block text-[10px] uppercase tracking-[0.2em] ${
                             message.role === 'user' ? 'text-teal-200/75' : 'text-brand-text-muted'
@@ -2880,11 +2881,11 @@ function App() {
                           </span>
                         )}
                          <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
+                          remarkPlugins={[remarkGfm, remarkBreaks]}
                           components={{
-                            p: ({children}) => <p className="leading-relaxed break-words mb-1 last:mb-0">{children}</p>,
-                            ul: ({children}) => <ul className="list-disc pl-4 space-y-0.5 mb-1 last:mb-0">{children}</ul>,
-                            ol: ({children}) => <ol className="list-decimal pl-4 space-y-0.5 mb-1 last:mb-0">{children}</ol>,
+                              p: ({children}) => <p className="leading-relaxed break-words" style={{margin: '0 0 2px 0'}}>{children}</p>,
+                             ul: ({children}) => <ul className="list-disc pl-4 space-y-0 mb-0.5 last:mb-0">{children}</ul>,
+                             ol: ({children}) => <ol className="list-decimal pl-4 space-y-0 mb-0.5 last:mb-0">{children}</ol>,
                             li: ({children}) => <li className="leading-relaxed">{children}</li>,
                             strong: ({children}) => <strong className="font-bold text-brand-accent-primary">{children}</strong>,
                             em: ({children}) => <em className="italic text-brand-text-muted">{children}</em>,
@@ -2899,16 +2900,16 @@ function App() {
                             blockquote: ({children}) => (
                               <blockquote className="border-l-2 border-brand-accent-primary/50 pl-3 italic text-brand-text-muted my-1 text-xs">{children}</blockquote>
                             ),
-                            h1: ({children}) => <h1 className="text-lg font-bold text-brand-accent-primary mb-1 mt-1.5">{children}</h1>,
-                            h2: ({children}) => <h2 className="text-base font-bold text-brand-accent-primary mb-0.5 mt-1">{children}</h2>,
-                            h3: ({children}) => <h3 className="text-sm font-bold text-brand-text-primary mb-0.5 mt-1">{children}</h3>,
+                             h1: ({children}) => <h1 className="text-lg font-bold text-brand-accent-primary mb-0.5 mt-0.5">{children}</h1>,
+                             h2: ({children}) => <h2 className="text-base font-bold text-brand-accent-primary mb-0.5">{children}</h2>,
+                             h3: ({children}) => <h3 className="text-sm font-bold text-brand-text-primary mb-0.5">{children}</h3>,
                             a: ({href, children}) => <a href={href} className="text-brand-accent-primary underline hover:text-brand-accent-secondary transition-colors" target="_blank" rel="noopener noreferrer">{children}</a>,
                             hr: () => <hr className="border-brand-surface-border/50 my-1.5" />,
                           }}
                         >
                           {message.content}
                         </ReactMarkdown>
-                      </p>
+                      </div>
                     </div>
                     
                     {/* Show additional details when expanded */}
