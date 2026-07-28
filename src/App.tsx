@@ -1015,9 +1015,8 @@ function App() {
       try {
         const currentUserId = userAttributes.sub || userAttributes.email || 'anonymous';
         
-        // Look for existing Brain conversation
         const { data: conversations } = await dataClient.models.Conversation.list({
-          filter: { personalityMode: { eq: 'brain' } },
+          filter: { experience: { eq: 'brain' } },
         });
         
         if (conversations && conversations.length > 0) {
@@ -1030,6 +1029,7 @@ function App() {
             title: 'Brain',
             participants: [currentUserId],
             personalityMode: 'brain',
+            experience: 'brain',
           });
           
           if (newConversation?.id) {
@@ -1659,8 +1659,8 @@ function App() {
       });
       
       if (conversationData) {
-        const storedMode = conversationData.personalityMode || 'brain';
-        const normalizedMode = normalizePersonalityMode(storedMode);
+        const storedExperience = conversationData.experience || conversationData.personalityMode || 'brain';
+        const normalizedMode = normalizePersonalityMode(storedExperience);
         
         // Update personality mode to match the conversation type
         setPersonalityMode(normalizedMode);
@@ -1827,6 +1827,7 @@ function App() {
         title: defaultTitle,
         participants: [currentUserId],
         personalityMode: normalized,
+        experience: normalized,
       });
       
       if (newConversation) {

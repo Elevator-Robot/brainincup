@@ -1,7 +1,7 @@
-export type PersonalityModeId = 'brain' | 'game_master';
+export type ExperienceId = 'brain' | 'game_master';
 
-export interface PersonalityModeMeta {
-  id: PersonalityModeId;
+export interface ExperienceMeta {
+  id: ExperienceId;
   icon: string;
   title: string;
   description: string;
@@ -11,15 +11,19 @@ export interface PersonalityModeMeta {
   tagClass: string;
 }
 
-export const normalizePersonalityMode = (mode?: string | null): PersonalityModeId => {
-  if (!mode) return 'brain';
-  if (mode === 'rpg_dm') return 'game_master';
-  if (mode === 'default') return 'brain';
-  if (mode === 'game_master' || mode === 'brain') return mode;
+export const normalizeExperience = (exp?: string | null): ExperienceId => {
+  if (!exp) return 'brain';
+  const lower = exp.toLowerCase();
+  if (lower === 'rpg_dm' || lower === 'game_master') return 'game_master';
+  if (lower === 'default' || lower === 'brain') return 'brain';
   return 'brain';
 };
 
-export const MODE_OPTIONS: PersonalityModeMeta[] = [
+export const normalizePersonalityMode = normalizeExperience;
+
+export type PersonalityModeId = ExperienceId;
+
+export const EXPERIENCE_OPTIONS: ExperienceMeta[] = [
   {
     id: 'brain',
     icon: '🧠',
@@ -42,20 +46,25 @@ export const MODE_OPTIONS: PersonalityModeMeta[] = [
   }
 ];
 
-// Brain is the base website experience; facilitated modes are explicit opt-ins.
-export const FACILITATED_MODE_OPTIONS: PersonalityModeMeta[] = MODE_OPTIONS.filter(
+export const MODE_OPTIONS = EXPERIENCE_OPTIONS;
+
+export const FACILITATED_MODE_OPTIONS: ExperienceMeta[] = EXPERIENCE_OPTIONS.filter(
   (option) => option.id !== 'brain',
 );
 
-export const MODE_META = MODE_OPTIONS.reduce<Record<PersonalityModeId, PersonalityModeMeta>>((acc, option) => {
+export const EXPERIENCE_META = EXPERIENCE_OPTIONS.reduce<Record<ExperienceId, ExperienceMeta>>((acc, option) => {
   acc[option.id] = option;
   return acc;
 }, {
-  brain: MODE_OPTIONS[0],
-  game_master: MODE_OPTIONS[1]
-} as Record<PersonalityModeId, PersonalityModeMeta>);
+  brain: EXPERIENCE_OPTIONS[0],
+  game_master: EXPERIENCE_OPTIONS[1]
+} as Record<ExperienceId, ExperienceMeta>);
 
-export const getModeMeta = (mode?: string | null): PersonalityModeMeta => {
-  const normalized = normalizePersonalityMode(mode);
-  return MODE_META[normalized];
+export const MODE_META = EXPERIENCE_META;
+
+export const getExperienceMeta = (exp?: string | null): ExperienceMeta => {
+  const normalized = normalizeExperience(exp);
+  return EXPERIENCE_META[normalized];
 };
+
+export const getModeMeta = getExperienceMeta;
