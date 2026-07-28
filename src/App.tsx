@@ -2360,12 +2360,9 @@ function App() {
                                     >
                                       {message.content}
                                     </ReactMarkdown>
-                                    {message.isTyping && (
-                                      <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
-                                    )}
                                   </p>
                                 </div>
-                    
+
                                 {/* Show additional details when expanded */}
                                 {message.role === 'assistant' && expandedMessageIndex === index && (
                                   <div className="mt-4 space-y-3 animate-slide-up">
@@ -2911,9 +2908,6 @@ function App() {
                         >
                           {message.content}
                         </ReactMarkdown>
-                        {message.isTyping && (
-                          <span className="inline-block w-2 h-5 bg-violet-400 ml-1 animate-pulse"></span>
-                        )}
                       </p>
                     </div>
                     
