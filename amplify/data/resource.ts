@@ -7,6 +7,7 @@ const schema = a.schema({
     title: a.string().default('New Chat'),
     participants: a.string().array(),
     personalityMode: a.string().default('default'),
+    experience: a.string().default('brain'),
     messages: a.hasMany('Message', 'conversationId'),
     brainResponses: a.hasMany('BrainResponse', 'conversationId'),
     gameMasterAdventure: a.hasOne('GameMasterAdventure', 'conversationId'),

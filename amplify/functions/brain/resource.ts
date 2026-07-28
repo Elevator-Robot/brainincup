@@ -10,11 +10,8 @@ const __dirname = dirname(__filename);
 
 export const brain = defineFunction((scope) => {
   // Create the Lambda layer with dependencies
-  // Note: The layer/python directory contains pip-installed packages
-  // Run ./build-layer.sh before deploying to build the layer
   const dependenciesLayer = new LayerVersion(scope, 'BrainDependenciesLayer', {
     code: Code.fromAsset(join(__dirname, 'layer'), {
-      // Use GLOB mode to ignore .gitignore and only use explicit exclude patterns
       ignoreMode: IgnoreMode.GLOB,
       exclude: ['requirements.txt']
     }),
