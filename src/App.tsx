@@ -66,6 +66,7 @@ const formatModelErrors = (errors: unknown): string => {
 
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
 const LAST_CONVERSATION_STORAGE_KEY_PREFIX = 'lastConversationId';
+const MESSAGES_CACHE_KEY_PREFIX = 'messagesCache';
 const UI_MOBILE_INFO_EXPANDED_KEY = 'uiMobileInfoExpanded';
 const UI_MOBILE_CHARACTER_EXPANDED_KEY = 'uiMobileCharacterExpanded';
 
@@ -131,6 +132,29 @@ const readStoredBoolean = (key: string, fallback = false): boolean => {
 const writeStoredBoolean = (key: string, value: boolean) => {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(key, value ? 'true' : 'false');
+};
+
+const getMessagesCacheKey = (conversationId: string): string =>
+  `${MESSAGES_CACHE_KEY_PREFIX}:${conversationId}`;
+
+const loadCachedMessages = (conversationId: string): Message[] | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(getMessagesCacheKey(conversationId));
+    if (!raw) return null;
+    return JSON.parse(raw) as Message[];
+  } catch {
+    return null;
+  }
+};
+
+const saveCachedMessages = (conversationId: string, messages: Message[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(getMessagesCacheKey(conversationId), JSON.stringify(messages));
+  } catch {
+    // localStorage full or unavailable — ignore
+  }
 };
 
 interface HudQuestStep {
@@ -1020,6 +1044,15 @@ function App() {
     initializeBrainConversation();
   }, [userAttributes, brainConversationId]);
 
+  // Cache messages in localStorage whenever they change (no typing animation in progress)
+  useEffect(() => {
+    if (!conversationId || messages.length === 0) return;
+    const hasTypingMessage = messages.some(m => m.isTyping);
+    if (!hasTypingMessage) {
+      saveCachedMessages(conversationId, messages);
+    }
+  }, [conversationId, messages]);
+
   // Save conversationId scoped by mode to prevent cross-talk between modes.
   useEffect(() => {
     if (conversationId) {
@@ -1048,6 +1081,7 @@ function App() {
   // On mount: if we have a stored conversationId (from localStorage init), load its data.
   // If not, wait for Brain conversation to be ready and load that.
   const initialLoadDoneRef = useRef(false);
+  const previousConversationIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!userAttributes || initialLoadDoneRef.current) return;
 
@@ -1519,6 +1553,7 @@ function App() {
     if (
       !inputMessage.trim() ||
       isWaitingForResponse ||
+      messages.some(m => m.isTyping) ||
       (effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState)
     ) return;
 
@@ -1569,6 +1604,7 @@ function App() {
       if (
         inputMessage.trim() &&
         !isWaitingForResponse &&
+        !messages.some(m => m.isTyping) &&
         !(effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState)
       ) {
         handleSubmit(e as React.FormEvent);
@@ -1578,7 +1614,7 @@ function App() {
 
   const handleSelectConversation = async (selectedConversationId: string) => {
     // Avoid re-hydrating the same interaction when it is already active.
-    if (selectedConversationId && selectedConversationId === conversationId) {
+    if (selectedConversationId && selectedConversationId === conversationId && messages.length > 0) {
       return;
     }
     
@@ -1601,12 +1637,19 @@ function App() {
     setIsNewInteractionPrimed(false);
     setPendingCharacterDraft(null);
     setConversationId(selectedConversationId);
-    setMessages([]); // Clear current messages
     setIsWaitingForResponse(false);
     setAdventureState(null);
     setQuestSteps([]);
     setCharacterState(null);
     setShowCharacterCreation(false);
+    
+    // Show cached messages immediately to prevent flicker
+    const cached = loadCachedMessages(selectedConversationId);
+    if (cached) {
+      setMessages(cached);
+    } else {
+      setMessages([]);
+    }
     
     // Load conversation data and messages
     try {
@@ -1627,7 +1670,9 @@ function App() {
           setShowCharacterCreation(false);
           const character = await fetchCharacter(selectedConversationId);
           if (!character) {
-            setMessages([]);
+            if (!cached) {
+              setMessages([]);
+            }
             setIsWaitingForResponse(false);
             return;
           }
@@ -1638,6 +1683,16 @@ function App() {
           setCharacterState(null);
           setShowCharacterCreation(false);
         }
+      }
+      
+      // Skip API fetch if we already have cached messages — avoids stutter
+      if (cached) {
+        setIsWaitingForResponse(false);
+        setIsSelectingConversation(false);
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        }, 100);
+        return;
       }
       
       const { data: conversationMessages } = await dataClient.models.Message.list({
@@ -1684,6 +1739,7 @@ function App() {
       
       // Set messages and scroll to bottom
       setMessages(timeline);
+      saveCachedMessages(selectedConversationId, timeline);
       
       // Scroll to bottom after messages load
       setTimeout(() => {
@@ -1702,6 +1758,7 @@ function App() {
 
   const handleNewConversation = async () => {
     adventureFetchLock.current = null;
+    previousConversationIdRef.current = conversationId;
     // New conversations are always game_master mode
     const newConversationMode: PersonalityModeId = 'game_master';
     if (typeof window !== 'undefined') {
@@ -1951,7 +2008,16 @@ function App() {
     setPendingCharacterDraft(null);
     setShowCharacterCreation(false);
     setConversationListRefreshKey((prev) => prev + 1);
-  }, [conversationId]);
+    // Return to the previous conversation (or Brain chat if none)
+    const prevId = previousConversationIdRef.current;
+    previousConversationIdRef.current = null;
+    if (prevId) {
+      handleSelectConversation(prevId);
+    } else if (brainConversationId) {
+      setPersonalityMode('brain');
+      handleSelectConversation(brainConversationId);
+    }
+  }, [conversationId, brainConversationId]);
 
   const isGameMasterMode = effectivePersonality === 'game_master';
   const appThemeClass = isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain';
@@ -1990,7 +2056,8 @@ function App() {
   const showMobileInlineCharacterCreation = showGameMasterCharacterFlow;
   const showRightPanelCharacterCreation =
     showGameMasterCharacterFlow && !characterState;
-  const isInputLocked = isWaitingForResponse || isGameMasterContentLoading || isGameMasterCharacterRequired;
+  const hasTypingMessage = messages.some(m => m.isTyping);
+  const isInputLocked = isWaitingForResponse || hasTypingMessage || isGameMasterContentLoading || isGameMasterCharacterRequired;
   const gameMasterInputPlaceholder = isGameMasterContentLoading
     ? 'Loading adventure...'
     : isGameMasterCharacterRequired
@@ -2311,9 +2378,9 @@ function App() {
                                 className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]"
                               >
                                 <div
-                                  className={`retro-message message-bubble backdrop-blur-sm transition-all duration-300 animate-slide-up ${
-                                    `rounded-2xl px-4 py-3 hover:brightness-110 ${
-                                      message.role === 'user'
+                                   className={`retro-message message-bubble backdrop-blur-sm transition-all duration-300 ${
+                                     `rounded-2xl px-4 py-3 hover:brightness-110 ${
+                                       message.role === 'user'
                                         ? 'retro-message-user text-white'
                                         : 'retro-message-assistant text-brand-text-primary'
                                     } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`
@@ -2465,7 +2532,6 @@ function App() {
                     <div className="mx-auto w-full max-w-4xl px-3">
                       <div className="h-px bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
                     </div>
-                    {!isInputLocked && (
                       <BottomInput className="px-0 pt-3 shrink-0">
                         <div className="mx-auto max-w-4xl transition-all duration-300">
                           <form onSubmit={handleSubmit} className="relative">
@@ -2522,7 +2588,6 @@ function App() {
                           </form>
                         </div>
                       </BottomInput>
-                    )}
                   </section>
               </div>
           </main>
@@ -2861,7 +2926,7 @@ function App() {
                     className="flex flex-col gap-2 max-w-[85%]"
                   >
                     <div
-                      className={`retro-message message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm transition-all duration-300 hover:brightness-110 animate-slide-up ${
+                      className={`retro-message message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm transition-all duration-300 hover:brightness-110 ${
                         message.role === 'user'
                           ? 'retro-message-user text-white'
                           : 'retro-message-assistant text-brand-text-primary'
@@ -3010,7 +3075,6 @@ function App() {
           </div>
 
           {/* Mobile Input Area */}
-          {!isInputLocked && (
             <div className="retro-input-dock pt-3 pb-3 px-3 pb-safe">
               <div className="max-w-4xl mx-auto">
                 <form onSubmit={handleSubmit} className="relative">
@@ -3066,7 +3130,6 @@ function App() {
                 </form>
               </div>
             </div>
-          )}
         </div>
 
       </main>
