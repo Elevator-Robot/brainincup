@@ -6,187 +6,155 @@ from typing import Any
 
 TOOL_SPECS: list[dict] = [
     {
-        "toolSpec": {
-            "name": "roll_dice",
-            "description": "Roll a d20 stat check against a difficulty class (DC). Use when the player attempts an action with uncertain outcome — sneaking, persuading, climbing, searching, etc.",
-            "inputSchema": {
-                "json": {
-                    "type": "object",
-                    "properties": {
-                        "stat": {
-                            "type": "string",
-                            "enum": [
-                                "strength", "dexterity", "constitution",
-                                "intelligence", "wisdom", "charisma",
-                            ],
-                            "description": "The ability score being tested",
-                        },
-                        "difficulty_class": {
-                            "type": "integer",
-                            "description": "DC to beat — 5 trivial, 10 easy, 15 medium, 20 hard, 25 very hard, 30 nearly impossible",
-                        },
-                        "modifier": {
-                            "type": "integer",
-                            "description": "Situational modifier added to the roll (default 0)",
-                        },
-                    },
-                    "required": ["stat", "difficulty_class"],
-                }
+        "name": "roll_dice",
+        "description": "Roll a d20 stat check against a difficulty class (DC). Use when the player attempts an action with uncertain outcome — sneaking, persuading, climbing, searching, etc.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "stat": {
+                    "type": "string",
+                    "enum": [
+                        "strength", "dexterity", "constitution",
+                        "intelligence", "wisdom", "charisma",
+                    ],
+                    "description": "The ability score being tested",
+                },
+                "difficulty_class": {
+                    "type": "integer",
+                    "description": "DC to beat — 5 trivial, 10 easy, 15 medium, 20 hard, 25 very hard, 30 nearly impossible",
+                },
+                "modifier": {
+                    "type": "integer",
+                    "description": "Situational modifier added to the roll (default 0)",
+                },
             },
-        }
+            "required": ["stat", "difficulty_class"],
+        },
     },
     {
-        "toolSpec": {
-            "name": "award_xp",
-            "description": "Award experience points to the player character.",
-            "inputSchema": {
-                "json": {
-                    "type": "object",
-                    "properties": {
-                        "amount": {
-                            "type": "integer",
-                            "description": "Amount of XP to award",
-                        },
-                        "reason": {
-                            "type": "string",
-                            "description": "Brief reason for the XP award",
-                        },
-                    },
-                    "required": ["amount", "reason"],
-                }
+        "name": "award_xp",
+        "description": "Award experience points to the player character.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer",
+                    "description": "Amount of XP to award",
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Brief reason for the XP award",
+                },
             },
-        }
+            "required": ["amount", "reason"],
+        },
     },
     {
-        "toolSpec": {
-            "name": "modify_hp",
-            "description": "Modify the player's current HP. Use a negative value for damage, positive for healing.",
-            "inputSchema": {
-                "json": {
-                    "type": "object",
-                    "properties": {
-                        "amount": {
-                            "type": "integer",
-                            "description": "HP change — negative for damage, positive for healing",
-                        },
-                        "reason": {
-                            "type": "string",
-                            "description": "Reason for the HP change",
-                        },
-                    },
-                    "required": ["amount", "reason"],
-                }
+        "name": "modify_hp",
+        "description": "Modify the player's current HP. Use a negative value for damage, positive for healing.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer",
+                    "description": "HP change — negative for damage, positive for healing",
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Reason for the HP change",
+                },
             },
-        }
+            "required": ["amount", "reason"],
+        },
     },
     {
-        "toolSpec": {
-            "name": "update_quest",
-            "description": "Advance, complete, or fail a quest.",
-            "inputSchema": {
-                "json": {
-                    "type": "object",
-                    "properties": {
-                        "quest_id": {
-                            "type": "string",
-                            "description": "The quest identifier",
-                        },
-                        "status": {
-                            "type": "string",
-                            "enum": ["in_progress", "completed", "failed"],
-                            "description": "New quest status",
-                        },
-                    },
-                    "required": ["quest_id", "status"],
-                }
+        "name": "update_quest",
+        "description": "Advance, complete, or fail a quest.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "quest_id": {
+                    "type": "string",
+                    "description": "The quest identifier",
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["in_progress", "completed", "failed"],
+                    "description": "New quest status",
+                },
             },
-        }
+            "required": ["quest_id", "status"],
+        },
     },
     {
-        "toolSpec": {
-            "name": "set_world_flag",
-            "description": "Set a persistent world state flag that affects future narrative (e.g. 'village_saved', 'bridge_destroyed', 'king_trusts_player').",
-            "inputSchema": {
-                "json": {
-                    "type": "object",
-                    "properties": {
-                        "flag": {
-                            "type": "string",
-                            "description": "The flag key (snake_case)",
-                        },
-                        "value": {
-                            "type": "string",
-                            "description": "The flag value",
-                        },
-                    },
-                    "required": ["flag", "value"],
-                }
+        "name": "set_world_flag",
+        "description": "Set a persistent world state flag that affects future narrative (e.g. 'village_saved', 'bridge_destroyed', 'king_trusts_player').",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "flag": {
+                    "type": "string",
+                    "description": "The flag key (snake_case)",
+                },
+                "value": {
+                    "type": "string",
+                    "description": "The flag value",
+                },
             },
-        }
+            "required": ["flag", "value"],
+        },
     },
     {
-        "toolSpec": {
-            "name": "grant_item",
-            "description": "Grant an item to the player's inventory.",
-            "inputSchema": {
-                "json": {
-                    "type": "object",
-                    "properties": {
-                        "item_name": {
-                            "type": "string",
-                            "description": "Name of the item",
-                        },
-                        "quantity": {
-                            "type": "integer",
-                            "description": "How many (default 1)",
-                        },
-                    },
-                    "required": ["item_name"],
-                }
+        "name": "grant_item",
+        "description": "Grant an item to the player's inventory.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "item_name": {
+                    "type": "string",
+                    "description": "Name of the item",
+                },
+                "quantity": {
+                    "type": "integer",
+                    "description": "How many (default 1)",
+                },
             },
-        }
+            "required": ["item_name"],
+        },
     },
     {
-        "toolSpec": {
-            "name": "transfer_area",
-            "description": "Move the player to a new area/location.",
-            "inputSchema": {
-                "json": {
-                    "type": "object",
-                    "properties": {
-                        "area_id": {
-                            "type": "string",
-                            "description": "The new area identifier",
-                        },
-                        "area_name": {
-                            "type": "string",
-                            "description": "Display name of the new area",
-                        },
-                    },
-                    "required": ["area_id", "area_name"],
-                }
+        "name": "transfer_area",
+        "description": "Move the player to a new area/location.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "area_id": {
+                    "type": "string",
+                    "description": "The new area identifier",
+                },
+                "area_name": {
+                    "type": "string",
+                    "description": "Display name of the new area",
+                },
             },
-        }
+            "required": ["area_id", "area_name"],
+        },
     },
     {
-        "toolSpec": {
-            "name": "set_tension",
-            "description": "Set the current narrative tension level (1-10). Higher values signal danger and urgency.",
-            "inputSchema": {
-                "json": {
-                    "type": "object",
-                    "properties": {
-                        "level": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 10,
-                            "description": "Tension level 1-10",
-                        },
-                    },
-                    "required": ["level"],
-                }
+        "name": "set_tension",
+        "description": "Set the current narrative tension level (1-10). Higher values signal danger and urgency.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "level": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "Tension level 1-10",
+                },
             },
-        }
+            "required": ["level"],
+        },
     },
 ]
 

@@ -48,7 +48,7 @@ def agent_node(state: GMAgentState) -> dict:
         "system": system_prompt,
         "messages": messages,
         "temperature": 0.95,
-        "toolConfig": {"tools": get_tool_specs()},
+        "tools": get_tool_specs(),
     }
 
     response = client.invoke_model(
