@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import logging
 import os
-import traceback
+import uuid
+from collections.abc import Generator
 from typing import Any
 
+from experiences.agui import run_error, run_finished, run_started
 from experiences.base import BaseExperience, ExperienceContext, ExperienceResponse
-from experiences.game_master.gm_agent import build_gm_agent, GMAgentState
+from experiences.game_master.gm_agent import build_gm_agent, GMAgentState, stream_gm_agent
 from experiences.game_master.memory import load_player_state
 from experiences.game_master.tools import get_tool_policy
 
@@ -82,30 +84,8 @@ class GameMasterExperience(BaseExperience):
 
     def _run_gm_pipeline(self, ctx: ExperienceContext) -> ExperienceResponse:
         """Execute the GM agent graph: context assembly → agent loop → response."""
-        player_state = load_player_state(self._dynamodb_client, ctx.conversation_id)
-        game_context = self._assemble_game_context(player_state)
-
-        model_id = os.environ.get(
-            "BEDROCK_MODEL_ID",
-            "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-        )
-        region = os.environ.get("AWS_REGION", "us-east-1")
-
         agent = _get_gm_agent()
-
-        initial_state: GMAgentState = {
-            "conversation_id": ctx.conversation_id,
-            "user_input": ctx.user_input or "",
-            "player_state": player_state,
-            "game_context": game_context,
-            "system_prompt": self.get_system_prompt(),
-            "messages": [],
-            "final_response": "",
-            "response_metadata": {},
-            "model_id": model_id,
-            "region": region,
-            "tool_call_count": 0,
-        }
+        initial_state = self._build_initial_state(ctx)
 
         result = agent.invoke(initial_state)
 
@@ -117,7 +97,6 @@ class GameMasterExperience(BaseExperience):
             response=response_text,
             raw=result,
             metadata={
-                "model_id": model_id,
                 "tool_calls": sum(
                     1 for m in result.get("messages", [])
                     if isinstance(m.get("content"), list)
@@ -128,6 +107,51 @@ class GameMasterExperience(BaseExperience):
                 ),
             },
         )
+
+    def _build_initial_state(self, ctx: ExperienceContext) -> GMAgentState:
+        player_state = load_player_state(self._dynamodb_client, ctx.conversation_id)
+        game_context = self._assemble_game_context(player_state)
+
+        model_id = os.environ.get(
+            "BEDROCK_MODEL_ID",
+            "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        )
+        region = os.environ.get("AWS_REGION", "us-east-1")
+
+        return {
+            "conversation_id": ctx.conversation_id,
+            "user_input": ctx.user_input or "",
+            "message_id": ctx.message_id,
+            "owner": ctx.owner,
+            "player_state": player_state,
+            "game_context": game_context,
+            "system_prompt": self.get_system_prompt(),
+            "messages": [],
+            "final_response": "",
+            "response_metadata": {},
+            "model_id": model_id,
+            "region": region,
+            "tool_call_count": 0,
+        }
+
+    def stream_message(self, ctx: ExperienceContext) -> Generator[dict, None, None]:
+        """Run the GM agent graph and yield AG-UI events in real time.
+
+        Yields RUN_STARTED, per-node STEP_* events, TEXT_MESSAGE_* token
+        chunks, TOOL_CALL_* events, STATE_* deltas, and finally RUN_FINISHED
+        plus a CUSTOM `response_complete` event carrying the persisted payload.
+        """
+        run_id = str(uuid.uuid4())
+        yield run_started(ctx.conversation_id, run_id=run_id, input_data={"messageId": ctx.message_id})
+
+        try:
+            initial_state = self._build_initial_state(ctx)
+            for event in stream_gm_agent(initial_state):
+                yield event
+            yield run_finished(ctx.conversation_id, run_id)
+        except Exception as exc:
+            logger.error("GM streaming pipeline failed: %s", exc, exc_info=True)
+            yield run_error(str(exc), code="GM_STREAM_ERROR")
 
     def _assemble_game_context(self, player_state: dict) -> dict:
         """Assemble the game context dict from player state."""

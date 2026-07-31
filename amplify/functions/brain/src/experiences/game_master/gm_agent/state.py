@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, TypedDict
 
 
 def _merge_messages(left: list, right: list) -> list:
@@ -17,6 +17,8 @@ MAX_TOOL_CALLS = 10
 class GMAgentState(TypedDict):
     conversation_id: str
     user_input: str
+    message_id: str | None
+    owner: str | None
     player_state: dict
     game_context: dict
     system_prompt: str

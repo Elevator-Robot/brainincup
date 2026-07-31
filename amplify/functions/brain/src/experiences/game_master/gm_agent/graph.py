@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Generator
 
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -87,3 +88,15 @@ def build_gm_agent() -> CompiledStateGraph:
     compiled = builder.compile()
     logger.info("Game Master LangGraph agent compiled")
     return compiled
+
+
+def stream_gm_agent(initial_state: GMAgentState) -> Generator[dict, None, None]:
+    """Run the GM agent and yield AG-UI events as they are emitted by nodes.
+
+    Nodes call `get_stream_writer()` which, under `stream_mode="custom"`,
+    routes each AG-UI event dict to this generator.
+    """
+    agent = build_gm_agent()
+    for chunk in agent.stream(initial_state, stream_mode="custom"):
+        if isinstance(chunk, dict):
+            yield chunk
