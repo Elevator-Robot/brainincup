@@ -18,6 +18,7 @@ import {
   getAvatarOptionById,
 } from './constants/gameMasterAvatars';
 import { isTestModeEnabled } from './utils/testMode';
+import { streamAgentMessage, type AguiEvent } from './utils/aguiStream';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -164,6 +165,14 @@ interface HudQuestStep {
   createdAt?: string | null;
 }
 
+interface ToolCallRecord {
+  toolCallId: string;
+  name: string;
+  args: string;
+  result?: string;
+  status: 'running' | 'completed' | 'error';
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -174,6 +183,12 @@ interface Message {
   thoughts?: string[];
   memories?: string;
   selfReflection?: string;
+  // AG-UI streaming data
+  messageId?: string;
+  reasoning?: string;
+  toolCalls?: ToolCallRecord[];
+  activeStep?: string;
+  streamError?: string;
 }
 
 const summarizeText = (text: string, max = 220) => {
@@ -952,6 +967,7 @@ function App() {
   const messageContainerRefs = useRef<Map<number, HTMLDivElement>>(new Map()); // Track individual message container refs (bubble + details)
   const desktopScrollContainerRef = useRef<HTMLDivElement>(null); // Desktop scroll container
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const streamedMessageIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isProfileMenuOpen) return;
@@ -1243,8 +1259,6 @@ function App() {
             
             // Check if this response is for our conversation
             if (brainResponse.conversationId === conversationId) {
-              console.log('✅ MATCH: Starting typing animation for response:', brainResponse.response);
-              console.log('✅ MATCH: Including metadata - sensations:', brainResponse.sensations, 'thoughts:', brainResponse.thoughts);
               if (effectivePersonality === 'game_master') {
                 recordQuestStep(brainResponse);
 
@@ -1264,7 +1278,34 @@ function App() {
                   // Non-JSON response — ignore
                 }
               }
-              
+
+              // If this message was already streamed live via AG-UI, don't add a
+              // duplicate bubble — just reconcile the authoritative metadata.
+              const wasStreamed = streamedMessageIdsRef.current.has(brainResponse.messageId);
+              if (wasStreamed) {
+                setMessages(prev => {
+                  const next = [...prev];
+                  const idx = next.length - 1;
+                  if (idx >= 0 && next[idx].role === 'assistant') {
+                    next[idx] = {
+                      ...next[idx],
+                      isTyping: false,
+                      fullContent: next[idx].fullContent ?? brainResponse.response ?? '',
+                      sensations: brainResponse.sensations?.filter((s): s is string => s !== null) || next[idx].sensations,
+                      thoughts: brainResponse.thoughts?.filter((t): t is string => t !== null) || next[idx].thoughts,
+                      memories: brainResponse.memories || next[idx].memories,
+                      selfReflection: brainResponse.selfReflection || next[idx].selfReflection,
+                    };
+                  }
+                  return next;
+                });
+                setIsWaitingForResponse(false);
+                return;
+              }
+
+              console.log('✅ MATCH: Starting typing animation for response:', brainResponse.response);
+              console.log('✅ MATCH: Including metadata - sensations:', brainResponse.sensations, 'thoughts:', brainResponse.thoughts);
+
               // Add empty assistant message to start typing animation
               setMessages(prev => {
                 const newMessages: Message[] = [...prev, { 
@@ -1504,11 +1545,238 @@ function App() {
 
       const { data: savedMessage } = await dataClient.models.Message.create({
         content,
-        conversationId: targetConversationId
+        conversationId: targetConversationId,
+        streaming: true,
       });
 
-      if (savedMessage?.id) {
-        await recordPlayerChoice(savedMessage.id, content);
+      const streamedMessageId = savedMessage?.id ?? null;
+      if (!streamedMessageId) {
+        console.error('Failed to create message — no message id returned');
+        setIsWaitingForResponse(false);
+        return;
+      }
+
+      await recordPlayerChoice(streamedMessageId, content);
+
+      const owner = userAttributes?.sub || userAttributes?.email || 'anonymous';
+
+      // AG-UI streaming over the Lambda Function URL. The DDB stream handler
+      // skips messages flagged streaming=true, so the response arrives here
+      // token-by-token instead of via the AppSync subscription.
+      streamedMessageIdsRef.current.add(streamedMessageId);
+
+      try {
+        await streamAgentMessage({
+          conversationId: targetConversationId,
+          messageId: streamedMessageId,
+          owner,
+          content,
+          onEvent: (event: AguiEvent) => {
+            const messageId = typeof event.messageId === 'string' ? event.messageId : undefined;
+            switch (event.type) {
+            case 'TEXT_MESSAGE_START':
+              setIsWaitingForResponse(false);
+              setMessages(prev => [
+                ...prev,
+                {
+                  role: 'assistant',
+                  content: '',
+                  isTyping: true,
+                  fullContent: '',
+                  messageId,
+                  toolCalls: [],
+                },
+              ]);
+              break;
+
+            case 'TEXT_MESSAGE_CONTENT': {
+              const delta = typeof event.delta === 'string' ? event.delta : '';
+              setMessages(prev => {
+                const next = [...prev];
+                const idx = next.length - 1;
+                if (idx >= 0 && next[idx].role === 'assistant') {
+                  next[idx] = {
+                    ...next[idx],
+                    content: (next[idx].content ?? '') + delta,
+                    isTyping: true,
+                  };
+                }
+                return next;
+              });
+              break;
+            }
+
+            case 'TEXT_MESSAGE_END':
+              setMessages(prev => {
+                const next = [...prev];
+                const idx = next.length - 1;
+                if (idx >= 0 && next[idx].role === 'assistant') {
+                  next[idx] = {
+                    ...next[idx],
+                    isTyping: false,
+                    fullContent: next[idx].content,
+                  };
+                }
+                return next;
+              });
+              break;
+
+            case 'REASONING_MESSAGE_START':
+              setMessages(prev => {
+                const next = [...prev];
+                const idx = next.length - 1;
+                if (idx >= 0 && next[idx].role === 'assistant') {
+                  next[idx] = { ...next[idx], reasoning: '' };
+                }
+                return next;
+              });
+              break;
+
+            case 'REASONING_MESSAGE_CONTENT': {
+              const delta = typeof event.delta === 'string' ? event.delta : '';
+              setMessages(prev => {
+                const next = [...prev];
+                const idx = next.length - 1;
+                if (idx >= 0 && next[idx].role === 'assistant') {
+                  next[idx] = {
+                    ...next[idx],
+                    reasoning: (next[idx].reasoning ?? '') + delta,
+                  };
+                }
+                return next;
+              });
+              break;
+            }
+
+            case 'STEP_STARTED': {
+              const stepName = typeof event.stepName === 'string' ? event.stepName : '';
+              setMessages(prev => {
+                const next = [...prev];
+                const idx = next.length - 1;
+                if (idx >= 0 && next[idx].role === 'assistant') {
+                  next[idx] = { ...next[idx], activeStep: stepName };
+                }
+                return next;
+              });
+              break;
+            }
+
+            case 'TOOL_CALL_START': {
+              const toolCallId = typeof event.toolCallId === 'string' ? event.toolCallId : crypto.randomUUID();
+              const name = typeof event.toolCallName === 'string' ? event.toolCallName : 'tool';
+              setMessages(prev => {
+                const next = [...prev];
+                const idx = next.length - 1;
+                if (idx >= 0 && next[idx].role === 'assistant') {
+                  const toolCalls = next[idx].toolCalls ?? [];
+                  next[idx] = {
+                    ...next[idx],
+                    toolCalls: [...toolCalls, { toolCallId, name, args: '', status: 'running' as const }],
+                  };
+                }
+                return next;
+              });
+              break;
+            }
+
+            case 'TOOL_CALL_ARGS': {
+              const toolCallId = typeof event.toolCallId === 'string' ? event.toolCallId : '';
+              const delta = typeof event.delta === 'string' ? event.delta : '';
+              setMessages(prev => {
+                const next = [...prev];
+                const idx = next.length - 1;
+                if (idx >= 0 && next[idx].role === 'assistant' && next[idx].toolCalls) {
+                  const toolCalls = next[idx].toolCalls.map(tc =>
+                    tc.toolCallId === toolCallId ? { ...tc, args: tc.args + delta } : tc,
+                  );
+                  next[idx] = { ...next[idx], toolCalls };
+                }
+                return next;
+              });
+              break;
+            }
+
+            case 'TOOL_CALL_END':
+            case 'TOOL_CALL_RESULT': {
+              const toolCallId = typeof event.toolCallId === 'string' ? event.toolCallId : '';
+              const result = event.type === 'TOOL_CALL_RESULT' ? JSON.stringify(event.content ?? '') : undefined;
+              setMessages(prev => {
+                const next = [...prev];
+                const idx = next.length - 1;
+                if (idx >= 0 && next[idx].role === 'assistant' && next[idx].toolCalls) {
+                  const toolCalls = next[idx].toolCalls.map(tc =>
+                    tc.toolCallId === toolCallId
+                      ? { ...tc, status: 'completed' as const, ...(result !== undefined ? { result } : {}) }
+                      : tc,
+                  );
+                  next[idx] = { ...next[idx], toolCalls };
+                }
+                return next;
+              });
+              break;
+            }
+
+            case 'CUSTOM':
+              if (event.name === 'response_complete') {
+                const value = event.value as Record<string, unknown> | undefined;
+                const responseText = typeof value?.response === 'string' ? value.response : '';
+                const meta = (value?.metadata ?? {}) as Record<string, unknown>;
+                const sensations = Array.isArray(meta.sensations) ? (meta.sensations as string[]) : undefined;
+                const thoughts = Array.isArray(meta.thoughts) ? (meta.thoughts as string[]) : undefined;
+                const memories = typeof meta.memories === 'string' ? meta.memories : undefined;
+                const selfReflection = typeof meta.self_reflection === 'string' ? meta.self_reflection : undefined;
+                setMessages(prev => {
+                  const next = [...prev];
+                  const idx = next.length - 1;
+                  if (idx >= 0 && next[idx].role === 'assistant') {
+                    next[idx] = {
+                      ...next[idx],
+                      content: responseText || next[idx].content,
+                      fullContent: responseText || next[idx].fullContent,
+                      isTyping: false,
+                      sensations: sensations ?? next[idx].sensations,
+                      thoughts: thoughts ?? next[idx].thoughts,
+                      memories: memories ?? next[idx].memories,
+                      selfReflection: selfReflection ?? next[idx].selfReflection,
+                    };
+                  }
+                  return next;
+                });
+              }
+              break;
+
+            case 'RUN_ERROR': {
+              const errMsg = typeof event.message === 'string' ? event.message : 'Stream error';
+              setMessages(prev => {
+                const next = [...prev];
+                const idx = next.length - 1;
+                if (idx >= 0 && next[idx].role === 'assistant') {
+                  next[idx] = { ...next[idx], streamError: errMsg, isTyping: false };
+                }
+                return next;
+              });
+              break;
+            }
+
+            default:
+              break;
+            }
+          },
+        });
+
+        setIsWaitingForResponse(false);
+      } catch (error) {
+        // Streaming failed — fall back to the AppSync subscription path so the
+        // response is still generated by the DDB stream → Lambda pipeline.
+        console.error('AG-UI streaming failed, falling back to subscription:', error);
+        streamedMessageIdsRef.current.delete(streamedMessageId);
+        setMessages(prev => prev.filter(m => m.role !== 'assistant' || !m.isTyping));
+        setIsWaitingForResponse(true);
+        try {
+          await dataClient.models.Message.update({ id: streamedMessageId, streaming: false });
+        } catch (updateErr) {
+          console.error('Failed to unflag message for fallback:', updateErr);
+        }
       }
 
     } catch (error) {
@@ -1965,7 +2233,10 @@ function App() {
 
   const handleCharacterCreationComplete = useCallback(async (characterData: CharacterCreationInput) => {
     if (!conversationId) {
-      const createdConversationId = await createConversationWithMode(effectivePersonality);
+      // Character creation is only reachable in Game Master mode, so the
+      // conversation must always be created as game_master regardless of the
+      // stored personality mode (which can be stale 'brain' after a reload).
+      const createdConversationId = await createConversationWithMode('game_master');
       if (!createdConversationId) {
         throw new Error('Unable to create chat');
       }
@@ -2429,15 +2700,64 @@ function App() {
                                     >
                                       {message.content}
                                     </ReactMarkdown>
-                                  </div>
-                                </div>
+                              </div>
+                            </div>
 
-                                {/* Show additional details when expanded */}
-                                {message.role === 'assistant' && expandedMessageIndex === index && (
-                                  <div className="mt-4 space-y-3 animate-slide-up">
-                                    {/* Sensations */}
-                                    {message.sensations && message.sensations.length > 0 && (
-                                      <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                            {/* AG-UI tool call cards (Game Master) */}
+                            {message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0 && (
+                              <div className="space-y-2">
+                                {message.toolCalls.map((toolCall) => (
+                                  <div
+                                    key={toolCall.toolCallId}
+                                    className="rounded-xl border border-brand-surface-border/50 bg-brand-surface-elevated/40 px-3 py-2"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                                        toolCall.status === 'running'
+                                          ? 'bg-amber-400 animate-pulse'
+                                          : toolCall.status === 'error'
+                                            ? 'bg-red-400'
+                                            : 'bg-green-400'
+                                      }`} />
+                                      <span className="text-xs font-semibold text-brand-accent-primary">{toolCall.name}</span>
+                                      {toolCall.status === 'running' && (
+                                        <span className="text-[10px] text-brand-text-muted">running…</span>
+                                      )}
+                                    </div>
+                                    {toolCall.args && (
+                                      <pre className="mt-1 text-[10px] font-mono text-brand-text-muted whitespace-pre-wrap break-words">
+                                        {toolCall.args}
+                                      </pre>
+                                    )}
+                                    {toolCall.result && toolCall.result !== 'undefined' && (
+                                      <pre className="mt-1 text-[10px] font-mono text-green-300/80 whitespace-pre-wrap break-words">
+                                        {toolCall.result}
+                                      </pre>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Show additional details when expanded */}
+                            {message.role === 'assistant' && expandedMessageIndex === index && (
+                              <div className="mt-4 space-y-3 animate-slide-up">
+                                {/* Reasoning (AG-UI REASONING_MESSAGE stream) */}
+                                {message.reasoning && message.reasoning.trim() && (
+                                  <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                                    <div className="font-medium text-amber-300 mb-2 flex items-center gap-2 text-sm">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                      </svg>
+                                      Reasoning
+                                    </div>
+                                    <p className="text-brand-text-muted text-sm leading-relaxed whitespace-pre-wrap">{message.reasoning}</p>
+                                  </div>
+                                )}
+                                {/* Sensations */}
+                                {message.sensations && message.sensations.length > 0 && (
+                                  <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
                                         <div className="font-medium text-purple-300 mb-2 flex items-center gap-2 text-sm">
                                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -2977,10 +3297,59 @@ function App() {
                         </ReactMarkdown>
                       </div>
                     </div>
+
+                    {/* AG-UI tool call cards (Game Master) */}
+                    {message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0 && (
+                      <div className="space-y-2">
+                        {message.toolCalls.map((toolCall) => (
+                          <div
+                            key={toolCall.toolCallId}
+                            className="rounded-xl border border-brand-surface-border/50 bg-brand-surface-elevated/40 px-3 py-2"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                                toolCall.status === 'running'
+                                  ? 'bg-amber-400 animate-pulse'
+                                  : toolCall.status === 'error'
+                                    ? 'bg-red-400'
+                                    : 'bg-green-400'
+                              }`} />
+                              <span className="text-xs font-semibold text-brand-accent-primary">{toolCall.name}</span>
+                              {toolCall.status === 'running' && (
+                                <span className="text-[10px] text-brand-text-muted">running…</span>
+                              )}
+                            </div>
+                            {toolCall.args && (
+                              <pre className="mt-1 text-[10px] font-mono text-brand-text-muted whitespace-pre-wrap break-words">
+                                {toolCall.args}
+                              </pre>
+                            )}
+                            {toolCall.result && toolCall.result !== 'undefined' && (
+                              <pre className="mt-1 text-[10px] font-mono text-green-300/80 whitespace-pre-wrap break-words">
+                                {toolCall.result}
+                              </pre>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     
                     {/* Show additional details when expanded */}
                     {message.role === 'assistant' && expandedMessageIndex === index && (
                       <div className="mt-3 space-y-2.5 animate-slide-up">
+                        {/* Reasoning (AG-UI REASONING_MESSAGE stream) */}
+                        {message.reasoning && message.reasoning.trim() && (
+                          <div className="rounded-lg p-2.5 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
+                            <div className="font-medium text-amber-300 mb-1.5 flex items-center gap-1.5 text-xs">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                              Reasoning
+                            </div>
+                            <p className="text-brand-text-muted text-xs leading-relaxed whitespace-pre-wrap">{message.reasoning}</p>
+                          </div>
+                        )}
                         {/* Sensations */}
                         {message.sensations && message.sensations.length > 0 && (
                           <div className="rounded-lg p-2.5 bg-brand-surface-elevated/30 border border-brand-surface-border/50">

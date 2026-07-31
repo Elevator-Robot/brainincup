@@ -4,7 +4,7 @@ import { data } from './data/resource';
 import { brain } from './functions/brain/resource';
 import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { EventSourceMapping, StartingPosition } from 'aws-cdk-lib/aws-lambda';
-import { FunctionUrlAuthType, HttpMethod } from 'aws-cdk-lib/aws-lambda';
+import { FunctionUrlAuthType, HttpMethod, InvokeMode } from 'aws-cdk-lib/aws-lambda';
 import { StreamViewType } from 'aws-cdk-lib/aws-dynamodb';
 import { Tags, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
 import { existsSync, readFileSync } from 'node:fs';
@@ -211,7 +211,7 @@ const adventureTable = backend.data.resources.tables['GameMasterAdventure'];
 
 const brainLambda = backend.brain.resources.lambda as import('aws-cdk-lib').aws_lambda.Function;
 
-// Add Function URL to make the Lambda publicly accessible
+// Add Function URL to make the Lambda publicly accessible with streaming responses
 const functionUrl = brainLambda.addFunctionUrl({
   authType: FunctionUrlAuthType.NONE,
   cors: {
@@ -219,6 +219,7 @@ const functionUrl = brainLambda.addFunctionUrl({
     allowedMethods: [HttpMethod.ALL],
     allowedHeaders: ['*'],
   },
+  invokeMode: InvokeMode.RESPONSE_STREAM,
 });
 
 brainLambda.addEnvironment('CONVERSATION_TABLE_NAME', conversationTable.tableName);
@@ -250,7 +251,7 @@ new EventSourceMapping(stack, 'BrainMessageMapping', {
 });
 
 brainLambda.addToRolePolicy(new PolicyStatement({
-  actions: ['bedrock:InvokeModel'],
+  actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
   resources: [
     `arn:aws:bedrock:${stack.region}::foundation-model/*`,
     `arn:aws:bedrock:${stack.region}:${stack.account}:inference-profile/*`,

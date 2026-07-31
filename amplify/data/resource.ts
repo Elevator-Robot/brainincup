@@ -22,6 +22,7 @@ const schema = a.schema({
     senderId: a.string(),
     content: a.string(),
     timestamp: a.datetime(),
+    streaming: a.boolean().default(false),
     brainResponses: a.hasOne('BrainResponse', 'messageId')
   }).authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 

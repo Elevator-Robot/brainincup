@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 import boto3
 
@@ -79,6 +79,62 @@ class BedrockDirectClient:
                 "self_reflection": "Experiencing technical difficulties",
                 "response": "I'm experiencing technical difficulties and cannot process your request at the moment.",
             }
+
+    def invoke_stream(
+        self,
+        *,
+        session_id: str,
+        payload: Dict[str, Any],
+        trace_metadata: Optional[str] = None,
+        runtime_user_id: Optional[str] = None,
+    ) -> Iterator[str]:
+        """Invoke Bedrock with streaming and yield incremental text deltas."""
+        prompt = payload.get("prompt", "")
+        persona = payload.get("persona", {})
+        temperature = float(persona.get("temperature", 1.0))
+        top_p = float(persona.get("top_p", 1.0))
+
+        system_prompt = persona.get("name", "You are a helpful AI assistant.")
+
+        bedrock_request = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 2048,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": temperature,
+        }
+
+        try:
+            response = self.client.invoke_model_with_response_stream(
+                modelId=self.model_id,
+                body=json.dumps(bedrock_request),
+            )
+            for event in response["body"]:
+                chunk = event.get("chunk")
+                if not chunk:
+                    continue
+                decoded = chunk.get("bytes")
+                if not decoded:
+                    continue
+                try:
+                    content_block = json.loads(decoded)
+                except (TypeError, json.JSONDecodeError):
+                    continue
+                if content_block.get("type") == "content_block_delta":
+                    delta = content_block.get("delta") or {}
+                    if delta.get("type") == "text_delta" and delta.get("text"):
+                        yield delta["text"]
+                elif content_block.get("type") == "content_block_start":
+                    block = content_block.get("content_block") or {}
+                    if block.get("type") == "text" and block.get("text"):
+                        yield block["text"]
+        except Exception as error:
+            logger.error(
+                "Bedrock streaming invocation failed",
+                extra={"model_id": self.model_id, "error_type": type(error).__name__},
+                exc_info=error,
+            )
+            raise
 
     # ------------------------------------------------------------------ #
     # AgentCore-compatible stubs (memory methods are no-ops in direct mode)
