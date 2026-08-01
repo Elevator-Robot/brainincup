@@ -2233,11 +2233,11 @@ function App() {
   }, [conversationId, effectivePersonality]);
 
   const handleTrashDragOver = useCallback((event: React.DragEvent<HTMLButtonElement>) => {
-    if (!draggingConversationId) return;
+    if (!draggingConversationId || draggingConversationId === brainConversationId) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     setIsTrashDragOver(true);
-  }, [draggingConversationId]);
+  }, [draggingConversationId, brainConversationId]);
 
   const handleTrashDragLeave = useCallback(() => {
     setIsTrashDragOver(false);
@@ -2251,12 +2251,53 @@ function App() {
       || draggingConversationId
       || '';
     if (droppedConversationId) {
+      if (droppedConversationId === brainConversationId) {
+        setIsTrashDragOver(false);
+        setDraggingConversationId(null);
+        return;
+      }
       void deleteConversationById(droppedConversationId);
     } else {
       setIsTrashDragOver(false);
       setDraggingConversationId(null);
     }
-  }, [deleteConversationById, draggingConversationId]);
+  }, [deleteConversationById, draggingConversationId, brainConversationId]);
+
+  const handleClearBrainChat = async () => {
+    if (!conversationId || effectivePersonality !== 'brain') return;
+    setIsProfileMenuOpen(false);
+
+    try {
+      if (!isTestModeEnabled()) {
+        const { data: brainResponses } = await dataClient.models.BrainResponse.list({
+          filter: { conversationId: { eq: conversationId } },
+        });
+        for (const response of brainResponses ?? []) {
+          if (response.id) {
+            await dataClient.models.BrainResponse.delete({ id: response.id });
+          }
+        }
+
+        const { data: conversationMessages } = await dataClient.models.Message.list({
+          filter: { conversationId: { eq: conversationId } },
+        });
+        for (const message of conversationMessages ?? []) {
+          if (message.id) {
+            await dataClient.models.Message.delete({ id: message.id });
+          }
+        }
+      }
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(getMessagesCacheKey(conversationId));
+      }
+      setMessages([]);
+      setIsWaitingForResponse(false);
+      setConversationListRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+    }
+  };
 
 
   const handleSignOut = async () => {
@@ -2592,17 +2633,31 @@ function App() {
                           <p className="truncate text-[11px] text-brand-text-muted">{websiteUserProfile.email}</p>
                         </div>
                         <div className="my-1.5 h-px bg-brand-surface-border/50" />
-                        <button
-                          type="button"
-                          onClick={() => { void handleSidebarDeleteAction(); }}
-                          disabled={!conversationId}
-                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error disabled:opacity-45 disabled:cursor-not-allowed"
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
-                          </svg>
-                          Delete current chat
-                        </button>
+                        {isGameMasterMode ? (
+                          <button
+                            type="button"
+                            onClick={() => { void handleSidebarDeleteAction(); }}
+                            disabled={!conversationId}
+                            className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error disabled:opacity-45 disabled:cursor-not-allowed"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
+                            </svg>
+                            Delete current chat
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { void handleClearBrainChat(); }}
+                            disabled={!conversationId || messages.length === 0}
+                            className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-text-primary disabled:opacity-45 disabled:cursor-not-allowed"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Clear chat
+                          </button>
+                        )}
                         <div className="my-1.5 h-px bg-brand-surface-border/50" />
                         <button
                           type="button"
