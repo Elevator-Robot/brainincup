@@ -2328,7 +2328,7 @@ function App() {
   const appThemeClass = isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain';
   const isGameMasterContentLoading = isGameMasterMode && Boolean(conversationId) && (isSelectingConversation || isLoadingCharacter || isLoadingAdventure);
   const hasGameMasterCharacterReady = Boolean(characterState || pendingCharacterDraft);
-  const showGameMasterCharacterFlow = showCharacterCreation && isGameMasterMode && !isGameMasterContentLoading;
+  const showGameMasterCharacterFlow = showCharacterCreation && isGameMasterMode;
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && !hasGameMasterCharacterReady;
   const websiteUserProfile = useMemo(() => {
     const attrs = userAttributes ?? {};
