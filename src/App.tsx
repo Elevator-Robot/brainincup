@@ -475,8 +475,12 @@ function App() {
     };
     
     const inventory = parseInventoryItems(characterState.inventory);
+    // While switching conversations the previous character stays mounted (stale-while-revalidate).
+    // Only fall back to the current conversation's stored avatar when the character
+    // actually belongs to it, so a stale sheet can't flash the wrong avatar.
+    const belongsToConversation = !conversationId || !characterState.conversationId || characterState.conversationId === conversationId;
     const avatarId = getAvatarOptionById(characterState.avatarId ?? '')?.id
-      ?? getAvatarOptionById(getStoredConversationAvatarId(conversationId))?.id
+      ?? (belongsToConversation ? getAvatarOptionById(getStoredConversationAvatarId(conversationId))?.id : undefined)
       ?? '';
     const avatarOption = avatarId ? getAvatarOptionById(avatarId) : undefined;
     const avatarSrc = avatarOption?.src ?? '';
@@ -646,11 +650,15 @@ function App() {
       }
 
       // No character exists yet - show character creation consistently and immediately.
+      // Clear any stale character from a previous conversation so the creation
+      // panel isn't masked by outdated data.
+      setCharacterState(null);
       setShowCharacterCreation(true);
       return null;
     } catch (error) {
       console.error('❌ Error loading character:', error);
       characterCreationLock.current = false;
+      setCharacterState(null);
       return null;
     } finally {
       setIsLoadingCharacter(false);
@@ -1931,7 +1939,9 @@ function App() {
     setIsWaitingForResponse(false);
     setAdventureState(null);
     setQuestSteps([]);
-    setCharacterState(null);
+    // Keep the previous character sheet visible while the new character loads
+    // to avoid flashing the pulsing skeleton on every conversation switch.
+    // fetchCharacter swaps it in place, or clears it if none exists.
     setShowCharacterCreation(false);
     
     // Show cached messages immediately to prevent flicker
