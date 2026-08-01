@@ -2,6 +2,7 @@ import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { brain } from './functions/brain/resource';
+import { deleteAccount } from './functions/delete-account/resource';
 import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { EventSourceMapping, StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import { FunctionUrlAuthType, HttpMethod, InvokeMode } from 'aws-cdk-lib/aws-lambda';
@@ -99,6 +100,7 @@ const backend = defineBackend({
   auth,
   data,
   brain,
+  deleteAccount,
 });
 
 const stack = backend.stack;
@@ -208,6 +210,10 @@ const responseTable = backend.data.resources.tables['BrainResponse'];
 const characterTable = backend.data.resources.tables['GameMasterCharacter'];
 const questStepTable = backend.data.resources.tables['GameMasterQuestStep'];
 const adventureTable = backend.data.resources.tables['GameMasterAdventure'];
+const playerChoiceTable = backend.data.resources.tables['GameMasterPlayerChoice'];
+const playerStateTable = backend.data.resources.tables['PlayerState'];
+const worldStateTable = backend.data.resources.tables['WorldState'];
+const activeQuestTable = backend.data.resources.tables['ActiveQuest'];
 
 const brainLambda = backend.brain.resources.lambda as import('aws-cdk-lib').aws_lambda.Function;
 
@@ -305,6 +311,49 @@ brainLambda.addToRolePolicy(new PolicyStatement({
   resources: [
     `arn:aws:appsync:${stack.region}:${stack.account}:apis/${backend.data.resources.cfnResources.cfnGraphqlApi.attrApiId}/types/*`,
   ],
+  effect: Effect.ALLOW,
+}));
+
+// ─── Delete Account Function ─────────────────────────────────────────────────
+const deleteAccountLambda = backend.deleteAccount.resources.lambda as import('aws-cdk-lib').aws_lambda.Function;
+
+deleteAccountLambda.addEnvironment('USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
+deleteAccountLambda.addEnvironment('CONVERSATION_TABLE_NAME', conversationTable.tableName);
+deleteAccountLambda.addEnvironment('MESSAGE_TABLE_NAME', messageTable.tableName);
+deleteAccountLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
+deleteAccountLambda.addEnvironment('ADVENTURE_TABLE_NAME', adventureTable.tableName);
+deleteAccountLambda.addEnvironment('CHARACTER_TABLE_NAME', characterTable.tableName);
+deleteAccountLambda.addEnvironment('QUEST_STEP_TABLE_NAME', questStepTable.tableName);
+deleteAccountLambda.addEnvironment('PLAYER_CHOICE_TABLE_NAME', playerChoiceTable.tableName);
+deleteAccountLambda.addEnvironment('PLAYER_STATE_TABLE_NAME', playerStateTable.tableName);
+deleteAccountLambda.addEnvironment('WORLD_STATE_TABLE_NAME', worldStateTable.tableName);
+deleteAccountLambda.addEnvironment('ACTIVE_QUEST_TABLE_NAME', activeQuestTable.tableName);
+
+deleteAccountLambda.addToRolePolicy(new PolicyStatement({
+  actions: ['cognito-idp:AdminDeleteUser'],
+  resources: [backend.auth.resources.userPool.userPoolArn],
+  effect: Effect.ALLOW,
+}));
+
+const dataTables = [
+  conversationTable,
+  messageTable,
+  responseTable,
+  characterTable,
+  questStepTable,
+  adventureTable,
+  playerChoiceTable,
+  playerStateTable,
+  worldStateTable,
+  activeQuestTable,
+];
+
+deleteAccountLambda.addToRolePolicy(new PolicyStatement({
+  actions: ['dynamodb:Scan', 'dynamodb:DeleteItem'],
+  resources: dataTables.flatMap((table) => [
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${table.tableName}`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${table.tableName}/*`,
+  ]),
   effect: Effect.ALLOW,
 }));
 

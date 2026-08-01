@@ -20,6 +20,7 @@ import {
 import { isTestModeEnabled } from './utils/testMode';
 import { streamAgentMessage, type AguiEvent } from './utils/aguiStream';
 import { MessageBubble, type Message } from './components/MessageBubble';
+import DeleteAccountModal from './components/DeleteAccountModal';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -421,6 +422,9 @@ function App() {
   );
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const [conversationListRefreshKey, setConversationListRefreshKey] = useState(0);
   const [draggingConversationId, setDraggingConversationId] = useState<string | null>(null);
   const [isTrashDragOver, setIsTrashDragOver] = useState(false);
@@ -2264,6 +2268,34 @@ function App() {
     }
   };
 
+  const clearLocalAccountData = () => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    setDeleteAccountError(null);
+    try {
+      if (!isTestModeEnabled()) {
+        const result = await dataClient.mutations.deleteAccount();
+        if (result.errors?.length) {
+          throw new Error(result.errors[0]?.message ?? 'Failed to delete account.');
+        }
+      }
+      clearLocalAccountData();
+      await signOut();
+      window.location.reload();
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      setDeleteAccountError(
+        error instanceof Error && error.message ? error.message : 'Something went wrong. Please try again.'
+      );
+      setIsDeletingAccount(false);
+    }
+  };
+
   const handleCharacterCreationComplete = useCallback(async (characterData: CharacterCreationInput) => {
     if (!conversationId) {
       // Character creation is only reachable in Game Master mode, so the
@@ -2528,39 +2560,19 @@ function App() {
                   <div ref={profileMenuRef} className="relative z-40">
                     <button
                       type="button"
-                      onClick={() => { void handleSidebarDeleteAction(); }}
+                      onClick={() => setIsProfileMenuOpen((prev) => !prev)}
                       onDragOver={handleTrashDragOver}
                       onDragLeave={handleTrashDragLeave}
                       onDrop={handleTrashDrop}
-                      className={`retro-icon-button retro-tooltip-trigger mb-2 h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
-                        isTrashDragOver
-                          ? 'border-brand-status-error/70 bg-brand-status-error/28 text-brand-status-error scale-[1.16] shadow-[0_12px_26px_rgba(239,68,68,0.34)]'
-                          : 'border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75'
-                      } disabled:cursor-not-allowed disabled:opacity-45`}
-                      aria-label="Delete current chat"
-                      disabled={!conversationId}
-                      data-tooltip={conversationId ? 'Delete current chat' : 'No chat to delete'}
-                      data-tooltip-position="right"
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsProfileMenuOpen((prev) => !prev)}
                       className={`retro-icon-button retro-tooltip-trigger h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
-                        isProfileMenuOpen
-                          ? 'border-brand-accent-primary/65 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]'
+                        isProfileMenuOpen || isTrashDragOver
+                          ? isTrashDragOver
+                            ? 'border-brand-status-error/70 bg-brand-status-error/28 text-brand-status-error scale-[1.16] shadow-[0_12px_26px_rgba(239,68,68,0.34)]'
+                            : 'border-brand-accent-primary/65 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]'
                           : 'border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary hover:border-brand-surface-border/70 hover:bg-brand-surface-elevated/70'
                       }`}
-                      aria-label="Open profile menu"
-                      data-tooltip="Account menu"
+                      aria-label="Open menu"
+                      data-tooltip="Menu"
                       data-tooltip-position="right"
                     >
                       <span className="relative flex items-center justify-center" aria-hidden="true">
@@ -2574,11 +2586,24 @@ function App() {
                     </button>
 
                     {isProfileMenuOpen && (
-                      <div className="retro-dropdown absolute bottom-0 left-[calc(100%+10px)] z-[90] min-w-[220px] rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
+                      <div className="retro-dropdown absolute bottom-0 left-[calc(100%+10px)] z-[90] min-w-[230px] rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
                         <div className="px-2 py-1.5">
                           <p className="truncate text-xs font-medium text-brand-text-primary">{websiteUserProfile.displayName}</p>
                           <p className="truncate text-[11px] text-brand-text-muted">{websiteUserProfile.email}</p>
                         </div>
+                        <div className="my-1.5 h-px bg-brand-surface-border/50" />
+                        <button
+                          type="button"
+                          onClick={() => { void handleSidebarDeleteAction(); }}
+                          disabled={!conversationId}
+                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error disabled:opacity-45 disabled:cursor-not-allowed"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
+                          </svg>
+                          Delete current chat
+                        </button>
+                        <div className="my-1.5 h-px bg-brand-surface-border/50" />
                         <button
                           type="button"
                           onClick={handleSignOut}
@@ -2591,14 +2616,16 @@ function App() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => { void handleSidebarDeleteAction(); }}
-                          disabled={!conversationId}
-                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error disabled:opacity-45 disabled:cursor-not-allowed"
+                          onClick={() => {
+                            setIsProfileMenuOpen(false);
+                            setIsDeleteAccountModalOpen(true);
+                          }}
+                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-status-error"
                         >
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
-                          Delete chat
+                          Delete account
                         </button>
                       </div>
                     )}
@@ -3202,6 +3229,14 @@ function App() {
 
       {/* Install Prompt */}
       <InstallPrompt />
+
+      <DeleteAccountModal
+        isOpen={isDeleteAccountModalOpen}
+        isDeleting={isDeletingAccount}
+        error={deleteAccountError}
+        onClose={() => setIsDeleteAccountModalOpen(false)}
+        onConfirm={() => { void handleDeleteAccount(); }}
+      />
 
     </div>
   );
