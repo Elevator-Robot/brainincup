@@ -102,7 +102,7 @@ function ContextWindowPanel({
         )}
 
         {activePanel === 'character' && !character && (
-          <div className="p-4 space-y-3 animate-pulse">
+          <div className="p-4 space-y-3">
             {/* Avatar + name skeleton */}
             <div className="flex items-center gap-3">
               <div className="h-14 w-14 rounded-xl bg-brand-surface-hover" />

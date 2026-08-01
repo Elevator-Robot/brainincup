@@ -235,3 +235,7 @@ docs/archive/
 
 # Mist MCPs
 .spec-workflow
+
+# Playwright MCP test artifacts
+.playwright-mcp/
+gm-streaming-e2e.png
