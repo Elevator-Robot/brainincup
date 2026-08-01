@@ -1,5 +1,6 @@
 import { defineData, a } from '@aws-amplify/backend';
 import { ClientSchema } from '@aws-amplify/backend';
+import { deleteAccount } from '../functions/delete-account/resource';
 
 const schema = a.schema({
   Conversation: a.model({
@@ -231,6 +232,12 @@ const schema = a.schema({
   })
     .secondaryIndexes((index) => [index('playerStateId')])
     .authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
+
+  deleteAccount: a
+    .mutation()
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(deleteAccount))
+    .returns(a.boolean()),
 });
 
 export const data = defineData({
