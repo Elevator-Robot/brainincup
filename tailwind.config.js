@@ -83,6 +83,7 @@ export default {
         'bounce-subtle': 'bounce-subtle 2s ease-in-out infinite',
         'spin-slow': 'spin 3s linear infinite',
         'wiggle': 'wiggle 1s ease-in-out infinite',
+        'text-populate': 'text-populate 0.5s ease-out both',
       },
       keyframes: {
         float: {
@@ -150,6 +151,21 @@ export default {
         'bounce-subtle': {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-5px)' },
+        },
+        'text-populate': {
+          '0%': {
+            opacity: 0,
+            transform: 'translateY(4px)',
+            filter: 'blur(3px)',
+          },
+          '60%': {
+            filter: 'blur(0px)',
+          },
+          '100%': {
+            opacity: 1,
+            transform: 'translateY(0)',
+            filter: 'blur(0)',
+          },
         },
         wiggle: {
           '0%, 100%': { transform: 'rotate(-3deg)' },

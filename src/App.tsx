@@ -19,9 +19,7 @@ import {
 } from './constants/gameMasterAvatars';
 import { isTestModeEnabled } from './utils/testMode';
 import { streamAgentMessage, type AguiEvent } from './utils/aguiStream';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
+import { MessageBubble, type Message } from './components/MessageBubble';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -152,7 +150,13 @@ const loadCachedMessages = (conversationId: string): Message[] | null => {
 const saveCachedMessages = (conversationId: string, messages: Message[]) => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(getMessagesCacheKey(conversationId), JSON.stringify(messages));
+    // Strip transient streaming fields so restored messages don't re-animate.
+    const toPersist = messages.map((m) => {
+      const rest = { ...m };
+      delete (rest as { populateOnMount?: boolean }).populateOnMount;
+      return rest;
+    });
+    window.localStorage.setItem(getMessagesCacheKey(conversationId), JSON.stringify(toPersist));
   } catch {
     // localStorage full or unavailable — ignore
   }
@@ -163,32 +167,6 @@ interface HudQuestStep {
   summary: string;
   dangerLevel: string;
   createdAt?: string | null;
-}
-
-interface ToolCallRecord {
-  toolCallId: string;
-  name: string;
-  args: string;
-  result?: string;
-  status: 'running' | 'completed' | 'error';
-}
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  isTyping?: boolean;
-  fullContent?: string; // Store the complete content when typing
-  // Additional AI response data
-  sensations?: string[];
-  thoughts?: string[];
-  memories?: string;
-  selfReflection?: string;
-  // AG-UI streaming data
-  messageId?: string;
-  reasoning?: string;
-  toolCalls?: ToolCallRecord[];
-  activeStep?: string;
-  streamError?: string;
 }
 
 const summarizeText = (text: string, max = 220) => {
@@ -966,6 +944,9 @@ function App() {
   const newInteractionPrimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageContainerRefs = useRef<Map<number, HTMLDivElement>>(new Map()); // Track individual message container refs (bubble + details)
   const desktopScrollContainerRef = useRef<HTMLDivElement>(null); // Desktop scroll container
+  const desktopContentRef = useRef<HTMLDivElement>(null); // Desktop chat content (observed for growth)
+  const mobileScrollContainerRef = useRef<HTMLDivElement>(null); // Mobile scroll container
+  const mobileContentRef = useRef<HTMLDivElement>(null); // Mobile chat content (observed for growth)
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const streamedMessageIdsRef = useRef<Set<string>>(new Set());
 
@@ -1183,6 +1164,47 @@ function App() {
       desktopScrollContainerRef.current.scrollTop = desktopScrollContainerRef.current.scrollHeight;
     }
   }, [messages.length]);
+
+  // Keep the chat pinned to the bottom while content grows — streamed deltas,
+  // the typewriter reveal, expanded details, and new messages — so the user
+  // never has to scroll to follow the conversation. Pinning pauses while the
+  // user scrolls up and resumes once they return near the bottom.
+  useEffect(() => {
+    const containers: Array<{ scroll: HTMLDivElement; content: HTMLDivElement }> = [];
+    if (desktopScrollContainerRef.current && desktopContentRef.current) {
+      containers.push({ scroll: desktopScrollContainerRef.current, content: desktopContentRef.current });
+    }
+    if (mobileScrollContainerRef.current && mobileContentRef.current) {
+      containers.push({ scroll: mobileScrollContainerRef.current, content: mobileContentRef.current });
+    }
+    if (containers.length === 0) return;
+
+    const pinned = new Map<HTMLDivElement, boolean>();
+    const observers: ResizeObserver[] = [];
+    const removeListeners: Array<() => void> = [];
+
+    for (const { scroll, content } of containers) {
+      pinned.set(scroll, true);
+      const onScroll = () => {
+        pinned.set(scroll, scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 100);
+      };
+      scroll.addEventListener('scroll', onScroll, { passive: true });
+      removeListeners.push(() => scroll.removeEventListener('scroll', onScroll));
+
+      const observer = new ResizeObserver(() => {
+        if (pinned.get(scroll)) {
+          scroll.scrollTop = scroll.scrollHeight;
+        }
+      });
+      observer.observe(content);
+      observers.push(observer);
+    }
+
+    return () => {
+      removeListeners.forEach(remove => remove());
+      observers.forEach(observer => observer.disconnect());
+    };
+  }, []);
 
   // Cleanup typing animation when conversation changes or component unmounts
   useEffect(() => {
@@ -1585,6 +1607,7 @@ function App() {
                   fullContent: '',
                   messageId,
                   toolCalls: [],
+                  populateOnMount: true,
                 },
               ]);
               break;
@@ -2617,11 +2640,11 @@ function App() {
                         </div>
                       )}
 
-                      <div
-                        ref={desktopScrollContainerRef}
-                        className="flex-1 overflow-y-auto pr-2"
-                      >
-                        <div className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
+                        <div
+                          ref={desktopScrollContainerRef}
+                          className="flex-1 overflow-y-auto pr-2"
+                        >
+                          <div ref={desktopContentRef} className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
                           {/* Mode indicator removed */}
 
                           {conversationId && effectivePersonality === 'game_master' && adventureState && (
@@ -2637,195 +2660,24 @@ function App() {
                           )}
               
               {messages.filter(m => !m.content?.startsWith('[SYSTEM:')).map((message, index) => (
-                            <div
-                              key={index}
-                              className={`retro-message-row flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <div 
-                                ref={(el) => {
-                                  if (el && message.role === 'assistant') {
-                                    messageContainerRefs.current.set(index, el);
-                                  }
-                                }}
-                                className="flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]"
-                              >
-                                <div
-                                   className={`retro-message message-bubble backdrop-blur-sm transition-all duration-300 ${
-                                     `rounded-2xl px-4 py-3 hover:brightness-110 ${
-                                       message.role === 'user'
-                                        ? 'retro-message-user text-white'
-                                        : 'retro-message-assistant text-brand-text-primary'
-                                    } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`
-                                  }`}
-                                  onClick={() => {
-                                    if (message.role === 'assistant') {
-                                      setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
-                                    }
-                                  }}
-                                >
-                                  <div className="break-words">
-                                    {isGameMasterMode && (
-                                      <span className={`mb-1 block text-[11px] uppercase tracking-[0.22em] ${
-                                        message.role === 'user' ? 'text-teal-200/75' : 'text-brand-text-muted'
-                                      }`}>
-                                        {message.role === 'user' ? 'You' : 'Brain'}
-                                      </span>
-                                    )}
-                                     <ReactMarkdown
-                                      remarkPlugins={[remarkGfm, remarkBreaks]}
-                                      components={{
-                                        p: ({children}) => <p className="leading-relaxed break-words" style={{margin: '0 0 2px 0'}}>{children}</p>,
-                                        ul: ({children}) => <ul className="list-disc pl-5 space-y-0 mb-0.5 last:mb-0">{children}</ul>,
-                                        ol: ({children}) => <ol className="list-decimal pl-5 space-y-0 mb-0.5 last:mb-0">{children}</ol>,
-                                        li: ({children}) => <li className="leading-relaxed">{children}</li>,
-                                        strong: ({children}) => <strong className="font-bold text-brand-accent-primary">{children}</strong>,
-                                        em: ({children}) => <em className="italic text-brand-text-muted">{children}</em>,
-                                        code: ({className, children, ...props}) => {
-                                          const isInline = !className;
-                                          return isInline ? (
-                                            <code className="px-1.5 py-0.5 rounded bg-brand-surface-elevated/50 text-purple-300 text-sm font-mono" {...props}>{children}</code>
-                                          ) : (
-                                            <code className="block p-3 rounded-lg bg-brand-surface-elevated/50 text-sm font-mono overflow-x-auto whitespace-pre-wrap my-0.5" {...props}>{children}</code>
-                                          );
-                                        },
-                                        blockquote: ({children}) => (
-                                          <blockquote className="border-l-2 border-brand-accent-primary/50 pl-4 italic text-brand-text-muted my-0.5">{children}</blockquote>
-                                        ),
-                                         h1: ({children}) => <h1 className="text-xl font-bold text-brand-accent-primary mb-0.5 mt-0.5">{children}</h1>,
-                                         h2: ({children}) => <h2 className="text-lg font-bold text-brand-accent-primary mb-0.5">{children}</h2>,
-                                         h3: ({children}) => <h3 className="text-base font-bold text-brand-text-primary mb-0.5">{children}</h3>,
-                                        a: ({href, children}) => <a href={href} className="text-brand-accent-primary underline hover:text-brand-accent-secondary transition-colors" target="_blank" rel="noopener noreferrer">{children}</a>,
-                                        hr: () => <hr className="border-brand-surface-border/50 my-0.5" />,
-                                      }}
-                                    >
-                                      {message.content}
-                                    </ReactMarkdown>
-                              </div>
-                            </div>
-
-                            {/* AG-UI tool call cards (Game Master) */}
-                            {message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0 && (
-                              <div className="space-y-2">
-                                {message.toolCalls.map((toolCall) => (
-                                  <div
-                                    key={toolCall.toolCallId}
-                                    className="rounded-xl border border-brand-surface-border/50 bg-brand-surface-elevated/40 px-3 py-2"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-                                        toolCall.status === 'running'
-                                          ? 'bg-amber-400 animate-pulse'
-                                          : toolCall.status === 'error'
-                                            ? 'bg-red-400'
-                                            : 'bg-green-400'
-                                      }`} />
-                                      <span className="text-xs font-semibold text-brand-accent-primary">{toolCall.name}</span>
-                                      {toolCall.status === 'running' && (
-                                        <span className="text-[10px] text-brand-text-muted">running…</span>
-                                      )}
-                                    </div>
-                                    {toolCall.args && (
-                                      <pre className="mt-1 text-[10px] font-mono text-brand-text-muted whitespace-pre-wrap break-words">
-                                        {toolCall.args}
-                                      </pre>
-                                    )}
-                                    {toolCall.result && toolCall.result !== 'undefined' && (
-                                      <pre className="mt-1 text-[10px] font-mono text-green-300/80 whitespace-pre-wrap break-words">
-                                        {toolCall.result}
-                                      </pre>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Show additional details when expanded */}
-                            {message.role === 'assistant' && expandedMessageIndex === index && (
-                              <div className="mt-4 space-y-3 animate-slide-up">
-                                {/* Reasoning (AG-UI REASONING_MESSAGE stream) */}
-                                {message.reasoning && message.reasoning.trim() && (
-                                  <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                    <div className="font-medium text-amber-300 mb-2 flex items-center gap-2 text-sm">
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                      </svg>
-                                      Reasoning
-                                    </div>
-                                    <p className="text-brand-text-muted text-sm leading-relaxed whitespace-pre-wrap">{message.reasoning}</p>
-                                  </div>
-                                )}
-                                {/* Sensations */}
-                                {message.sensations && message.sensations.length > 0 && (
-                                  <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                        <div className="font-medium text-purple-300 mb-2 flex items-center gap-2 text-sm">
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                          </svg>
-                              Sensations
-                                        </div>
-                                        <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
-                                          {message.sensations.map((sensation, i) => (
-                                            <li key={i} className="leading-relaxed">• {sensation}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                        
-                                    {/* Thoughts */}
-                                    {message.thoughts && message.thoughts.length > 0 && (
-                                      <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                        <div className="font-medium text-blue-300 mb-2 flex items-center gap-2 text-sm">
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                          </svg>
-                              Thoughts
-                                        </div>
-                                        <ul className="text-brand-text-muted text-sm space-y-1.5 ml-6">
-                                          {message.thoughts.map((thought, i) => (
-                                            <li key={i} className="leading-relaxed">• {thought}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                        
-                                    {/* Memories */}
-                                    {message.memories && message.memories.trim() && (
-                                      <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                        <div className="font-medium text-green-300 mb-2 flex items-center gap-2 text-sm">
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                          </svg>
-                              Memories
-                                        </div>
-                                        <p className="text-brand-text-muted text-sm leading-relaxed">{message.memories}</p>
-                                      </div>
-                                    )}
-                        
-                                    {/* Self Reflection */}
-                                    {message.selfReflection && message.selfReflection.trim() && (
-                                      <div className="rounded-lg p-3 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                                        <div className="font-medium text-violet-300 mb-2 flex items-center gap-2 text-sm">
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                              d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                              Self Reflection
-                                        </div>
-                                        <p className="text-brand-text-muted text-sm leading-relaxed">{message.selfReflection}</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                  
-                            </div>
-                          ))}
+                <MessageBubble
+                  key={index}
+                  message={message}
+                  isGameMasterMode={isGameMasterMode}
+                  variant="desktop"
+                  expanded={expandedMessageIndex === index}
+                  onToggleExpanded={() => {
+                    if (message.role === 'assistant') {
+                      setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
+                    }
+                  }}
+                  containerRef={(el) => {
+                    if (el && message.role === 'assistant') {
+                      messageContainerRefs.current.set(index, el);
+                    }
+                  }}
+                />
+              ))}
               
                           {isWaitingForResponse && (
                             <div className="retro-waiting-row flex gap-4 justify-start animate-slide-up">
@@ -3221,8 +3073,11 @@ function App() {
         {/* Enhanced Chat Area with glass morphism design */}
         <div className="retro-chat-area flex-1 flex flex-col min-h-0 mt-2">
           {/* Messages with improved styling and animations */}
-          <div className="retro-scroll-panel flex-1 overflow-y-auto px-4 py-5 pb-3 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col rounded-3xl">
-            <div className="max-w-4xl mx-auto space-y-4 flex flex-col">
+          <div
+            ref={mobileScrollContainerRef}
+            className="retro-scroll-panel flex-1 overflow-y-auto px-4 py-5 pb-3 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col rounded-3xl"
+          >
+            <div ref={mobileContentRef} className="max-w-4xl mx-auto space-y-4 flex flex-col">
               {showMobileInlineCharacterCreation && (
                 <div className="mx-auto w-full max-w-xl pb-2">
                   <CharacterCreation
@@ -3234,192 +3089,23 @@ function App() {
               )}
               
               {messages.filter(m => !m.content?.startsWith('[SYSTEM:')).map((message, index) => (
-                <div
+                <MessageBubble
                   key={index}
-                  className={`retro-message-row flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div 
-                    ref={(el) => {
-                      if (el && message.role === 'assistant') {
-                        messageContainerRefs.current.set(index, el);
-                      }
-                    }}
-                    className="flex flex-col gap-2 max-w-[85%]"
-                  >
-                    <div
-                      className={`retro-message message-bubble rounded-2xl px-4 py-3 backdrop-blur-sm transition-all duration-300 hover:brightness-110 ${
-                        message.role === 'user'
-                          ? 'retro-message-user text-white'
-                          : 'retro-message-assistant text-brand-text-primary'
-                      } ${message.role === 'assistant' ? 'cursor-pointer' : ''}`}
-                      onClick={() => {
-                        if (message.role === 'assistant') {
-                          setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
-                        }
-                      }}
-                    >
-                      <div className="break-words text-sm">
-                        {isGameMasterMode && (
-                          <span className={`mb-1 block text-[10px] uppercase tracking-[0.2em] ${
-                            message.role === 'user' ? 'text-teal-200/75' : 'text-brand-text-muted'
-                          }`}>
-                            {message.role === 'user' ? 'You' : 'Brain'}
-                          </span>
-                        )}
-                         <ReactMarkdown
-                          remarkPlugins={[remarkGfm, remarkBreaks]}
-                          components={{
-                              p: ({children}) => <p className="leading-relaxed break-words" style={{margin: '0 0 2px 0'}}>{children}</p>,
-                             ul: ({children}) => <ul className="list-disc pl-4 space-y-0 mb-0.5 last:mb-0">{children}</ul>,
-                             ol: ({children}) => <ol className="list-decimal pl-4 space-y-0 mb-0.5 last:mb-0">{children}</ol>,
-                            li: ({children}) => <li className="leading-relaxed">{children}</li>,
-                            strong: ({children}) => <strong className="font-bold text-brand-accent-primary">{children}</strong>,
-                            em: ({children}) => <em className="italic text-brand-text-muted">{children}</em>,
-                            code: ({className, children, ...props}) => {
-                              const isInline = !className;
-                              return isInline ? (
-                                <code className="px-1.5 py-0.5 rounded bg-brand-surface-elevated/50 text-purple-300 text-xs font-mono" {...props}>{children}</code>
-                              ) : (
-                                <code className="block p-2.5 rounded-lg bg-brand-surface-elevated/50 text-xs font-mono overflow-x-auto whitespace-pre-wrap my-1" {...props}>{children}</code>
-                              );
-                            },
-                            blockquote: ({children}) => (
-                              <blockquote className="border-l-2 border-brand-accent-primary/50 pl-3 italic text-brand-text-muted my-1 text-xs">{children}</blockquote>
-                            ),
-                             h1: ({children}) => <h1 className="text-lg font-bold text-brand-accent-primary mb-0.5 mt-0.5">{children}</h1>,
-                             h2: ({children}) => <h2 className="text-base font-bold text-brand-accent-primary mb-0.5">{children}</h2>,
-                             h3: ({children}) => <h3 className="text-sm font-bold text-brand-text-primary mb-0.5">{children}</h3>,
-                            a: ({href, children}) => <a href={href} className="text-brand-accent-primary underline hover:text-brand-accent-secondary transition-colors" target="_blank" rel="noopener noreferrer">{children}</a>,
-                            hr: () => <hr className="border-brand-surface-border/50 my-1.5" />,
-                          }}
-                        >
-                          {message.content}
-                        </ReactMarkdown>
-                      </div>
-                    </div>
-
-                    {/* AG-UI tool call cards (Game Master) */}
-                    {message.role === 'assistant' && message.toolCalls && message.toolCalls.length > 0 && (
-                      <div className="space-y-2">
-                        {message.toolCalls.map((toolCall) => (
-                          <div
-                            key={toolCall.toolCallId}
-                            className="rounded-xl border border-brand-surface-border/50 bg-brand-surface-elevated/40 px-3 py-2"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-                                toolCall.status === 'running'
-                                  ? 'bg-amber-400 animate-pulse'
-                                  : toolCall.status === 'error'
-                                    ? 'bg-red-400'
-                                    : 'bg-green-400'
-                              }`} />
-                              <span className="text-xs font-semibold text-brand-accent-primary">{toolCall.name}</span>
-                              {toolCall.status === 'running' && (
-                                <span className="text-[10px] text-brand-text-muted">running…</span>
-                              )}
-                            </div>
-                            {toolCall.args && (
-                              <pre className="mt-1 text-[10px] font-mono text-brand-text-muted whitespace-pre-wrap break-words">
-                                {toolCall.args}
-                              </pre>
-                            )}
-                            {toolCall.result && toolCall.result !== 'undefined' && (
-                              <pre className="mt-1 text-[10px] font-mono text-green-300/80 whitespace-pre-wrap break-words">
-                                {toolCall.result}
-                              </pre>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Show additional details when expanded */}
-                    {message.role === 'assistant' && expandedMessageIndex === index && (
-                      <div className="mt-3 space-y-2.5 animate-slide-up">
-                        {/* Reasoning (AG-UI REASONING_MESSAGE stream) */}
-                        {message.reasoning && message.reasoning.trim() && (
-                          <div className="rounded-lg p-2.5 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                            <div className="font-medium text-amber-300 mb-1.5 flex items-center gap-1.5 text-xs">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                              </svg>
-                              Reasoning
-                            </div>
-                            <p className="text-brand-text-muted text-xs leading-relaxed whitespace-pre-wrap">{message.reasoning}</p>
-                          </div>
-                        )}
-                        {/* Sensations */}
-                        {message.sensations && message.sensations.length > 0 && (
-                          <div className="rounded-lg p-2.5 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                            <div className="font-medium text-purple-300 mb-1.5 flex items-center gap-1.5 text-xs">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                              Sensations
-                            </div>
-                            <ul className="text-brand-text-muted text-xs space-y-1 ml-5">
-                              {message.sensations.map((sensation, i) => (
-                                <li key={i} className="leading-relaxed">• {sensation}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        
-                        {/* Thoughts */}
-                        {message.thoughts && message.thoughts.length > 0 && (
-                          <div className="rounded-lg p-2.5 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                            <div className="font-medium text-blue-300 mb-1.5 flex items-center gap-1.5 text-xs">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                              </svg>
-                              Thoughts
-                            </div>
-                            <ul className="text-brand-text-muted text-xs space-y-1 ml-5">
-                              {message.thoughts.map((thought, i) => (
-                                <li key={i} className="leading-relaxed">• {thought}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        
-                        {/* Memories */}
-                        {message.memories && message.memories.trim() && (
-                          <div className="rounded-lg p-2.5 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                            <div className="font-medium text-green-300 mb-1.5 flex items-center gap-1.5 text-xs">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                              </svg>
-                              Memories
-                            </div>
-                            <p className="text-brand-text-muted text-xs leading-relaxed">{message.memories}</p>
-                          </div>
-                        )}
-                        
-                        {/* Self Reflection */}
-                        {message.selfReflection && message.selfReflection.trim() && (
-                          <div className="rounded-lg p-2.5 bg-brand-surface-elevated/30 border border-brand-surface-border/50">
-                            <div className="font-medium text-violet-300 mb-1.5 flex items-center gap-1.5 text-xs">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              Self Reflection
-                            </div>
-                            <p className="text-brand-text-muted text-xs leading-relaxed">{message.selfReflection}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
-                </div>
+                  message={message}
+                  isGameMasterMode={isGameMasterMode}
+                  variant="mobile"
+                  expanded={expandedMessageIndex === index}
+                  onToggleExpanded={() => {
+                    if (message.role === 'assistant') {
+                      setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
+                    }
+                  }}
+                  containerRef={(el) => {
+                    if (el && message.role === 'assistant') {
+                      messageContainerRefs.current.set(index, el);
+                    }
+                  }}
+                />
               ))}
               
               {isWaitingForResponse && (
