@@ -245,7 +245,7 @@ def exploration_node(state: OrchestratorState) -> dict:
         facts = [
             f"You remain in: {loc['name']}.",
             f"{loc['description']}",
-            f"Present NPCS: {', '.join(n['name'] for n in _npcs_at(loc))}",
+            f"Present NPCS: {', '.join(n['name'] for n in _content_npcs(loc))}",
         ]
 
     # Recover the lantern once the cellar rats are gone.

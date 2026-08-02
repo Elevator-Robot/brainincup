@@ -169,14 +169,14 @@ class OrchestrationStore:
         )
         items = resp.get("Items", []) or []
         # The GameMasterAdventure table is shared with a legacy adventure engine
-        # that writes free-text rows (a new row per turn). Prefer the most recent
-        # row whose location is a known content key; otherwise start fresh.
+        # that writes free-text rows (a new row per turn). Prefer rows whose
+        # location is a known content key; if none exist, start fresh rather than
+        # inherit an unresolvable free-text location that would crash gameplay.
         known = [
             it for it in items
             if content.get_location(self._s(it.get("currentLocation"))) is not None
         ]
-        pool = known or items
-        pool = sorted(pool, key=lambda it: self._s(it.get("updatedAt")), reverse=True)
+        pool = sorted(known, key=lambda it: self._s(it.get("updatedAt")), reverse=True)
         if not pool:
             return self._fresh_campaign(conversation_id)
         item = pool[0]
