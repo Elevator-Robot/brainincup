@@ -3,6 +3,7 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
 import { normalizePersonalityMode } from '../constants/personalityModes';
+import { CHAT_LIMIT, readStoredAvatarId } from './ConversationSidebarIcons';
 
 const dataClient = generateClient<Schema>();
 
@@ -85,10 +86,11 @@ export default function MobileMenu({
             });
             avatarId = chars?.[0]?.avatarId || '';
           } catch { /* ignore */ }
+          const resolvedAvatarId = avatarId || readStoredAvatarId(c.id);
           items.push({
             id: c.id,
-            avatarSrc: avatarId ? getAvatarSrcById(avatarId) : '',
-            avatarSrcWebp: avatarId ? getAvatarWebpSrcById(avatarId) : '',
+            avatarSrc: resolvedAvatarId ? getAvatarSrcById(resolvedAvatarId) : '',
+            avatarSrcWebp: resolvedAvatarId ? getAvatarWebpSrcById(resolvedAvatarId) : '',
             title: c.title || 'Untitled',
           });
         }
@@ -100,6 +102,7 @@ export default function MobileMenu({
 
   if (!isOpen) return null;
   const isGameMaster = effectivePersonality === 'game_master';
+  const adventures = conversations.filter(c => c.avatarSrc);
   const operations =
     (active: boolean) =>
       `flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition-colors border ${
@@ -161,12 +164,15 @@ export default function MobileMenu({
 
           <div className="my-3 h-px bg-brand-surface-border/50" />
 
-          <p className="px-3 text-[10px] font-medium uppercase tracking-wider text-brand-text-muted/60">Adventures</p>
+          <div className="flex items-center justify-between px-3">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-brand-text-muted/60">Adventures</p>
+            <p className="text-[10px] font-medium text-brand-text-muted/60">{adventures.length}/{CHAT_LIMIT} open</p>
+          </div>
           <div className="mt-1 space-y-1">
-            {conversations.length === 0 && (
+            {adventures.length === 0 && (
               <p className="px-3 py-2 text-xs text-brand-text-muted/60">No adventures yet</p>
             )}
-            {conversations.map((conv) => (
+            {adventures.map((conv) => (
               <button
                 key={conv.id}
                 type="button"
@@ -174,11 +180,7 @@ export default function MobileMenu({
                 className={operations(conversationId === conv.id)}
               >
                 <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-brand-surface-border/50">
-                  {conv.avatarSrc ? (
-                    <img src={conv.avatarSrc} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center text-lg">⚔️</span>
-                  )}
+                  <img src={conv.avatarSrc} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-brand-text-primary">{conv.title}</span>

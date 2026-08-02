@@ -18,7 +18,7 @@ type ConversationMetadata = {
   updatedAt: string;
 };
 
-const readStoredAvatarId = (conversationId: string): string => {
+export const readStoredAvatarId = (conversationId: string): string => {
   if (typeof window === 'undefined' || !conversationId) return '';
   try {
     const raw = window.localStorage.getItem(GM_CONVERSATION_AVATAR_STORAGE_KEY);
@@ -44,7 +44,7 @@ const writeConversationCache = (metadata: ConversationMetadata[]) => {
   } catch { /* ignore */ }
 };
 
-const CHAT_LIMIT = 3;
+export const CHAT_LIMIT = 3;
 
 interface ConversationSidebarIconsProps {
   onSelectConversation: (conversationId: string) => void;
