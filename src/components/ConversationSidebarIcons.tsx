@@ -18,7 +18,7 @@ type ConversationMetadata = {
   updatedAt: string;
 };
 
-const readStoredAvatarId = (conversationId: string): string => {
+export const readStoredAvatarId = (conversationId: string): string => {
   if (typeof window === 'undefined' || !conversationId) return '';
   try {
     const raw = window.localStorage.getItem(GM_CONVERSATION_AVATAR_STORAGE_KEY);
@@ -44,7 +44,7 @@ const writeConversationCache = (metadata: ConversationMetadata[]) => {
   } catch { /* ignore */ }
 };
 
-const CHAT_LIMIT = 3;
+export const CHAT_LIMIT = 3;
 
 interface ConversationSidebarIconsProps {
   onSelectConversation: (conversationId: string) => void;
@@ -170,18 +170,18 @@ export default function ConversationSidebarIcons({
             if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
             setHoveredId(null);
           }}
-          className={`h-12 w-12 rounded-xl transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none ${
+          className={`h-10 w-10 rounded-lg transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none ${
             activeConversationId === 'brain'
-              ? 'border-brand-surface-border/60 bg-brand-surface-dark/60 scale-95'
-              : 'border-violet-400/60 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 shadow-[0_0_12px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:scale-110'
+              ? 'border-violet-400/80 bg-gradient-to-br from-violet-500/35 to-fuchsia-500/25 scale-95 shadow-[0_0_14px_rgba(139,92,246,0.4)]'
+              : 'border-violet-400/50 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 hover:border-violet-400/75 hover:from-violet-500/28 hover:to-fuchsia-500/28'
           }`}
         >
           <img
-            src="/brain-icon.svg"
+            src="/brain-chat.svg"
             alt="Brain"
-            className="h-8 w-8 object-contain brightness-0 invert"
+            className="h-8 w-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
             onError={(e) => {
-              // Fallback to emoji if SVG doesn't exist
+              // Fallback to emoji if the image doesn't exist
               e.currentTarget.style.display = 'none';
               const parent = e.currentTarget.parentElement;
               if (parent && !parent.querySelector('.brain-fallback')) {

@@ -21,6 +21,7 @@ import { isTestModeEnabled } from './utils/testMode';
 import { streamAgentMessage, type AguiEvent } from './utils/aguiStream';
 import { MessageBubble, type Message } from './components/MessageBubble';
 import DeleteAccountModal from './components/DeleteAccountModal';
+import MobileMenu from './components/MobileMenu';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -422,6 +423,7 @@ function App() {
   );
   const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
@@ -2854,8 +2856,9 @@ function App() {
                         </div>
                       </BottomInput>
                   </section>
-              </div>
-          </main>
+</div>
+      </main>
+
         <aside className="retro-shell-right">
           <div className="retro-right-container flex flex-col h-full overflow-y-auto">
                 {isGameMasterMode ? (
@@ -2971,7 +2974,19 @@ function App() {
         <nav className="retro-nav retro-mobile-nav sticky top-0 z-[60] bg-brand-surface-elevated/95 backdrop-blur-xl border-b border-brand-surface-border/50 shadow-lg pt-safe rounded-3xl">
           <div className="px-4 py-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="rounded-xl p-2 text-brand-text-primary hover:bg-brand-surface-secondary/60 transition-colors"
+                  aria-label="Open menu"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M4 7h16M4 12h16M4 17h16" />
+                  </svg>
+                </button>
+                <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
+              </div>
             </div>
 
             <div>
@@ -3281,6 +3296,35 @@ function App() {
         </div>
 
       </main>
+
+      {/* Mobile Menu Drawer */}
+      <MobileMenu
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        activeConversationId={conversationId === brainConversationId ? 'brain' : conversationId}
+        conversationId={conversationId}
+        effectivePersonality={effectivePersonality}
+        messagesCount={messages.length}
+        displayName={websiteUserProfile.displayName}
+        email={websiteUserProfile.email}
+        onSelectBrain={() => {
+          setIsMobileMenuOpen(false);
+          if (brainConversationId) {
+            setPersonalityMode('brain');
+            void handleSelectConversation(brainConversationId);
+          }
+        }}
+        onSelectConversation={(id) => { void handleSelectConversation(id); }}
+        onNewConversation={() => { void handleNewConversation(); }}
+        onSignOut={handleSignOut}
+        onDeleteCurrent={() => { void handleSidebarDeleteAction(); }}
+        onClearChat={() => { void handleClearBrainChat(); }}
+        onDeleteAccount={() => {
+          setIsProfileMenuOpen(false);
+          setIsMobileMenuOpen(false);
+          setIsDeleteAccountModalOpen(true);
+        }}
+      />
 
       {/* Install Prompt */}
       <InstallPrompt />

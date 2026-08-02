@@ -337,6 +337,19 @@ textarea.w-full:focus {
   animation: slide-up 0.3s ease-out;
 }
 
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* ─── RPG Theme Tokens ─── */
 :root {
   --rpg-accent: #79d7c2;
@@ -914,6 +927,10 @@ textarea.w-full:focus {
 
 .retro-input-textarea::placeholder {
   color: rgba(205, 231, 225, 0.62) !important;
+  font-size: clamp(0.8125rem, 0.7rem + 0.6vw, 0.9375rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .retro-send-button {
