@@ -139,6 +139,16 @@ ENEMIES: dict[str, dict] = {
         "xp_value": 12,
         "is_hostile": True,
     },
+    "bar_brawler": {
+        "id": "bar_brawler",
+        "name": "Brawling Patron",
+        "armor_class": 12,
+        "hit_points": 10,
+        "attack_modifier": 3,
+        "damage": "1d4+1",
+        "xp_value": 25,
+        "is_hostile": True,
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -235,6 +245,11 @@ DEFAULT_LEVEL_XP = 100
 
 def get_location(location_id: Optional[str]) -> Optional[dict]:
     return LOCATIONS.get(location_id or "")
+
+
+def resolve_location(location_id: Optional[str]) -> dict:
+    """Like get_location but never returns None — unknown ids fall back to STARTING_LOCATION."""
+    return LOCATIONS.get(location_id or "") or LOCATIONS[STARTING_LOCATION]
 
 
 def get_npc(npc_id: Optional[str]) -> Optional[dict]:

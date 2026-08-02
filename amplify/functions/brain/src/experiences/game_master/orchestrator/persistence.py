@@ -166,12 +166,20 @@ class OrchestrationStore:
             IndexName=self._conversation_index(self.adventure_table),
             KeyConditionExpression="conversationId = :c",
             ExpressionAttributeValues={":c": {"S": conversation_id}},
-            Limit=1,
         )
-        items = resp.get("Items", [])
-        if not items:
+        items = resp.get("Items", []) or []
+        # The GameMasterAdventure table is shared with a legacy adventure engine
+        # that writes free-text rows (a new row per turn). Prefer the most recent
+        # row whose location is a known content key; otherwise start fresh.
+        known = [
+            it for it in items
+            if content.get_location(self._s(it.get("currentLocation"))) is not None
+        ]
+        pool = known or items
+        pool = sorted(pool, key=lambda it: self._s(it.get("updatedAt")), reverse=True)
+        if not pool:
             return self._fresh_campaign(conversation_id)
-        item = items[0]
+        item = pool[0]
         return {
             "id": self._s(item.get("id")),
             "conversation_id": conversation_id,
