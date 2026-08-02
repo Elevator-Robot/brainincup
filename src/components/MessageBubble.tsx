@@ -194,8 +194,8 @@ export function MessageBubble({
             role === 'user'
               ? 'retro-message-user text-white'
               : 'retro-message-assistant text-brand-text-primary'
-          } ${role === 'assistant' ? 'cursor-pointer' : ''} ${populating ? 'animate-text-populate' : ''}`}
-          onClick={onToggleExpanded}
+          } ${role === 'assistant' && !isGameMasterMode ? 'cursor-pointer' : ''} ${populating ? 'animate-text-populate' : ''}`}
+          onClick={isGameMasterMode ? undefined : onToggleExpanded}
         >
           <div className={isDesktop ? 'break-words' : 'break-words text-sm'}>
             {isGameMasterMode && (
@@ -247,8 +247,8 @@ export function MessageBubble({
           </div>
         )}
 
-        {/* Show additional details when expanded */}
-        {role === 'assistant' && expanded && (
+        {/* Show additional details when expanded (Brain only) */}
+        {!isGameMasterMode && role === 'assistant' && expanded && (
           <div className={`animate-slide-up ${isDesktop ? 'mt-4 space-y-3' : 'mt-3 space-y-2.5'}`}>
             {/* Reasoning (AG-UI REASONING_MESSAGE stream) */}
             {message.reasoning && message.reasoning.trim() && (

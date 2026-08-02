@@ -234,6 +234,9 @@ brainLambda.addEnvironment('RESPONSE_TABLE_NAME', responseTable.tableName);
 brainLambda.addEnvironment('CHARACTER_TABLE_NAME', characterTable.tableName);
 brainLambda.addEnvironment('QUEST_STEP_TABLE_NAME', questStepTable.tableName);
 brainLambda.addEnvironment('ADVENTURE_TABLE_NAME', adventureTable.tableName);
+brainLambda.addEnvironment('PLAYER_STATE_TABLE_NAME', playerStateTable.tableName);
+brainLambda.addEnvironment('WORLD_STATE_TABLE_NAME', worldStateTable.tableName);
+brainLambda.addEnvironment('ACTIVE_QUEST_TABLE_NAME', activeQuestTable.tableName);
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
@@ -302,7 +305,13 @@ brainLambda.addToRolePolicy(new PolicyStatement({
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${questStepTable.tableName}`,
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${questStepTable.tableName}/*`,
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${adventureTable.tableName}`,
-    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${adventureTable.tableName}/*`
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${adventureTable.tableName}/*`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${playerStateTable.tableName}`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${playerStateTable.tableName}/*`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${worldStateTable.tableName}`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${worldStateTable.tableName}/*`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${activeQuestTable.tableName}`,
+    `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${activeQuestTable.tableName}/*`,
   ],
   effect: Effect.ALLOW,
 }));
