@@ -213,13 +213,13 @@ class OrchestrationStore:
         adventure_id = str(uuid.uuid4())
         self.adventure_table.put_item(
             Item={
-                "id": {"S": adventure_id},
-                "conversationId": {"S": conversation_id},
-                "started": {"BOOL": False},
-                "currentLocation": {"S": campaign.get("currentLocation", content.STARTING_LOCATION)},
-                "visitedLocations": {"L": [{"S": loc} for loc in (campaign.get("visitedLocations") or [])]},
-                "createdAt": {"S": self._now()},
-                "updatedAt": {"S": self._now()},
+                "id": adventure_id,
+                "conversationId": conversation_id,
+                "started": False,
+                "currentLocation": campaign.get("currentLocation", content.STARTING_LOCATION),
+                "visitedLocations": campaign.get("visitedLocations") or [],
+                "createdAt": self._now(),
+                "updatedAt": self._now(),
             },
         )
         campaign["id"] = adventure_id
@@ -251,15 +251,15 @@ class OrchestrationStore:
         quest_id = f"{conversation_id}:{quest['id']}"
         self.active_quest_table.put_item(
             Item={
-                "id": {"S": quest_id},
-                "playerStateId": {"S": character_id},
-                "questDefinitionId": {"S": quest["id"]},
-                "campaignId": {"S": content.GREENFIELD_CAMPAIGN_ID},
-                "status": {"S": "ACTIVE"},
-                "currentStepIndex": {"N": "0"},
-                "totalSteps": {"N": str(len(quest.get("steps", [])))},
-                "startedAt": {"S": self._now()},
-                "owner": {"S": character_id},
+                "id": quest_id,
+                "playerStateId": character_id,
+                "questDefinitionId": quest["id"],
+                "campaignId": content.GREENFIELD_CAMPAIGN_ID,
+                "status": "ACTIVE",
+                "currentStepIndex": 0,
+                "totalSteps": len(quest.get("steps", [])),
+                "startedAt": self._now(),
+                "owner": character_id,
             },
         )
         return quest_id
