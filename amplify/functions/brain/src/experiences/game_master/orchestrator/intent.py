@@ -32,9 +32,10 @@ ALL_MODES = [
 ]
 
 _LABELS: dict[tuple[str, ...], str] = {
-    ("fighting", "attack", "hit", "kill", "strike", "slash", "swing", "stab",
-     "shoot", "draw", "fire", "charge", "engage", "defend", "guard", "block",
-     "rat", "foe", "enemy"): COMBAT_MODE,
+    ("fighting", "attack", "hit", "hit the", "kill", "strike", "slash", "swing",
+     "stab", "punch", "kick", "shove", "grapple", "assault", "brawl", "slug",
+     "club", "smash", "smack", "shoot", "draw", "fire", "charge", "engage",
+     "defend", "guard", "block", "rat", "foe", "enemy"): COMBAT_MODE,
     ("talk", "speak", "say", "ask", "greet", "converse", "hello", "hi ",
      "who", "tell", "chat", "relate", "npc"): DIALOGUE_MODE,
     ("look", "examine", "inspect", "search", "explore", "go ", "travel",

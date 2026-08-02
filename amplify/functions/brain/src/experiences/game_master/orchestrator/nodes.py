@@ -154,6 +154,14 @@ def _enemy_present(campaign: dict) -> bool:
     return True
 
 
+def _wants_brawl(user_input: str) -> bool:
+    """True when the player aggresses unarmed detail or picks a fight unprompted."""
+    text = " " + (user_input or "").lower()
+    attacks = ("fight", "fighting", "attack", "hit the", "punch", "kick", "shove",
+               "slug", "smack", "assault", "brawl", "grab", "start a", "throw a")
+    return any(t in text for t in attacks)
+
+
 # ---------------------------------------------------------------------------
 # Opening
 # ---------------------------------------------------------------------------
@@ -233,11 +241,11 @@ def exploration_node(state: OrchestratorState) -> dict:
             f"Connections: {', '.join(moved.get('connections', []))}",
         ]
     else:
-        loc = content.get_location(campaign.get("currentLocation", content.STARTING_LOCATION))
+        loc = content.resolve_location(campaign.get("currentLocation", content.STARTING_LOCATION))
         facts = [
             f"You remain in: {loc['name']}.",
             f"{loc['description']}",
-            f"Present NPCS: {', '.join(n['name'] for n in _npcs_at(loc))}",
+            f"Present NPCS: {', '.join(n['name'] for n in _content_npcs(loc))}",
         ]
 
     # Recover the lantern once the cellar rats are gone.
@@ -262,19 +270,27 @@ def combat_node(state: OrchestratorState) -> dict:
     campaign = dict(state.get("campaign", {}) or {})
     player = state.get("player", {})
     store = state.get("store")
-    enemy_id = content.get_location(campaign.get("currentLocation"))
-    enemy_ids = (enemy_id or {}).get("enemies") or []
+    loc = content.resolve_location(campaign.get("currentLocation", content.STARTING_LOCATION))
+    enemy_ids = (loc or {}).get("enemies") or []
     enemy = content.get_enemy(enemy_ids[0] if enemy_ids else None)
 
     if enemy is None or not _enemy_present(campaign):
-        loc = content.get_location(campaign.get("currentLocation"))
-        text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT),
-                                  _facts_prompt(state, [f"No enemy here ({loc['name']})."]),
-                                  model_id=state.get("model_id"), region=state.get("region"))
-        return {"final_message": text}
+        # No scripted foe here, but an aggressive/combat command can start a brawl
+        # against whoever is present so the player is never soft-locked out of fights.
+        if _wants_brawl(state.get("user_input", "")):
+            enemy = content.get_enemy("bar_brawler")
+            facts = ["You throw yourself into the fight against a brawling patron."]
+        else:
+            facts = [f"No enemy here ({loc['name']})."]
+            text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT),
+                                      _facts_prompt(state, facts),
+                                      model_id=state.get("model_id"), region=state.get("region"))
+            return {"final_message": text}
+    else:
+        facts = []
 
     result = systems.player_attack(player, enemy)
-    facts = [
+    facts += [
         f"attack roll={result['roll']} vs AC {enemy['armor_class']}: "
         f"{'HIT' if result['hit'] else 'MISS'}"
         + (f" for {result['damage']} damage." if result['hit'] else "."),
@@ -282,10 +298,12 @@ def combat_node(state: OrchestratorState) -> dict:
     ]
 
     if result["enemy_defeated"]:
-        campaign["activeObjectives"] = {"quest_id": content.QUEST_ID, "status": "IN_PROGRESS", "step": "clear_cellar"}
+        is_cellar_rat = enemy["id"] == "cellar_rat"
+        if is_cellar_rat:
+            campaign["activeObjectives"] = {"quest_id": content.QUEST_ID, "status": "IN_PROGRESS", "step": "clear_cellar"}
         xp = content.ENEMIES[enemy["id"]]["xp_value"]
         player = dict(player)
-        facts.append(f"The cellar rat is defeated. You gain {xp} XP.")
+        facts.append(f"{enemy['name']} is defeated. You gain {xp} XP.")
         if player:
             player = systems.apply_xp(player, xp)
         if store is not None:

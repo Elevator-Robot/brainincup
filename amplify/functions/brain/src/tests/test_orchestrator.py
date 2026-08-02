@@ -26,6 +26,13 @@ class IntentRoutingTest(unittest.TestCase):
         for text, expected in cases.items():
             self.assertEqual(intent.classify_intent(text), expected, text)
 
+    def test_unarmed_aggression_is_combat(self):
+        for text in ("I punch the first guy in the face",
+                     "I kick the table over",
+                     "Start a fight with the guard",
+                     "I smash the mug on the floor"):
+            self.assertEqual(intent.classify_intent(text), intent.COMBAT_MODE, text)
+
     def test_never_none(self):
         for _ in range(200):
             self.assertIn(intent.classify_intent("the fire crackles oddly"), intent.ALL_MODES)
@@ -81,3 +88,11 @@ class ContentCompletenessTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class ContentResilienceTest(unittest.TestCase):
+    def test_resolve_location_falls_back_on_unknown(self):
+        self.assertEqual(content.resolve_location("The Shrouded Vale")["id"],
+                         content.STARTING_LOCATION)
+        self.assertEqual(content.resolve_location(None)["id"], content.STARTING_LOCATION)
+        self.assertEqual(content.resolve_location("whispering_tankard")["id"],
+                         "whispering_tankard")
