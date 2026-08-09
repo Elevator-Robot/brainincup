@@ -332,7 +332,7 @@ export default function ConversationList({
               key={conversation.id}
               className={`group relative w-full rounded-2xl border transition-all duration-200 backdrop-blur-xl ${
                 isSelected
-                  ? 'border-brand-accent-primary/45 bg-white/[0.1] shadow-[0_10px_26px_rgba(4,10,12,0.34)]'
+                  ? 'border-transparent bg-white/[0.1]'
                   : 'border-white/[0.08] bg-white/[0.04] hover:border-white/[0.16] hover:bg-white/[0.07]'
               } ${deleteSelectionMode ? '' : 'cursor-grab active:cursor-grabbing'}`}
               draggable={!deleteSelectionMode && Boolean(conversation.id)}
@@ -360,7 +360,7 @@ export default function ConversationList({
                   }
                 }}
                 onKeyDown={(event) => conversation.id && handleConversationKeyPress(event, conversation.id)}
-                className={`grid ${rowGridClass} items-center gap-3 px-3.5 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50 rounded-2xl`}
+                className={`grid ${rowGridClass} items-center gap-3 px-3.5 py-3 text-left focus:outline-none rounded-2xl`}
               >
                 {deleteSelectionMode && conversation.id && (
                   <input

@@ -37,9 +37,9 @@
     animation: float 20s ease-in-out infinite;
   }
 
-  /* Input focus styles */
-  input:focus,
-  button:focus {
+  /* Input focus styles — buttons keep outline:none but no colored ring;
+     keyboard focus is covered by the global *:focus-visible rule below. */
+  input:focus {
     @apply outline-none ring-2 ring-brand-accent-primary/50 ring-offset-2 ring-offset-transparent;
   }
   

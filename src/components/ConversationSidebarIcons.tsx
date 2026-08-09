@@ -232,10 +232,10 @@ export default function ConversationSidebarIcons({
               if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
               setHoveredId(null);
             }}
-            className={`h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none ${
+            className={`h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ${
               activeConversationId === icon.id
-                ? 'border-brand-accent-primary/80 bg-brand-surface-dark/80 scale-95 shadow-lg'
-                : 'border-brand-surface-border/40 bg-brand-surface-secondary/50 hover:border-brand-surface-border/60'
+                ? 'border-brand-surface-border/40 bg-brand-surface-dark/80 scale-95'
+                : 'border-transparent bg-brand-surface-secondary/50 hover:bg-brand-surface-border/60'
             }`}
           >
             <picture>
