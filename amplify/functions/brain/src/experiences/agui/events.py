@@ -80,16 +80,14 @@ def tool_call_end(tool_call_id: str) -> dict:
     return {"type": "TOOL_CALL_END", "toolCallId": tool_call_id}
 
 
-def tool_call_result(tool_call_id: str, content: Any, message_id: str | None = None) -> dict:
-    event = {
+def tool_call_result(tool_call_id: str, content: str, message_id: str) -> dict:
+    return {
         "type": "TOOL_CALL_RESULT",
         "toolCallId": tool_call_id,
         "content": content,
         "role": "tool",
+        "messageId": message_id,
     }
-    if message_id:
-        event["messageId"] = message_id
-    return event
 
 
 def state_snapshot(snapshot: Any) -> dict:
@@ -107,7 +105,7 @@ def custom_event(name: str, value: Any = None) -> dict:
     return event
 
 
-def reasoning_message_start(message_id: str, role: str = "assistant") -> dict:
+def reasoning_message_start(message_id: str, role: str = "reasoning") -> dict:
     return {"type": "REASONING_MESSAGE_START", "messageId": message_id, "role": role}
 
 
@@ -120,13 +118,17 @@ def reasoning_message_end(message_id: str) -> dict:
 
 
 def serialize_sse(events: list[dict]) -> str:
-    """Serialize AG-UI events into an SSE payload."""
+    """Serialize AG-UI events into an SSE payload.
+
+    Each event becomes a single `data:` line carrying the JSON-serialized
+    event, matching the canonical AG-UI encoder output.
+    """
     chunks = []
     for event in events:
-        chunks.append("event: agui\ndata: " + json.dumps(event) + "\n\n")
+        chunks.append("data: " + json.dumps(event) + "\n\n")
     return "".join(chunks)
 
 
 def sse_event(event: dict) -> str:
     """Serialize a single AG-UI event into an SSE frame."""
-    return "event: agui\ndata: " + json.dumps(event) + "\n\n"
+    return "data: " + json.dumps(event) + "\n\n"
