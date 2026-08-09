@@ -3,6 +3,7 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
 import { normalizePersonalityMode } from '../constants/personalityModes';
+import { pickLatestAdventure, resolveLocationName } from '../utils/gmLocations';
 
 const dataClient = generateClient<Schema>();
 
@@ -124,9 +125,11 @@ export default function ConversationSidebarIcons({
             try {
               const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
                 filter: { conversationId: { eq: conv.id } },
-                limit: 1,
               });
-              const location = adventureData?.[0]?.currentLocation;
+              const adventure = pickLatestAdventure(
+                (adventureData as Array<{ currentLocation?: string; lastLocation?: string; updatedAt?: string }> | null | undefined) ?? null,
+              );
+              const location = resolveLocationName(adventure?.currentLocation ?? adventure?.lastLocation);
               if (location) preview = location;
             } catch { /* ignore */ }
           }

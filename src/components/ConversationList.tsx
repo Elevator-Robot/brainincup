@@ -5,6 +5,7 @@ import type { Schema } from '../../amplify/data/resource';
 import { getModeMeta } from '../constants/personalityModes';
 import { getAvatarOptionById } from '../constants/gameMasterAvatars';
 import { isNoConversationsTestMode, isTestModeEnabled } from '../utils/testMode';
+import { pickLatestAdventure, resolveLocationName } from '../utils/gmLocations';
 
 const dataClient = generateClient<Schema>();
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
@@ -196,11 +197,13 @@ export default function ConversationList({
           try {
             const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
               filter: { conversationId: { eq: conversation.id } },
-              limit: 1,
             });
-            const adventure = adventureData?.[0];
-            if (adventure?.currentLocation) {
-              gmLocations[conversation.id] = adventure.currentLocation;
+            const adventure = pickLatestAdventure(
+              (adventureData as Array<{ currentLocation?: string; lastLocation?: string; updatedAt?: string }> | null | undefined) ?? null,
+            );
+            const rawLocation = adventure?.currentLocation || adventure?.lastLocation;
+            if (rawLocation) {
+              gmLocations[conversation.id] = resolveLocationName(rawLocation);
             }
           } catch (adventureError) {
             console.error('Error loading adventure location:', adventureError);

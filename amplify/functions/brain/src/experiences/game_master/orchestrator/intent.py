@@ -11,6 +11,7 @@ banter that keeps the NPC-driven story moving.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Optional
 
 DIALOGUE_MODE = "dialogue"
@@ -20,6 +21,8 @@ INVENTORY_MODE = "inventory"
 QUEST_MODE = "quest"
 CHARACTER_MODE = "character"
 NARRATION_MODE = "narration"
+CHECK_MODE = "check"
+DICE_MODE = "dice"
 
 ALL_MODES = [
     DIALOGUE_MODE,
@@ -28,6 +31,8 @@ ALL_MODES = [
     INVENTORY_MODE,
     QUEST_MODE,
     CHARACTER_MODE,
+    CHECK_MODE,
+    DICE_MODE,
     NARRATION_MODE,
 ]
 
@@ -51,18 +56,64 @@ _LABELS: dict[tuple[str, ...], str] = {
 }
 
 
+def parse_dice_result(user_input: str) -> dict | None:
+    """Parse a DICE_RESULT payload posted by the frontend dice UI.
+
+    The frontend writes the dice roll outcome as a JSON-string Message; this
+    returns the parsed object or None when the input isn't a dice result.
+    """
+    text = (user_input or "").strip()
+    if not text:
+        return None
+    if text.startswith("[DICE_RESULT]"):
+        import re
+        match = re.search(r"\[DICE_RESULT\](.*?)\[/DICE_RESULT\]", text, re.DOTALL)
+        wrapped = match.group(1) if match else text[len("[DICE_RESULT]"):-len("[/DICE_RESULT]")]
+        text = wrapped.strip()
+    try:
+        payload = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict) or payload.get("type") != "DICE_RESULT":
+        return None
+    return payload
+
+
 def classify_intent(user_input: str) -> str:
     """Return the game mode for the given player message.
 
-    Priority matters: combat/explicit instructions first, then roleplay modes.
+    Priority matters: dice-result payloads and explicit risky actions first,
+    then combat/explicit instructions, then roleplay modes.
     """
+    if parse_dice_result(user_input):
+        return DICE_MODE
     text = " " + (user_input or "").lower()
+
+    if _risky_check_request(text):
+        return CHECK_MODE
 
     for terms, mode in _LABELS.items():
         for term in terms:
             if term in text:
                 return mode
     return NARRATION_MODE
+
+
+def _risky_check_request(text: str) -> bool:
+    """Whether the player attempts an action that needs a stat check.
+
+    Deterministic keyword router: actions like sneaking, climbing, bluffing,
+    picking locks, or forcing doors resolve via a dice roll rather than free
+    narration. Combat is handled by its own mode.
+    """
+    risky = (
+        "sneak", "creep", "climb", "swim", "jump", "leap", "balance",
+        "pick the lock", "picklock", "jimmy", "force the door", "shoulder the door",
+        "bluff", "intimidate", "persuade", "bargain", "haggle", "seduce",
+        "convince", "fast talk", "lie to", "spot", "listen", "investigate",
+        "disguise", "hide", "track", "survival", "delicate", "stealth",
+    )
+    return any(term in text for term in risky)
 
 
 def intent_for_narrative(text: str) -> str:
@@ -85,5 +136,7 @@ def describe_mode(mode: str) -> str:
         INVENTORY_MODE: "the player is managing items, gear, or coin",
         QUEST_MODE: "the player is advancing or reporting a quest",
         CHARACTER_MODE: "the player is inspecting their character",
+        CHECK_MODE: "the player attempts a risky action that needs a stat check",
+        DICE_MODE: "the player submitted a dice roll result",
         NARRATION_MODE: "the player is roleplaying or bantering",
     }.get(mode, "the player is acting")

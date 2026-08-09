@@ -14,8 +14,9 @@ from typing import Any
 from experiences.agui import custom_event, state_snapshot
 
 from experiences.game_master.orchestrator import content, systems
-from experiences.game_master.orchestrator.intent import describe_mode
+from experiences.game_master.orchestrator.intent import describe_mode, parse_dice_result
 from experiences.game_master.orchestrator.llm import generate_narration
+from experiences.game_master.orchestrator.pacing import apply_pacing, pacing_snapshot
 from experiences.game_master.orchestrator.state import OrchestratorState
 
 logger = logging.getLogger(__name__)
@@ -36,9 +37,9 @@ Stay grounded in the current scene, location, and NPCS. Do not add items, gold, 
 or quests that [GAME_FACTS] did not grant.
 """
 
-def _snapshot(state: OrchestratorState) -> dict:
-    player = state.get("player", {}) or {}
-    campaign = state.get("campaign", {}) or {}
+def _snapshot(player: dict, campaign: dict, pacing: dict | None = None) -> dict:
+    player = player or {}
+    campaign = campaign or {}
     return {
         "character": {
             "name": player.get("name", "Adventurer"),
@@ -50,9 +51,11 @@ def _snapshot(state: OrchestratorState) -> dict:
             "gold": player.get("gold", 0),
         },
         "location": {
-            "name": campaign.get("currentLocation"),
+            "name": _loc_name(campaign),
+            "id": campaign.get("currentLocation"),
             "currentObjectives": campaign.get("activeObjectives"),
         },
+        "pacing": pacing_snapshot(pacing or campaign.get("pacing") or {}),
     }
 
 
@@ -67,6 +70,8 @@ def bootstrap_node(state: OrchestratorState) -> dict:
     if store is not None and campaign.get("id") is None:
         campaign = store.ensure_campaign(state["conversation_id"], campaign)
 
+    memory_context = _retrieve_memory_context(state, player)
+
     snapshot = _minimal_snapshot(player, campaign)
     try:
         from langgraph.config import get_stream_writer
@@ -79,6 +84,7 @@ def bootstrap_node(state: OrchestratorState) -> dict:
         "campaign": campaign,
         "player_id": player.get("id", ""),
         "target_npc_id": state.get("target_npc_id"),
+        "memory_context": memory_context,
     }
 
 
@@ -110,6 +116,10 @@ def _fallback_campaign() -> dict:
         "visitedLocations": [content.STARTING_LOCATION],
         "cleared": False,
         "lantern_found": False,
+        "currentAct": "EXPOSITION",
+        "currentChapter": 1,
+        "tensionLevel": 3,
+        "timeline": [],
     }
 
 
@@ -160,6 +170,30 @@ def _wants_brawl(user_input: str) -> bool:
     attacks = ("fight", "fighting", "attack", "hit the", "punch", "kick", "shove",
                "slug", "smack", "assault", "brawl", "grab", "start a", "throw a")
     return any(t in text for t in attacks)
+
+
+def _story_landmark(campaign: dict, state: OrchestratorState) -> str | None:
+    """Return a story landmark (milestone) the engine observed this turn.
+
+    Deterministic milestones come from the quest state machine and combat
+    resolution — never from LLM prose. A landmark acts as a pacing beat.
+    """
+    quest = campaign.get("activeObjectives") or {}
+    status = quest.get("status")
+    step = quest.get("step") or ""
+
+    if status == "COMPLETED":
+        return "quest-completed"
+    if status == "IN_PROGRESS" and step in ("clear_cellar", "recover_lantern", "return_lantern"):
+        return f"quest-progress-{step}"
+    if state.get("game_mode") == "dice":
+        return "dice-resolved"
+
+    loc = content.get_location(campaign.get("currentLocation"))
+    enemies = (loc or {}).get("enemies") or []
+    if enemies:
+        return f"hazard-{campaign.get('currentLocation')}"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +252,154 @@ def dialogue_node(state: OrchestratorState) -> dict:
     text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), prompt,
                               model_id=state.get("model_id"), region=state.get("region"))
     return {"final_message": text}
+
+
+# ---------------------------------------------------------------------------
+# Stat checks & dice
+# ---------------------------------------------------------------------------
+
+# Map a player phrase to the stat a stat-check should test.
+CHECK_STAT_KEYWORDS: dict[tuple[str, ...], str] = {
+    ("sneak", "creep", "stealth", "hide", "disguise"): "dexterity",
+    ("climb", "balance", "jump", "leap", "swim", "acrobatic"): "dexterity",
+    ("pick the lock", "picklock", "jimmy", "delicate", "slight of hand", "sleight"): "dexterity",
+    ("bluff", "seduce", "convince", "fast talk", "bargain", "haggle", "lie to",
+     "persuade", "intimidate"): "charisma",
+    ("force the door", "shoulder the door", "break", "smash the door", "lift",
+     "push the", "pull the", "bend the bars"): "strength",
+    ("track", "survival", "spot", "listen", "investigate", "search for",
+     "notice", "perceive"): "wisdom",
+    ("remember", "recall", "deduce", "intellect"): "intelligence",
+}
+
+
+def _stat_for_input(user_input: str) -> str:
+    text = " " + (user_input or "").lower()
+    for terms, stat in CHECK_STAT_KEYWORDS.items():
+        for term in terms:
+            if term in text:
+                return stat
+    return "dexterity"
+
+
+def _check_difficulty(location: dict | None) -> int:
+    danger = (location or {}).get("danger_level", 0)
+    if danger >= 6:
+        return 18
+    if danger >= 4:
+        return 15
+    return 12
+
+
+def _emit_custom(name: str, value: Any) -> None:
+    try:
+        from langgraph.config import get_stream_writer
+        get_stream_writer()(custom_event(name, value))
+    except Exception:
+        pass
+
+
+def check_node(state: OrchestratorState) -> dict:
+    """Request a stat check when the player attempts a risky action.
+
+    Emits a `dice_roll_requested` custom event inline AND writes the pending
+    roll onto PlayerState so the frontend's pendingDiceRoll subscription also
+    triggers the TroubleDice animation. The player's roll then returns as a
+    DICE_RESULT message routed to `dice_node`.
+    """
+    campaign = dict(state.get("campaign", {}) or {})
+    player = state.get("player", {}) or {}
+    store = state.get("store")
+
+    stat = _stat_for_input(state.get("user_input", ""))
+    dc = _check_difficulty(content.get_location(campaign.get("currentLocation")))
+    stat_value = int(player.get("stats", {}).get(stat, 10))
+    pending = systems.request_stat_check(
+        stat_name=stat,
+        stat_value=stat_value,
+        difficulty_class=dc,
+        description=state.get("user_input", ""),
+        base_xp=10,
+    )
+
+    _emit_custom("dice_roll_requested", pending)
+    if store is not None:
+        try:
+            store.write_pending_dice_roll(state["conversation_id"], pending,
+                                          character_id=(player or {}).get("id", ""))
+        except Exception:  # noqa: BLE001 - dice prompt is best-effort prompt
+            logger.warning("pending dice roll write failed", exc_info=True)
+
+    facts = [
+        f"The GM needs a {systems.stat_modifier(stat_value)}-modifier {stat.capitalize()} check.",
+        f"Difficulty: {dc}. The player must roll the die to resolve this.",
+    ]
+    text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), _facts_prompt(state, facts),
+                              model_id=state.get("model_id"), region=state.get("region"))
+    return {"final_message": text}
+
+
+def dice_node(state: OrchestratorState) -> dict:
+    """Resolve a DICE_RESULT message posted by the frontend dice UI.
+
+    Verifies the requestId against the pending roll on PlayerState, resolves
+    the stat check deterministically, awards XP on success, records the roll
+    in the diceRollLog, clears the pending request, and narrates the outcome.
+    """
+    payload = parse_dice_result(state.get("user_input", ""))
+    if not payload:
+        return {"final_message": "The dice clatter unheard."}
+    request_id = payload.get("requestId")
+    dice_value = payload.get("diceValue")
+    player = dict(state.get("player", {}) or {})
+    store = state.get("store")
+    campaign = state.get("campaign", {}) or {}
+
+    pending = None
+    if store is not None:
+        state_row = store.load_player_state(state["conversation_id"])
+        pending = (state_row or {}).get("pendingDiceRoll")
+    if not pending or pending.get("requestId") != request_id:
+        facts = [
+            "The dice were rolled but no pending check matched.",
+            "The GM accepts the roll without consequence.",
+        ]
+        text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), _facts_prompt(state, facts),
+                                  model_id=state.get("model_id"), region=state.get("region"))
+        return {"final_message": text}
+
+    try:
+        result = systems.resolve_stat_check(pending, dice_value)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("stat check resolution failed: %s", exc)
+        result = systems.resolve_stat_check(pending, dice_value if dice_value else 1)
+
+    if result.get("xpAwarded"):
+        player = systems.apply_xp(player, result["xpAwarded"])
+        if store is not None:
+            try:
+                store.save_player(state["conversation_id"], player)
+            except Exception:  # noqa: BLE001 - XP award is a nice-to-have
+                logger.warning("player save after dice roll failed", exc_info=True)
+
+    if store is not None:
+        try:
+            store.append_dice_roll_log(state["conversation_id"], result)
+        except Exception:  # noqa: BLE001
+            logger.warning("dice roll log append failed", exc_info=True)
+
+    _emit_custom("dice_resolved", result)
+
+    facts = [
+        f"Roll: {dice_value} + {result['statModifier']} ({result['statName']}) = {result['rollResult']} "
+        f"vs DC {result['difficultyClass']}.",
+        f"Outcome: {result['outcome'].replace('_', ' ').title()}.",
+    ]
+    if result.get("xpAwarded"):
+        facts.append(f"The player gains {result['xpAwarded']} XP.")
+    text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), _facts_prompt(state, facts),
+                              model_id=state.get("model_id"), region=state.get("region"))
+    return {"player": player, "final_message": text}
 
 
 def exploration_node(state: OrchestratorState) -> dict:
@@ -397,20 +579,47 @@ def narration_node(state: OrchestratorState) -> dict:
 
 
 def finalize_node(state: OrchestratorState) -> dict:
+    campaign = dict(state.get("campaign", {}) or {})
+    game_mode = state.get("game_mode") or state.get("intent", "narration")
+    landmark = _story_landmark(campaign, state)
+
+    pacing = apply_pacing(campaign, game_mode, landmark=landmark)
+    if campaign.get("id"):
+        campaign["pacing"] = pacing
+    # Persist pacing changes (act/chapter/tension) onto the adventure row.
+    if state.get("store") is not None and campaign.get("id"):
+        try:
+            _persist_campaign(state["store"], campaign, state.get("player", {}))
+        except Exception:  # noqa: BLE001 - pacing persistence is best-effort
+            logger.warning("pacing persist failed", exc_info=True)
+
+    snapshot = _snapshot(state.get("player", {}), campaign, pacing)
+    try:
+        from langgraph.config import get_stream_writer
+        get_stream_writer()(state_snapshot(snapshot))
+    except Exception:
+        pass
+
     text = state.get("final_message", "") or state.get("final_response", "")
     if not text:
         text = "The world holds its breath, waiting for you to decide what happens next."
+
+    _record_memory_turn(state, text)
+
     response_metadata = {
         "intent": state.get("intent", "narration"),
         "target": state.get("target_npc_id"),
         "opened": state.get("opened", False),
     }
+    if pacing:
+        response_metadata["pacing"] = pacing_snapshot(pacing)
     try:
         from langgraph.config import get_stream_writer
         get_stream_writer()(custom_event("response_complete", {"response": text, "metadata": response_metadata}))
     except Exception:
         pass
-    return {"final_response": text, "response_metadata": response_metadata, "final_message": text}
+    return {"final_response": text, "response_metadata": response_metadata, "final_message": text,
+            "campaign": campaign}
 
 
 # ---------------------------------------------------------------------------
@@ -420,7 +629,11 @@ def finalize_node(state: OrchestratorState) -> dict:
 def _facts_prompt(state: OrchestratorState, facts: list[str]) -> str:
     header = "[GAME_FACTS]\n" + "\n".join(f"- {f}" for f in facts) + "\n[/GAME_FACTS]"
     chat = f"Player said: \"{state.get('user_input', '')}\"\n\nNarrate the next beat."
-    return header + "\n\n" + chat
+    prompt = header + "\n\n" + chat
+    memory_context = state.get("memory_context", "") or ""
+    if memory_context:
+        prompt = f"{memory_context}\n\n{prompt}"
+    return prompt
 
 
 def _minimal_snapshot(player: dict, campaign: dict) -> dict:
@@ -430,7 +643,7 @@ def _minimal_snapshot(player: dict, campaign: dict) -> dict:
             "currentHP": player.get("current_hp", 0), "maxHP": player.get("max_hp", 0),
             "xp": player.get("xp", 0), "gold": player.get("gold", 0),
         },
-        "location": {"name": campaign.get("currentLocation")},
+        "location": {"name": _loc_name(campaign), "id": campaign.get("currentLocation")},
     }
 
 
@@ -519,3 +732,50 @@ def _persist_campaign(store: Any, campaign: dict, player: dict) -> None:
         store.save_campaign(campaign)
     except Exception:
         logger.warning("campaign persist skipped (no row yet)", exc_info=True)
+
+
+def _retrieve_memory_context(state: OrchestratorState, player: dict) -> str:
+    """Pull relevant AgentCore episodic episodes + reflections for this turn."""
+    memory = state.get("memory")
+    if not memory or not getattr(memory, "enabled", False):
+        return ""
+    actor = memory.episodic_actor(state.get("owner"), state["conversation_id"])
+    player_name = (player or {}).get("name", "Adventurer")
+    search_query = (
+        f"{state.get('user_input', '')} {state.get('intent', '')} "
+        f"player {player_name}"
+    ).strip()
+    try:
+        return memory.retrieve_episodic_context(
+            actor=actor,
+            session_id=state["conversation_id"],
+            search_query=search_query,
+            top_k=4,
+        ) or ""
+    except Exception:  # noqa: BLE001 - memory must never break the game
+        logger.warning("memory context retrieval failed", exc_info=True)
+        return ""
+
+
+def _record_memory_turn(state: OrchestratorState, text: str) -> None:
+    """Record the finished turn with AgentCore so episodic extraction runs."""
+    memory = state.get("memory")
+    if not memory or not getattr(memory, "enabled", False):
+        return
+    actor = memory.episodic_actor(state.get("owner"), state["conversation_id"])
+    if not text or not state.get("user_input"):
+        return
+    try:
+        memory.record_turn(
+            actor=actor,
+            session_id=state["conversation_id"],
+            user_input=state.get("user_input", ""),
+            assistant_text=text,
+            metadata={
+                "conversationId": state["conversation_id"],
+                "intent": state.get("intent", "narration"),
+                "personalityMode": "game_master",
+            },
+        )
+    except Exception:  # noqa: BLE001 - memory must never break the game
+        logger.warning("memory turn recording failed", exc_info=True)

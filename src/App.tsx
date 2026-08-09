@@ -18,6 +18,7 @@ import {
   getAvatarOptionById,
 } from './constants/gameMasterAvatars';
 import { isTestModeEnabled } from './utils/testMode';
+import { GM_PLACEHOLDER_LOCATION, pickLatestAdventure, resolveLocationName } from './utils/gmLocations';
 import { streamAgentMessage, type AguiEvent } from './utils/aguiStream';
 import { MessageBubble, type Message } from './components/MessageBubble';
 import DeleteAccountModal from './components/DeleteAccountModal';
@@ -27,6 +28,7 @@ const dataClient = generateClient<Schema>();
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
 type QuestStepRecord = Schema['GameMasterQuestStep']['type'];
 type CharacterRecord = Schema['GameMasterCharacter']['type'];
+
 type CharacterCreationInput = {
   name: string;
   race: string;
@@ -137,6 +139,29 @@ const writeStoredBoolean = (key: string, value: boolean) => {
 
 const getMessagesCacheKey = (conversationId: string): string =>
   `${MESSAGES_CACHE_KEY_PREFIX}:${conversationId}`;
+
+// Persist the last known GM location per conversation so the badge, panels and
+// previews hydrate synchronously on refresh instead of waiting for the async
+// GameMasterAdventure list / observeQuery / stream snapshot.
+const GM_LOCATION_CACHE_PREFIX = 'gmAuthoritativeLocation';
+
+const getStoredGmLocation = (conversationId?: string | null): string => {
+  if (typeof window === 'undefined' || !conversationId) return '';
+  try {
+    return window.localStorage.getItem(`${GM_LOCATION_CACHE_PREFIX}:${conversationId}`) ?? '';
+  } catch {
+    return '';
+  }
+};
+
+const storeGmLocation = (conversationId: string | null | undefined, location: string) => {
+  if (typeof window === 'undefined' || !conversationId || !location) return;
+  try {
+    window.localStorage.setItem(`${GM_LOCATION_CACHE_PREFIX}:${conversationId}`, location);
+  } catch {
+    // localStorage full or unavailable — ignore
+  }
+};
 
 const loadCachedMessages = (conversationId: string): Message[] | null => {
   if (typeof window === 'undefined') return null;
@@ -452,6 +477,22 @@ function App() {
   
   // Game Master data state
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
+  // Placeholder-proof source of truth for the location badge. observeQuery can
+  // publish pages that only contain stub/legacy placeholder rows, which would
+  // erase a real location from adventureState; this state can only ever be set
+  // to a resolved, non-placeholder location name so the UI never flickers.
+  const [authoritativeLocation, setAuthoritativeLocation] = useState<string>(() =>
+    getStoredGmLocation(conversationId)
+  );
+  const commitLocation = useCallback((value: string | null | undefined, forConversation?: string | null) => {
+    const resolved = resolveLocationName(value);
+    const targetConversation = forConversation ?? conversationId;
+    if (resolved && resolved !== GM_PLACEHOLDER_LOCATION) {
+      setAuthoritativeLocation(resolved);
+      storeGmLocation(targetConversation, resolved);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
   const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
@@ -538,10 +579,10 @@ function App() {
     try {
       const { data } = await dataClient.models.GameMasterAdventure.list({
         filter: { conversationId: { eq: convId } },
-        limit: 1,
         authMode: 'userPool',
       });
-      let adventure: AdventureRecord | null = data?.[0] ? (data[0] as AdventureRecord) : null;
+      const latest = pickLatestAdventure((data as AdventureRecord[] | null | undefined) ?? null);
+      let adventure: AdventureRecord | null = latest;
       if (!adventure) {
         const created = await dataClient.models.GameMasterAdventure.create({
           conversationId: convId,
@@ -555,6 +596,7 @@ function App() {
       }
       if (adventure) {
         setAdventureState(adventure);
+        commitLocation(adventure.currentLocation || adventure.lastLocation, convId);
       }
       return adventure;
     } catch (error) {
@@ -888,7 +930,7 @@ function App() {
         summary,
         narration,
         dangerLevel: inferDangerLevel(narration),
-        locationTag: adventure.lastLocation ?? '',
+        locationTag: resolveLocationName(adventure.currentLocation ?? adventure.lastLocation ?? ''),
         createdAt: new Date().toISOString(),
       });
       const questStep = (created.data as QuestStepRecord | null) ?? null;
@@ -1307,6 +1349,7 @@ function App() {
                     const parsed = JSON.parse(jsonMatch[0]);
                     const loc = parsed.current_location || parsed.area_transition || parsed.location;
                     if (loc && typeof loc === 'string' && loc.trim()) {
+                      commitLocation(loc.trim());
                       setAdventureState(prev => prev ? { ...prev, currentLocation: loc.trim(), lastLocation: loc.trim() } : prev);
                     }
                   }
@@ -1450,14 +1493,33 @@ function App() {
     if (!conversationId || effectivePersonality !== 'game_master') return;
     if (!dataClient.models.GameMasterAdventure) return;
 
+    // Sync to this conversation's stored location so the badge hydrates
+    // immediately on refresh, and stale values from a previous conversation
+    // never leak across a switch.
+    setAuthoritativeLocation(getStoredGmLocation(conversationId));
+
     const sub = dataClient.models.GameMasterAdventure.observeQuery({
       filter: { conversationId: { eq: conversationId } },
     }).subscribe({
       next: ({ items }) => {
-        const latest = items[0];
-        if (latest) {
-          setAdventureState(latest as AdventureRecord);
-        }
+        const latest = pickLatestAdventure(items as AdventureRecord[]);
+        if (!latest) return;
+        // Seed the placeholder-proof location from a real row. This survives even
+        // if a later publish only contains stub/legacy placeholder rows.
+        const rowLoc = latest.currentLocation || latest.lastLocation;
+        commitLocation(rowLoc);
+        setAdventureState(prev => {
+          // Never let a placeholder row downgrade a location we already know.
+          const incomingPlaceholder =
+            !rowLoc ||
+            typeof rowLoc !== 'string' ||
+            rowLoc.trim() === '' ||
+            rowLoc.trim() === GM_PLACEHOLDER_LOCATION;
+          if (incomingPlaceholder && prev?.currentLocation) {
+            return { ...latest, currentLocation: prev.currentLocation, lastLocation: prev.lastLocation || latest.lastLocation };
+          }
+          return latest;
+        });
       },
       error: (err) => {
         console.error('GameMasterAdventure subscription error:', err);
@@ -1754,6 +1816,21 @@ function App() {
             }
 
             case 'CUSTOM':
+              if (event.name === 'dice_roll_requested') {
+                // The GM wants a stat check: kick off the TroubleDice animation.
+                // Guard against duplicate triggers for the same requestId.
+                const roll = event.value as
+                  | { requestId?: string; statName?: string; difficultyClass?: number }
+                  | null
+                  | undefined;
+                if (roll?.requestId && lastTriggeredDiceRequestIdRef.current !== roll.requestId) {
+                  lastTriggeredDiceRequestIdRef.current = roll.requestId;
+                  setDiceRollNonce((n) => n + 1);
+                  setIsDiceRolling(true);
+                  setGameEvents((prev) => [...prev, { type: 'DICE_ROLL_REQUESTED' }]);
+                }
+                break;
+              }
               if (event.name === 'response_complete') {
                 const value = event.value as Record<string, unknown> | undefined;
                 const responseText = typeof value?.response === 'string' ? value.response : '';
@@ -1781,6 +1858,22 @@ function App() {
                 });
               }
               break;
+
+            case 'STATE_SNAPSHOT': {
+              // Authoritative game state from the orchestrator. Prefer this over
+              // the observeQuery publish so the badge tracks the persisted location.
+              const snapshot = (event as { snapshot?: Record<string, unknown> }).snapshot;
+              const loc = snapshot?.location as { name?: string; id?: string } | undefined;
+              const locName = loc?.id ? resolveLocationName(loc.id) : (loc?.name ?? '');
+              if (locName) {
+                commitLocation(locName);
+                setAdventureState(prev => {
+                  if (!prev) return { currentLocation: locName } as AdventureRecord;
+                  return { ...prev, currentLocation: locName };
+                });
+              }
+              break;
+            }
 
             case 'RUN_ERROR': {
               const errMsg = typeof event.message === 'string' ? event.message : 'Stream error';
@@ -2454,14 +2547,23 @@ function App() {
   const hudQuestSteps = normalizedQuestSteps.length > 0 ? normalizedQuestSteps : derivedQuestSteps;
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
   const currentLocation = useMemo(() => {
+    // Authoritative, placeholder-proof: set only from STATE_SNAPSHOT / real rows.
+    if (authoritativeLocation) return authoritativeLocation;
+
     const PLACEHOLDER = /^(unknown|unknown location|n\/a|none|null|undefined)$/i;
     const isValid = (v: string | null | undefined): v is string =>
       typeof v === 'string' && v.trim().length > 0 && !PLACEHOLDER.test(v.trim());
 
-    if (isValid(adventureState?.currentLocation)) return adventureState!.currentLocation!;
-    if (isValid(adventureState?.lastLocation)) return adventureState!.lastLocation!;
+    if (isValid(adventureState?.currentLocation)) {
+      const resolved = resolveLocationName(adventureState!.currentLocation);
+      if (resolved && resolved !== GM_PLACEHOLDER_LOCATION) return resolved;
+    }
+    if (isValid(adventureState?.lastLocation)) {
+      const resolved = resolveLocationName(adventureState!.lastLocation);
+      if (resolved && resolved !== GM_PLACEHOLDER_LOCATION) return resolved;
+    }
     return undefined;
-  }, [adventureState?.currentLocation, adventureState?.lastLocation]);
+  }, [authoritativeLocation, adventureState?.currentLocation, adventureState?.lastLocation]);
   
   const currentAct = useMemo(() => {
     if (!adventureState?.currentAct) return 'I';

@@ -42,6 +42,92 @@ def dice_notation(notation: str, rng: random.Random | None = None) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Stat checks (D&D 5e ability-check resolution)
+# ---------------------------------------------------------------------------
+
+STAT_NAMES = ("strength", "dexterity", "constitution",
+              "intelligence", "wisdom", "charisma")
+
+
+def stat_modifier(stat_value: int) -> int:
+    return math.floor((int(stat_value) - 10) / 2)
+
+
+def request_stat_check(
+    stat_name: str,
+    stat_value: int,
+    difficulty_class: int,
+    description: str = "",
+    base_xp: int = 10,
+) -> dict:
+    """Build a pending dice-roll request for the frontend to resolve.
+
+    Mirrors the legacy `pendingDiceRoll` contract so the existing TroubleDice
+    integration works unchanged: the frontend animates the roll, then posts a
+    DICE_RESULT message carrying back `requestId` and `diceValue`.
+    """
+    if stat_name not in STAT_NAMES:
+        raise ValueError(f"Unknown stat for stat check: {stat_name}")
+    import uuid
+    from datetime import datetime, timedelta, timezone
+
+    return {
+        "requestId": str(uuid.uuid4()),
+        "statName": stat_name,
+        "statValue": int(stat_value),
+        "difficultyClass": int(difficulty_class),
+        "description": description,
+        "baseXPReward": int(base_xp),
+        "expiresAt": (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+    }
+
+
+def resolve_stat_check(
+    pending: dict,
+    dice_value: int,
+) -> dict:
+    """Resolve a pending stat-check request against a rolled dice value.
+
+    Pure function (no I/O). Returns the outcome plus the log entry the caller
+    should persist. Mirrors the legacy `stat_check.resolve_stat_check`.
+    """
+    stat_value = int(pending.get("statValue", 10))
+    difficulty_class = int(pending.get("difficultyClass", 10))
+    base_xp = int(pending.get("baseXPReward", 10))
+    modifier = stat_modifier(stat_value)
+    roll_result = int(dice_value) + modifier
+
+    dice_value = int(dice_value)
+    if dice_value == 20:
+        outcome, hint, xp = "CRITICAL_SUCCESS", "critical", base_xp * 2
+    elif dice_value == 1:
+        outcome, hint, xp = "CRITICAL_FAILURE", "critical_failure", 0
+    elif roll_result >= difficulty_class:
+        outcome, hint, xp = "SUCCESS", "solid_success", base_xp
+    else:
+        outcome, hint = "FAILURE", (
+            "near_miss" if difficulty_class - roll_result <= 2
+            else "solid_failure" if difficulty_class - roll_result <= 5
+            else "critical_failure"
+        )
+        xp = 0
+
+    return {
+        "requestId": pending.get("requestId", ""),
+        "statName": pending.get("statName", "strength"),
+        "statValue": stat_value,
+        "statModifier": modifier,
+        "diceValue": dice_value,
+        "rollResult": roll_result,
+        "difficultyClass": difficulty_class,
+        "outcome": outcome,
+        "xpAwarded": xp,
+        "narrativeHint": hint,
+        "description": pending.get("description", ""),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Experience & leveling
 # ---------------------------------------------------------------------------
 
