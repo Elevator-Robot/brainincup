@@ -30,6 +30,28 @@ LOCATIONS: dict[str, dict] = {
             "toward the stockade gate."
         ),
         "connections": ["whispering_tankard", "town_gate"],
+        # Free-text travel cues players actually type (not only full display names).
+        "aliases": [
+            "market square", "the square", "square", "market", "alderheart",
+            "town center", "town centre",
+        ],
+        "directions": {
+            "north": "town_gate",
+            "n": "town_gate",
+            "up": "town_gate",
+            "uphill": "town_gate",
+            "toward the gate": "town_gate",
+            "to the gate": "town_gate",
+            "high street": "town_gate",
+            "stockade": "town_gate",
+            "west": "whispering_tankard",
+            "w": "whispering_tankard",
+            "tavern": "whispering_tankard",
+            "the tavern": "whispering_tankard",
+            "inn": "whispering_tankard",
+            "pub": "whispering_tankard",
+            "tankard": "whispering_tankard",
+        },
         "npcs": ["delia", "serge"],
         "featured": "delia",
     },
@@ -42,7 +64,26 @@ LOCATIONS: dict[str, dict] = {
             "worn smooth by a century of travellers and the air is thick with pipe "
             "smoke and low talk."
         ),
-        "connections": ["alderheart_square"],
+        "connections": ["alderheart_square", "market_tavern_cellar"],
+        "aliases": [
+            "whispering tankard", "the tankard", "tankard", "tavern", "the tavern",
+            "inn", "the inn", "pub", "the pub",
+        ],
+        "directions": {
+            "east": "alderheart_square",
+            "e": "alderheart_square",
+            "out": "alderheart_square",
+            "outside": "alderheart_square",
+            "leave": "alderheart_square",
+            "back": "alderheart_square",
+            "square": "alderheart_square",
+            "market": "alderheart_square",
+            "down": "market_tavern_cellar",
+            "downstairs": "market_tavern_cellar",
+            "cellar": "market_tavern_cellar",
+            "basement": "market_tavern_cellar",
+            "below": "market_tavern_cellar",
+        },
         "npcs": ["bram", "maren"],
         "featured": "bram",
     },
@@ -55,6 +96,20 @@ LOCATIONS: dict[str, dict] = {
             "sharp eyes and a treadle-driven cart calls out prices over the crowd."
         ),
         "connections": ["alderheart_square"],
+        "aliases": [
+            "town gate", "the gate", "gate", "stockade", "stockade gate",
+            "market stalls at the gate", "high street", "north gate",
+        ],
+        "directions": {
+            "south": "alderheart_square",
+            "s": "alderheart_square",
+            "back": "alderheart_square",
+            "return": "alderheart_square",
+            "square": "alderheart_square",
+            "market": "alderheart_square",
+            "down": "alderheart_square",
+            "downhill": "alderheart_square",
+        },
         "npcs": ["toni"],
         "featured": "toni",
     },
@@ -68,10 +123,58 @@ LOCATIONS: dict[str, dict] = {
             "Somewhere among the barrels a faint lantern gutters."
         ),
         "connections": ["whispering_tankard"],
+        "aliases": [
+            "tankard cellar", "the cellar", "cellar", "basement", "below",
+            "under the tavern", "under the tankard",
+        ],
+        "directions": {
+            "up": "whispering_tankard",
+            "upstairs": "whispering_tankard",
+            "out": "whispering_tankard",
+            "back": "whispering_tankard",
+            "tavern": "whispering_tankard",
+            "leave": "whispering_tankard",
+        },
         "npcs": [],
         "enemies": ["cellar_rat"],
         "featured": None,
     },
+}
+
+# Destinations players may name that exist in the fiction but are NOT playable
+# locations yet. Matching these must NOT invent a successful move — the
+# exploration node narrates a block instead of teleporting the player.
+BLOCKED_DESTINATIONS: dict[str, str] = {
+    "mountain": (
+        "The northern mountains rise beyond Alderheart's stockade, but the road "
+        "out is sealed at the gate and the wilderness is not open to you yet. "
+        "Stay within the town's connected places for now."
+    ),
+    "mountains": (
+        "The northern mountains rise beyond Alderheart's stockade, but the road "
+        "out is sealed at the gate and the wilderness is not open to you yet. "
+        "Stay within the town's connected places for now."
+    ),
+    "snowy mountain": (
+        "Snow-capped peaks glitter far beyond the walls. There is no path open "
+        "to them from here — the stockade bars the way north of town."
+    ),
+    "snowy mountains": (
+        "Snow-capped peaks glitter far beyond the walls. There is no path open "
+        "to them from here — the stockade bars the way north of town."
+    ),
+    "wilderness": (
+        "The wilds beyond Alderheart are not open to you yet. The stockade and "
+        "the known streets of town are your world for now."
+    ),
+    "forest": (
+        "The woods beyond the walls are not a reachable place yet. Stay within "
+        "Alderheart's connected streets and doors."
+    ),
+    "woods": (
+        "The woods beyond the walls are not a reachable place yet. Stay within "
+        "Alderheart's connected streets and doors."
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -274,17 +377,70 @@ def get_enemy(enemy_id: Optional[str]) -> Optional[dict]:
     return ENEMIES.get(enemy_id or "")
 
 
+def location_aliases(loc: dict) -> list[str]:
+    """All free-text strings that should match a location."""
+    aliases = [loc["name"].lower(), loc["id"].replace("_", " ").lower()]
+    aliases.extend(a.lower() for a in (loc.get("aliases") or []) if a)
+    # Deduplicate while preserving order (longer phrases checked first below).
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for alias in sorted(set(aliases), key=len, reverse=True):
+        if alias and alias not in seen:
+            seen.add(alias)
+            ordered.append(alias)
+    return ordered
+
+
+def resolve_blocked_destination(text: str) -> Optional[str]:
+    """If the player names an out-of-scope place, return the block reason."""
+    lowered = (text or "").lower()
+    # Longer keys first so "snowy mountains" beats "mountains".
+    for key in sorted(BLOCKED_DESTINATIONS.keys(), key=len, reverse=True):
+        if key in lowered:
+            return BLOCKED_DESTINATIONS[key]
+    return None
+
+
+def _text_mentions(haystack: str, needle: str) -> bool:
+    """True if needle appears as a whole token/phrase in haystack."""
+    if not needle:
+        return False
+    padded = f" {haystack} "
+    return f" {needle} " in padded
+
+
 def resolve_location_transition(current: str, text: str) -> Optional[dict]:
-    """Travel via the connections of the current location."""
+    """Travel via directions + connection aliases of the current location.
+
+    Matching order:
+      1. Explicit direction / travel cue map on the current location
+         (e.g. "north", "to the gate", "tavern").
+      2. Free-text alias of a connected location (display name, id, aliases).
+    Returns the destination location dict, or None if no move resolves.
+    Does NOT invent destinations outside the content graph.
+    """
     loc = LOCATIONS.get(current or "")
     if not loc:
         return None
-    lowered = (text or "").lower()
+    # Normalize punctuation so "north." / "gate!" still match.
+    import re
+    lowered = re.sub(r"[^\w\s]", " ", (text or "").lower())
+    lowered = re.sub(r"\s+", " ", lowered).strip()
+
+    # 1) Direction / short travel cues on the current node (longest first).
+    directions = loc.get("directions") or {}
+    for cue in sorted(directions.keys(), key=len, reverse=True):
+        if _text_mentions(lowered, cue) or lowered == cue:
+            dest = LOCATIONS.get(directions[cue])
+            if dest:
+                return dest
+
+    # 2) Connected location aliases (name / id / aliases list).
     for conn_id in loc.get("connections", []):
         dest = LOCATIONS.get(conn_id)
         if not dest:
             continue
-        aliases = [dest["name"].lower(), conn_id.replace("_", " ").lower()]
-        if any(alias in lowered for alias in aliases):
-            return dest
+        for alias in location_aliases(dest):
+            if _text_mentions(lowered, alias) or lowered == alias:
+                return dest
     return None

@@ -5,7 +5,6 @@ interface CharacterSheetPanelProps {
   maxHP?: number;
   currentXP?: number;
   xpToNextLevel?: number;
-  currentLocation?: string;
   avatarSrc?: string;
   avatarSrcWebp?: string;
   stats?: {
@@ -40,7 +39,6 @@ function CharacterSheetPanel({
   maxHP,
   currentXP,
   xpToNextLevel,
-  currentLocation,
   avatarSrc,
   avatarSrcWebp,
   stats,
@@ -83,9 +81,6 @@ function CharacterSheetPanel({
               Lv {level}
             </span>
           </div>
-          {currentLocation && (
-            <p className="text-[11px] text-brand-text-muted truncate mt-0.5">{currentLocation}</p>
-          )}
         </div>
       </div>
 

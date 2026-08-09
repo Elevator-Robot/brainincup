@@ -1,8 +1,7 @@
 # Location Flow — Orchestrator (current)
 
 How the player's location is decided, persisted, and rendered in the
-LangGraph Game Master orchestrator. This supersedes the legacy quest→area flow
-described in `LOCATION_UPDATE_FLOW.md` / `LOCATION_CONSISTENCY_FIX.md`.
+LangGraph Game Master orchestrator.
 
 ## Architecture at a glance
 
@@ -39,18 +38,33 @@ frontend: commitLocation() → authoritativeLocation (placeholder-proof) → mem
 
 ## When the game master updates location
 
-`exploration_node` (nodes.py:405) runs each exploratory turn:
+`exploration_node` runs each exploratory turn:
 
 1. `resolve_location_transition(campaign.currentLocation, state.user_input)`
-2. If the message names a connected location (by display name or id) →
-   `campaign["currentLocation"]` is set to the destination key, the scene
-   description and `visitedLocations` are updated, and the narration facts
-   announce the move.
-3. Otherwise the facts restate the current location, connections, and present
-   NPCs — no location change.
+   matches, in order:
+   - **directions** on the current node (`north` → `town_gate`, `tavern` →
+     `whispering_tankard`, `down`/`cellar` from the tavern, etc.)
+   - **aliases** of connected locations (display name, id, short names)
+2. On match → `campaign["currentLocation"]` becomes the destination key,
+   `visitedLocations` updates, and narration facts force arrival *there*.
+3. On no match → player stays put. If the text names an out-of-scope place
+   (`mountains`, `wilderness`, …) via `resolve_blocked_destination`, facts
+   include a **BLOCKED TRAVEL** reason so the LLM cannot invent a successful
+   departure.
+4. Special case: entering `market_tavern_cellar` with the rats cleared advances
+   the quest to `recover_lantern`.
 
-Special case: entering `market_tavern_cellar` with the rats cleared advances
-the quest to `recover_lantern`.
+Playable graph (vertical slice):
+
+```
+alderheart_square ──north/gate──► town_gate
+       │
+       └──west/tavern──► whispering_tankard ──down/cellar──► market_tavern_cellar
+```
+
+Phrases that work from the square: `go north`, `to the gate`, `head to the
+tavern`, `enter the Whispering Tankard`. Phrases that stay put (by design):
+`into the mountains`, bare `I leave` with no destination.
 
 ## Persistence (backend)
 

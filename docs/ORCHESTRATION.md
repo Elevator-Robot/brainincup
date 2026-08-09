@@ -41,11 +41,9 @@ Lambda (`web_server.py`, served via Lambda Web Adapter), which calls
 `classify_and_prepare(...)` and streams AG-UI events with
 `agent.stream(state, stream_mode="custom")`.
 
-> The legacy data plane under `amplify/functions/brain/app/` (`context_pipeline`,
-> `stat_check`, `pacing_engine`, `state_sync`) is **not** used by this path. It
-> is kept as reference for the original free-text engine. `core/mode_handlers.py`
-> also contains a parallel "brain experience" GM mode that is separate from the
-> orchestrator.
+> The legacy free-text GM data plane (`app/`, `Controller`, `mode_handlers`,
+> `narrative_extractor`) has been removed. Live GM traffic is exclusively this
+> orchestrator path.
 
 ### The turn pipeline
 

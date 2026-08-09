@@ -94,7 +94,6 @@ function ContextWindowPanel({
             currentXP={playerState?.currentXP}
             xpToNextLevel={playerState?.xpToNextLevel}
             stats={character.stats as CharacterSheetPanelProps['stats']}
-            currentLocation={currentLocation ?? playerState?.lastKnownLocation}
             avatarSrc={character.avatarSrc}
             avatarSrcWebp={character.avatarSrcWebp}
             levelUpAnimating={levelUpAnimating}

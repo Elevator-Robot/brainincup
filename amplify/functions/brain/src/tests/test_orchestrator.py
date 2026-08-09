@@ -206,3 +206,64 @@ class ContentResilienceTest(unittest.TestCase):
         self.assertEqual(content.resolve_location(None)["id"], content.STARTING_LOCATION)
         self.assertEqual(content.resolve_location("whispering_tankard")["id"],
                          "whispering_tankard")
+
+
+class LocationTransitionTest(unittest.TestCase):
+    def test_direction_north_from_square_goes_to_gate(self):
+        dest = content.resolve_location_transition("alderheart_square", "lets go north")
+        self.assertIsNotNone(dest)
+        self.assertEqual(dest["id"], "town_gate")
+
+    def test_tavern_alias_from_square(self):
+        dest = content.resolve_location_transition(
+            "alderheart_square", "I head to the Whispering Tankard"
+        )
+        self.assertIsNotNone(dest)
+        self.assertEqual(dest["id"], "whispering_tankard")
+
+    def test_gate_alias_from_square(self):
+        dest = content.resolve_location_transition(
+            "alderheart_square", "approach the stockade gate"
+        )
+        self.assertIsNotNone(dest)
+        self.assertEqual(dest["id"], "town_gate")
+
+    def test_leave_square_without_destination_stays(self):
+        dest = content.resolve_location_transition(
+            "alderheart_square", "I leave Alderheart Market Square"
+        )
+        self.assertIsNone(dest)
+
+    def test_mountains_do_not_teleport(self):
+        dest = content.resolve_location_transition(
+            "alderheart_square", "into the snowy mountains"
+        )
+        self.assertIsNone(dest)
+        blocked = content.resolve_blocked_destination("into the snowy mountains")
+        self.assertIsNotNone(blocked)
+        self.assertIn("stockade", blocked.lower())
+
+    def test_cellar_from_tavern(self):
+        dest = content.resolve_location_transition(
+            "whispering_tankard", "go down into the cellar"
+        )
+        self.assertIsNotNone(dest)
+        self.assertEqual(dest["id"], "market_tavern_cellar")
+
+    def test_back_to_square_from_gate(self):
+        dest = content.resolve_location_transition("town_gate", "go back south")
+        self.assertIsNotNone(dest)
+        self.assertEqual(dest["id"], "alderheart_square")
+
+    def test_intent_routes_travel_phrases_to_exploration(self):
+        for text in (
+            "lets go north",
+            "into the mountains",
+            "head to the tavern",
+            "leave for the gate",
+        ):
+            self.assertEqual(
+                intent.classify_intent(text),
+                intent.EXPLORATION_MODE,
+                text,
+            )

@@ -406,9 +406,13 @@ def exploration_node(state: OrchestratorState) -> dict:
     campaign = dict(state.get("campaign", {}) or {})
     player = state.get("player", {})
     store = state.get("store")
+    user_input = state.get("user_input", "")
 
-    moved = content.resolve_location_transition(campaign.get("currentLocation", content.STARTING_LOCATION),
-                                                state.get("user_input", ""))
+    moved = content.resolve_location_transition(
+        campaign.get("currentLocation", content.STARTING_LOCATION),
+        user_input,
+    )
+    blocked = None if moved else content.resolve_blocked_destination(user_input)
     facts = []
     if moved:
         new_id = moved["id"]
@@ -418,17 +422,37 @@ def exploration_node(state: OrchestratorState) -> dict:
         campaign["currentLocation"] = new_id
         campaign["currentScene"] = moved.get("description", "")
         campaign["visitedLocations"] = visited
+        conn_names = [
+            (content.get_location(c) or {}).get("name", c)
+            for c in (moved.get("connections") or [])
+        ]
         facts = [
-            f"You have entered: {moved['name']} ({moved['description']}).",
-            f"Connections: {', '.join(moved.get('connections', []))}",
+            f"You have entered: {moved['name']}.",
+            f"{moved.get('description', '')}",
+            f"From here you can reach: {', '.join(conn_names) if conn_names else 'nowhere else yet'}.",
+            "Narrate arrival at THIS location only. Do not place the player back "
+            "at their previous location. Do not invent places outside the connections list.",
         ]
     else:
         loc = content.resolve_location(campaign.get("currentLocation", content.STARTING_LOCATION))
+        conn_names = [
+            (content.get_location(c) or {}).get("name", c)
+            for c in (loc.get("connections") or [])
+        ]
         facts = [
             f"You remain in: {loc['name']}.",
             f"{loc['description']}",
             f"Present NPCS: {', '.join(n['name'] for n in _content_npcs(loc))}",
+            f"Connected places you CAN reach from here: {', '.join(conn_names) if conn_names else 'none'}.",
+            "Do NOT invent a successful departure to anywhere not in the connections list. "
+            "The player is still here.",
         ]
+        if blocked:
+            facts.append(f"BLOCKED TRAVEL: {blocked}")
+            facts.append(
+                "Acknowledge the desire to go there, then firmly keep the scene "
+                "in the current location. Offer the connected places as real options."
+            )
 
     # Recover the lantern once the cellar rats are gone.
     if (campaign.get("currentLocation") == "market_tavern_cellar"
