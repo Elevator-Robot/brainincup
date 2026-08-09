@@ -283,16 +283,16 @@ textarea.w-full:focus {
 
 /* Cool glow effects for drop shadows */
 .drop-shadow-glow {
-  filter: drop-shadow(0 0 8px rgba(102, 126, 234, 0.6));
+  filter: drop-shadow(0 0 8px rgba(121, 215, 194, 0.55));
 }
 
 /* Shimmer effect for loading states */
 .shimmer-bg {
   background: linear-gradient(
     90deg,
-    rgba(102, 126, 234, 0.1) 0%,
-    rgba(118, 75, 162, 0.2) 50%,
-    rgba(102, 126, 234, 0.1) 100%
+    rgba(121, 215, 194, 0.1) 0%,
+    rgba(68, 189, 162, 0.2) 50%,
+    rgba(121, 215, 194, 0.1) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 2s linear infinite;
@@ -300,20 +300,20 @@ textarea.w-full:focus {
 
 /* Neon text glow */
 .text-neon {
-  text-shadow: 0 0 10px rgba(102, 126, 234, 0.8),
-               0 0 20px rgba(102, 126, 234, 0.6),
-               0 0 30px rgba(102, 126, 234, 0.4);
+  text-shadow: 0 0 10px rgba(121, 215, 194, 0.55),
+               0 0 20px rgba(121, 215, 194, 0.4),
+               0 0 30px rgba(121, 215, 194, 0.25);
 }
 
 /* Glowing border animation */
 @keyframes glow-border {
   0%, 100% {
-    border-color: rgba(102, 126, 234, 0.4);
-    box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+    border-color: rgba(121, 215, 194, 0.4);
+    box-shadow: 0 0 10px rgba(121, 215, 194, 0.3);
   }
   50% {
-    border-color: rgba(118, 75, 162, 0.6);
-    box-shadow: 0 0 20px rgba(118, 75, 162, 0.5);
+    border-color: rgba(68, 189, 162, 0.6);
+    box-shadow: 0 0 20px rgba(68, 189, 162, 0.5);
   }
 }
 
@@ -647,17 +647,17 @@ textarea.w-full:focus {
   0%, 100% {
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.16),
-      0 0 0 1px rgba(188, 129, 255, 0.28),
-      0 0 14px rgba(154, 91, 255, 0.34),
-      0 0 24px rgba(87, 209, 255, 0.24);
+      0 0 0 1px rgba(191, 255, 244, 0.2),
+      0 0 14px rgba(130, 226, 209, 0.28),
+      0 0 24px rgba(87, 209, 255, 0.2);
     transform: translateY(0) scale(1);
   }
   50% {
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 0 0 1px rgba(216, 168, 255, 0.42),
-      0 0 18px rgba(185, 103, 255, 0.44),
-      0 0 30px rgba(101, 226, 255, 0.3);
+      0 0 0 1px rgba(214, 255, 248, 0.3),
+      0 0 18px rgba(121, 226, 206, 0.36),
+      0 0 30px rgba(101, 226, 255, 0.26);
     transform: translateY(-0.5px) scale(1.02);
   }
 }
@@ -677,8 +677,8 @@ textarea.w-full:focus {
   inset: -4px;
   border-radius: 0.95rem;
   background:
-    radial-gradient(circle at 20% 20%, rgba(214, 165, 255, 0.28), transparent 58%),
-    radial-gradient(circle at 80% 80%, rgba(124, 227, 255, 0.24), transparent 62%);
+    radial-gradient(circle at 20% 20%, rgba(167, 246, 232, 0.24), transparent 58%),
+    radial-gradient(circle at 80% 80%, rgba(124, 227, 255, 0.2), transparent 62%);
   filter: blur(8px);
   opacity: 0.95;
   z-index: -1;
@@ -686,7 +686,82 @@ textarea.w-full:focus {
 }
 
 .retro-right-stack {
-  min-height: 100%;
+  min-height: 0;
+  height: 100%;
+}
+
+/* Character / Timeline tabs — pinned segmented control */
+.retro-context-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  margin-bottom: 0.35rem;
+  border-radius: 0.85rem;
+  background: rgba(6, 18, 16, 0.72);
+  box-shadow: inset 0 1px 0 rgba(230, 255, 250, 0.06);
+}
+
+.retro-context-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(186, 214, 208, 0.72);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.5rem;
+  border-radius: 0.7rem;
+  transition: color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  cursor: pointer;
+}
+
+.retro-context-tab:hover {
+  color: rgba(232, 252, 248, 0.92);
+  background: rgba(174, 247, 234, 0.06);
+}
+
+.retro-context-tab:focus,
+.retro-context-tab:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.retro-context-tab--active {
+  color: rgba(214, 255, 247, 0.98);
+  background: rgba(22, 58, 52, 0.92);
+  box-shadow: none;
+}
+
+.retro-context-tab--active:hover {
+  color: rgba(214, 255, 247, 0.98);
+  background: rgba(28, 68, 60, 0.96);
+  box-shadow: none;
+}
+
+.retro-context-body {
+  scrollbar-gutter: stable;
+  /* Extra inset so drop-shadow glow isn't clipped by the scrollport */
+  padding: 0.35rem 0.15rem 0.5rem;
+}
+
+.retro-character-sheet {
+  /* Room for the avatar glow inside the scroll clip rect */
+  padding: 0.85rem 0.65rem 0.65rem;
+  overflow: visible;
+}
+
+.retro-character-identity {
+  overflow: visible;
+  position: relative;
+  z-index: 1;
+  /* Keep scaled hover avatar + glow inside the padded scroll area */
+  padding: 0.55rem 0.35rem 0.55rem 0.45rem;
+  margin: -0.55rem -0.35rem -0.55rem -0.45rem;
 }
 
 .retro-right-section {
@@ -785,27 +860,39 @@ textarea.w-full:focus {
   align-items: flex-start;
 }
 
+/* Glow lives on the image itself (filter) so no wrapper box clips it */
 .retro-character-avatar {
-  background: linear-gradient(145deg, rgba(85, 42, 126, 0.26), rgba(40, 22, 78, 0.22));
+  display: block;
+  flex-shrink: 0;
+  background: linear-gradient(145deg, rgba(35, 84, 76, 0.26), rgba(27, 64, 58, 0.22));
   animation: bewitchedGlowPulse 2.4s ease-in-out infinite;
   transform-origin: center;
-  will-change: transform;
+  will-change: transform, filter;
+  filter:
+    drop-shadow(0 0 10px rgba(130, 226, 209, 0.45))
+    drop-shadow(0 0 22px rgba(112, 214, 255, 0.3));
+  transition: transform 300ms ease, filter 300ms ease;
+}
+
+.retro-character-avatar-picture {
+  display: block;
+  flex-shrink: 0;
+  line-height: 0;
+  overflow: visible;
 }
 
 .retro-character-avatar--compact {
 }
 
+/* Legacy wrap class kept for compact mobile header; no clipping box */
 .retro-character-avatar-wrap {
   position: relative;
   z-index: 10;
   flex-shrink: 0;
+  display: block;
+  line-height: 0;
   overflow: visible;
   transition: transform 300ms ease, filter 300ms ease;
-  border-radius: 0.75rem;
-  box-shadow:
-    inset 0 1px 0 rgba(246, 231, 255, 0.4),
-    0 0 24px rgba(173, 98, 255, 0.5),
-    0 0 40px rgba(112, 214, 255, 0.32);
 }
 
 .retro-character-meta {
@@ -818,9 +905,18 @@ textarea.w-full:focus {
   will-change: transform;
 }
 
+.retro-character-identity:hover .retro-character-avatar {
+  z-index: 30;
+  transform: scale(1.28);
+  filter:
+    brightness(1.03)
+    drop-shadow(0 0 14px rgba(130, 226, 209, 0.6))
+    drop-shadow(0 0 28px rgba(112, 214, 255, 0.4));
+}
+
 .retro-character-identity:hover .retro-character-avatar-wrap {
   z-index: 30;
-  transform: scale(1.35);
+  transform: scale(1.28);
   filter: brightness(1.03);
 }
 
@@ -842,7 +938,7 @@ textarea.w-full:focus {
 
 .retro-interaction-avatar {
   border: 0;
-  background: linear-gradient(145deg, rgba(147, 102, 230, 0.14), rgba(120, 81, 169, 0.1));
+  background: linear-gradient(145deg, rgba(130, 226, 209, 0.14), rgba(67, 158, 143, 0.1));
   box-shadow:
     0 8px 16px rgba(8, 8, 18, 0.32),
     inset 0 1px 0 rgba(255, 255, 255, 0.24);
@@ -901,11 +997,11 @@ textarea.w-full:focus {
 }
 
 .retro-input-shell-primed {
-  border-color: rgba(214, 172, 255, 0.55) !important;
+  border-color: rgba(191, 255, 244, 0.55) !important;
   box-shadow:
-    inset 0 1px 0 rgba(240, 228, 255, 0.24),
-    0 18px 34px rgba(33, 15, 54, 0.42),
-    0 0 0 1px rgba(198, 132, 255, 0.28);
+    inset 0 1px 0 rgba(230, 255, 250, 0.24),
+    0 18px 34px rgba(1, 8, 8, 0.42),
+    0 0 0 1px rgba(191, 255, 244, 0.28);
   animation: retroDraftPulse 520ms ease-out 1;
 }
 
@@ -1161,7 +1257,8 @@ textarea.w-full:focus {
 .retro-right-container {
   border-left: 1px solid rgba(174, 247, 234, 0.15);
   padding-left: 1.1rem;
-  overflow-y: auto;
+  /* Scroll lives on .retro-context-body so Character/Timeline tabs stay pinned */
+  overflow: hidden;
 }
 
 .retro-mental-state-section {
@@ -1471,7 +1568,7 @@ textarea.w-full:focus {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at center, rgba(139, 92, 246, 0.4) 0%, transparent 70%);
+  background: radial-gradient(circle at center, rgba(130, 226, 209, 0.35) 0%, transparent 70%);
   opacity: 0;
   transform: scale(0.5);
   transition: opacity 0.3s ease, transform 0.3s ease;
@@ -1495,7 +1592,7 @@ textarea.w-full:focus {
 }
 
 .plus-button:focus-visible {
-  outline: 2px solid rgba(139, 92, 246, 0.6);
+  outline: 2px solid rgba(130, 226, 209, 0.55);
   outline-offset: 2px;
 }
 

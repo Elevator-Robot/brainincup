@@ -175,8 +175,8 @@ export default function ConversationSidebarIcons({
           }}
           className={`h-10 w-10 rounded-lg transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none ${
             activeConversationId === 'brain'
-              ? 'border-violet-400/80 bg-gradient-to-br from-violet-500/35 to-fuchsia-500/25 scale-95 shadow-[0_0_14px_rgba(139,92,246,0.4)]'
-              : 'border-violet-400/50 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 hover:border-violet-400/75 hover:from-violet-500/28 hover:to-fuchsia-500/28'
+              ? 'border-brand-accent-primary/80 bg-brand-accent-primary/25 scale-95 shadow-[0_0_14px_rgba(45,212,191,0.35)]'
+              : 'border-brand-surface-border/70 bg-brand-surface-elevated/40 hover:border-brand-accent-primary/60 hover:bg-brand-accent-primary/15'
           }`}
         >
           <img
@@ -199,7 +199,7 @@ export default function ConversationSidebarIcons({
 
         {hoveredId === 'brain' && (
           <div
-            className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-violet-400/40 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
+            className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-brand-accent-primary/30 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
             style={{ left: tooltipPos.x, top: tooltipPos.y, transform: 'translateY(-50%)' }}
           >
             <p className="text-sm font-semibold text-brand-text-primary">Brain</p>

@@ -2962,10 +2962,10 @@ function App() {
       </main>
 
         <aside className="retro-shell-right">
-          <div className="retro-right-container flex flex-col h-full overflow-y-auto">
+          <div className="retro-right-container flex h-full min-h-0 flex-col overflow-hidden">
                 {isGameMasterMode ? (
                     showRightPanelCharacterCreation ? (
-                      <div className="flex h-full flex-col p-5 overflow-y-auto">
+                      <div className="flex h-full min-h-0 flex-col overflow-y-auto p-5">
                         <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
                         <CharacterCreation
                           inline
@@ -2975,8 +2975,8 @@ function App() {
                         />
                       </div>
                     ) : (
-                      <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                        {/* Context Window Panel — character sheet and dice history */}
+                      <div className="retro-right-stack flex h-full min-h-0 flex-col p-5">
+                        {/* Tabs pin; body (sheet / timeline / inventory / dice) scrolls beneath */}
                         <ContextWindowPanel
                           playerState={playerState ? {
                             currentLevel: playerState.currentLevel ?? undefined,
@@ -3009,40 +3009,37 @@ function App() {
                             location: currentLocation ?? undefined,
                           }))}
                           gameEvents={gameEvents}
-                        />
-
-                        {/* Inventory */}
-                        {characterDisplay && (
-                        <div className="retro-right-section retro-right-section--inventory">
-                          <InventoryManager
-                            inventory={characterDisplay.inventory}
-                            onUpdateInventory={updateInventory}
-                            isUpdating={false}
-                          />
-                        </div>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void handleDiceRoll();
-                          }}
-                          disabled={!canUseDiceRoll}
-                          className={`retro-roll-panel-button retro-tooltip-trigger mt-auto relative rounded-xl ${
-                            isDiceRolling ? 'retro-roll-panel-button--rolling' : ''
-                          }`}
-                          aria-label={isDiceRolling ? 'Rolling d20' : 'Roll a d20'}
-                          data-tooltip={isDiceRolling ? 'Rolling d20…' : 'Roll d20'}
-                          data-tooltip-position="top"
                         >
-                          <TroubleDice3D
-                            rollNonce={diceRollNonce}
-                            isRolling={isDiceRolling}
-                            pulseId={diceRollPulseId}
-                            displayValue={latestDiceRoll || (isDiceRolling ? '...' : 'd20')}
-                          />
-                        </button>
-
+                          {characterDisplay ? (
+                            <div className="retro-right-section retro-right-section--inventory">
+                              <InventoryManager
+                                inventory={characterDisplay.inventory}
+                                onUpdateInventory={updateInventory}
+                                isUpdating={false}
+                              />
+                            </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleDiceRoll();
+                            }}
+                            disabled={!canUseDiceRoll}
+                            className={`retro-roll-panel-button retro-tooltip-trigger relative w-full rounded-xl ${
+                              isDiceRolling ? 'retro-roll-panel-button--rolling' : ''
+                            }`}
+                            aria-label={isDiceRolling ? 'Rolling d20' : 'Roll a d20'}
+                            data-tooltip={isDiceRolling ? 'Rolling d20…' : 'Roll d20'}
+                            data-tooltip-position="top"
+                          >
+                            <TroubleDice3D
+                              rollNonce={diceRollNonce}
+                              isRolling={isDiceRolling}
+                              pulseId={diceRollPulseId}
+                              displayValue={latestDiceRoll || (isDiceRolling ? '...' : 'd20')}
+                            />
+                          </button>
+                        </ContextWindowPanel>
                       </div>
                     )
                 ) : (
@@ -3052,7 +3049,7 @@ function App() {
                       <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-violet-400/50 via-purple-400/70 to-violet-400/50 shadow-[0_0_12px_rgba(167,139,250,0.4)] transition-all duration-500"
+                          className="h-full rounded-full bg-gradient-to-r from-teal-400/50 via-emerald-400/70 to-teal-400/50 shadow-[0_0_12px_rgba(45,212,191,0.4)] transition-all duration-500"
                           style={{ width: `${mentalStateIntensity}%` }}
                         />
                       </div>

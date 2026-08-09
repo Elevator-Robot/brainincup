@@ -17,9 +17,10 @@ export function useContextPanel(gameEvents: GameEvent[]) {
     const latest = gameEvents[gameEvents.length - 1];
     if (!latest) return;
 
+    // Dice rolls should not steal focus to the Timeline tab — dice UI lives
+    // under Character (and the floating roll control), not the story timeline.
     if (latest.type === 'DICE_ROLL_REQUESTED') {
-      setActivePanelState('dice');
-      setManualOverride(false);
+      return;
     } else if (latest.type === 'LEVEL_UP') {
       setActivePanelState('character');
       setLevelUpAnimating(true);

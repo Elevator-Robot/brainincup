@@ -160,7 +160,7 @@ export function MessageBubble({
     code: ({ className, children, ...props }: { className?: string; children?: React.ReactNode }) => {
       const isInline = !className;
       return isInline ? (
-        <code className="px-1.5 py-0.5 rounded bg-brand-surface-elevated/50 text-purple-300 text-sm font-mono" {...props}>{children}</code>
+        <code className="px-1.5 py-0.5 rounded bg-brand-surface-elevated/50 text-teal-200 text-sm font-mono" {...props}>{children}</code>
       ) : (
         <code className="block p-3 rounded-lg bg-brand-surface-elevated/50 text-sm font-mono overflow-x-auto whitespace-pre-wrap my-0.5" {...props}>{children}</code>
       );
@@ -266,7 +266,7 @@ export function MessageBubble({
             {/* Sensations */}
             {message.sensations && message.sensations.length > 0 && (
               <div className={detailCardClass}>
-                <div className={`${detailTitleClass} text-purple-300`}>
+                <div className={`${detailTitleClass} text-teal-300/90`}>
                   <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -318,7 +318,7 @@ export function MessageBubble({
             {/* Self Reflection */}
             {message.selfReflection && message.selfReflection.trim() && (
               <div className={detailCardClass}>
-                <div className={`${detailTitleClass} text-violet-300`}>
+                <div className={`${detailTitleClass} text-teal-300/90`}>
                   <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

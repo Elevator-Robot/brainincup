@@ -136,11 +136,11 @@ export default function MobileMenu({
             onClick={() => { onSelectBrain(); onClose(); }}
             className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left border transition-colors ${
               activeConversationId === 'brain'
-                ? 'border-violet-400/40 bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15'
+                ? 'border-brand-accent-primary/40 bg-brand-accent-primary/15'
                 : 'border-transparent hover:bg-brand-surface-secondary/50'
             }`}
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/50 overflow-hidden bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-brand-accent-primary/40 overflow-hidden bg-brand-accent-primary/15">
               <img src="/brain-chat.svg" alt="" className="h-8 w-8 object-contain" />
             </span>
             <span className="min-w-0">

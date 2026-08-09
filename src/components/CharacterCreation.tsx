@@ -182,7 +182,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               aria-controls={`${racePickerId}-listbox`}
               aria-labelledby={`${racePickerId}-label ${racePickerId}`}
               onClick={() => setOpenPicker((prev) => (prev === 'race' ? null : 'race'))}
-              className="w-full rounded-xl border border-brand-surface-border/70 bg-brand-bg-secondary/70 px-3 py-2 text-left text-brand-text-primary shadow-[inset_0_1px_0_rgba(156,116,230,0.18)] transition-all duration-200 hover:border-brand-surface-border/90 hover:bg-brand-bg-tertiary/55 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45"
+              className="w-full rounded-xl border border-brand-surface-border/70 bg-brand-bg-secondary/70 px-3 py-2 text-left text-brand-text-primary shadow-[inset_0_1px_0_rgba(94,234,212,0.16)] transition-all duration-200 hover:border-brand-surface-border/90 hover:bg-brand-bg-tertiary/55 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45"
               disabled={isSubmitting}
             >
               <span className="flex items-center justify-between gap-3">
@@ -243,7 +243,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               aria-controls={`${classPickerId}-listbox`}
               aria-labelledby={`${classPickerId}-label ${classPickerId}`}
               onClick={() => setOpenPicker((prev) => (prev === 'class' ? null : 'class'))}
-              className="w-full rounded-xl border border-brand-surface-border/70 bg-brand-bg-secondary/70 px-3 py-2 text-left text-brand-text-primary shadow-[inset_0_1px_0_rgba(156,116,230,0.18)] transition-all duration-200 hover:border-brand-surface-border/90 hover:bg-brand-bg-tertiary/55 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45"
+              className="w-full rounded-xl border border-brand-surface-border/70 bg-brand-bg-secondary/70 px-3 py-2 text-left text-brand-text-primary shadow-[inset_0_1px_0_rgba(94,234,212,0.16)] transition-all duration-200 hover:border-brand-surface-border/90 hover:bg-brand-bg-tertiary/55 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45"
               disabled={isSubmitting}
             >
               <span className="flex items-center justify-between gap-3">
