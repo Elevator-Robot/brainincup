@@ -15,7 +15,7 @@ from botocore.awsrequest import AWSRequest
 from requests.auth import AuthBase
 
 from experiences.agui import sse_event
-from experiences.base import ExperienceContext
+from experiences.base import ExperienceContext, normalize_request
 from experiences.registry import ExperienceRegistry, normalize_experience_id
 
 logger = Logger()
@@ -201,7 +201,6 @@ def _iter_sse(experience_instance: Any, ctx: ExperienceContext) -> Generator[str
                 "Streamed response persisted",
                 extra={"conversation_id": ctx.conversation_id, "message_id": ctx.message_id},
             )
-    yield "event: agui\ndata: [DONE]\n\n"
 
 
 @logger.inject_lambda_context
@@ -215,16 +214,18 @@ def http_main(event: dict, context: Any) -> dict:
         return {"statusCode": 200, "body": ""}
 
     payload = _http_body(event)
-    conversation_id = payload.get("conversationId")
-    message_id = payload.get("messageId")
-    owner = payload.get("owner")
-    user_input = payload.get("content")
+    req = normalize_request(payload)
+    conversation_id = req["conversation_id"]
+    message_id = req["message_id"]
+    owner = req["owner"]
+    user_input = req["user_input"]
+    run_id = req["run_id"]
 
-    if not (conversation_id and message_id and owner and user_input):
+    if not (conversation_id and user_input):
         logger.warning("Streaming request missing required fields", extra={"payload_keys": list(payload.keys())})
         return {
             "statusCode": 400,
-            "body": json.dumps({"error": "conversationId, messageId, owner, and content are required"}),
+            "body": json.dumps({"error": "conversation (threadId/conversationId) and content/messages are required"}),
         }
 
     experience_id = _get_experience_for_conversation(conversation_id)
@@ -245,6 +246,7 @@ def http_main(event: dict, context: Any) -> dict:
         message_id=message_id,
         owner=owner,
         experience=experience_id,
+        run_id=run_id,
     )
 
     logger.info(

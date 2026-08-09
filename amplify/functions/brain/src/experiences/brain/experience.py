@@ -110,7 +110,7 @@ class BrainExperience(BaseExperience):
         the parsed final response is emitted as TEXT_MESSAGE_*. A CUSTOM
         `response_complete` event carries the payload for persistence.
         """
-        run_id = str(uuid.uuid4())
+        run_id = ctx.run_id or str(uuid.uuid4())
         yield run_started(ctx.conversation_id, run_id=run_id, input_data={"messageId": ctx.message_id})
 
         try:
@@ -130,7 +130,6 @@ class BrainExperience(BaseExperience):
             )
         except ImportError:
             yield run_error("Cognitive modules unavailable", code="BRAIN_IMPORT_ERROR")
-            yield run_finished(ctx.conversation_id, run_id, result={"response": ""})
             return
 
         try:
@@ -241,7 +240,6 @@ class BrainExperience(BaseExperience):
         except Exception as exc:
             logger.error("Brain streaming pipeline failed: %s", exc, exc_info=True)
             yield run_error(str(exc), code="BRAIN_STREAM_ERROR")
-            yield run_finished(ctx.conversation_id, run_id)
 
     def _run_agent_pipeline(
         self,

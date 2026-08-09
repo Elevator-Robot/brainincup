@@ -31,7 +31,7 @@ for _layer_path in (
         sys.path.insert(0, _layer_path)
 
 from experiences.agui import run_error, sse_event  # noqa: E402
-from experiences.base import ExperienceContext  # noqa: E402
+from experiences.base import ExperienceContext, normalize_request  # noqa: E402
 from experiences.handler import (  # noqa: E402
     _get_experience_for_conversation,
     _iter_sse,
@@ -86,14 +86,15 @@ class _BrainHandler(BaseHTTPRequestHandler):
         self._send_json(200, process_stream_records(body))
 
     def _handle_stream(self, body: dict) -> None:
-        conversation_id = body.get("conversationId")
-        message_id = body.get("messageId")
-        owner = body.get("owner")
-        user_input = body.get("content")
-        if not (conversation_id and message_id and owner and user_input):
+        req = normalize_request(body)
+        conversation_id = req["conversation_id"]
+        message_id = req["message_id"]
+        owner = req["owner"]
+        user_input = req["user_input"]
+        if not (conversation_id and user_input):
             self._send_json(
                 400,
-                {"error": "conversationId, messageId, owner, and content are required"},
+                {"error": "conversation (threadId/conversationId) and content/messages are required"},
             )
             return
 
@@ -114,6 +115,7 @@ class _BrainHandler(BaseHTTPRequestHandler):
             message_id=message_id,
             owner=owner,
             experience=experience_id,
+            run_id=req["run_id"],
         )
 
         self.send_response(200)

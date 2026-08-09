@@ -97,7 +97,7 @@ class GameMasterExperience(BaseExperience):
         Deterministic systems run synchronously; each mode node streams its
         narration as TEXT_MESSAGE tokens before finalize emits `response_complete`.
         """
-        run_id = str(uuid.uuid4())
+        run_id = ctx.run_id or str(uuid.uuid4())
         yield run_started(ctx.conversation_id, run_id=run_id, input_data={"messageId": ctx.message_id})
 
         try:
