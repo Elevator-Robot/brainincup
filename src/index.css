@@ -647,17 +647,15 @@ textarea.w-full:focus {
   0%, 100% {
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.16),
-      0 0 0 1px rgba(191, 255, 244, 0.2),
-      0 0 14px rgba(130, 226, 209, 0.28),
-      0 0 24px rgba(87, 209, 255, 0.2);
+      0 0 12px rgba(130, 226, 209, 0.28),
+      0 0 18px rgba(87, 209, 255, 0.2);
     transform: translateY(0) scale(1);
   }
   50% {
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 0 0 1px rgba(214, 255, 248, 0.3),
-      0 0 18px rgba(121, 226, 206, 0.36),
-      0 0 30px rgba(101, 226, 255, 0.26);
+      0 0 16px rgba(121, 226, 206, 0.36),
+      0 0 22px rgba(101, 226, 255, 0.26);
     transform: translateY(-0.5px) scale(1.02);
   }
 }
@@ -745,13 +743,10 @@ textarea.w-full:focus {
 
 .retro-context-body {
   scrollbar-gutter: stable;
-  /* Extra inset so drop-shadow glow isn't clipped by the scrollport */
-  padding: 0.35rem 0.15rem 0.5rem;
+  padding: 0.5rem 0.25rem 0.75rem;
 }
 
 .retro-character-sheet {
-  /* Room for the avatar glow inside the scroll clip rect */
-  padding: 0.85rem 0.65rem 0.65rem;
   overflow: visible;
 }
 
@@ -759,9 +754,6 @@ textarea.w-full:focus {
   overflow: visible;
   position: relative;
   z-index: 1;
-  /* Keep scaled hover avatar + glow inside the padded scroll area */
-  padding: 0.55rem 0.35rem 0.55rem 0.45rem;
-  margin: -0.55rem -0.35rem -0.55rem -0.45rem;
 }
 
 .retro-right-section {
@@ -865,12 +857,7 @@ textarea.w-full:focus {
   display: block;
   flex-shrink: 0;
   background: linear-gradient(145deg, rgba(35, 84, 76, 0.26), rgba(27, 64, 58, 0.22));
-  animation: bewitchedGlowPulse 2.4s ease-in-out infinite;
   transform-origin: center;
-  will-change: transform, filter;
-  filter:
-    drop-shadow(0 0 10px rgba(130, 226, 209, 0.45))
-    drop-shadow(0 0 22px rgba(112, 214, 255, 0.3));
   transition: transform 300ms ease, filter 300ms ease;
 }
 
@@ -908,10 +895,6 @@ textarea.w-full:focus {
 .retro-character-identity:hover .retro-character-avatar {
   z-index: 30;
   transform: scale(1.28);
-  filter:
-    brightness(1.03)
-    drop-shadow(0 0 14px rgba(130, 226, 209, 0.6))
-    drop-shadow(0 0 28px rgba(112, 214, 255, 0.4));
 }
 
 .retro-character-identity:hover .retro-character-avatar-wrap {
