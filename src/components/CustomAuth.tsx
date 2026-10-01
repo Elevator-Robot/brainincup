@@ -7,7 +7,6 @@ import './auth.css';
 
 I18n.putVocabularies({ en: {
   'Sign In with Google': 'Continue with Google',
-  'Sign In with Facebook': 'Continue with Facebook',
   'Sign in': 'Sign in / Create account',
 } });
 
@@ -109,10 +108,12 @@ function AuthSuccess({ onComplete }: { onComplete: () => void }) {
 
 function AuthArtwork() {
   const brainRef = useRef<HTMLImageElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const brain = brainRef.current;
+    const video = videoRef.current;
     const card = brain?.closest<HTMLElement>('.bic-auth-card');
-    if (!brain || !card) return;
+    if (!brain || !video || !card) return;
     let frame = 0;
     const move = (event: PointerEvent) => {
       if (event.pointerType === 'touch') return;
@@ -122,11 +123,13 @@ function AuthArtwork() {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         brain.style.transform = `perspective(1000px) translate3d(${x * 48}px, ${y * 32}px, 0) rotateX(${-y * 8}deg) rotateY(${x * 12}deg) rotateZ(${x * 2}deg) scale(1.04)`;
+        video.style.transform = `translate3d(${-x * 1.5}%, ${-y * 1.5}%, 0) scale(1.06)`;
       });
     };
     const reset = () => {
       cancelAnimationFrame(frame);
       brain.style.transform = '';
+      video.style.transform = '';
     };
     card.addEventListener('pointermove', move);
     card.addEventListener('pointerleave', reset);
@@ -141,7 +144,7 @@ function AuthArtwork() {
     };
   }, []);
   return <div className="bic-auth-art" aria-hidden="true">
-    <video className="bic-auth-video" src="/images/login-background.mp4" autoPlay muted loop playsInline preload="auto" />
+    <video ref={videoRef} className="bic-auth-video" src="/images/login-background.mp4" autoPlay muted loop playsInline preload="auto" />
     <img ref={brainRef} className="bic-auth-brain" src="/images/login-brain.png" width="1672" height="941" alt="" />
   </div>;
 }
@@ -202,7 +205,7 @@ function AuthFlow({ onAuthSuccess }: { onAuthSuccess: () => void }) {
   const [expanded, setExpanded] = useState(false);
   return <EmailOptions.Provider value={{ expanded, setExpanded }}>
     <div className="bic-auth-methods" data-email-expanded={expanded}>
-      <Authenticator hideSignUp loginMechanisms={['email']} services={authServices}
+      <Authenticator hideSignUp loginMechanisms={['email']} socialProviders={['google']} services={authServices}
         components={{ Header: AuthIntro, SignIn: { Footer: EmailSignInFooter }, ConfirmSignUp: { Header: ConfirmationCodeHeader } }}
         formFields={{ signIn: { username: { label: 'Email', placeholder: 'you@example.com' } }, confirmSignUp: { confirmation_code: { labelHidden: true } } }}>
         {() => <AuthSuccess onComplete={onAuthSuccess} />}

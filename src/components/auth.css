@@ -25,7 +25,7 @@
 .bic-auth-close:hover { background: rgb(245 230 206 / 15%); }
 .bic-auth-art { position: absolute; inset: 0; overflow: hidden; background: #060817; pointer-events: none; isolation: isolate; }
 .bic-auth-art .bic-auth-video, .bic-auth-art .bic-auth-brain { position: absolute; inset: 0; width: 100%; height: 100%; object-position: center; }
-.bic-auth-art .bic-auth-video { object-fit: cover; }
+.bic-auth-art .bic-auth-video { object-fit: cover; transform: translate3d(0, 0, 0) scale(1.06); transition: transform 300ms ease-out; will-change: transform; }
 .bic-auth-art .bic-auth-brain { object-fit: contain; transform: perspective(1000px) translate3d(0, 0, 0); transition: transform 180ms ease-out; will-change: transform; }
 .bic-auth-art::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgb(5 8 20 / 48%), rgb(5 8 20 / 8%) 75%); }
 .bic-auth-sheet {
