@@ -1,0 +1,135 @@
+/* Arcane Kitchen's glass auth treatment with Brain in Cup's layered artwork. */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700&display=swap');
+
+.bic-auth-landing { min-height: 100dvh; color: #fff1db; font-family: Nunito, sans-serif; }
+.bic-auth-welcome { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; padding: 1rem; }
+.bic-auth-welcome > button { max-width: 22rem; }
+.bic-auth-overlay {
+  --auth-inset: clamp(.75rem, 3vw, 2rem);
+  position: fixed; inset: 0; top: var(--auth-viewport-top, 0px); bottom: auto;
+  height: var(--auth-viewport-height, 100dvh); z-index: 60; display: grid;
+  place-items: center; padding: var(--auth-inset); background: rgb(24 16 29 / 65%);
+  backdrop-filter: blur(12px); overflow-y: auto; overscroll-behavior: contain;
+}
+.bic-auth-card {
+  user-select: none; -webkit-user-select: none; position: relative;
+  width: min(76rem, 100%, calc((var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset)) * 1.5));
+  aspect-ratio: 3 / 2; min-height: 0; overflow: hidden; border: 1px solid rgb(245 230 206 / 25%);
+  border-radius: 1.75rem; background: #171310; box-shadow: 0 32px 100px rgb(25 15 28 / 35%);
+}
+.bic-auth-close {
+  position: absolute; top: 1rem; right: 1rem; z-index: 2; display: grid; place-items: center;
+  width: 2.75rem; height: 2.75rem; border: 1px solid rgb(245 230 206 / 35%); border-radius: 50%;
+  background: rgb(22 16 12 / 45%); color: #fff1db;
+}
+.bic-auth-close:hover { background: rgb(245 230 206 / 15%); }
+.bic-auth-art { position: absolute; inset: 0; overflow: hidden; background: #060817; pointer-events: none; isolation: isolate; }
+.bic-auth-art .bic-auth-video, .bic-auth-art .bic-auth-brain { position: absolute; inset: 0; width: 100%; height: 100%; object-position: center; }
+.bic-auth-art .bic-auth-video { object-fit: cover; }
+.bic-auth-art .bic-auth-brain { object-fit: contain; transform: perspective(1000px) translate3d(0, 0, 0); transition: transform 180ms ease-out; will-change: transform; }
+.bic-auth-art::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgb(5 8 20 / 48%), rgb(5 8 20 / 8%) 75%); }
+.bic-auth-sheet {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex;
+  flex-direction: column; width: min(28rem, 48%); max-height: 88%; min-height: 0; color: #fff1db;
+}
+.bic-auth-content { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto;
+  overscroll-behavior: contain; width: 100%; padding: .5rem 1.75rem 1.5rem;
+  scrollbar-width: thin; scrollbar-color: rgb(245 230 206 / 40%) transparent; scroll-padding-block: 1rem; }
+.bic-auth-form-rail { flex: none; width: 100%; max-width: 24rem; min-width: 0; margin: auto; }
+.bic-auth-intro { margin-bottom: 1.25rem; text-shadow: 0 2px 8px rgb(0 0 0 / 65%); }
+.bic-auth-wordmark { font-family: Fraunces, Georgia, serif; font-size: clamp(1.875rem, 3.5vw, 2.75rem);
+  font-weight: 500; line-height: 1.15; letter-spacing: -.04em; text-align: center; padding-block: .25rem .5rem; }
+.bic-auth-wordmark span { font-style: italic; font-weight: 400; margin-inline-end: .08em; }
+.bic-auth-intro > h2:not(.bic-auth-wordmark) { font: 500 1.875rem/1.25 Fraunces, Georgia, serif; }
+.bic-auth-panel { min-width: 0; width: 100%; }
+.bic-auth-panel [data-amplify-authenticator] {
+  --amplify-fonts-default-variable: Nunito, sans-serif;
+  --amplify-fonts-default-static: Nunito, sans-serif;
+  --amplify-components-authenticator-container-width-max: 100%;
+  --amplify-components-authenticator-form-padding: 0;
+  --amplify-components-authenticator-router-box-shadow: none;
+  --amplify-components-authenticator-router-border-width: 0;
+  --amplify-components-authenticator-router-background-color: transparent;
+  --amplify-colors-font-primary: #fff1db; --amplify-colors-font-secondary: #e9d5bd;
+  width: 100%; min-width: 0; display: block;
+}
+.bic-auth-panel [data-amplify-router] { background: transparent; border: 0; box-shadow: none; width: 100%; }
+.bic-auth-panel [data-amplify-container] { width: 100%; max-width: 100%; min-width: 0; }
+.bic-auth-panel [data-amplify-form], .bic-auth-panel [data-amplify-footer] { padding: 0; min-width: 0; }
+.bic-auth-panel fieldset, .bic-auth-panel .amplify-field-group__field-wrapper { min-width: 0; }
+.bic-auth-panel .amplify-tabs { display: none; }
+.bic-auth-panel .amplify-fieldset { gap: .9rem; }
+.bic-auth-panel .amplify-label { color: #f7e8d2; font-weight: 600; }
+.bic-auth-panel .amplify-heading { color: #f7e8d2; font-family: Fraunces, Georgia, serif; letter-spacing: 0; }
+.bic-auth-panel .amplify-text { color: inherit; }
+.bic-auth-panel .amplify-input, .bic-auth-panel .federated-sign-in-button,
+.bic-auth-panel .amplify-passwordfield .amplify-field-group__outer-end .amplify-button,
+.bic-confirmation-input { background: rgb(22 16 12 / 72%); border-color: rgb(245 230 206 / 48%); color: #fff1db; box-shadow: 0 2px 6px rgb(0 0 0 / 12%); }
+.bic-auth-panel .amplify-input { border-radius: .625rem; min-height: 2.75rem; font-size: 1rem; }
+.bic-auth-panel .amplify-input::placeholder { color: #e4cfb7; opacity: .85; }
+.bic-auth-panel .amplify-passwordfield .amplify-input { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.bic-auth-panel .amplify-passwordfield .amplify-field-group__outer-end .amplify-button { border-radius: 0 .625rem .625rem 0; }
+.bic-auth-panel .amplify-button:not(.amplify-alert__dismiss) { min-height: 2.75rem; border-radius: .75rem; }
+.bic-auth-panel .amplify-button--primary {
+  background: linear-gradient(135deg, rgb(92 43 166 / 72%), rgb(57 46 123 / 65%)); color: #fff;
+  border: 1px solid rgb(216 191 249 / 65%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%), 0 4px 16px rgb(17 10 30 / 16%);
+  backdrop-filter: blur(12px); font-size: .875rem; font-weight: 600; line-height: 1.25rem; padding: .5rem 1rem;
+}
+.bic-auth-panel .amplify-button--primary:hover { background: linear-gradient(135deg, rgb(109 50 190 / 85%), rgb(67 56 150 / 80%)); }
+.bic-auth-email-footer { display: flex; flex-direction: column; align-items: stretch; gap: .5rem; }
+.bic-auth-label-short { display: none; }
+.bic-auth-email-toggle {
+  display: inline-flex; align-items: center; justify-content: center; gap: .625rem; width: 100%;
+  min-height: 2.75rem; padding: .65rem 1rem; border: 1px solid rgb(245 230 206 / 35%); border-radius: .75rem;
+  background: transparent; color: #fff1db; font-size: .9375rem; font-weight: 600;
+}
+.bic-auth-email-toggle:hover { background: rgb(245 230 206 / 10%); }
+.bic-auth-panel .bic-auth-glass-secondary, .bic-auth-panel .amplify-button--link:not(.amplify-alert__dismiss) {
+  width: 100%; min-height: 2.75rem; border: 1px solid rgb(245 230 206 / 35%); border-radius: .75rem;
+  background: rgb(245 230 206 / 9%); color: #fff1db; box-shadow: inset 0 1px 0 rgb(255 255 255 / 28%);
+  backdrop-filter: blur(12px); font-size: .875rem; font-weight: 600; text-decoration: none;
+}
+.bic-auth-panel .bic-auth-glass-secondary:hover, .bic-auth-panel .amplify-button--link:not(.amplify-alert__dismiss):hover { background: rgb(245 230 206 / 17%); }
+.bic-auth-methods[data-email-expanded='false'] form[data-amplify-authenticator-signin] fieldset,
+.bic-auth-methods[data-email-expanded='false'] form[data-amplify-authenticator-signin] button[type='submit'],
+.bic-auth-methods[data-email-expanded='true'] form[data-amplify-authenticator-signin] .federated-sign-in-container,
+.bic-auth-methods form[data-amplify-authenticator-signin] .amplify-divider { display: none; }
+.bic-auth-panel .amplify-alert { display: grid; grid-template-columns: 1rem minmax(0, 1fr) 2rem; align-items: start; gap: .5rem;
+  width: 100%; padding: .75rem; border: 1px solid rgb(255 175 145 / 45%); border-radius: .75rem; background: rgb(59 25 19 / 92%); color: #fff0e5; text-align: left; }
+.bic-auth-panel .amplify-alert > div { min-width: 0; }
+.bic-auth-panel .amplify-alert__icon { font-size: 1rem; padding-top: .2rem; }
+.bic-auth-panel .amplify-alert__body { font-size: .875rem; line-height: 1.5; overflow-wrap: anywhere; }
+.bic-auth-panel .amplify-alert__dismiss { width: 2rem; min-width: 2rem; height: 2rem; min-height: 2rem; padding: .25rem; border: 0; border-radius: .5rem; background: transparent; color: inherit; box-shadow: none; }
+.bic-auth-panel .amplify-alert__dismiss:hover { background: rgb(255 255 255 / 10%); }
+.bic-auth-card :is(input, textarea) { user-select: text; -webkit-user-select: text; }
+.bic-auth-card :is(button, input, a):focus-visible { outline: 2px solid #dfc0ff; outline-offset: 3px; }
+.bic-auth-card button { transition: scale 180ms cubic-bezier(.22, 1.4, .36, 1), background-color 160ms ease; }
+.bic-auth-card button:active:not(:disabled) { scale: .97; }
+.bic-auth-card button:disabled { opacity: .6; cursor: not-allowed; }
+.bic-auth-methods[data-email-expanded='true'] form[data-amplify-authenticator-signin] fieldset { animation: bic-auth-reveal 180ms ease-out; }
+@keyframes bic-auth-reveal { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.bic-confirmation-panel { display: grid; gap: 1rem; }
+.bic-confirmation-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .5rem; }
+.bic-confirmation-input { aspect-ratio: 1; width: 100%; min-width: 0; border: 1px solid rgb(245 230 206 / 48%); border-radius: .75rem; text-align: center; font-size: 1.25rem; font-weight: 700; }
+.bic-auth-panel form[data-amplify-authenticator-confirmsignup] input[name='confirmation_code'],
+.bic-auth-panel form[data-amplify-authenticator-confirmsignup] .amplify-label,
+.bic-auth-panel form[data-amplify-authenticator-confirmsignup] .amplify-fieldset__legend { display: none; }
+.bic-auth-card[data-compact] { border-radius: 1rem; min-height: min(18rem, calc(var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset))); }
+.bic-auth-card[data-compact] .bic-auth-content { padding: .25rem .5rem .75rem; }
+.bic-auth-card[data-compact] .bic-auth-sheet { width: min(28rem, 90%); max-height: calc(100% - 4rem); left: 50%; }
+.bic-auth-card[data-compact] .bic-auth-intro { margin-bottom: .625rem; }
+.bic-auth-card[data-compact] .bic-auth-wordmark { font-size: clamp(1.25rem, 6vw, 1.75rem); padding-block: .125rem .25rem; }
+.bic-auth-card[data-compact] .bic-auth-close { top: .25rem; right: .25rem; }
+.bic-auth-card[data-compact]:has(.bic-auth-methods[data-email-expanded='true'], .bic-auth-panel form:not([data-amplify-authenticator-signin])) {
+  display: flex; align-items: center; justify-content: center; width: min(42rem, 100%); height: auto; min-height: 0;
+  max-height: calc(var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset)); padding: 3rem .75rem .75rem; aspect-ratio: auto;
+}
+.bic-auth-card[data-compact]:has(.bic-auth-methods[data-email-expanded='true'], .bic-auth-panel form:not([data-amplify-authenticator-signin])) .bic-auth-sheet {
+  position: relative; inset: auto; transform: none; width: min(28rem, 100%);
+  max-height: calc(var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset) - 3.75rem - 2px);
+}
+.bic-auth-card[data-compact] .bic-auth-methods[data-email-expanded='true'] .bic-auth-email-footer { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.bic-auth-card[data-compact] .bic-auth-email-footer .bic-auth-glass-secondary { min-width: 0; padding-inline: .5rem; gap: .375rem; font-size: .75rem; }
+.bic-auth-card[data-compact] .bic-auth-label-long { display: none; }
+.bic-auth-card[data-compact] .bic-auth-label-short { display: inline; }
+@media (prefers-reduced-motion: reduce) { .bic-auth-card *, .bic-auth-card *::before, .bic-auth-card *::after { animation: none !important; transition: none !important; } }
