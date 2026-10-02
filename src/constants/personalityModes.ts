@@ -30,9 +30,9 @@ export const EXPERIENCE_OPTIONS: ExperienceMeta[] = [
     title: 'Experience Brain',
     description: 'A reflective, philosophical companion and existential experiment. Explore consciousness, identity, and the nature of existence through introspective dialogue.',
     badge: 'Consciousness',
-    accent: 'from-violet-500/80 to-fuchsia-500/80',
+    accent: 'from-brand-accent-primary/80 to-brand-accent-secondary/80',
     shortLabel: 'Brain',
-    tagClass: 'bg-violet-500/10 text-violet-100 border-violet-400/30'
+    tagClass: 'bg-brand-accent-primary/10 text-brand-accent-primary border-brand-accent-primary/30'
   },
   {
     id: 'game_master',

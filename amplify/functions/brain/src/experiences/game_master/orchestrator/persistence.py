@@ -42,6 +42,7 @@ class OrchestrationStore:
         self.character_table = self.resource.Table(_env(CHARACTER_TABLE_KEY) or "")
         self.adventure_table = self.resource.Table(_env(ADVENTURE_TABLE_KEY) or "")
         self.active_quest_table = self.resource.Table(_env(ACTIVE_QUEST_TABLE_KEY) or "")
+        self.player_state_table = self.resource.Table(_env(PLAYER_STATE_TABLE_KEY) or "")
         self._gsi_cache: dict[str, Optional[str]] = {}
 
     def _conversation_index(self, table: Any) -> str:
@@ -68,6 +69,27 @@ class OrchestrationStore:
             logger.warning("could not describe table %s: %s", table.table_name, exc)
             self._gsi_cache[name] = None
             return "conversationId-index"
+
+    def _campaign_index(self, table: Any) -> str:
+        """Resolve the PlayerState GSI keyed on `campaignId` (Amplify index name)."""
+        name = table.table_name or ""
+        cached = self._gsi_cache.get(f"{name}:campaign")
+        if cached:
+            return cached
+        try:
+            info = self.client.describe_table(TableName=table.name).get("Table", {})
+            resolved = None
+            for gsi in info.get("GlobalSecondaryIndexes", []):
+                keys = [k["AttributeName"] for k in gsi.get("KeySchema", [])]
+                if "campaignId" in keys:
+                    resolved = gsi["IndexName"]
+                    break
+            self._gsi_cache[f"{name}:campaign"] = resolved
+            return resolved or "campaignId-index"
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("could not describe table %s: %s", table.table_name, exc)
+            self._gsi_cache[f"{name}:campaign"] = None
+            return "campaignId-index"
 
     # -- player -----------------------------------------------------------
 
@@ -180,7 +202,7 @@ class OrchestrationStore:
         if not pool:
             return self._fresh_campaign(conversation_id)
         item = pool[0]
-        return {
+        campaign = {
             "id": self._s(item.get("id")),
             "conversation_id": conversation_id,
             "started": bool(item.get("started", {}).get("BOOL", False)),
@@ -189,7 +211,20 @@ class OrchestrationStore:
             "activeObjectives": self._json(item.get("activeObjectives")),
             "visitedLocations": self._list(item.get("visitedLocations")) or [content.STARTING_LOCATION],
             "criticalChoices": self._list(item.get("criticalChoices")) or [],
+            "currentAct": self._s(item.get("currentAct"), "EXPOSITION"),
+            "currentChapter": self._num(item.get("currentChapter"), 1),
+            "tensionLevel": self._num(item.get("tensionLevel"), 3),
+            "timeline": self._list(item.get("timeline")) or [],
         }
+        # Nested pacing view (single source for the pacing engine).
+        pacing = dict(campaign.get("pacing") or {})
+        for key in ("currentAct", "currentChapter", "tensionLevel", "timeline"):
+            if key not in pacing:
+                pacing[key] = campaign[key]
+        pacing.setdefault("turnsInChapter", 0)
+        pacing.setdefault("turnsSinceBeat", 0)
+        campaign["pacing"] = pacing
+        return campaign
 
     @staticmethod
     def _fresh_campaign(conversation_id: str) -> dict:
@@ -202,6 +237,10 @@ class OrchestrationStore:
             "activeObjectives": None,
             "visitedLocations": [content.STARTING_LOCATION],
             "criticalChoices": [],
+            "currentAct": "EXPOSITION",
+            "currentChapter": 1,
+            "tensionLevel": 3,
+            "timeline": [],
         }
 
     def ensure_campaign(self, conversation_id: str, campaign: dict) -> dict:
@@ -218,6 +257,10 @@ class OrchestrationStore:
                 "started": False,
                 "currentLocation": campaign.get("currentLocation", content.STARTING_LOCATION),
                 "visitedLocations": campaign.get("visitedLocations") or [],
+                "currentAct": campaign.get("currentAct") or "EXPOSITION",
+                "currentChapter": int(campaign.get("currentChapter") or 1),
+                "tensionLevel": int(campaign.get("tensionLevel") or 3),
+                "timeline": campaign.get("timeline") or [],
                 "createdAt": self._now(),
                 "updatedAt": self._now(),
             },
@@ -228,12 +271,14 @@ class OrchestrationStore:
     def save_campaign(self, campaign: dict) -> None:
         if not campaign.get("id"):
             raise ValueError("Cannot persist an uncreated campaign row")
+        pacing = dict(campaign.get("pacing") or {})
         self.adventure_table.update_item(
             Key={"id": campaign.get("id")},
             UpdateExpression=(
                 "SET started=:st, currentLocation=:loc, currentScene=:scene, "
                 "activeObjectives=:obj, visitedLocations=:visited, "
-                "criticalChoices=:choices"
+                "criticalChoices=:choices, currentAct=:act, currentChapter=:ch, "
+                "tensionLevel=:tension, timeline=:timeline, updatedAt=:updated"
             ),
             ExpressionAttributeValues={
                 ":st": bool(campaign.get("started", False)),
@@ -242,6 +287,11 @@ class OrchestrationStore:
                 ":obj": campaign.get("activeObjectives"),
                 ":visited": campaign.get("visitedLocations", []),
                 ":choices": campaign.get("criticalChoices", []),
+                ":act": pacing.get("currentAct") or campaign.get("currentAct") or "EXPOSITION",
+                ":ch": int(pacing.get("currentChapter") or campaign.get("currentChapter") or 1),
+                ":tension": int(pacing.get("tensionLevel") or campaign.get("tensionLevel") or 3),
+                ":timeline": pacing.get("timeline") or campaign.get("timeline") or [],
+                ":updated": self._now(),
             },
         )
 
@@ -272,10 +322,103 @@ class OrchestrationStore:
             ExpressionAttributeValues={":s": "COMPLETED", ":t": self._now()},
         )
 
+    # -- player state (dice) ----------------------------------------------
+
+    def load_player_state(self, conversation_id: str) -> Optional[dict]:
+        """Load the PlayerState row for a conversation via the campaignId GSI.
+
+        The frontend writes PlayerState with `campaignId == conversationId`,
+        so the GSI lookup mirrors exactly what the AppSync subscription filters.
+        """
+        if not self.player_state_table.name:
+            return None
+        try:
+            index = self._campaign_index(self.player_state_table)
+            resp = self.client.query(
+                TableName=self.player_state_table.name,
+                IndexName=index,
+                KeyConditionExpression="campaignId = :c",
+                ExpressionAttributeValues={":c": {"S": conversation_id}},
+                Limit=1,
+            )
+            items = resp.get("Items", [])
+            if not items:
+                return None
+            item = items[0]
+            return {
+                "id": self._s(item.get("id")),
+                "campaignId": self._s(item.get("campaignId")),
+                "version": self._num(item.get("version"), 1),
+                "pendingDiceRoll": self._json(item.get("pendingDiceRoll")),
+                "diceRollLog": self._list(item.get("diceRollLog")) or [],
+            }
+        except Exception as exc:  # noqa: BLE001 - PlayerState is best-effort for now
+            logger.warning("load_player_state failed for %s: %s", conversation_id, exc)
+            return None
+
+    def write_pending_dice_roll(self, conversation_id: str, request: dict,
+                                character_id: str = "") -> None:
+        """Upsert a pending dice roll onto the PlayerState row.
+
+        Idempotent: the same requestId can be written repeatedly without
+        creating a second row (keyed on the resolved row's id, else campaignId).
+        """
+        if not self.player_state_table.name or not request:
+            return
+        existing = self.load_player_state(conversation_id)
+        key = {"id": existing["id"]} if existing and existing.get("id") else {
+            "id": conversation_id
+        }
+        self.player_state_table.update_item(
+            Key=key,
+            UpdateExpression=(
+                "SET pendingDiceRoll=:roll, campaignId=:cid, "
+                "characterId=:char, #v=:ver"
+            ),
+            ExpressionAttributeNames={"#v": "version"},
+            ExpressionAttributeValues={
+                ":roll": request,
+                ":cid": conversation_id,
+                ":char": character_id or "",
+                ":ver": int(existing["version"] + 1) if existing else 1,
+            },
+        )
+
+    def append_dice_roll_log(self, conversation_id: str, entry: dict,
+                             clear_pending: bool = True) -> None:
+        """Append a dice-roll log entry to PlayerState (keep last 20).
+
+        With `clear_pending=True` (default) the pending dice roll is cleared,
+        which is what the frontend echoes back to stop the dice animation.
+        """
+        if not self.player_state_table.name or not entry:
+            return
+        existing = self.load_player_state(conversation_id)
+        if not existing or not existing.get("id"):
+            return
+        log = list(existing.get("diceRollLog") or [])
+        log.append(entry)
+        if len(log) > 20:
+            log = log[-20:]
+        update_expr = "SET diceRollLog=:log, #v=:ver"
+        attr_names = {"#v": "version"}
+        attr_values = {":log": log, ":ver": int(existing["version"] + 1)}
+        if clear_pending:
+            update_expr += ", pendingDiceRoll=:none"
+            attr_values[":none"] = None
+        self.player_state_table.update_item(
+            Key={"id": existing["id"]},
+            UpdateExpression=update_expr,
+            ExpressionAttributeNames=attr_names,
+            ExpressionAttributeValues=attr_values,
+        )
+
     @staticmethod
     def _now() -> str:
         from datetime import datetime, timezone
-        return datetime.now(timezone.utc).isoformat()
+        # AppSync stores updatedAt as "YYYY-MM-DDTHH:MM:SS.fffZ". Match that
+        # format (Z suffix) so lexicographic sort against AppSync rows works.
+        return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
     # -- type helpers -----------------------------------------------------
 

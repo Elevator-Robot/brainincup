@@ -18,15 +18,18 @@ import {
   getAvatarOptionById,
 } from './constants/gameMasterAvatars';
 import { isTestModeEnabled } from './utils/testMode';
+import { GM_PLACEHOLDER_LOCATION, pickLatestAdventure, resolveLocationName } from './utils/gmLocations';
 import { streamAgentMessage, type AguiEvent } from './utils/aguiStream';
 import { MessageBubble, type Message } from './components/MessageBubble';
 import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
+import AccountMenu from './components/AccountMenu';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
 type QuestStepRecord = Schema['GameMasterQuestStep']['type'];
 type CharacterRecord = Schema['GameMasterCharacter']['type'];
+
 type CharacterCreationInput = {
   name: string;
   race: string;
@@ -137,6 +140,29 @@ const writeStoredBoolean = (key: string, value: boolean) => {
 
 const getMessagesCacheKey = (conversationId: string): string =>
   `${MESSAGES_CACHE_KEY_PREFIX}:${conversationId}`;
+
+// Persist the last known GM location per conversation so the badge, panels and
+// previews hydrate synchronously on refresh instead of waiting for the async
+// GameMasterAdventure list / observeQuery / stream snapshot.
+const GM_LOCATION_CACHE_PREFIX = 'gmAuthoritativeLocation';
+
+const getStoredGmLocation = (conversationId?: string | null): string => {
+  if (typeof window === 'undefined' || !conversationId) return '';
+  try {
+    return window.localStorage.getItem(`${GM_LOCATION_CACHE_PREFIX}:${conversationId}`) ?? '';
+  } catch {
+    return '';
+  }
+};
+
+const storeGmLocation = (conversationId: string | null | undefined, location: string) => {
+  if (typeof window === 'undefined' || !conversationId || !location) return;
+  try {
+    window.localStorage.setItem(`${GM_LOCATION_CACHE_PREFIX}:${conversationId}`, location);
+  } catch {
+    // localStorage full or unavailable — ignore
+  }
+};
 
 const loadCachedMessages = (conversationId: string): Message[] | null => {
   if (typeof window === 'undefined') return null;
@@ -452,6 +478,22 @@ function App() {
   
   // Game Master data state
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
+  // Placeholder-proof source of truth for the location badge. observeQuery can
+  // publish pages that only contain stub/legacy placeholder rows, which would
+  // erase a real location from adventureState; this state can only ever be set
+  // to a resolved, non-placeholder location name so the UI never flickers.
+  const [authoritativeLocation, setAuthoritativeLocation] = useState<string>(() =>
+    getStoredGmLocation(conversationId)
+  );
+  const commitLocation = useCallback((value: string | null | undefined, forConversation?: string | null) => {
+    const resolved = resolveLocationName(value);
+    const targetConversation = forConversation ?? conversationId;
+    if (resolved && resolved !== GM_PLACEHOLDER_LOCATION) {
+      setAuthoritativeLocation(resolved);
+      storeGmLocation(targetConversation, resolved);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
   const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
@@ -538,10 +580,10 @@ function App() {
     try {
       const { data } = await dataClient.models.GameMasterAdventure.list({
         filter: { conversationId: { eq: convId } },
-        limit: 1,
         authMode: 'userPool',
       });
-      let adventure: AdventureRecord | null = data?.[0] ? (data[0] as AdventureRecord) : null;
+      const latest = pickLatestAdventure((data as AdventureRecord[] | null | undefined) ?? null);
+      let adventure: AdventureRecord | null = latest;
       if (!adventure) {
         const created = await dataClient.models.GameMasterAdventure.create({
           conversationId: convId,
@@ -555,6 +597,7 @@ function App() {
       }
       if (adventure) {
         setAdventureState(adventure);
+        commitLocation(adventure.currentLocation || adventure.lastLocation, convId);
       }
       return adventure;
     } catch (error) {
@@ -888,7 +931,7 @@ function App() {
         summary,
         narration,
         dangerLevel: inferDangerLevel(narration),
-        locationTag: adventure.lastLocation ?? '',
+        locationTag: resolveLocationName(adventure.currentLocation ?? adventure.lastLocation ?? ''),
         createdAt: new Date().toISOString(),
       });
       const questStep = (created.data as QuestStepRecord | null) ?? null;
@@ -966,6 +1009,7 @@ function App() {
 
   useEffect(() => {
     if (!isProfileMenuOpen) return;
+    profileMenuRef.current?.querySelector<HTMLButtonElement>('#desktop-account-menu button:not(:disabled)')?.focus();
     const handleOutsideClick = (event: Event) => {
       const target = event.target as Node;
       const clickedProfileDropdown = profileMenuRef.current?.contains(target);
@@ -1307,6 +1351,7 @@ function App() {
                     const parsed = JSON.parse(jsonMatch[0]);
                     const loc = parsed.current_location || parsed.area_transition || parsed.location;
                     if (loc && typeof loc === 'string' && loc.trim()) {
+                      commitLocation(loc.trim());
                       setAdventureState(prev => prev ? { ...prev, currentLocation: loc.trim(), lastLocation: loc.trim() } : prev);
                     }
                   }
@@ -1450,14 +1495,33 @@ function App() {
     if (!conversationId || effectivePersonality !== 'game_master') return;
     if (!dataClient.models.GameMasterAdventure) return;
 
+    // Sync to this conversation's stored location so the badge hydrates
+    // immediately on refresh, and stale values from a previous conversation
+    // never leak across a switch.
+    setAuthoritativeLocation(getStoredGmLocation(conversationId));
+
     const sub = dataClient.models.GameMasterAdventure.observeQuery({
       filter: { conversationId: { eq: conversationId } },
     }).subscribe({
       next: ({ items }) => {
-        const latest = items[0];
-        if (latest) {
-          setAdventureState(latest as AdventureRecord);
-        }
+        const latest = pickLatestAdventure(items as AdventureRecord[]);
+        if (!latest) return;
+        // Seed the placeholder-proof location from a real row. This survives even
+        // if a later publish only contains stub/legacy placeholder rows.
+        const rowLoc = latest.currentLocation || latest.lastLocation;
+        commitLocation(rowLoc);
+        setAdventureState(prev => {
+          // Never let a placeholder row downgrade a location we already know.
+          const incomingPlaceholder =
+            !rowLoc ||
+            typeof rowLoc !== 'string' ||
+            rowLoc.trim() === '' ||
+            rowLoc.trim() === GM_PLACEHOLDER_LOCATION;
+          if (incomingPlaceholder && prev?.currentLocation) {
+            return { ...latest, currentLocation: prev.currentLocation, lastLocation: prev.lastLocation || latest.lastLocation };
+          }
+          return latest;
+        });
       },
       error: (err) => {
         console.error('GameMasterAdventure subscription error:', err);
@@ -1754,6 +1818,21 @@ function App() {
             }
 
             case 'CUSTOM':
+              if (event.name === 'dice_roll_requested') {
+                // The GM wants a stat check: kick off the TroubleDice animation.
+                // Guard against duplicate triggers for the same requestId.
+                const roll = event.value as
+                  | { requestId?: string; statName?: string; difficultyClass?: number }
+                  | null
+                  | undefined;
+                if (roll?.requestId && lastTriggeredDiceRequestIdRef.current !== roll.requestId) {
+                  lastTriggeredDiceRequestIdRef.current = roll.requestId;
+                  setDiceRollNonce((n) => n + 1);
+                  setIsDiceRolling(true);
+                  setGameEvents((prev) => [...prev, { type: 'DICE_ROLL_REQUESTED' }]);
+                }
+                break;
+              }
               if (event.name === 'response_complete') {
                 const value = event.value as Record<string, unknown> | undefined;
                 const responseText = typeof value?.response === 'string' ? value.response : '';
@@ -1781,6 +1860,22 @@ function App() {
                 });
               }
               break;
+
+            case 'STATE_SNAPSHOT': {
+              // Authoritative game state from the orchestrator. Prefer this over
+              // the observeQuery publish so the badge tracks the persisted location.
+              const snapshot = (event as { snapshot?: Record<string, unknown> }).snapshot;
+              const loc = snapshot?.location as { name?: string; id?: string } | undefined;
+              const locName = loc?.id ? resolveLocationName(loc.id) : (loc?.name ?? '');
+              if (locName) {
+                commitLocation(locName);
+                setAdventureState(prev => {
+                  if (!prev) return { currentLocation: locName } as AdventureRecord;
+                  return { ...prev, currentLocation: locName };
+                });
+              }
+              break;
+            }
 
             case 'RUN_ERROR': {
               const errMsg = typeof event.message === 'string' ? event.message : 'Stream error';
@@ -2454,14 +2549,23 @@ function App() {
   const hudQuestSteps = normalizedQuestSteps.length > 0 ? normalizedQuestSteps : derivedQuestSteps;
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
   const currentLocation = useMemo(() => {
+    // Authoritative, placeholder-proof: set only from STATE_SNAPSHOT / real rows.
+    if (authoritativeLocation) return authoritativeLocation;
+
     const PLACEHOLDER = /^(unknown|unknown location|n\/a|none|null|undefined)$/i;
     const isValid = (v: string | null | undefined): v is string =>
       typeof v === 'string' && v.trim().length > 0 && !PLACEHOLDER.test(v.trim());
 
-    if (isValid(adventureState?.currentLocation)) return adventureState!.currentLocation!;
-    if (isValid(adventureState?.lastLocation)) return adventureState!.lastLocation!;
+    if (isValid(adventureState?.currentLocation)) {
+      const resolved = resolveLocationName(adventureState!.currentLocation);
+      if (resolved && resolved !== GM_PLACEHOLDER_LOCATION) return resolved;
+    }
+    if (isValid(adventureState?.lastLocation)) {
+      const resolved = resolveLocationName(adventureState!.lastLocation);
+      if (resolved && resolved !== GM_PLACEHOLDER_LOCATION) return resolved;
+    }
     return undefined;
-  }, [adventureState?.currentLocation, adventureState?.lastLocation]);
+  }, [authoritativeLocation, adventureState?.currentLocation, adventureState?.lastLocation]);
   
   const currentAct = useMemo(() => {
     if (!adventureState?.currentAct) return 'I';
@@ -2615,6 +2719,8 @@ function App() {
                           : 'border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary hover:border-brand-surface-border/70 hover:bg-brand-surface-elevated/70'
                       }`}
                       aria-label="Open menu"
+                      aria-expanded={isProfileMenuOpen}
+                      aria-controls="desktop-account-menu"
                       data-tooltip="Menu"
                       data-tooltip-position="right"
                     >
@@ -2629,61 +2735,27 @@ function App() {
                     </button>
 
                     {isProfileMenuOpen && (
-                      <div className="retro-dropdown absolute bottom-0 left-[calc(100%+10px)] z-[90] min-w-[230px] rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
-                        <div className="px-2 py-1.5">
-                          <p className="truncate text-xs font-medium text-brand-text-primary">{websiteUserProfile.displayName}</p>
-                          <p className="truncate text-[11px] text-brand-text-muted">{websiteUserProfile.email}</p>
-                        </div>
-                        <div className="my-1.5 h-px bg-brand-surface-border/50" />
-                        {isGameMasterMode ? (
-                          <button
-                            type="button"
-                            onClick={() => { void handleSidebarDeleteAction(); }}
-                            disabled={!conversationId}
-                            className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error disabled:opacity-45 disabled:cursor-not-allowed"
-                          >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
-                            </svg>
-                            Delete current chat
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => { void handleClearBrainChat(); }}
-                            disabled={!conversationId || messages.length === 0}
-                            className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-text-primary disabled:opacity-45 disabled:cursor-not-allowed"
-                          >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            Clear chat
-                          </button>
-                        )}
-                        <div className="my-1.5 h-px bg-brand-surface-border/50" />
-                        <button
-                          type="button"
-                          onClick={handleSignOut}
-                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-primary"
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                          </svg>
-                          Sign out
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
+                      <div id="desktop-account-menu" className="retro-dropdown cosmic-desktop-menu absolute bottom-0 left-[calc(100%+10px)] z-[90] rounded-2xl border shadow-glass-lg backdrop-blur-xl"
+                        onKeyDown={event => {
+                          if (event.key === 'Escape') {
+                            setIsProfileMenuOpen(false);
+                            profileMenuRef.current?.querySelector<HTMLButtonElement>('[aria-controls="desktop-account-menu"]')?.focus();
+                          }
+                        }}>
+                        <AccountMenu displayName={websiteUserProfile.displayName} email={websiteUserProfile.email}
+                          onSignOut={handleSignOut} onDeleteAccount={() => {
                             setIsProfileMenuOpen(false);
                             setIsDeleteAccountModalOpen(true);
-                          }}
-                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-status-error"
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Delete account
-                        </button>
+                          }}>
+                          <button type="button" className="cosmic-menu-row"
+                            onClick={() => { if (isGameMasterMode) void handleSidebarDeleteAction(); else void handleClearBrainChat(); }}
+                            disabled={!conversationId || (!isGameMasterMode && messages.length === 0)}>
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            {isGameMasterMode ? 'Delete current chat' : 'Clear chat'}
+                          </button>
+                        </AccountMenu>
                       </div>
                     )}
                   </div>
@@ -2860,10 +2932,10 @@ function App() {
       </main>
 
         <aside className="retro-shell-right">
-          <div className="retro-right-container flex flex-col h-full overflow-y-auto">
+          <div className="retro-right-container flex h-full min-h-0 flex-col overflow-hidden">
                 {isGameMasterMode ? (
                     showRightPanelCharacterCreation ? (
-                      <div className="flex h-full flex-col p-5 overflow-y-auto">
+                      <div className="flex h-full min-h-0 flex-col overflow-y-auto p-5">
                         <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
                         <CharacterCreation
                           inline
@@ -2873,8 +2945,8 @@ function App() {
                         />
                       </div>
                     ) : (
-                      <div className="flex h-full flex-col gap-4 p-5 retro-right-stack">
-                        {/* Context Window Panel — character sheet and dice history */}
+                      <div className="retro-right-stack flex h-full min-h-0 flex-col p-5">
+                        {/* Tabs pin; body (sheet / timeline / inventory / dice) scrolls beneath */}
                         <ContextWindowPanel
                           playerState={playerState ? {
                             currentLevel: playerState.currentLevel ?? undefined,
@@ -2907,40 +2979,37 @@ function App() {
                             location: currentLocation ?? undefined,
                           }))}
                           gameEvents={gameEvents}
-                        />
-
-                        {/* Inventory */}
-                        {characterDisplay && (
-                        <div className="retro-right-section retro-right-section--inventory">
-                          <InventoryManager
-                            inventory={characterDisplay.inventory}
-                            onUpdateInventory={updateInventory}
-                            isUpdating={false}
-                          />
-                        </div>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void handleDiceRoll();
-                          }}
-                          disabled={!canUseDiceRoll}
-                          className={`retro-roll-panel-button retro-tooltip-trigger mt-auto relative rounded-xl ${
-                            isDiceRolling ? 'retro-roll-panel-button--rolling' : ''
-                          }`}
-                          aria-label={isDiceRolling ? 'Rolling d20' : 'Roll a d20'}
-                          data-tooltip={isDiceRolling ? 'Rolling d20…' : 'Roll d20'}
-                          data-tooltip-position="top"
                         >
-                          <TroubleDice3D
-                            rollNonce={diceRollNonce}
-                            isRolling={isDiceRolling}
-                            pulseId={diceRollPulseId}
-                            displayValue={latestDiceRoll || (isDiceRolling ? '...' : 'd20')}
-                          />
-                        </button>
-
+                          {characterDisplay ? (
+                            <div className="retro-right-section retro-right-section--inventory">
+                              <InventoryManager
+                                inventory={characterDisplay.inventory}
+                                onUpdateInventory={updateInventory}
+                                isUpdating={false}
+                              />
+                            </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleDiceRoll();
+                            }}
+                            disabled={!canUseDiceRoll}
+                            className={`retro-roll-panel-button retro-tooltip-trigger relative w-full rounded-xl ${
+                              isDiceRolling ? 'retro-roll-panel-button--rolling' : ''
+                            }`}
+                            aria-label={isDiceRolling ? 'Rolling d20' : 'Roll a d20'}
+                            data-tooltip={isDiceRolling ? 'Rolling d20…' : 'Roll d20'}
+                            data-tooltip-position="top"
+                          >
+                            <TroubleDice3D
+                              rollNonce={diceRollNonce}
+                              isRolling={isDiceRolling}
+                              pulseId={diceRollPulseId}
+                              displayValue={latestDiceRoll || (isDiceRolling ? '...' : 'd20')}
+                            />
+                          </button>
+                        </ContextWindowPanel>
                       </div>
                     )
                 ) : (
@@ -2950,7 +3019,7 @@ function App() {
                       <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-violet-400/50 via-purple-400/70 to-violet-400/50 shadow-[0_0_12px_rgba(167,139,250,0.4)] transition-all duration-500"
+                          className="h-full rounded-full bg-gradient-to-r from-teal-400/50 via-emerald-400/70 to-teal-400/50 shadow-[0_0_12px_rgba(45,212,191,0.4)] transition-all duration-500"
                           style={{ width: `${mentalStateIntensity}%` }}
                         />
                       </div>

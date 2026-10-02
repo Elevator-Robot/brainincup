@@ -5,6 +5,7 @@ import type { Schema } from '../../amplify/data/resource';
 import { getModeMeta } from '../constants/personalityModes';
 import { getAvatarOptionById } from '../constants/gameMasterAvatars';
 import { isNoConversationsTestMode, isTestModeEnabled } from '../utils/testMode';
+import { pickLatestAdventure, resolveLocationName } from '../utils/gmLocations';
 
 const dataClient = generateClient<Schema>();
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
@@ -196,11 +197,13 @@ export default function ConversationList({
           try {
             const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
               filter: { conversationId: { eq: conversation.id } },
-              limit: 1,
             });
-            const adventure = adventureData?.[0];
-            if (adventure?.currentLocation) {
-              gmLocations[conversation.id] = adventure.currentLocation;
+            const adventure = pickLatestAdventure(
+              (adventureData as Array<{ currentLocation?: string; lastLocation?: string; updatedAt?: string }> | null | undefined) ?? null,
+            );
+            const rawLocation = adventure?.currentLocation || adventure?.lastLocation;
+            if (rawLocation) {
+              gmLocations[conversation.id] = resolveLocationName(rawLocation);
             }
           } catch (adventureError) {
             console.error('Error loading adventure location:', adventureError);
@@ -329,7 +332,7 @@ export default function ConversationList({
               key={conversation.id}
               className={`group relative w-full rounded-2xl border transition-all duration-200 backdrop-blur-xl ${
                 isSelected
-                  ? 'border-brand-accent-primary/45 bg-white/[0.1] shadow-[0_10px_26px_rgba(4,10,12,0.34)]'
+                  ? 'border-transparent bg-white/[0.1]'
                   : 'border-white/[0.08] bg-white/[0.04] hover:border-white/[0.16] hover:bg-white/[0.07]'
               } ${deleteSelectionMode ? '' : 'cursor-grab active:cursor-grabbing'}`}
               draggable={!deleteSelectionMode && Boolean(conversation.id)}
@@ -357,7 +360,7 @@ export default function ConversationList({
                   }
                 }}
                 onKeyDown={(event) => conversation.id && handleConversationKeyPress(event, conversation.id)}
-                className={`grid ${rowGridClass} items-center gap-3 px-3.5 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-primary/50 rounded-2xl`}
+                className={`grid ${rowGridClass} items-center gap-3 px-3.5 py-3 text-left focus:outline-none rounded-2xl`}
               >
                 {deleteSelectionMode && conversation.id && (
                   <input
@@ -416,7 +419,7 @@ export default function ConversationList({
       {isLoading ? (
         <div className="flex justify-center items-center h-28">
           <div className="text-slate-400 flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-4 h-4 border-2 border-brand-accent-primary border-t-transparent rounded-full animate-spin"></div>
             Loading chats...
           </div>
         </div>

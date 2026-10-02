@@ -3,6 +3,7 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
 import { normalizePersonalityMode } from '../constants/personalityModes';
+import { pickLatestAdventure, resolveLocationName } from '../utils/gmLocations';
 
 const dataClient = generateClient<Schema>();
 
@@ -124,9 +125,11 @@ export default function ConversationSidebarIcons({
             try {
               const { data: adventureData } = await dataClient.models.GameMasterAdventure.list({
                 filter: { conversationId: { eq: conv.id } },
-                limit: 1,
               });
-              const location = adventureData?.[0]?.currentLocation;
+              const adventure = pickLatestAdventure(
+                (adventureData as Array<{ currentLocation?: string; lastLocation?: string; updatedAt?: string }> | null | undefined) ?? null,
+              );
+              const location = resolveLocationName(adventure?.currentLocation ?? adventure?.lastLocation);
               if (location) preview = location;
             } catch { /* ignore */ }
           }
@@ -172,12 +175,12 @@ export default function ConversationSidebarIcons({
           }}
           className={`h-10 w-10 rounded-lg transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none ${
             activeConversationId === 'brain'
-              ? 'border-violet-400/80 bg-gradient-to-br from-violet-500/35 to-fuchsia-500/25 scale-95 shadow-[0_0_14px_rgba(139,92,246,0.4)]'
-              : 'border-violet-400/50 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 hover:border-violet-400/75 hover:from-violet-500/28 hover:to-fuchsia-500/28'
+              ? 'border-brand-accent-primary/60 bg-brand-accent-primary/10 scale-95'
+              : 'border-brand-surface-border/70 bg-brand-surface-elevated/40 hover:border-brand-accent-primary/60 hover:bg-brand-accent-primary/15'
           }`}
         >
           <img
-            src="/brain-chat.svg"
+            src="/favicon.svg"
             alt="Brain"
             className="h-8 w-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
             onError={(e) => {
@@ -196,7 +199,7 @@ export default function ConversationSidebarIcons({
 
         {hoveredId === 'brain' && (
           <div
-            className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-violet-400/40 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
+            className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-brand-accent-primary/30 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
             style={{ left: tooltipPos.x, top: tooltipPos.y, transform: 'translateY(-50%)' }}
           >
             <p className="text-sm font-semibold text-brand-text-primary">Brain</p>
@@ -229,10 +232,10 @@ export default function ConversationSidebarIcons({
               if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
               setHoveredId(null);
             }}
-            className={`h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none ${
+            className={`h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ${
               activeConversationId === icon.id
-                ? 'border-brand-accent-primary/80 bg-brand-surface-dark/80 scale-95 shadow-lg'
-                : 'border-brand-surface-border/40 bg-brand-surface-secondary/50 hover:border-brand-surface-border/60'
+                ? 'border-brand-surface-border/40 bg-brand-surface-dark/80 scale-95'
+                : 'border-transparent bg-brand-surface-secondary/50 hover:bg-brand-surface-border/60'
             }`}
           >
             <picture>

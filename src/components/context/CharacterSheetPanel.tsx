@@ -5,7 +5,6 @@ interface CharacterSheetPanelProps {
   maxHP?: number;
   currentXP?: number;
   xpToNextLevel?: number;
-  currentLocation?: string;
   avatarSrc?: string;
   avatarSrcWebp?: string;
   stats?: {
@@ -40,7 +39,6 @@ function CharacterSheetPanel({
   maxHP,
   currentXP,
   xpToNextLevel,
-  currentLocation,
   avatarSrc,
   avatarSrcWebp,
   stats,
@@ -55,22 +53,20 @@ function CharacterSheetPanel({
   const hpBarColor = hpPercent <= 25 ? 'bg-brand-status-error' : 'bg-green-500';
 
   return (
-    <div className={`p-4 space-y-3 ${levelUpAnimating ? 'animate-pulse' : ''}`}>
-      {/* Avatar + name + location + level */}
+    <div className={`retro-character-sheet space-y-3 ${levelUpAnimating ? 'animate-pulse' : ''}`}>
+      {/* Avatar + name + level — padding leaves room for avatar glow */}
       <div className="retro-character-identity flex items-center gap-3">
         {avatarSrc && (
-          <div className="retro-character-avatar-wrap">
-            <picture>
-              {avatarSrcWebp && <source srcSet={avatarSrcWebp} type="image/webp" />}
-              <img
-                src={avatarSrc}
-                alt={`${name} avatar`}
-                loading="lazy"
-                decoding="async"
-                className="retro-character-avatar h-14 w-14 rounded-xl object-cover object-center"
-              />
-            </picture>
-          </div>
+          <picture className="retro-character-avatar-picture">
+            {avatarSrcWebp && <source srcSet={avatarSrcWebp} type="image/webp" />}
+            <img
+              src={avatarSrc}
+              alt={`${name} avatar`}
+              loading="lazy"
+              decoding="async"
+              className="retro-character-avatar h-14 w-14 rounded-xl object-cover object-center"
+            />
+          </picture>
         )}
         <div className="retro-character-meta flex-1 min-w-0">
           <div className="flex items-start justify-between gap-1">
@@ -83,9 +79,6 @@ function CharacterSheetPanel({
               Lv {level}
             </span>
           </div>
-          {currentLocation && (
-            <p className="text-[11px] text-brand-text-muted truncate mt-0.5">{currentLocation}</p>
-          )}
         </div>
       </div>
 

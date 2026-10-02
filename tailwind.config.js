@@ -11,29 +11,31 @@ export default {
         // Enhanced color palette for modern glass morphism design
         brand: {
           bg: {
-            primary: '#0a0f1c',      // Deep midnight blue
-            secondary: '#1a1f2e',    // Lighter navy
-            tertiary: '#2a2f3e',     // Soft gray-blue
-            glass: 'rgba(15, 23, 42, 0.8)', // Glass effect backdrop
+            primary: '#080c1c',
+            secondary: '#141a34',
+            tertiary: '#252b49',
+            glass: 'rgba(13, 18, 40, 0.85)',
           },
           accent: {
-            primary: '#667eea',      // Soft blue
-            secondary: '#764ba2',    // Purple
-            tertiary: '#f093fb',     // Pink gradient end
-            hover: '#5a67d8',        // Darker blue for hover
+            primary: '#7ae8f4',      // Brain cyan
+            secondary: '#bda5ff',    // Nebula violet
+            tertiary: '#d3bfff',
+            hover: '#a5f3fc',
           },
           surface: {
-            primary: 'rgba(255, 255, 255, 0.05)',   // Very subtle glass
-            secondary: 'rgba(255, 255, 255, 0.08)',  // Slightly more visible
-            tertiary: 'rgba(255, 255, 255, 0.12)',   // More prominent
-            border: 'rgba(255, 255, 255, 0.1)',      // Border glass effect
-            hover: 'rgba(255, 255, 255, 0.15)',      // Hover glass effect
+            primary: 'rgba(15, 20, 44, 0.65)',
+            secondary: 'rgba(25, 32, 62, 0.7)',
+            tertiary: 'rgba(42, 49, 84, 0.8)',
+            elevated: '#171d38',
+            dark: '#0b1024',
+            border: 'rgba(181, 192, 236, 0.22)',
+            hover: 'rgba(127, 139, 212, 0.18)',
           },
           text: {
-            primary: '#f8fafc',      // Near white for primary text
-            secondary: '#e2e8f0',    // Softer white for secondary
-            muted: '#94a3b8',        // Muted gray for less important text
-            accent: '#a78bfa',       // Purple for accent text
+            primary: '#f4f7ff',
+            secondary: '#d6def3',
+            muted: '#a4b0cf',
+            accent: '#7ae8f4',
           },
           status: {
             success: '#10b981',      // Green
@@ -45,7 +47,7 @@ export default {
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-mesh': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'gradient-mesh': 'linear-gradient(135deg, #7ae8f4 0%, #bda5ff 100%)',
         'gradient-mesh-alt': 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
         'glass-gradient': 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)'
       },
@@ -63,13 +65,13 @@ export default {
         glass: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
         'glass-sm': '0 4px 16px 0 rgba(31, 38, 135, 0.25)',
         'glass-lg': '0 16px 64px 0 rgba(31, 38, 135, 0.45)',
-        'glow': '0 0 20px rgba(102, 126, 234, 0.6)',
-        'glow-sm': '0 0 10px rgba(102, 126, 234, 0.4)',
-        'glow-lg': '0 0 40px rgba(102, 126, 234, 0.8), 0 0 80px rgba(102, 126, 234, 0.4)',
-        'glow-purple': '0 0 30px rgba(118, 75, 162, 0.6), 0 0 60px rgba(118, 75, 162, 0.3)',
+        'glow': '0 0 20px rgba(121, 215, 194, 0.45)',
+        'glow-sm': '0 0 10px rgba(121, 215, 194, 0.35)',
+        'glow-lg': '0 0 40px rgba(121, 215, 194, 0.6), 0 0 80px rgba(121, 215, 194, 0.3)',
+        'glow-purple': '0 0 30px rgba(68, 189, 162, 0.45), 0 0 60px rgba(68, 189, 162, 0.25)',
         'glow-pink': '0 0 30px rgba(240, 147, 251, 0.6), 0 0 60px rgba(240, 147, 251, 0.3)',
-        'neon-blue': '0 0 5px rgba(102, 126, 234, 0.8), 0 0 20px rgba(102, 126, 234, 0.6), 0 0 40px rgba(102, 126, 234, 0.4)',
-        'neon-purple': '0 0 5px rgba(118, 75, 162, 0.8), 0 0 20px rgba(118, 75, 162, 0.6), 0 0 40px rgba(118, 75, 162, 0.4)',
+        'neon-blue': '0 0 5px rgba(121, 215, 194, 0.55), 0 0 20px rgba(121, 215, 194, 0.4), 0 0 40px rgba(121, 215, 194, 0.25)',
+        'neon-purple': '0 0 5px rgba(68, 189, 162, 0.55), 0 0 20px rgba(68, 189, 162, 0.4), 0 0 40px rgba(68, 189, 162, 0.25)',
       },
       animation: {
         'float': 'float 6s ease-in-out infinite',
@@ -140,11 +142,11 @@ export default {
         },
         'glow-pulse': {
           '0%, 100%': { 
-            boxShadow: '0 0 20px rgba(102, 126, 234, 0.6)',
+            boxShadow: '0 0 20px rgba(121, 215, 194, 0.45)',
             filter: 'brightness(1)',
           },
           '50%': { 
-            boxShadow: '0 0 40px rgba(102, 126, 234, 0.8), 0 0 80px rgba(102, 126, 234, 0.4)',
+            boxShadow: '0 0 40px rgba(121, 215, 194, 0.6), 0 0 80px rgba(121, 215, 194, 0.3)',
             filter: 'brightness(1.2)',
           },
         },

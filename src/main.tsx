@@ -4,11 +4,10 @@ import type { Root } from 'react-dom/client';
 import { getCurrentUser } from 'aws-amplify/auth';
 import App from './App';
 import CustomAuth from './components/CustomAuth';
+import SiteBackground from './components/SiteBackground';
 import { isTestModeEnabled } from './utils/testMode';
-import '@fontsource/cinzel/600.css';
-import '@fontsource/cinzel/700.css';
-import '@fontsource/medievalsharp/400.css';
 import './index.css';
+import './cosmic-theme.css';
 import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
 import { CHARACTER_AVATAR_OPTIONS } from './constants/gameMasterAvatars';
@@ -143,12 +142,16 @@ function AuthWrapper() {
     return <CustomAuth onAuthSuccess={handleAuthSuccess} />;
   }
 
-  return <App />;
+  return <><SiteBackground /><App /></>;
 }
 
 interface RootElementWithCache extends HTMLElement {
   __brainInCupRoot?: Root;
 }
+
+const ConversationPreview = import.meta.env.DEV
+  ? React.lazy(() => import('./dev/ConversationPreview'))
+  : null;
 
 const rootElement = document.getElementById('root') as RootElementWithCache | null;
 
@@ -161,6 +164,8 @@ rootElement.__brainInCupRoot = root;
 
 root.render(
   <React.StrictMode>
-    <AuthWrapper />
+    {ConversationPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'conversation'
+      ? <React.Suspense fallback={<div role="status">Loading preview…</div>}><ConversationPreview /></React.Suspense>
+      : <AuthWrapper />}
   </React.StrictMode>,
 );

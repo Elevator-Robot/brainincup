@@ -4,11 +4,10 @@ interface BrainIconProps {
 
 export default function BrainIcon({ className = 'w-5 h-5' }: BrainIconProps) {
   return (
-    <img 
-      src="/brain-chat.svg" 
-      alt="Brain in Cup" 
+    <img
+      src="/favicon.svg"
+      alt="Brain in Cup"
       className={`${className} bg-transparent`}
-      style={{ imageRendering: 'crisp-edges' }}
     />
   );
 }

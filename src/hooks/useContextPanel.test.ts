@@ -54,11 +54,11 @@ describe('useContextPanel', () => {
     expect(result.current.levelUpAnimating).toBe(false);
   });
 
-  // Requirement 12.2 — auto-switch to dice on DICE_ROLL_REQUESTED
-  it('auto-switches to dice panel on DICE_ROLL_REQUESTED event', () => {
+  // Dice rolls stay on Character — Timeline is narrative-only.
+  it('does not switch to timeline on DICE_ROLL_REQUESTED event', () => {
     const events: GameEvent[] = [{ type: 'DICE_ROLL_REQUESTED' }];
     const { result } = renderHook(() => useContextPanel(events));
-    expect(result.current.activePanel).toBe('dice');
+    expect(result.current.activePanel).toBe('character');
   });
 
   // Requirement 12.4 — auto-switch to quests on QUEST_ASSIGNED
@@ -91,8 +91,13 @@ describe('useContextPanel', () => {
     });
     expect(result.current.manualOverride).toBe(true);
 
+    // Dice events are ignored for tab focus; manual map selection stays.
     rerender({ events: [{ type: 'DICE_ROLL_REQUESTED' }] });
-    expect(result.current.activePanel).toBe('dice');
+    expect(result.current.activePanel).toBe('map');
+    expect(result.current.manualOverride).toBe(true);
+
+    rerender({ events: [{ type: 'DICE_ROLL_REQUESTED' }, { type: 'LEVEL_UP' }] });
+    expect(result.current.activePanel).toBe('character');
     expect(result.current.manualOverride).toBe(false);
   });
 
