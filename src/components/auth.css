@@ -1,9 +1,6 @@
 /* Arcane Kitchen's glass auth treatment with Brain in Cup's layered artwork. */
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700&display=swap');
 
 .bic-auth-landing { min-height: 100dvh; color: #fff1db; font-family: Nunito, sans-serif; }
-.bic-auth-welcome { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; padding: 1rem; }
-.bic-auth-welcome > button { max-width: 22rem; }
 .bic-auth-overlay {
   --auth-inset: clamp(.75rem, 3vw, 2rem);
   position: fixed; inset: 0; top: var(--auth-viewport-top, 0px); bottom: auto;
@@ -17,12 +14,6 @@
   aspect-ratio: 3 / 2; min-height: 0; overflow: hidden; border: 1px solid rgb(245 230 206 / 25%);
   border-radius: 1.75rem; background: #171310; box-shadow: 0 32px 100px rgb(25 15 28 / 35%);
 }
-.bic-auth-close {
-  position: absolute; top: 1rem; right: 1rem; z-index: 2; display: grid; place-items: center;
-  width: 2.75rem; height: 2.75rem; border: 1px solid rgb(245 230 206 / 35%); border-radius: 50%;
-  background: rgb(22 16 12 / 45%); color: #fff1db;
-}
-.bic-auth-close:hover { background: rgb(245 230 206 / 15%); }
 .bic-auth-art { position: absolute; inset: 0; overflow: hidden; background: #060817; pointer-events: none; isolation: isolate; }
 .bic-auth-art .bic-auth-video, .bic-auth-art .bic-auth-brain { position: absolute; inset: 0; width: 100%; height: 100%; object-position: center; }
 .bic-auth-art .bic-auth-video { object-fit: cover; transform: translate3d(0, 0, 0) scale(1.06); transition: transform 300ms ease-out; will-change: transform; }
@@ -37,10 +28,10 @@
   scrollbar-width: thin; scrollbar-color: rgb(245 230 206 / 40%) transparent; scroll-padding-block: 1rem; }
 .bic-auth-form-rail { flex: none; width: 100%; max-width: 24rem; min-width: 0; margin: auto; }
 .bic-auth-intro { margin-bottom: 1.25rem; text-shadow: 0 2px 8px rgb(0 0 0 / 65%); }
-.bic-auth-wordmark { font-family: Fraunces, Georgia, serif; font-size: clamp(1.875rem, 3.5vw, 2.75rem);
-  font-weight: 500; line-height: 1.15; letter-spacing: -.04em; text-align: center; padding-block: .25rem .5rem; }
-.bic-auth-wordmark span { font-style: italic; font-weight: 400; margin-inline-end: .08em; }
-.bic-auth-intro > h2:not(.bic-auth-wordmark) { font: 500 1.875rem/1.25 Fraunces, Georgia, serif; }
+.bic-auth-wordmark { font-family: var(--rpg-font-display); font-size: clamp(1.875rem, 3.5vw, 2.75rem);
+  font-weight: 500; line-height: 1.15; letter-spacing: -.025em; text-align: center; padding-block: .25rem .5rem; }
+.bic-auth-wordmark span { font-weight: 700; margin-inline-end: .08em; }
+.bic-auth-intro > h2:not(.bic-auth-wordmark) { font: 500 1.875rem/1.25 var(--rpg-font-display); }
 .bic-auth-panel { min-width: 0; width: 100%; }
 .bic-auth-panel [data-amplify-authenticator] {
   --amplify-fonts-default-variable: Nunito, sans-serif;
@@ -60,7 +51,7 @@
 .bic-auth-panel .amplify-tabs { display: none; }
 .bic-auth-panel .amplify-fieldset { gap: .9rem; }
 .bic-auth-panel .amplify-label { color: #f7e8d2; font-weight: 600; }
-.bic-auth-panel .amplify-heading { color: #f7e8d2; font-family: Fraunces, Georgia, serif; letter-spacing: 0; }
+.bic-auth-panel .amplify-heading { color: #f7e8d2; font-family: var(--rpg-font-display); letter-spacing: 0; }
 .bic-auth-panel .amplify-text { color: inherit; }
 .bic-auth-panel .amplify-input, .bic-auth-panel .federated-sign-in-button,
 .bic-auth-panel .amplify-passwordfield .amplify-field-group__outer-end .amplify-button,
@@ -119,14 +110,13 @@
 .bic-auth-card[data-compact] .bic-auth-sheet { width: min(28rem, 90%); max-height: calc(100% - 4rem); left: 50%; }
 .bic-auth-card[data-compact] .bic-auth-intro { margin-bottom: .625rem; }
 .bic-auth-card[data-compact] .bic-auth-wordmark { font-size: clamp(1.25rem, 6vw, 1.75rem); padding-block: .125rem .25rem; }
-.bic-auth-card[data-compact] .bic-auth-close { top: .25rem; right: .25rem; }
 .bic-auth-card[data-compact]:has(.bic-auth-methods[data-email-expanded='true'], .bic-auth-panel form:not([data-amplify-authenticator-signin])) {
   display: flex; align-items: center; justify-content: center; width: min(42rem, 100%); height: auto; min-height: 0;
-  max-height: calc(var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset)); padding: 3rem .75rem .75rem; aspect-ratio: auto;
+  max-height: calc(var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset)); padding: 1.25rem .75rem .75rem; aspect-ratio: auto;
 }
 .bic-auth-card[data-compact]:has(.bic-auth-methods[data-email-expanded='true'], .bic-auth-panel form:not([data-amplify-authenticator-signin])) .bic-auth-sheet {
   position: relative; inset: auto; transform: none; width: min(28rem, 100%);
-  max-height: calc(var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset) - 3.75rem - 2px);
+  max-height: calc(var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset) - 2rem - 2px);
 }
 .bic-auth-card[data-compact] .bic-auth-methods[data-email-expanded='true'] .bic-auth-email-footer { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .bic-auth-card[data-compact] .bic-auth-email-footer .bic-auth-glass-secondary { min-width: 0; padding-inline: .5rem; gap: .375rem; font-size: .75rem; }

@@ -11,29 +11,31 @@ export default {
         // Enhanced color palette for modern glass morphism design
         brand: {
           bg: {
-            primary: '#0a0f1c',      // Deep midnight blue
-            secondary: '#1a1f2e',    // Lighter navy
-            tertiary: '#2a2f3e',     // Soft gray-blue
-            glass: 'rgba(15, 23, 42, 0.8)', // Glass effect backdrop
+            primary: '#080c1c',
+            secondary: '#141a34',
+            tertiary: '#252b49',
+            glass: 'rgba(13, 18, 40, 0.85)',
           },
           accent: {
-            primary: '#79d7c2',      // Teal
-            secondary: '#44bda2',    // Deeper teal
-            tertiary: '#f093fb',     // Pink gradient end
-            hover: '#67c9b2',        // Darker teal for hover
+            primary: '#7ae8f4',      // Brain cyan
+            secondary: '#bda5ff',    // Nebula violet
+            tertiary: '#d3bfff',
+            hover: '#a5f3fc',
           },
           surface: {
-            primary: 'rgba(255, 255, 255, 0.05)',   // Very subtle glass
-            secondary: 'rgba(255, 255, 255, 0.08)',  // Slightly more visible
-            tertiary: 'rgba(255, 255, 255, 0.12)',   // More prominent
-            border: 'rgba(255, 255, 255, 0.1)',      // Border glass effect
-            hover: 'rgba(255, 255, 255, 0.15)',      // Hover glass effect
+            primary: 'rgba(15, 20, 44, 0.65)',
+            secondary: 'rgba(25, 32, 62, 0.7)',
+            tertiary: 'rgba(42, 49, 84, 0.8)',
+            elevated: '#171d38',
+            dark: '#0b1024',
+            border: 'rgba(181, 192, 236, 0.22)',
+            hover: 'rgba(127, 139, 212, 0.18)',
           },
           text: {
-            primary: '#f8fafc',      // Near white for primary text
-            secondary: '#e2e8f0',    // Softer white for secondary
-            muted: '#94a3b8',        // Muted gray for less important text
-            accent: '#4dd4b8',       // Teal for accent text
+            primary: '#f4f7ff',
+            secondary: '#d6def3',
+            muted: '#a4b0cf',
+            accent: '#7ae8f4',
           },
           status: {
             success: '#10b981',      // Green
@@ -45,7 +47,7 @@ export default {
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-mesh': 'linear-gradient(135deg, #79d7c2 0%, #44bda2 100%)',
+        'gradient-mesh': 'linear-gradient(135deg, #7ae8f4 0%, #bda5ff 100%)',
         'gradient-mesh-alt': 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
         'glass-gradient': 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)'
       },

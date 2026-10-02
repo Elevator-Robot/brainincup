@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../amplify/data/resource';
 import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
 import { normalizePersonalityMode } from '../constants/personalityModes';
 import { CHAT_LIMIT, readStoredAvatarId } from './ConversationSidebarIcons';
+import AccountMenu from './AccountMenu';
 
 const dataClient = generateClient<Schema>();
 
@@ -62,6 +63,13 @@ export default function MobileMenu({
   onDeleteAccount,
 }: MobileMenuProps) {
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    drawerRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    return () => { if (previous?.isConnected) previous.focus(); };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -112,10 +120,20 @@ export default function MobileMenu({
   return (
     <div className="lg:hidden fixed inset-0 z-[70]">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <div className="absolute left-0 top-0 h-full w-[300px] max-w-[80vw] flex flex-col bg-brand-surface-elevated/95 backdrop-blur-xl border-r border-brand-surface-border/50 shadow-2xl animate-slide-in-left">
+      <div ref={drawerRef} role="dialog" aria-modal="true" aria-label="Navigation menu"
+        className="cosmic-mobile-menu absolute left-0 top-0 h-full w-[320px] max-w-[88vw] flex flex-col backdrop-blur-xl shadow-2xl animate-slide-in-left"
+        onKeyDown={event => {
+          if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
+          if (event.key !== 'Tab') return;
+          const buttons = Array.from(drawerRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') || []);
+          const first = buttons[0];
+          const last = buttons[buttons.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        }}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-brand-surface-border/50">
           <div className="flex items-center gap-2">
-            <img src="/brain-icon.svg" alt="Brain" className="h-6 w-6 object-contain brightness-0 invert" />
+            <img src="/favicon.svg" alt="Brain" className="h-6 w-6 object-contain" />
             <span className="retro-title text-base font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
           </div>
           <button
@@ -141,7 +159,7 @@ export default function MobileMenu({
             }`}
           >
             <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-brand-accent-primary/40 overflow-hidden bg-brand-accent-primary/15">
-              <img src="/brain-chat.svg" alt="" className="h-8 w-8 object-contain" />
+              <img src="/favicon.svg" alt="" className="h-8 w-8 object-contain" />
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-medium text-brand-text-primary">Brain</span>
@@ -190,56 +208,18 @@ export default function MobileMenu({
           </div>
         </div>
 
-        <div className="border-t border-brand-surface-border/50 p-2">
-          <div className="mx-1 mb-1 px-1">
-            <p className="truncate text-xs font-medium text-brand-text-primary">{displayName}</p>
-            <p className="truncate text-[11px] text-brand-text-muted">{email}</p>
-          </div>
-          {isGameMaster ? (
-            <button
-              type="button"
-              onClick={() => { onDeleteCurrent(); onClose(); }}
-              disabled={!conversationId}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error disabled:opacity-45"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        <div className="cosmic-mobile-account">
+          <AccountMenu displayName={displayName} email={email} onSignOut={onSignOut}
+            onDeleteAccount={() => { onClose(); onDeleteAccount(); }}>
+            <button type="button" className="cosmic-menu-row"
+              onClick={() => { if (isGameMaster) onDeleteCurrent(); else onClearChat(); onClose(); }}
+              disabled={!conversationId || (!isGameMaster && messagesCount === 0)}>
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
-              Delete current chat
+              {isGameMaster ? 'Delete current chat' : 'Clear chat'}
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => { onClearChat(); onClose(); }}
-              disabled={!conversationId || messagesCount === 0}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-text-primary disabled:opacity-45"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              Clear chat
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => { onSignOut(); }}
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-primary"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Sign out
-          </button>
-          <button
-            type="button"
-            onClick={() => { onDeleteAccount(); }}
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-status-error"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            Delete account
-          </button>
+          </AccountMenu>
         </div>
       </div>
     </div>

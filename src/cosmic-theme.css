@@ -1,0 +1,218 @@
+@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&display=swap');
+
+/* Shared visual tokens. The retro-* hooks keep their existing layout roles. */
+:root {
+  color-scheme: dark;
+  --cosmic-cyan: #7ae8f4;
+  --cosmic-violet: #bda5ff;
+  --cosmic-text: #f4f7ff;
+  --cosmic-muted: #a4b0cf;
+  --cosmic-border: rgb(181 192 236 / 22%);
+  --cosmic-glass: linear-gradient(145deg, rgb(26 31 61 / 78%), rgb(10 16 36 / 82%));
+  --cosmic-control: linear-gradient(145deg, rgb(69 63 115 / 35%), rgb(26 36 67 / 55%));
+  --cosmic-primary: linear-gradient(135deg, rgb(92 43 166 / 88%), rgb(57 46 123 / 94%));
+  --cosmic-shadow: inset 0 1px 0 rgb(227 233 255 / 9%), 0 12px 32px rgb(2 5 18 / 24%);
+  --rpg-font-display: Oxanium, "Trebuchet MS", sans-serif;
+  --rpg-font-body: Nunito, system-ui, sans-serif;
+  --rpg-text-parchment: var(--cosmic-text);
+  --rpg-text-gold: #eee7ff;
+  --rpg-text-muted: var(--cosmic-muted);
+  --rpg-tracking-label: .08em;
+}
+
+:root, .retro-rpg-ui--brain, .retro-rpg-ui--gm {
+  --rpg-accent: var(--cosmic-cyan);
+  --rpg-accent-strong: #59c8e5;
+  --rpg-accent-soft: rgb(122 232 244 / 12%);
+  --rpg-accent-border: rgb(164 194 239 / 26%);
+  --rpg-accent-highlight: rgb(189 165 255 / 20%);
+  --rpg-surface-primary: rgb(15 20 44 / 72%);
+  --rpg-surface-secondary: rgb(18 24 50 / 64%);
+  --rpg-surface-tertiary: rgb(9 15 34 / 58%);
+  --rpg-panel-texture: linear-gradient(140deg, rgb(189 165 255 / 6%), rgb(122 232 244 / 2%));
+  --rpg-shadow-soft: 0 16px 40px rgb(2 5 18 / 28%);
+  --rpg-shadow-elevated: 0 24px 56px rgb(2 5 18 / 46%);
+  --rpg-shadow-inner: inset 0 1px 0 rgb(235 231 255 / 10%);
+  --rpg-panel-inner-border: rgb(214 222 255 / 5%);
+  --rpg-panel-corner-glow: rgb(189 165 255 / 12%);
+  --rpg-header-bg: linear-gradient(145deg, rgb(35 31 70 / 65%), rgb(15 25 49 / 72%));
+  --rpg-header-inner-glow: rgb(189 165 255 / 10%);
+  --rpg-highlight-border: rgb(189 165 255 / 45%);
+  --rpg-highlight-inset-glow: rgb(122 232 244 / 7%);
+  --rpg-highlight-corner-glow: rgb(189 165 255 / 20%);
+}
+
+.retro-rpg-ui--gm {
+  --rpg-accent: var(--cosmic-violet);
+  --rpg-accent-strong: #a18be8;
+  --rpg-accent-soft: rgb(189 165 255 / 12%);
+}
+
+html { font-family: var(--rpg-font-body); }
+body {
+  background: radial-gradient(ellipse at 15% 15%, #292052 0%, transparent 55%),
+    radial-gradient(ellipse at 90% 80%, #10314b 0%, transparent 60%), #080c1c;
+  background-attachment: fixed;
+  color: var(--cosmic-text);
+}
+body::before { display: none; }
+#root { isolation: isolate; min-height: 100dvh; }
+.site-background {
+  position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 5% 8%, rgb(109 64 171 / 32%), transparent 47%),
+    radial-gradient(ellipse at 90% 92%, rgb(26 129 159 / 25%), transparent 48%),
+    radial-gradient(ellipse at 85% 5%, rgb(58 69 139 / 25%), transparent 42%),
+    linear-gradient(135deg, #101025, #080e20 55%, #0c172c);
+}
+.site-background-nebula {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;
+  transform: translate3d(-1.5%, 1%, 0) scale(1.1);
+  animation: nebula-drift 38s ease-in-out infinite;
+  will-change: transform;
+  filter: saturate(1.2);
+}
+.site-background::before {
+  content: ''; position: absolute; inset: -12%; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse at 18% 30%, rgb(147 91 244 / 22%), transparent 42%),
+    radial-gradient(ellipse at 82% 70%, rgb(65 220 237 / 16%), transparent 40%);
+  animation: nebula-light-drift 27s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+@keyframes nebula-drift {
+  0%, 100% { transform: translate3d(-1.5%, 1%, 0) scale(1.1); }
+  35% { transform: translate3d(1.8%, -1.4%, 0) scale(1.14); }
+  70% { transform: translate3d(-.5%, -1.8%, 0) scale(1.12); }
+}
+@keyframes nebula-light-drift {
+  from { transform: translate3d(-3%, -2%, 0) scale(1); opacity: .45; }
+  to { transform: translate3d(4%, 3%, 0) scale(1.12); opacity: 1; }
+}
+.site-background::after {
+  content: ''; position: absolute; inset: 0; z-index: 2;
+  background: radial-gradient(ellipse at 48% 47%, rgb(6 10 25 / 30%), transparent 70%),
+    linear-gradient(180deg, rgb(8 12 28 / 8%), transparent 25%, transparent 75%, rgb(8 12 28 / 18%));
+}
+.retro-rpg-ui, .retro-app { background: transparent; color: var(--cosmic-text); }
+.retro-rpg-ui::before, .retro-app::before { display: none; }
+.retro-title {
+  font-weight: 600; text-transform: none; letter-spacing: .025em;
+  color: #f4efff; text-shadow: 0 2px 12px rgb(8 5 25 / 60%);
+}
+.retro-title::after { box-shadow: none; background: linear-gradient(90deg, transparent, var(--cosmic-violet), var(--cosmic-cyan), transparent); }
+.retro-shell-center > div > .retro-title { font-size: 1.35rem; }
+.retro-rpg-ui :is(h1, h2, h3) { font-family: var(--rpg-font-display); }
+.retro-rpg-ui :is(button, input, textarea, select) { font-family: var(--rpg-font-body); }
+.retro-rpg-ui :is(input, textarea, select) { accent-color: var(--rpg-accent); }
+.retro-rpg-ui input, .retro-rpg-ui input:-webkit-autofill {
+  -webkit-box-shadow: inset 0 0 0 1000px rgb(15 20 44 / 80%) !important;
+}
+.retro-rpg-ui :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--cosmic-violet); outline-offset: 3px;
+}
+.retro-rpg-ui ::selection { background: rgb(139 92 246 / 45%); color: #fff; }
+
+/* Window surfaces: quiet reading areas with the nebula visible around them. */
+.retro-shell-left { z-index: 30; background: rgb(10 15 34 / 62%); backdrop-filter: blur(18px); }
+.retro-shell-left::after { background: linear-gradient(transparent, rgb(189 165 255 / 28%), transparent); }
+.retro-shell-center { background: linear-gradient(180deg, rgb(11 16 36 / 24%), rgb(11 16 36 / 42%)); }
+.retro-right-container { background: rgb(12 17 38 / 66%); border-left-color: var(--cosmic-border); backdrop-filter: blur(18px); }
+.retro-nav, .retro-mobile-card, .retro-mode-header, .retro-right-section,
+.retro-right-stat-tile, .rpg-panel, .retro-frame {
+  background: var(--cosmic-glass); border-color: var(--cosmic-border); box-shadow: var(--cosmic-shadow);
+}
+.retro-scroll-panel { background: linear-gradient(180deg, var(--rpg-surface-secondary), var(--rpg-surface-tertiary)); border-color: var(--cosmic-border); box-shadow: var(--cosmic-shadow); }
+.retro-right-section--character, .retro-right-section--inventory { background: transparent; box-shadow: none; }
+.retro-mode-header { border-color: var(--cosmic-border); }
+.retro-chat-area { background: radial-gradient(ellipse at top, rgb(122 232 244 / 4%), transparent 60%); }
+.retro-mental-state-section { border-top-color: var(--cosmic-border); }
+.retro-interactions-pane, .retro-interactions-pane-collapsed { border-right-color: var(--cosmic-border); }
+.retro-character-avatar { background: rgb(189 165 255 / 8%); }
+.retro-interaction-avatar { background: linear-gradient(135deg, rgb(189 165 255 / 18%), rgb(122 232 244 / 9%)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%); }
+.retro-status-strip { background: linear-gradient(95deg, rgb(35 31 70 / 70%), rgb(28 49 79 / 48%), rgb(35 31 70 / 70%)); }
+.retro-empty-state { color: #bcc8e6; }
+
+/* Messages retain strong contrast while the shared background moves behind. */
+.retro-message, .retro-message-assistant, .retro-waiting-bubble {
+  background: linear-gradient(145deg, rgb(23 30 59 / 92%), rgb(13 20 42 / 94%));
+  border-color: rgb(181 192 236 / 20%); box-shadow: var(--cosmic-shadow);
+  color: var(--cosmic-text); line-height: 1.7;
+}
+.retro-message-user {
+  background: linear-gradient(145deg, rgb(77 49 127 / 94%), rgb(42 45 97 / 96%));
+  border-color: rgb(189 165 255 / 38%);
+}
+.retro-message:hover { border-color: rgb(189 165 255 / 40%); box-shadow: var(--cosmic-shadow); }
+.retro-message pre { background: #080e20; border: 1px solid var(--cosmic-border); border-radius: .75rem; }
+.retro-message a { color: var(--cosmic-cyan); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Reusable glass controls and purple primary actions. */
+.retro-icon-button, .retro-input-action, .retro-side-action, .retro-sidebar-action,
+.retro-profile-trigger, .retro-divider-handle, .retro-roll-panel-button {
+  background: var(--cosmic-control); border-color: var(--cosmic-border);
+  color: var(--cosmic-text); box-shadow: inset 0 1px 0 rgb(235 231 255 / 9%);
+}
+.retro-mode-trigger { background: var(--cosmic-control) !important; border-color: var(--cosmic-border) !important; box-shadow: var(--cosmic-shadow); }
+:is(.retro-icon-button, .retro-input-action, .retro-side-action, .retro-sidebar-action, .retro-profile-trigger, .retro-divider-handle, .retro-roll-panel-button):hover:not(:disabled) {
+  background: rgb(108 92 167 / 28%); border-color: rgb(189 165 255 / 48%);
+}
+.retro-send-button { border-color: rgb(189 165 255 / 38%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%); }
+.retro-send-button-active-brain { background: var(--cosmic-primary); color: #fff; }
+.retro-send-button-active-brain:hover { background: linear-gradient(135deg, #713ab7, #4a409b); }
+.retro-send-button-disabled { background: rgb(31 39 67 / 75%); border-color: var(--cosmic-border); }
+.retro-input-shell {
+  background: linear-gradient(145deg, rgb(24 29 59 / 90%), rgb(12 19 40 / 94%)) !important;
+  border-color: rgb(181 192 236 / 32%) !important; box-shadow: var(--cosmic-shadow);
+}
+.retro-input-shell:focus-within, .retro-input-shell-primed {
+  border-color: rgb(189 165 255 / 65%) !important;
+  box-shadow: inset 0 1px 0 rgb(235 231 255 / 12%), 0 0 0 3px rgb(189 165 255 / 8%);
+}
+.retro-input-textarea { color: var(--cosmic-text) !important; }
+.retro-input-textarea::placeholder { color: var(--cosmic-muted) !important; }
+.retro-keycap { background: rgb(30 37 66 / 80%) !important; border-color: var(--cosmic-border) !important; color: #d6def3; }
+.retro-status-pill { border-color: var(--cosmic-border); background: rgb(189 165 255 / 12%); color: #e3dcff; }
+.retro-context-tabs { background: rgb(9 14 32 / 94%); box-shadow: inset 0 1px 0 rgb(235 231 255 / 8%); }
+.retro-rpg-ui .retro-context-tab, .retro-rpg-ui .retro-side-action { font-family: var(--rpg-font-display); }
+.retro-context-tab { color: var(--cosmic-muted); letter-spacing: .06em; }
+.retro-context-tab:hover { color: var(--cosmic-text); background: rgb(189 165 255 / 10%); }
+.retro-context-tab--active, .retro-context-tab--active:hover { color: #f0e9ff; background: rgb(113 81 173 / 38%); }
+.retro-dropdown { background: linear-gradient(145deg, rgb(28 30 61 / 98%), rgb(13 20 42 / 98%)) !important; border-color: rgb(189 165 255 / 30%) !important; box-shadow: var(--rpg-shadow-elevated); }
+.retro-dropdown-item:hover { background: rgb(189 165 255 / 13%) !important; }
+.retro-tooltip-trigger::after { background: #171d38; border-color: rgb(189 165 255 / 32%); color: var(--cosmic-text); font-family: var(--rpg-font-body); }
+.retro-left-mode-button-active { animation: none; }
+.retro-left-mode-button-active::before { display: none; }
+.retro-mobile-nav { box-shadow: 0 8px 28px rgb(2 5 18 / 22%); }
+.retro-mobile-bars { background: rgb(10 15 34 / 60%); }
+
+/* Shared desktop popover / mobile account navigation. */
+.cosmic-desktop-menu { width: 292px; max-height: calc(100dvh - 32px); overflow-y: auto; padding: .5rem; }
+.cosmic-account-menu { font-family: var(--rpg-font-body); }
+.cosmic-account-identity { display: flex; align-items: center; gap: .75rem; padding: .75rem; border-bottom: 1px solid var(--cosmic-border); }
+.cosmic-account-avatar { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 13px; background: linear-gradient(135deg, #534182, #214659); border: 1px solid rgb(189 165 255 / 28%); color: #f4efff; font: 600 1rem var(--rpg-font-display); }
+.cosmic-menu-section { padding: .5rem .25rem; }
+.cosmic-menu-section + .cosmic-menu-section { border-top: 1px solid rgb(181 192 236 / 10%); }
+.cosmic-menu-label { color: var(--cosmic-muted); padding: .25rem .65rem .4rem; font-size: .625rem; letter-spacing: .12em; text-transform: uppercase; }
+.cosmic-menu-row, .cosmic-menu-section > button { display: flex; align-items: center; gap: .75rem; width: 100%; min-height: 44px; padding: .65rem; border: 0; border-radius: .7rem; color: #d6def3; background: transparent; text-align: left; font-size: .875rem; }
+.cosmic-menu-row:hover, .cosmic-menu-section > button:hover:not(:disabled) { color: #fff; background: rgb(189 165 255 / 12%); }
+.cosmic-menu-section > button:disabled { opacity: .45; cursor: not-allowed; }
+.cosmic-menu-row svg, .cosmic-menu-section > button svg { flex: none; color: #bda5ff; }
+.cosmic-menu-chevron { margin-left: auto; font-size: 1.25rem; color: var(--cosmic-muted); }
+.cosmic-account-settings { padding: .75rem; }
+.cosmic-menu-back { display: flex; align-items: center; gap: .5rem; min-height: 40px; margin: -.25rem 0 .5rem; font-size: .8rem; color: var(--cosmic-violet); }
+.cosmic-account-danger { margin-top: 1.25rem; border-top: 1px solid var(--cosmic-border); padding-top: 1rem; }
+.cosmic-delete-link { margin-top: .75rem; min-height: 40px; padding: .4rem .75rem; border: 1px solid rgb(248 113 113 / 24%); border-radius: .65rem; color: #fca5a5; font-size: .8rem; }
+.cosmic-delete-link:hover { background: rgb(248 113 113 / 10%); border-color: rgb(248 113 113 / 50%); }
+.cosmic-mobile-menu { background: linear-gradient(150deg, #181c36, #0c1228); border-right: 1px solid var(--cosmic-border); }
+.cosmic-mobile-account { padding: .5rem; border-top: 1px solid var(--cosmic-border); max-height: 60dvh; overflow-y: auto; flex-shrink: 0; }
+.cosmic-delete-dialog::backdrop { background: rgb(3 6 18 / 78%); backdrop-filter: blur(8px); }
+.cosmic-delete-dialog > div { max-height: calc(100dvh - 2rem); overflow-y: auto; }
+
+@media (max-width: 1023px) {
+  .site-background-nebula { object-position: 60% center; }
+  .retro-mobile-main { background: rgb(10 15 34 / 25%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-background-nebula, .site-background::before { animation: none; will-change: auto; }
+  .retro-rpg-ui *, .retro-rpg-ui *::before, .retro-rpg-ui *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

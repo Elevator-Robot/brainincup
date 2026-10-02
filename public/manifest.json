@@ -4,8 +4,8 @@
   "description": "AI consciousness simulation system",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#1a1a2e",
+  "background_color": "#080c1c",
+  "theme_color": "#080c1c",
   "orientation": "portrait-primary",
   "icons": [
     {

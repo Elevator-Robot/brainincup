@@ -196,7 +196,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               id={`${racePickerId}-listbox`}
               role="listbox"
               aria-labelledby={`${racePickerId}-label`}
-              className={`absolute left-0 right-0 z-40 mt-2 origin-top overflow-hidden rounded-xl border border-brand-surface-border/80 bg-[linear-gradient(180deg,rgba(20,36,32,0.92)_0%,rgba(9,20,18,0.95)_100%)] shadow-[0_14px_30px_rgba(3,9,8,0.45)] transition-all duration-200 ${openPicker === 'race' ? 'max-h-56 scale-y-100 opacity-100' : 'pointer-events-none max-h-0 scale-y-95 opacity-0'}`}
+              className={`retro-dropdown absolute left-0 right-0 z-40 mt-2 origin-top overflow-hidden rounded-xl border border-brand-surface-border/80 shadow-glass-lg transition-all duration-200 ${openPicker === 'race' ? 'max-h-56 scale-y-100 opacity-100' : 'pointer-events-none max-h-0 scale-y-95 opacity-0'}`}
             >
               <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
               <div className="max-h-52 overflow-y-auto p-1.5">
@@ -257,7 +257,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               id={`${classPickerId}-listbox`}
               role="listbox"
               aria-labelledby={`${classPickerId}-label`}
-              className={`absolute left-0 right-0 z-40 mt-2 origin-top overflow-hidden rounded-xl border border-brand-surface-border/80 bg-[linear-gradient(180deg,rgba(20,36,32,0.92)_0%,rgba(9,20,18,0.95)_100%)] shadow-[0_14px_30px_rgba(3,9,8,0.45)] transition-all duration-200 ${openPicker === 'class' ? 'max-h-56 scale-y-100 opacity-100' : 'pointer-events-none max-h-0 scale-y-95 opacity-0'}`}
+              className={`retro-dropdown absolute left-0 right-0 z-40 mt-2 origin-top overflow-hidden rounded-xl border border-brand-surface-border/80 shadow-glass-lg transition-all duration-200 ${openPicker === 'class' ? 'max-h-56 scale-y-100 opacity-100' : 'pointer-events-none max-h-0 scale-y-95 opacity-0'}`}
             >
               <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
               <div className="max-h-52 overflow-y-auto p-1.5">

@@ -23,6 +23,7 @@ import { streamAgentMessage, type AguiEvent } from './utils/aguiStream';
 import { MessageBubble, type Message } from './components/MessageBubble';
 import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
+import AccountMenu from './components/AccountMenu';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -1008,6 +1009,7 @@ function App() {
 
   useEffect(() => {
     if (!isProfileMenuOpen) return;
+    profileMenuRef.current?.querySelector<HTMLButtonElement>('#desktop-account-menu button:not(:disabled)')?.focus();
     const handleOutsideClick = (event: Event) => {
       const target = event.target as Node;
       const clickedProfileDropdown = profileMenuRef.current?.contains(target);
@@ -2717,6 +2719,8 @@ function App() {
                           : 'border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary hover:border-brand-surface-border/70 hover:bg-brand-surface-elevated/70'
                       }`}
                       aria-label="Open menu"
+                      aria-expanded={isProfileMenuOpen}
+                      aria-controls="desktop-account-menu"
                       data-tooltip="Menu"
                       data-tooltip-position="right"
                     >
@@ -2731,61 +2735,27 @@ function App() {
                     </button>
 
                     {isProfileMenuOpen && (
-                      <div className="retro-dropdown absolute bottom-0 left-[calc(100%+10px)] z-[90] min-w-[230px] rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/95 p-2 shadow-glass-lg backdrop-blur-xl">
-                        <div className="px-2 py-1.5">
-                          <p className="truncate text-xs font-medium text-brand-text-primary">{websiteUserProfile.displayName}</p>
-                          <p className="truncate text-[11px] text-brand-text-muted">{websiteUserProfile.email}</p>
-                        </div>
-                        <div className="my-1.5 h-px bg-brand-surface-border/50" />
-                        {isGameMasterMode ? (
-                          <button
-                            type="button"
-                            onClick={() => { void handleSidebarDeleteAction(); }}
-                            disabled={!conversationId}
-                            className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-status-error disabled:opacity-45 disabled:cursor-not-allowed"
-                          >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 016 0v2m-7 4v6m4-6v6m4-6v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12" />
-                            </svg>
-                            Delete current chat
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => { void handleClearBrainChat(); }}
-                            disabled={!conversationId || messages.length === 0}
-                            className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-muted hover:text-brand-text-primary disabled:opacity-45 disabled:cursor-not-allowed"
-                          >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            Clear chat
-                          </button>
-                        )}
-                        <div className="my-1.5 h-px bg-brand-surface-border/50" />
-                        <button
-                          type="button"
-                          onClick={handleSignOut}
-                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-text-primary"
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                          </svg>
-                          Sign out
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
+                      <div id="desktop-account-menu" className="retro-dropdown cosmic-desktop-menu absolute bottom-0 left-[calc(100%+10px)] z-[90] rounded-2xl border shadow-glass-lg backdrop-blur-xl"
+                        onKeyDown={event => {
+                          if (event.key === 'Escape') {
+                            setIsProfileMenuOpen(false);
+                            profileMenuRef.current?.querySelector<HTMLButtonElement>('[aria-controls="desktop-account-menu"]')?.focus();
+                          }
+                        }}>
+                        <AccountMenu displayName={websiteUserProfile.displayName} email={websiteUserProfile.email}
+                          onSignOut={handleSignOut} onDeleteAccount={() => {
                             setIsProfileMenuOpen(false);
                             setIsDeleteAccountModalOpen(true);
-                          }}
-                          className="retro-dropdown-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-brand-status-error"
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Delete account
-                        </button>
+                          }}>
+                          <button type="button" className="cosmic-menu-row"
+                            onClick={() => { if (isGameMasterMode) void handleSidebarDeleteAction(); else void handleClearBrainChat(); }}
+                            disabled={!conversationId || (!isGameMasterMode && messages.length === 0)}>
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            {isGameMasterMode ? 'Delete current chat' : 'Clear chat'}
+                          </button>
+                        </AccountMenu>
                       </div>
                     )}
                   </div>

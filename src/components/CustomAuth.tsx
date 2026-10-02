@@ -149,15 +149,13 @@ function AuthArtwork() {
   </div>;
 }
 
-function AuthModal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+function AuthModal({ children }: { children: ReactNode }) {
   const [viewport, setViewport] = useState(() => ({
     height: window.visualViewport?.height ?? window.innerHeight,
     top: window.visualViewport?.offsetTop ?? 0,
     width: window.innerWidth,
   }));
   const dialogRef = useRef<HTMLDivElement>(null);
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
   useEffect(() => {
     const visualViewport = window.visualViewport;
     const update = () => setViewport({ height: visualViewport?.height ?? window.innerHeight, top: visualViewport?.offsetTop ?? 0, width: window.innerWidth });
@@ -177,7 +175,6 @@ function AuthModal({ children, onClose }: { children: ReactNode; onClose: () => 
     const controls = () => Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), [tabindex="0"]')).filter(element => element.getClientRects().length > 0);
     (controls()[0] || dialog).focus();
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); closeRef.current(); }
       if (event.key !== 'Tab') return;
       const items = controls();
       const first = items[0];
@@ -192,9 +189,6 @@ function AuthModal({ children, onClose }: { children: ReactNode; onClose: () => 
   return <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Sign in to Brain in Cup" tabIndex={-1}
     className="bic-auth-overlay" style={{ '--auth-viewport-height': `${viewport.height}px`, '--auth-viewport-top': `${viewport.top}px` } as CSSProperties}>
     <div className="bic-auth-card" data-compact={viewport.width <= 1024 || viewport.height <= 560 || undefined}>
-      <button type="button" className="bic-auth-close" aria-label="Close sign-in" onClick={onClose}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
-      </button>
       <AuthArtwork />
       <section className="bic-auth-sheet" aria-label="Account access"><div className="bic-auth-content"><div className="bic-auth-form-rail"><div className="bic-auth-panel">{children}</div></div></div></section>
     </div>
@@ -215,9 +209,7 @@ function AuthFlow({ onAuthSuccess }: { onAuthSuccess: () => void }) {
 }
 
 export default function CustomAuth({ onAuthSuccess }: { onAuthSuccess: () => void }) {
-  const [open, setOpen] = useState(true);
   return <main className="bic-auth-landing">
-    {!open && <div className="bic-auth-welcome"><h1 className="bic-auth-wordmark"><span>Brain</span> in Cup</h1><button className="bic-auth-email-toggle" onClick={() => setOpen(true)}>Sign in / Create account</button></div>}
-    {open && <AuthModal onClose={() => setOpen(false)}><AuthFlow onAuthSuccess={onAuthSuccess} /></AuthModal>}
+    <AuthModal><AuthFlow onAuthSuccess={onAuthSuccess} /></AuthModal>
   </main>;
 }

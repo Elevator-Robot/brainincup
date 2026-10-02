@@ -175,12 +175,12 @@ export default function ConversationSidebarIcons({
           }}
           className={`h-10 w-10 rounded-lg transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none ${
             activeConversationId === 'brain'
-              ? 'border-brand-accent-primary/80 bg-brand-accent-primary/25 scale-95 shadow-[0_0_14px_rgba(45,212,191,0.35)]'
+              ? 'border-brand-accent-primary/60 bg-brand-accent-primary/10 scale-95'
               : 'border-brand-surface-border/70 bg-brand-surface-elevated/40 hover:border-brand-accent-primary/60 hover:bg-brand-accent-primary/15'
           }`}
         >
           <img
-            src="/brain-chat.svg"
+            src="/favicon.svg"
             alt="Brain"
             className="h-8 w-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
             onError={(e) => {
