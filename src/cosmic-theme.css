@@ -212,6 +212,9 @@ body::before { display: none; }
 .cosmic-composer .retro-input-shell { border-radius: 24px; }
 .cosmic-composer .retro-input-textarea { border-radius: 16px; }
 .cosmic-composer .retro-send-button { border-radius: 50%; }
+.retro-rpg-ui .cosmic-composer .retro-input-shell { width: min(100%, var(--composer-width, 20rem)); max-width: 100%; margin-left: auto; margin-right: 0; transition: width 360ms cubic-bezier(.2, 1.25, .35, 1), border-color 200ms ease, box-shadow 200ms ease; }
+.cosmic-composer-measure-wrap { position: fixed; top: 0; left: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+.cosmic-composer-measure { display: block; width: max-content; white-space: pre; }
 .retro-keycap { background: rgb(30 37 66 / 80%) !important; border-color: var(--cosmic-border) !important; color: #d6def3; }
 .retro-status-pill { border-color: var(--cosmic-border); background: rgb(189 165 255 / 12%); color: #e3dcff; }
 .retro-context-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; padding: 0; margin-bottom: 1rem; border-radius: 0; border-bottom: 1px solid var(--cosmic-border); background: transparent; box-shadow: none; }
@@ -251,7 +254,10 @@ body::before { display: none; }
 .cosmic-delete-dialog > div { max-height: calc(100dvh - 2rem); overflow-y: auto; }
 
 /* One atmosphere from sign-in to the workspace. Only transform/opacity drift. */
-.cosmic-workspace { animation: cosmic-arrive 480ms var(--cosmic-ease) both; }
+.cosmic-workspace { --chat-gutter: .5rem; --chat-content-inset: .5rem; animation: cosmic-arrive 480ms var(--cosmic-ease) both; }
+.cosmic-workspace :is(.cosmic-chat-scroll, .retro-input-dock) { padding-inline: var(--chat-gutter); }
+.cosmic-workspace .retro-input-dock { padding-inline: calc(var(--chat-gutter) + var(--chat-content-inset)); }
+.cosmic-composer { width: 100%; max-width: calc(56rem - var(--chat-content-inset, .5rem) - var(--chat-content-inset, .5rem)); margin-inline: auto; }
 .cosmic-wordmark { font: 500 1.25rem/1.3 var(--rpg-font-display); letter-spacing: -.025em; color: #f6edff; }
 .cosmic-wordmark strong { font-weight: 700; color: var(--cosmic-violet); }
 .cosmic-workspace-header { display: grid; place-items: center; flex: none; min-height: 3.25rem; margin-bottom: .5rem; }
@@ -292,7 +298,7 @@ body::before { display: none; }
   mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent);
 }
 .cosmic-chat-scroll { min-width: 0; min-height: 0; overscroll-behavior: none; scrollbar-gutter: stable; overflow-anchor: none; }
-.cosmic-chat-content { padding: 1.75rem .5rem; }
+.cosmic-chat-content { padding: 1.75rem var(--chat-content-inset, .5rem); }
 .cosmic-welcome { display: flex; flex-direction: column; justify-content: center; width: min(100%, 28rem); min-height: min(52dvh, 30rem); margin-inline: auto; padding: 2rem 1rem; }
 .cosmic-welcome h2 { margin: 0 0 1rem; color: #f3ecff; font-size: 1.5rem; font-weight: 500; line-height: 1.3; letter-spacing: -.025em; }
 .cosmic-welcome > p { color: var(--cosmic-muted); font-size: .875rem; line-height: 1.7; }
@@ -324,11 +330,11 @@ body::before { display: none; }
 @media (prefers-reduced-motion: reduce) { .cosmic-message-insights { animation: none; } .cosmic-insight-trigger::before, .cosmic-insight-trigger::after { transition: none; } }
 .cosmic-composer .retro-input-textarea { min-height: 44px; max-height: 144px; font-size: 1rem; scrollbar-width: thin; }
 .retro-rpg-ui .cosmic-composer .retro-input-textarea:focus-visible { outline: none; }
-.cosmic-composer-hint { min-height: 1rem; margin-top: .5rem; color: var(--cosmic-muted); font-size: .6875rem; text-align: center; }
+.cosmic-composer-hint { min-height: 1rem; margin-top: .5rem; color: var(--cosmic-muted); font-size: .6875rem; text-align: right; }
 .cosmic-composer-hint kbd { font: inherit; color: #d5c9ec; }
 
 /* GM controls use the same quiet glass and starlight accents as the workspace. */
-.gm-quick-actions { display: flex; flex-wrap: wrap; gap: .4rem; padding-top: .6rem; }
+.gm-quick-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem; padding-top: .6rem; }
 .gm-quick-actions button { min-height: 34px; border: 1px solid var(--cosmic-border); border-radius: 999px; padding: .35rem .85rem; background: rgb(196 173 255 / 4%); color: var(--cosmic-muted); font-size: .75rem; transition: border-color 160ms ease, color 160ms ease, background 160ms ease; }
 .gm-quick-actions button:hover:not(:disabled) { color: var(--cosmic-text); border-color: rgb(140 236 243 / 45%); background: rgb(140 236 243 / 7%); }
 .gm-quick-actions button:disabled { opacity: .35; cursor: not-allowed; }
@@ -360,8 +366,9 @@ body::before { display: none; }
 .gm-menu-content-reveal, .cosmic-context-panel .retro-character-sheet { animation: gm-menu-unfold 340ms var(--cosmic-ease); }
 /* Reveal the surface downward without changing layout or clipping later hovers. */
 @keyframes gm-menu-unfold { from { clip-path: inset(0 0 100% 0); opacity: .35; } to { clip-path: inset(0); opacity: 1; } }
-@media (max-width: 639px) { .gm-quick-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); } .gm-quick-actions button { min-height: 44px; padding-inline: .25rem; font-size: .7rem; } }
+@media (max-width: 639px) { .cosmic-workspace { --chat-gutter: .75rem; } .gm-quick-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); } .gm-quick-actions button { min-height: 44px; padding-inline: .25rem; font-size: .7rem; } }
 @media (prefers-reduced-motion: reduce) { .gm-quick-actions button, .gm-avatar-card { transition: none; } .gm-context-reveal, .cosmic-workspace .retro-right-container, .gm-menu-content-reveal, .cosmic-context-panel .retro-character-sheet { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .retro-rpg-ui .cosmic-composer .retro-input-shell { transition: none; } }
 .retro-send-button { transition: transform 180ms var(--cosmic-ease), background-color 180ms ease; }
 .retro-send-button:active:not(:disabled) { transform: scale(.95); }
 .retro-send-button:disabled { opacity: .5; cursor: not-allowed; }
@@ -473,6 +480,7 @@ body::before { display: none; }
 @keyframes cosmic-breathe { from { opacity: .35; transform: scaleX(.75); } to { opacity: 1; transform: scaleX(1); } }
 
 @media (max-width: 1023px) {
+  .cosmic-workspace { --chat-gutter: .75rem; --chat-content-inset: 0px; }
   .site-background-nebula { object-position: 60% center; }
   .retro-mobile-main { background: rgb(10 15 34 / 25%); }
   .cosmic-workspace .retro-mobile-main { padding: 0; background: transparent; }

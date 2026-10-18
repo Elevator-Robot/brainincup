@@ -1,4 +1,5 @@
-import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState, type MutableRefObject } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState, type MutableRefObject } from 'react';
+import { useComposerSize } from '../hooks/useComposerSize';
 
 export interface ChatComposerHandle {
   clear: () => void;
@@ -32,6 +33,7 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
   const [error, setError] = useState('');
   const submitting = useRef(false);
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const sizing = useComposerSize(value, textarea);
   const update = (next: string) => {
     draft.current = next;
     setValue(next);
@@ -41,13 +43,6 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
     append: (text) => update(`${draft.current}${draft.current && !draft.current.endsWith(' ') ? ' ' : ''}${text}`),
     focus: () => textarea.current?.focus(),
   }));
-
-  useLayoutEffect(() => {
-    const input = textarea.current;
-    if (!input) return;
-    input.style.height = 'auto';
-    input.style.height = `${Math.min(input.scrollHeight, 144)}px`;
-  }, [value]);
 
   const submit = async () => {
     if (!value.trim() || isLocked || submitting.current) return;
@@ -65,8 +60,9 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
   };
 
   return (
-    <form onSubmit={event => { event.preventDefault(); void submit(); }} className="cosmic-composer">
-      <div className={`retro-input-shell flex items-end gap-2 rounded-lg border p-2 ${isPrimed ? 'retro-input-shell-primed' : ''}`}>
+    <form ref={sizing.form} onSubmit={event => { event.preventDefault(); void submit(); }} className="cosmic-composer">
+      <span className="cosmic-composer-measure-wrap" aria-hidden="true"><span ref={sizing.measure} className="cosmic-composer-measure">{value}</span></span>
+      <div ref={sizing.shell} className={`retro-input-shell flex items-end gap-2 rounded-lg border p-2 ${isPrimed ? 'retro-input-shell-primed' : ''}`}>
         <textarea ref={textarea} value={value} onChange={event => update(event.target.value)}
           aria-label={isGameMasterMode ? 'Your next action' : 'Message Brain'} placeholder={placeholder} rows={1} readOnly={isSubmitting}
           className="retro-input-textarea min-w-0 flex-1 resize-none border-0 bg-transparent px-3 py-2.5 leading-relaxed focus:outline-none"
