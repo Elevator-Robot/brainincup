@@ -40,7 +40,15 @@ const sampleCheck: DiceRollRequest = {
 /** Dev-only visual fixture: real UI components, no account or backend writes. */
 export default function ConversationPreview() {
   const typewriter = new URLSearchParams(window.location.search).has('typewriter');
-  const [conversation, setConversation] = useState<Message[]>(() => typewriter ? [{
+  const thoughts = new URLSearchParams(window.location.search).has('thoughts');
+  const [conversation, setConversation] = useState<Message[]>(() => thoughts ? [{
+    role: 'assistant',
+    content: 'The stars above the observatory have begun to drift. Not randomly—each one is moving toward the same quiet point in the sky.\n\nYour compass gives a single, soft pulse. **Something remembers the way home.**',
+    sensations: ['A cool shimmer of light; the faint warmth of the brass compass.'],
+    thoughts: ['The stars and the compass seem to be responding to the same distant signal.'],
+    memories: 'Mira once spoke of a constellation that disappeared without leaving a trace.',
+    selfReflection: 'There may be more to discover in what is missing than in what is visible.',
+  }] : typewriter ? [{
     role: 'assistant', populateOnMount: true,
     content: 'The observatory falls quiet. Beyond the glass, a silver constellation begins to move.\n\nYour compass warms in your hand, its needle turning toward **a doorway made of starlight**. Mira raises her lantern.\n\n“Some stories wait to be discovered,” she whispers. “This one has been waiting for you.”\n\n### What lies ahead\n- A violet glow beneath the old stone stairs.\n- A distant voice calling your name.\n- One small, impossible choice.\n\n**What do you do next?**',
   }] : messages);
@@ -59,10 +67,10 @@ export default function ConversationPreview() {
   const { requestRoll, roll, activeRequestId, hasPendingRoll } = useChatDiceRolls({
     conversationId: 'preview', messages: conversation, setMessages: setConversation, busy: false, onSubmit: submitPreviewRoll,
   });
-  useEffect(() => { if (!empty && !typewriter) requestRoll(sampleCheck); }, [empty, typewriter, requestRoll]);
+  useEffect(() => { if (!empty && !typewriter && !thoughts) requestRoll(sampleCheck); }, [empty, typewriter, thoughts, requestRoll]);
   return <>
     <SiteBackground />
-    <div className="retro-rpg-ui cosmic-workspace retro-rpg-ui--gm relative h-dvh overflow-hidden">
+    <div className={`retro-rpg-ui cosmic-workspace retro-rpg-ui--${thoughts ? 'brain' : 'gm'} relative h-dvh overflow-hidden`}>
       <div className="retro-shell h-full max-lg:!grid-cols-[minmax(0,1fr)]">
         {isDesktop && <aside className="retro-shell-left items-center gap-6 py-5">
           <a href="/?testmode=true" aria-label="Back to workspace" className="cosmic-rail-control rounded-xl"><BrainIcon className="h-9 w-9" /></a>
@@ -74,7 +82,7 @@ export default function ConversationPreview() {
             <div ref={scrollRef} className="cosmic-chat-scroll min-h-0 flex-1 overflow-y-auto px-2" aria-label="Sample conversation">
               <div ref={contentRef} className="cosmic-chat-content mx-auto flex max-w-4xl flex-col gap-6">
                 {empty ? <ChatWelcome isGameMasterMode onPrompt={prompt => { composer.current?.clear(); composer.current?.append(prompt); composer.current?.focus(); }} />
-                  : <MessageList messages={conversation} isGameMasterMode variant={isDesktop ? 'desktop' : 'mobile'} activeDiceRequestId={activeRequestId} onDiceRoll={roll} />}
+                  : <MessageList messages={conversation} isGameMasterMode={!thoughts} variant={isDesktop ? 'desktop' : 'mobile'} activeDiceRequestId={activeRequestId} onDiceRoll={roll} />}
               </div>
             </div>
           </div>
