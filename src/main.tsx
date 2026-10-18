@@ -8,6 +8,7 @@ import 'aws-amplify/auth/enable-oauth-listener';
 import SiteBackground from './components/SiteBackground';
 import WorkspaceLoading from './components/WorkspaceLoading';
 import WorkspaceBoundary from './components/WorkspaceBoundary';
+import TextArrivalEffects from './components/TextArrivalEffects';
 import { isTestModeEnabled } from './utils/testMode';
 import './index.css';
 import './cosmic-theme.css';
@@ -87,6 +88,7 @@ rootElement.__brainInCupRoot = root;
 
 root.render(
   <React.StrictMode>
+    <TextArrivalEffects />
     {DicePreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'dice'
       ? <React.Suspense fallback={<WorkspaceLoading />}><DicePreview /></React.Suspense>
       : ConversationPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'conversation'
