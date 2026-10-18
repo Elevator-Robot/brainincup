@@ -6,6 +6,7 @@ the same model in-region; all requests here are pinned to us-east-1.
 
 import io
 import json
+import logging
 import re
 
 import boto3
@@ -16,6 +17,17 @@ from botocore.awsrequest import AWSRequest
 REGION = "us-east-1"
 DEFAULT_MODEL_ID = "anthropic.claude-haiku-4-5"
 ENDPOINT = "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages"
+logger = logging.getLogger(__name__)
+
+
+def _safe_error_text(value, limit=1000):
+    """Keep service diagnostics bounded and strip credential-shaped values."""
+    if not isinstance(value, str):
+        return ""
+    value = re.sub(r"(?:AKIA|ASIA)[A-Z0-9]{16}", "[redacted-key]", value)
+    value = re.sub(r"(?i)(?:bearer|AWS4-HMAC-SHA256)\s+[^\r\n]+", "[redacted-auth]", value)
+    value = re.sub(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "[redacted-token]", value)
+    return " ".join(value.split())[:limit]
 
 
 def regional_model_id(model_id: str) -> str:
@@ -60,6 +72,34 @@ class RegionalBedrockClient:
 
     @staticmethod
     def _check_response(response):
+        if response.status_code != 200:
+            try:
+                payload = response.json()
+            except (ValueError, requests.RequestException):
+                payload = {}
+            if not isinstance(payload, dict):
+                payload = {}
+            error = payload.get("error")
+            if not isinstance(error, dict):
+                error = payload
+            error_type = error.get("type") or error.get("code") or payload.get("__type")
+            error_type = error_type or response.headers.get("x-amzn-errortype", "unknown")
+            request_id = (
+                response.headers.get("x-amzn-requestid")
+                or response.headers.get("x-amz-request-id")
+                or response.headers.get("request-id")
+                or response.headers.get("x-request-id")
+                or payload.get("request_id")
+            )
+            # Log only service error fields; never dump response bodies, request
+            # payloads, or headers (which can contain signed credentials).
+            logger.error(
+                "Regional inference rejected: status=%s code=%s request_id=%s message=%s",
+                response.status_code,
+                _safe_error_text(error_type, 120),
+                _safe_error_text(request_id, 200),
+                _safe_error_text(error.get("message") or payload.get("message")),
+            )
         response.raise_for_status()
         if response.status_code != 200:
             raise RuntimeError(f"Unexpected regional inference status: {response.status_code}")
