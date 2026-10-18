@@ -22,6 +22,8 @@ class RegionalBedrockTest(unittest.TestCase):
         self.addCleanup(post_patch.stop)
         self.response = MagicMock()
         self.response.status_code = 200
+        self.response.headers = {}
+        self.response.json.return_value = {}
         self.response.__enter__.return_value = self.response
         self.post.return_value = self.response
         self.body = json.dumps({
@@ -75,10 +77,39 @@ class RegionalBedrockTest(unittest.TestCase):
             list(self.stream([{"type": "message_start"}]))
 
     def test_http_denial_propagates_and_closes_response(self):
+        self.response.status_code = 403
         self.response.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
-        with self.assertRaises(requests.HTTPError):
+        with self.assertLogs("core.regional_bedrock", level="ERROR"), self.assertRaises(requests.HTTPError):
             self.client.invoke_model(modelId=DEFAULT_MODEL_ID, body=self.body)
         self.response.__exit__.assert_called_once()
+
+    def test_denial_logs_service_reason_and_request_id_without_payload_or_credentials(self):
+        self.response.status_code = 403
+        self.response.headers = {"x-amzn-requestid": "service-request-123", "Authorization": "secret-header"}
+        self.response.json.return_value = {
+            "error": {"type": "permission_error", "message": "Access denied for ASIA1234567890123456"},
+            "input": {"content": "private player chat"},
+        }
+        self.response.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
+        with self.assertLogs("core.regional_bedrock", level="ERROR") as logs, self.assertRaises(requests.HTTPError):
+            self.client.invoke_model(modelId=DEFAULT_MODEL_ID, body=self.body)
+        output = "\n".join(logs.output)
+        self.assertIn("status=403 code=permission_error request_id=service-request-123", output)
+        self.assertIn("Access denied for [redacted-key]", output)
+        self.assertNotIn("ASIA1234567890123456", output)
+        self.assertNotIn("private player chat", output)
+        self.assertNotIn("secret-header", output)
+
+    def test_non_json_error_retains_http_failure_without_logging_body(self):
+        self.response.status_code = 502
+        self.response.json.side_effect = ValueError("not JSON")
+        self.response.headers = {"x-amzn-errortype": "BadGatewayException"}
+        self.response.content = b"private proxy diagnostic body"
+        self.response.raise_for_status.side_effect = requests.HTTPError("502 Bad Gateway")
+        with self.assertLogs("core.regional_bedrock", level="ERROR") as logs, self.assertRaises(requests.HTTPError):
+            self.client.invoke_model(modelId=DEFAULT_MODEL_ID, body=self.body)
+        self.assertIn("code=BadGatewayException", "\n".join(logs.output))
+        self.assertNotIn("private proxy", "\n".join(logs.output))
 
     def test_other_regions_and_cross_region_profiles_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "us-east-1"):

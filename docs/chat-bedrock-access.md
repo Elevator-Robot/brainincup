@@ -59,6 +59,24 @@ denial. No AWS policy changes were applied during this investigation.
 
 Reference: [Bedrock geographic cross-region inference](https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html).
 
+## Follow-up: regional HTTP 403 after deployment
+
+PR #202 deployed successfully in Amplify job 137 on October 18 at 18:28:58 UTC.
+The deployed transport matches commit `9bd8bdb`, and the Lambda environment uses
+`us-east-1` and `anthropic.claude-haiku-4-5`.
+
+A subsequent GM request at 18:30:33 UTC failed with HTTP 403 from the regional
+Mantle Messages URL. The previous logging recorded only `raise_for_status()`'s
+generic exception; the service's error code, reason, and request ID were lost.
+IAM simulation still allowed the action, including the Organizations decision,
+so this status alone does not establish an IAM, signing, or entitlement cause.
+
+The transport now logs selected service error fields and request IDs for
+non-200 responses, bounds and sanitizes them, and excludes raw bodies and
+headers. After deploying these diagnostics, reproduce one failed chat request
+and inspect `Regional inference rejected` in the Lambda logs. This diagnostic
+change does not itself fix the HTTP 403.
+
 ## Application fixes
 
 - Brain and GM now share the same technical-difficulties message. GM emits the
