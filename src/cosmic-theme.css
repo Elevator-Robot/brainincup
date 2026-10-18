@@ -8,7 +8,7 @@
   --cosmic-muted: #abb5d1;
   --cosmic-border: rgb(187 184 244 / 20%);
   --cosmic-glass: linear-gradient(145deg, rgb(40 32 74 / 78%), rgb(13 23 43 / 86%));
-  --cosmic-frame-surface: rgb(14 19 37 / 94%);
+  --cosmic-frame-surface: #0e1325;
   --cosmic-control: linear-gradient(135deg, rgb(110 77 165 / 24%), rgb(48 86 115 / 22%));
   --cosmic-primary: linear-gradient(135deg, #8254c7, #5458ad 60%, #387a99);
   --cosmic-shadow: inset 0 1px 0 rgb(237 224 255 / 8%), 0 8px 24px rgb(2 5 18 / 16%);
@@ -25,7 +25,7 @@
 }
 
 .retro-rpg-ui.cosmic-workspace { height: calc(100dvh - var(--site-footer-height)); min-height: 0; }
-.site-footer { position: fixed; inset: auto 0 0; z-index: 20; display: flex; align-items: center; justify-content: center; gap: .3em; height: var(--site-footer-height); padding: 0 .75rem env(safe-area-inset-bottom, 0px); border: 0; border-radius: 0; box-shadow: none; background: var(--cosmic-frame-surface); color: var(--cosmic-muted); font-family: var(--rpg-font-display); font-size: .6875rem; letter-spacing: .025em; line-height: 1.4; }
+.site-footer { position: fixed; inset: auto 0 0; z-index: 20; display: flex; align-items: center; justify-content: flex-start; gap: .3em; height: var(--site-footer-height); padding: 0 1.25rem env(safe-area-inset-bottom, 0px); border: 0; border-radius: 0 24px 24px 0; box-shadow: none; background: var(--cosmic-frame-surface); color: var(--cosmic-muted); font-family: var(--rpg-font-display); font-size: .6875rem; letter-spacing: .025em; line-height: 1.4; }
 .site-footer a { color: var(--cosmic-violet); text-decoration: none; text-underline-offset: .2em; }
 .site-footer a:hover { color: var(--cosmic-cyan); text-decoration: underline; }
 .site-footer a:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 4px; border-radius: 2px; }
@@ -257,6 +257,15 @@ body::before { display: none; }
 .cosmic-conversation-list > * { flex-shrink: 0; }
 .cosmic-conversation-list picture { display: block; width: 100%; height: 100%; }
 .cosmic-workspace .retro-right-container { padding-left: 0; border-left: 1px solid var(--cosmic-border); }
+/* Separate the right context panel from the footer with a deliberate curved gap. */
+@media (min-width: 1024px) {
+  body:has(.cosmic-workspace .retro-shell-right) .site-footer { right: calc(20rem + 12px); }
+  body:has(.cosmic-workspace .retro-shell-left) .site-footer::before { content: ''; position: absolute; left: 4.5rem; bottom: 100%; width: 24px; height: 24px; pointer-events: none; background: radial-gradient(circle at 100% 0%, transparent 23.5px, var(--cosmic-frame-surface) 24px); }
+  .cosmic-workspace .retro-shell-left { border-right: 0; }
+  .cosmic-workspace .retro-shell-left::after { display: block; height: calc(100% - 24px); background: var(--cosmic-border); }
+  .cosmic-workspace .retro-shell-right { padding-bottom: 12px; }
+  .cosmic-workspace .retro-right-container { border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+}
 .cosmic-workspace .retro-main { padding-top: .75rem; }
 .cosmic-workspace .retro-right-stack { padding: 1rem; }
 .cosmic-context-panel { width: 100%; min-width: 0; }
