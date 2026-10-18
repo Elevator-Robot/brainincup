@@ -21,6 +21,7 @@ import * as cr from 'aws-cdk-lib/custom-resources';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as cloudfront_origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Duration } from 'aws-cdk-lib';
+import { regionalInferencePolicy, regionalModelId } from './regional-inference';
 
 const readAgentCoreConfigFile = (): Record<string, string> => {
   const fileDir = dirname(fileURLToPath(import.meta.url));
@@ -240,8 +241,9 @@ brainLambda.addEnvironment('ACTIVE_QUEST_TABLE_NAME', activeQuestTable.tableName
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
-// Add Bedrock model ID env var for direct invocation
-brainLambda.addEnvironment('BEDROCK_MODEL_ID', getAgentCoreConfig('BEDROCK_MODEL_ID') ?? 'us.anthropic.claude-haiku-4-5-20251001-v1:0');
+// Mantle Messages keeps Haiku inference entirely within us-east-1.
+const bedrockModelId = regionalModelId(getAgentCoreConfig('BEDROCK_MODEL_ID'));
+brainLambda.addEnvironment('BEDROCK_MODEL_ID', bedrockModelId);
 
 // Note: Previously this code created an AWS::BedrockAgentCore::Runtime with a
 // container image. The Lambda now calls Bedrock directly, eliminating the
@@ -259,16 +261,7 @@ new EventSourceMapping(stack, 'BrainMessageMapping', {
   startingPosition: StartingPosition.LATEST,
 });
 
-brainLambda.addToRolePolicy(new PolicyStatement({
-  actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
-  resources: [
-    `arn:aws:bedrock:${stack.region}::foundation-model/*`,
-    `arn:aws:bedrock:${stack.region}:${stack.account}:inference-profile/*`,
-    'arn:aws:bedrock:*::foundation-model/*',
-    `arn:aws:bedrock:*:${stack.account}:inference-profile/*`,
-  ],
-  effect: Effect.ALLOW,
-}));
+brainLambda.addToRolePolicy(regionalInferencePolicy(stack.account, bedrockModelId));
 
 brainLambda.addToRolePolicy(new PolicyStatement({
   actions: [

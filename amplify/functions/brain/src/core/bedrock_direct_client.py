@@ -3,19 +3,16 @@ import logging
 import re
 from typing import Any, Dict, Iterator, List, Optional
 
-import boto3
+from core.errors import TECHNICAL_DIFFICULTIES_MESSAGE
+from core.regional_bedrock import DEFAULT_MODEL_ID, RegionalBedrockClient
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-
-
 class BedrockDirectClient:
-    """Direct Bedrock model invocation, replaces AgentCore container round-trip.
+    """Regional Bedrock Messages invocation, without an AgentCore container hop.
 
-    This client calls Bedrock's invoke_model directly instead of routing
-    through the AgentCore managed runtime. The agent-runtime/ directory and
-    Dockerfile are preserved for easy fallback.
+    The transport uses the us-east-1 Mantle endpoint while preserving the
+    existing response shapes consumed by Brain's language agent.
 
     Implements the same interface as AgentCoreClient for duck-typed compatibility.
     AgentCore-specific memory methods are no-ops in direct mode.
@@ -27,7 +24,7 @@ class BedrockDirectClient:
         region_name: str = "us-east-1",
     ) -> None:
         self.model_id = model_id
-        self.client = boto3.client("bedrock-runtime", region_name=region_name)
+        self.client = RegionalBedrockClient(region_name=region_name)
 
     def invoke(
         self,
@@ -40,7 +37,6 @@ class BedrockDirectClient:
         prompt = payload.get("prompt", "")
         persona = payload.get("persona", {})
         temperature = float(persona.get("temperature", 1.0))
-        top_p = float(persona.get("top_p", 1.0))
 
         system_prompt = persona.get("name", "You are a helpful AI assistant.")
 
@@ -77,7 +73,7 @@ class BedrockDirectClient:
                 "thoughts": ["System malfunction"],
                 "memories": "Unable to access memory banks",
                 "self_reflection": "Experiencing technical difficulties",
-                "response": "I'm experiencing technical difficulties and cannot process your request at the moment.",
+                "response": TECHNICAL_DIFFICULTIES_MESSAGE,
             }
 
     def invoke_stream(
@@ -92,7 +88,6 @@ class BedrockDirectClient:
         prompt = payload.get("prompt", "")
         persona = payload.get("persona", {})
         temperature = float(persona.get("temperature", 1.0))
-        top_p = float(persona.get("top_p", 1.0))
 
         system_prompt = persona.get("name", "You are a helpful AI assistant.")
 

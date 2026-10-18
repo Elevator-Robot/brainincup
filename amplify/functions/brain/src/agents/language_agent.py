@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Dict, Optional
+from core.errors import TECHNICAL_DIFFICULTIES_MESSAGE
 
 logger = logging.getLogger(__name__)
 
@@ -103,5 +104,5 @@ class LanguageAgent:
             "thoughts": ["System malfunction"],
             "memories": "Unable to access memory banks",
             "self_reflection": "Experiencing technical difficulties",
-            "response": "I'm experiencing technical difficulties and cannot process your request at the moment.",
+            "response": TECHNICAL_DIFFICULTIES_MESSAGE,
         }

@@ -11,51 +11,19 @@ export type CharacterAvatarOption = {
   classTag?: string;
 };
 
-let cachedImageCDNUrl: string | null = null;
-
-const getImageCDNUrl = (): string => {
-  if (cachedImageCDNUrl !== null) {
-    return cachedImageCDNUrl;
-  }
-
-  try {
-    const outputs = (window as unknown as { __AMPLIFY_OUTPUTS__?: { custom?: { imageCDNUrl?: string } } }).__AMPLIFY_OUTPUTS__;
-    const cdnUrl = outputs?.custom?.imageCDNUrl;
-    if (cdnUrl && typeof cdnUrl === 'string' && cdnUrl.startsWith('https://')) {
-      cachedImageCDNUrl = cdnUrl;
-      return cdnUrl;
-    }
-  } catch {
-    // Ignore errors reading from window
-  }
-
-  cachedImageCDNUrl = '';
-  return '';
-};
-
+// These assets ship in public/ with every frontend release. A separate image
+// CDN may exist before its upload job runs, so it is not a reliable source.
 const buildAvatarSrc = (fileName: string): string => {
-  const cdnUrl = getImageCDNUrl();
-  if (cdnUrl) {
-    return `${cdnUrl}/avatars/${fileName}`;
-  }
   return `/images/avatars/${fileName}`;
 };
 
 const buildAvatarSrcThumbnail = (fileName: string): string => {
-  const cdnUrl = getImageCDNUrl();
   const baseName = fileName.replace(/\.webp$/i, '');
-  if (cdnUrl) {
-    return `${cdnUrl}/avatars/thumbnails/${baseName}.webp`;
-  }
   return `/images/avatars/thumbnails/${baseName}.webp`;
 };
 
 const buildAvatarSrcMedium = (fileName: string): string => {
-  const cdnUrl = getImageCDNUrl();
   const baseName = fileName.replace(/\.webp$/i, '');
-  if (cdnUrl) {
-    return `${cdnUrl}/avatars/medium/${baseName}.webp`;
-  }
   return `/images/avatars/medium/${baseName}.webp`;
 };
 

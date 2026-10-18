@@ -5,6 +5,7 @@ import os
 import uuid
 from collections.abc import Generator
 from typing import Any
+from core.errors import TECHNICAL_DIFFICULTIES_MESSAGE
 
 from experiences.agui import run_error, run_finished, run_started
 from experiences.base import BaseExperience, ExperienceContext, ExperienceResponse
@@ -64,7 +65,7 @@ class GameMasterExperience(BaseExperience):
         except Exception as exc:
             logger.error("Game Master turn failed: %s", exc, exc_info=True)
             return ExperienceResponse(
-                response="The Game Master is momentarily unavailable. The world holds its breath...",
+                response=TECHNICAL_DIFFICULTIES_MESSAGE,
                 metadata={"error": str(exc)},
             )
 
@@ -84,7 +85,7 @@ class GameMasterExperience(BaseExperience):
             store=self._store(),
             model_id=os.environ.get(
                 "BEDROCK_MODEL_ID",
-                "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                "anthropic.claude-haiku-4-5",
             ),
             region=os.environ.get("AWS_REGION", "us-east-1"),
         )
@@ -110,7 +111,7 @@ class GameMasterExperience(BaseExperience):
                 store=self._store(),
                 model_id=os.environ.get(
                     "BEDROCK_MODEL_ID",
-                    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                    "anthropic.claude-haiku-4-5",
                 ),
                 region=os.environ.get("AWS_REGION", "us-east-1"),
             )
@@ -119,4 +120,4 @@ class GameMasterExperience(BaseExperience):
             yield run_finished(ctx.conversation_id, run_id)
         except Exception as exc:
             logger.error("GM orchestrator stream failed: %s", exc, exc_info=True)
-            yield run_error(str(exc), code="GM_STREAM_ERROR")
+            yield run_error(TECHNICAL_DIFFICULTIES_MESSAGE, code="GM_STREAM_ERROR")
