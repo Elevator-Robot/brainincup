@@ -30,6 +30,7 @@
 .site-footer a { color: var(--cosmic-violet); text-decoration: none; text-underline-offset: .2em; }
 .site-footer a:hover { color: var(--cosmic-cyan); text-decoration: underline; }
 .site-footer a:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 4px; border-radius: 2px; }
+.site-footer::after { content: ''; position: absolute; inset: 0; box-sizing: border-box; border: 1px solid var(--cosmic-border); border-left: 0; border-radius: inherit; pointer-events: none; }
 
 :root, .retro-rpg-ui--brain, .retro-rpg-ui--gm {
   --rpg-accent: var(--cosmic-cyan);
@@ -262,7 +263,8 @@ body::before { display: none; }
 .cosmic-workspace .retro-right-container { padding-left: 0; border-left: 1px solid var(--cosmic-border); }
 /* Separate the right context panel from the footer with a deliberate curved gap. */
 @media (min-width: 1024px) {
-  body:has(.cosmic-workspace .retro-shell-left) .site-footer::before { content: ''; position: absolute; left: 4.5rem; bottom: 100%; width: 24px; height: 24px; pointer-events: none; background: radial-gradient(circle at 100% 0%, transparent 23.5px, var(--cosmic-frame-surface) 24px); }
+  body:has(.cosmic-workspace .retro-shell-left) .site-footer::before { content: ''; position: absolute; left: calc(4.5rem - 1px); bottom: calc(100% - 1px); width: 25px; height: 25px; pointer-events: none; background: radial-gradient(circle at 100% 0%, transparent 24px, var(--cosmic-border) 24px, var(--cosmic-border) 25px, transparent 25px), radial-gradient(circle at 100% 0%, transparent 24px, var(--cosmic-frame-surface) 24px); }
+  body:has(.cosmic-workspace .retro-shell-left) .site-footer::after { clip-path: inset(0 0 0 calc(4.5rem + 24px)); }
   .cosmic-workspace .retro-shell-left { border-right: 0; }
   .cosmic-workspace .retro-shell-left::after { display: block; height: calc(100% - 24px); background: var(--cosmic-border); }
   .cosmic-workspace .retro-shell-right { padding-bottom: 12px; }
