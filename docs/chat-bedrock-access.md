@@ -26,8 +26,10 @@ The shared transport converts the existing prompt format into Chat Completions,
 including the system message. It converts final-answer text back to the response
 shapes used by Brain, GM, and title generation. Separate model reasoning fields
 are ignored. Low reasoning effort and additional completion-token headroom avoid
-exhausting short title budgets before visible output. Streaming requires both
-normal completion and `[DONE]`; empty, truncated, and error responses fail.
+exhausting short title budgets before visible output. Streaming requires visible
+text and `finish_reason: stop`; `[DONE]` is optional. Final buffered SSE frames
+are processed at EOF. A complete JSON response to a streaming request is also
+accepted after the same checks; empty, truncated, and error responses fail.
 
 Deployment defaults, previous Haiku environment settings, and the IAM model
 condition migrate together. SigV4, default-project scoping, diagnostics, and
@@ -35,6 +37,20 @@ us-east-1-only enforcement remain in place. No live inference was invoked during
 the read-only investigation; verify Brain, GM, and titles after deployment.
 
 Reference: [AWS GPT OSS 120B model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-oss-120b.html).
+
+### Stream completion follow-up
+
+After PR #204 deployed, the request at 19:06:54 UTC reached the regional endpoint
+with HTTP 200 but failed locally with `Regional inference stream ended before
+[DONE]`. The parser previously dropped a final buffered frame at EOF and required
+a transport terminator even after a valid model completion.
+
+The parser now flushes EOF frames and accepts a normal model-completion signal
+with visible output. `[DONE]` alone cannot turn partial output into success.
+Incomplete-stream diagnostics record content type, service request ID, event
+count, EOF-frame presence, completion state, and text presence without content.
+The original logs do not reveal which framing variation caused that request;
+regression tests cover these cases without assuming every EOF is successful.
 
 ## Confirmed cause — October 18, 2026
 

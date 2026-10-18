@@ -33,10 +33,12 @@ class RegionalBedrockTest(unittest.TestCase):
             "messages": [{"role": "user", "content": "hello"}],
         })
 
-    def stream(self, events):
+    def stream(self, events, trailing_separator=True):
         lines = []
         for event in events:
             lines.extend(["data: " + (event if isinstance(event, str) else json.dumps(event)), ""])
+        if not trailing_separator:
+            lines = lines[:-1]
         self.response.iter_lines.return_value = lines
         return self.client.invoke_model_with_response_stream(modelId=DEFAULT_MODEL_ID, body=self.body)["body"]
 
@@ -89,15 +91,67 @@ class RegionalBedrockTest(unittest.TestCase):
         self.response.__exit__.assert_called_once()
 
     def test_truncated_stream_is_rejected(self):
-        with self.assertRaisesRegex(RuntimeError, r"before \[DONE\]"):
+        with self.assertLogs("core.regional_bedrock", level="ERROR"), self.assertRaisesRegex(RuntimeError, "no complete visible text"):
             list(self.stream([{"choices": [{"delta": {"content": "partial"}}]}]))
+
+    def test_completion_without_done_marker_is_successful(self):
+        chunks = list(self.stream([
+            {"choices": [{"delta": {"content": "A complete answer."}, "finish_reason": None}]},
+            {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+        ]))
+        self.assertEqual(json.loads(chunks[-1]["chunk"]["bytes"]), {"type": "message_stop"})
+
+    def test_final_completion_frame_at_eof_is_processed(self):
+        chunks = list(self.stream([
+            {"choices": [{"delta": {"content": "A complete answer."}, "finish_reason": "stop"}]},
+        ], trailing_separator=False))
+        self.assertEqual(len(chunks), 2)
+        self.assertEqual(json.loads(chunks[0]["chunk"]["bytes"])["delta"]["text"], "A complete answer.")
+        self.assertEqual(json.loads(chunks[-1]["chunk"]["bytes"]), {"type": "message_stop"})
+
+    def test_done_at_eof_without_blank_separator_is_processed(self):
+        chunks = list(self.stream([
+            {"choices": [{"delta": {"content": "Done."}, "finish_reason": "stop"}]},
+            "[DONE]",
+        ], trailing_separator=False))
+        self.assertEqual(json.loads(chunks[-1]["chunk"]["bytes"]), {"type": "message_stop"})
+
+    def test_done_without_model_completion_is_rejected_with_metadata_only(self):
+        self.response.headers = {"content-type": "text/event-stream", "request-id": "stream-123"}
+        with self.assertLogs("core.regional_bedrock", level="ERROR") as logs, self.assertRaises(RuntimeError):
+            list(self.stream([
+                {"choices": [{"delta": {"content": "private partial output"}, "finish_reason": None}]},
+                "[DONE]",
+            ], trailing_separator=False))
+        output = "\n".join(logs.output)
+        self.assertIn("request_id=stream-123", output)
+        self.assertIn("eof_frame=True finished=False has_text=True done=True", output)
+        self.assertNotIn("private partial output", output)
+
+    def test_complete_json_response_to_stream_request_is_usable(self):
+        self.response.headers = {"content-type": "application/json; charset=utf-8"}
+        self.response.json.return_value = {"choices": [{
+            "message": {"content": "The gate opens.", "reasoning": "private"}, "finish_reason": "stop",
+        }]}
+        chunks = list(self.stream([]))
+        self.assertEqual(json.loads(chunks[0]["chunk"]["bytes"])["delta"]["text"], "The gate opens.")
+        self.assertEqual(json.loads(chunks[-1]["chunk"]["bytes"]), {"type": "message_stop"})
+        self.response.iter_lines.assert_not_called()
+
+    def test_incomplete_json_response_to_stream_request_is_rejected(self):
+        self.response.headers = {"content-type": "application/json"}
+        self.response.json.return_value = {"choices": [{
+            "message": {"content": "Partial"}, "finish_reason": "length",
+        }]}
+        with self.assertRaises(RuntimeError):
+            list(self.stream([]))
 
     def test_token_limit_is_not_successful_completion(self):
         with self.assertRaisesRegex(RuntimeError, "without a complete text response"):
             list(self.stream([{"choices": [{"delta": {}, "finish_reason": "length"}]}, "[DONE]"]))
 
     def test_reasoning_only_stream_is_rejected(self):
-        with self.assertRaisesRegex(RuntimeError, "no complete visible text"):
+        with self.assertLogs("core.regional_bedrock", level="ERROR"), self.assertRaisesRegex(RuntimeError, "no complete visible text"):
             list(self.stream([
                 {"choices": [{"delta": {"reasoning": "private reasoning"}, "finish_reason": "stop"}]},
                 "[DONE]",
