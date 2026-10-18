@@ -8,6 +8,7 @@
   --cosmic-muted: #abb5d1;
   --cosmic-border: rgb(187 184 244 / 20%);
   --cosmic-glass: linear-gradient(145deg, rgb(40 32 74 / 78%), rgb(13 23 43 / 86%));
+  --cosmic-frame-surface: rgb(14 19 37 / 94%);
   --cosmic-control: linear-gradient(135deg, rgb(110 77 165 / 24%), rgb(48 86 115 / 22%));
   --cosmic-primary: linear-gradient(135deg, #8254c7, #5458ad 60%, #387a99);
   --cosmic-shadow: inset 0 1px 0 rgb(237 224 255 / 8%), 0 8px 24px rgb(2 5 18 / 16%);
@@ -24,7 +25,7 @@
 }
 
 .retro-rpg-ui.cosmic-workspace { height: calc(100dvh - var(--site-footer-height)); min-height: 0; }
-.site-footer { position: fixed; inset: auto 0 0; z-index: 20; display: flex; align-items: center; justify-content: center; gap: .3em; height: var(--site-footer-height); padding: 0 .75rem env(safe-area-inset-bottom, 0px); color: var(--cosmic-muted); font-family: var(--rpg-font-body); font-size: .6875rem; line-height: 1.4; }
+.site-footer { position: fixed; inset: auto 0 0; z-index: 20; display: flex; align-items: center; justify-content: center; gap: .3em; height: var(--site-footer-height); padding: 0 .75rem env(safe-area-inset-bottom, 0px); border: 0; border-radius: 0; box-shadow: none; background: var(--cosmic-frame-surface); color: var(--cosmic-muted); font-family: var(--rpg-font-display); font-size: .6875rem; letter-spacing: .025em; line-height: 1.4; }
 .site-footer a { color: var(--cosmic-violet); text-decoration: none; text-underline-offset: .2em; }
 .site-footer a:hover { color: var(--cosmic-cyan); text-decoration: underline; }
 .site-footer a:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 4px; border-radius: 2px; }
@@ -145,10 +146,10 @@ body::before { display: none; }
 .retro-rpg-ui ::selection { background: rgb(139 92 246 / 45%); color: #fff; }
 
 /* Window surfaces: quiet reading areas with the nebula visible around them. */
-.retro-shell-left { z-index: 30; background: rgb(12 16 34 / 72%); }
+.retro-shell-left { z-index: 30; background: var(--cosmic-frame-surface); border-bottom: 0; }
 .retro-shell-left::after { background: linear-gradient(transparent, rgb(189 165 255 / 28%), transparent); }
 .retro-shell-center { background: rgb(10 16 33 / 72%); }
-.retro-right-container { background: rgb(14 19 37 / 86%); border-left-color: var(--cosmic-border); }
+.retro-right-container { background: var(--cosmic-frame-surface); border-left-color: var(--cosmic-border); border-bottom: 0; }
 .retro-nav, .retro-mobile-card, .retro-mode-header, .retro-right-section,
 .retro-right-stat-tile, .rpg-panel, .retro-frame {
   background: var(--cosmic-glass); border-color: var(--cosmic-border); box-shadow: var(--cosmic-shadow);
