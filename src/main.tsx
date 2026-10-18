@@ -2,8 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { getCurrentUser } from 'aws-amplify/auth';
+// Complete redirect sign-in before the auth gate waits for getCurrentUser().
+// CustomAuth is lazy-loaded, so its signInWithRedirect import arrives too late.
+import 'aws-amplify/auth/enable-oauth-listener';
 import SiteBackground from './components/SiteBackground';
 import WorkspaceLoading from './components/WorkspaceLoading';
+import WorkspaceBoundary from './components/WorkspaceBoundary';
 import { isTestModeEnabled } from './utils/testMode';
 import './index.css';
 import './cosmic-theme.css';
@@ -53,9 +57,11 @@ function AuthWrapper() {
 
   return <>
     <SiteBackground />
-    <React.Suspense fallback={<WorkspaceLoading />}>
-      {isLoading ? <WorkspaceLoading /> : isAuthenticated ? <App /> : <CustomAuth onAuthSuccess={checkAuthState} />}
-    </React.Suspense>
+    <WorkspaceBoundary>
+      <React.Suspense fallback={<WorkspaceLoading />}>
+        {isLoading ? <WorkspaceLoading /> : isAuthenticated ? <App /> : <CustomAuth onAuthSuccess={checkAuthState} />}
+      </React.Suspense>
+    </WorkspaceBoundary>
   </>;
 }
 
