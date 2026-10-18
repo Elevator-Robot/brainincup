@@ -1,3 +1,5 @@
+import { createStreamBatcher } from './streamBatcher';
+
 export type AguiEvent = Record<string, unknown> & { type: string };
 
 export interface StreamAgentParams {
@@ -45,30 +47,41 @@ export async function streamAgentMessage(params: StreamAgentParams): Promise<voi
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  const events = createStreamBatcher(params.onEvent);
   let buffer = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
 
-    let sepIndex: number;
-    while ((sepIndex = buffer.indexOf('\n\n')) !== -1) {
-      const frame = buffer.slice(0, sepIndex);
-      buffer = buffer.slice(sepIndex + 2);
+      let sepIndex: number;
+      while ((sepIndex = buffer.indexOf('\n\n')) !== -1) {
+        const frame = buffer.slice(0, sepIndex);
+        buffer = buffer.slice(sepIndex + 2);
 
-      const dataLine = frame.split('\n').find((line) => line.startsWith('data:'));
-      if (!dataLine) continue;
+        const dataLine = frame.split('\n').find((line) => line.startsWith('data:'));
+        if (!dataLine) continue;
 
-      const payload = dataLine.slice(5).trim();
-      if (payload === '[DONE]') return;
+        const payload = dataLine.slice(5).trim();
+        if (payload === '[DONE]') {
+          await reader.cancel();
+          return;
+        }
 
-      try {
-        const event = JSON.parse(payload) as AguiEvent;
-        params.onEvent(event);
-      } catch {
-        // Ignore malformed frames
+        let event: AguiEvent;
+        try {
+          event = JSON.parse(payload) as AguiEvent;
+        } catch {
+          // Ignore malformed frames
+          continue;
+        }
+        events.push(event);
       }
     }
+  } finally {
+    events.flush();
+    reader.releaseLock();
   }
 }

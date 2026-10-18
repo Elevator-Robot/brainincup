@@ -17,9 +17,9 @@ export default {
             glass: 'rgba(13, 18, 40, 0.85)',
           },
           accent: {
-            primary: '#7ae8f4',      // Brain cyan
-            secondary: '#bda5ff',    // Nebula violet
-            tertiary: '#d3bfff',
+            primary: '#8cecf3',      // Brain cyan
+            secondary: '#c4adff',    // Nebula violet
+            tertiary: '#efb9dd',     // Soft rose light
             hover: '#a5f3fc',
           },
           surface: {
@@ -32,10 +32,10 @@ export default {
             hover: 'rgba(127, 139, 212, 0.18)',
           },
           text: {
-            primary: '#f4f7ff',
+            primary: '#f4f3ff',
             secondary: '#d6def3',
-            muted: '#a4b0cf',
-            accent: '#7ae8f4',
+            muted: '#abb5d1',
+            accent: '#8cecf3',
           },
           status: {
             success: '#10b981',      // Green
@@ -85,7 +85,7 @@ export default {
         'bounce-subtle': 'bounce-subtle 2s ease-in-out infinite',
         'spin-slow': 'spin 3s linear infinite',
         'wiggle': 'wiggle 1s ease-in-out infinite',
-        'text-populate': 'text-populate 0.5s ease-out both',
+        'text-populate': 'text-populate 0.3s ease-out both',
       },
       keyframes: {
         float: {
@@ -158,15 +158,10 @@ export default {
           '0%': {
             opacity: 0,
             transform: 'translateY(4px)',
-            filter: 'blur(3px)',
-          },
-          '60%': {
-            filter: 'blur(0px)',
           },
           '100%': {
             opacity: 1,
             transform: 'translateY(0)',
-            filter: 'blur(0)',
           },
         },
         wiggle: {

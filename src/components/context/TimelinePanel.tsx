@@ -70,7 +70,7 @@ function TimelinePanel({ entries = [], currentLocation }: TimelinePanelProps) {
                   {entry.sensations.slice(0, 3).map((s, si) => (
                     <span
                       key={si}
-                      className="text-[9px] px-1.5 py-0.5 rounded-full bg-brand-surface-dark border border-brand-surface-border text-brand-text-muted italic truncate max-w-[120px]"
+                      className="text-[9px] text-brand-text-muted italic truncate max-w-[120px] after:content-['·'] after:ml-1 last:after:content-none"
                     >
                       {s}
                     </span>

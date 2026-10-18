@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useId, useRef, useState, type CSS
 import { Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
 import { I18n } from 'aws-amplify/utils';
 import { authServices } from '../utils/authServices';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { usePageVisible } from '../hooks/usePageVisible';
 import '@aws-amplify/ui-react/styles.css';
 import './auth.css';
 
@@ -109,25 +111,40 @@ function AuthSuccess({ onComplete }: { onComplete: () => void }) {
 function AuthArtwork() {
   const brainRef = useRef<HTMLImageElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const finePointer = useMediaQuery('(hover: hover) and (pointer: fine)');
+  const visible = usePageVisible();
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (visible && !reducedMotion) void video.play().catch(() => {});
+    else video.pause();
+  }, [visible, reducedMotion]);
   useEffect(() => {
     const brain = brainRef.current;
     const video = videoRef.current;
     const card = brain?.closest<HTMLElement>('.bic-auth-card');
-    if (!brain || !video || !card) return;
+    if (!brain || !video || !card || reducedMotion || !finePointer || !visible) return;
     let frame = 0;
+    let pointerX = 0;
+    let pointerY = 0;
     const move = (event: PointerEvent) => {
       if (event.pointerType === 'touch') return;
-      const bounds = card.getBoundingClientRect();
-      const x = Math.max(-1, Math.min(1, (event.clientX - bounds.left) / bounds.width * 2 - 1));
-      const y = Math.max(-1, Math.min(1, (event.clientY - bounds.top) / bounds.height * 2 - 1));
-      cancelAnimationFrame(frame);
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+      if (frame) return;
       frame = requestAnimationFrame(() => {
-        brain.style.transform = `perspective(1000px) translate3d(${x * 48}px, ${y * 32}px, 0) rotateX(${-y * 8}deg) rotateY(${x * 12}deg) rotateZ(${x * 2}deg) scale(1.04)`;
-        video.style.transform = `translate3d(${-x * 1.5}%, ${-y * 1.5}%, 0) scale(1.06)`;
+        frame = 0;
+        const bounds = card.getBoundingClientRect();
+        const x = Math.max(-1, Math.min(1, (pointerX - bounds.left) / bounds.width * 2 - 1));
+        const y = Math.max(-1, Math.min(1, (pointerY - bounds.top) / bounds.height * 2 - 1));
+        brain.style.transform = `perspective(1000px) translate3d(${x * 28}px, ${y * 20}px, 0) rotateX(${-y * 5}deg) rotateY(${x * 8}deg) scale(1.02)`;
+        video.style.transform = `translate3d(${-x}%, ${-y}%, 0) scale(1.04)`;
       });
     };
     const reset = () => {
       cancelAnimationFrame(frame);
+      frame = 0;
       brain.style.transform = '';
       video.style.transform = '';
     };
@@ -136,15 +153,15 @@ function AuthArtwork() {
     card.addEventListener('pointercancel', reset);
     window.addEventListener('blur', reset);
     return () => {
-      cancelAnimationFrame(frame);
+      reset();
       card.removeEventListener('pointermove', move);
       card.removeEventListener('pointerleave', reset);
       card.removeEventListener('pointercancel', reset);
       window.removeEventListener('blur', reset);
     };
-  }, []);
+  }, [reducedMotion, finePointer, visible]);
   return <div className="bic-auth-art" aria-hidden="true">
-    <video ref={videoRef} className="bic-auth-video" src="/images/login-background.mp4" autoPlay muted loop playsInline preload="auto" />
+    {!reducedMotion && <video ref={videoRef} className="bic-auth-video" src="/images/login-background.mp4" autoPlay={visible} muted loop playsInline preload="metadata" />}
     <img ref={brainRef} className="bic-auth-brain" src="/images/login-brain.png" width="1672" height="941" alt="" />
   </div>;
 }
@@ -158,11 +175,20 @@ function AuthModal({ children }: { children: ReactNode }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const visualViewport = window.visualViewport;
-    const update = () => setViewport({ height: visualViewport?.height ?? window.innerHeight, top: visualViewport?.offsetTop ?? 0, width: window.innerWidth });
+    let frame = 0;
+    const update = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const next = { height: visualViewport?.height ?? window.innerHeight, top: visualViewport?.offsetTop ?? 0, width: window.innerWidth };
+        setViewport(previous => previous.height === next.height && previous.top === next.top && previous.width === next.width ? previous : next);
+      });
+    };
     window.addEventListener('resize', update);
     visualViewport?.addEventListener('resize', update);
     visualViewport?.addEventListener('scroll', update);
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener('resize', update);
       visualViewport?.removeEventListener('resize', update);
       visualViewport?.removeEventListener('scroll', update);

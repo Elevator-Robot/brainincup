@@ -1,8 +1,18 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import SiteBackground from '../components/SiteBackground';
 import BrainIcon from '../components/BrainIcon';
-import { MessageBubble, type Message } from '../components/MessageBubble';
+import type { Message } from '../components/MessageBubble';
+import MessageList from '../components/MessageList';
+import ChatComposer, { type ChatComposerHandle } from '../components/ChatComposer';
+import ChatWelcome from '../components/ChatWelcome';
+import { useChatDiceRolls } from '../hooks/useChatDiceRolls';
+import type { DiceRollRequest } from '../utils/diceRolls';
+import { useChatScroll } from '../hooks/useChatScroll';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import ContextWindowPanel from '../components/ContextWindowPanel';
+import { DEFAULT_CHARACTER_AVATAR_ID, getAvatarOptionById } from '../constants/gameMasterAvatars';
+
+const previewAvatar = getAvatarOptionById(DEFAULT_CHARACTER_AVATAR_ID);
 
 const messages: Message[] = [
   { role: 'assistant', content: 'The last tram leaves you at the foot of **Starfall Observatory**. Above the treeline, violet clouds move against the wind. A single window is lit.\n\nIn your pocket, the brass compass ticks once. Its needle points straight up.' },
@@ -18,44 +28,73 @@ const messages: Message[] = [
   { role: 'assistant', content: 'Mira wraps the lantern in a scarf and hands you the notebook. Together, you descend past the observatory’s humming machinery.\n\nAt the bottom of the stairs, a narrow door opens into cool, mineral-scented air. The blue dust gathers along the tunnel floor like a shallow stream.\n\nFor the first time tonight, your compass needle turns. It points ahead.\n\n**You have:** the brass compass, the keeper’s notebook, and a companion who knows the way.\n\nSomewhere beyond the darkness, water begins to sing.' },
   { role: 'user', content: 'I keep the compass in my hand and follow the sound. What do we see when we reach the water?' },
   { role: 'assistant', content: 'The tunnel ends on a stone balcony above a perfectly still reservoir. No moonlight reaches this far underground, yet the water shines.\n\nSeven stars burn beneath its surface, connected by faint threads of violet light. Their reflection on the cavern ceiling forms a doorway.\n\nMira raises the lantern. This time, the silver flame stays lit.\n\n“Your choice,” she whispers. “We can study it from here—or find out where it leads.”' },
+  { role: 'user', content: 'I cross the narrow ledge to get a closer look at the doorway.' },
+  { role: 'assistant', content: 'Water has worn the ledge smooth. Halfway across, the stone narrows to a few inches. Make a **Dexterity check** to keep your footing.' },
 ];
+
+const sampleCheck: DiceRollRequest = {
+  requestId: 'preview-ledge-check', statName: 'dexterity', statValue: 16,
+  difficultyClass: 15, description: 'Cross the narrow ledge without slipping.',
+};
 
 /** Dev-only visual fixture: real UI components, no account or backend writes. */
 export default function ConversationPreview() {
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [conversation, setConversation] = useState(messages);
+  const draft = useRef('');
+  const composer = useRef<ChatComposerHandle>(null);
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const { scrollRef, contentRef, isAtBottom, scrollToLatest } = useChatScroll('preview', isDesktop);
+  const empty = new URLSearchParams(window.location.search).has('empty');
+  const submitPreviewRoll = useCallback(async (_request: DiceRollRequest, value: number) => {
+    await new Promise<void>(resolve => window.setTimeout(resolve, 1800));
+    const total = value + 3;
+    setConversation(previous => [...previous, { role: 'assistant', content: total >= 15
+      ? `**${value} + 3 = ${total}.** You reach the other side. From here, you can see steps descending through the reflection in the water. Mira follows, keeping one hand against the cavern wall.`
+      : `**${value} + 3 = ${total}.** Your boot slips on the wet stone. You catch the edge and pull yourself back onto the balcony. Mira reaches out a hand. The doorway is still there, but you’ll need another approach.` }]);
+  }, []);
+  const { requestRoll, roll, activeRequestId, hasPendingRoll } = useChatDiceRolls({
+    conversationId: 'preview', messages: conversation, setMessages: setConversation, busy: false, onSubmit: submitPreviewRoll,
+  });
+  useEffect(() => { if (!empty) requestRoll(sampleCheck); }, [empty, requestRoll]);
   return <>
     <SiteBackground />
-    <div className="retro-rpg-ui retro-rpg-ui--gm relative h-dvh overflow-hidden">
-      <div className="retro-shell h-full !grid-cols-[3.5rem_minmax(0,1fr)] lg:!grid-cols-[4.5rem_minmax(0,1fr)_19rem]">
-        <aside className="retro-shell-left items-center gap-6 py-5">
-          <a href="/?testmode=true" aria-label="Back to workspace" className="rounded-xl"><BrainIcon className="h-9 w-9" /></a>
+    <div className="retro-rpg-ui cosmic-workspace retro-rpg-ui--gm relative h-dvh overflow-hidden">
+      <div className="retro-shell h-full max-lg:!grid-cols-[minmax(0,1fr)]">
+        {isDesktop && <aside className="retro-shell-left items-center gap-6 py-5">
+          <a href="/?testmode=true" aria-label="Back to workspace" className="cosmic-rail-control rounded-xl"><BrainIcon className="h-9 w-9" /></a>
           <span className="text-[10px] uppercase tracking-widest text-brand-text-muted [writing-mode:vertical-rl]">Visual preview</span>
-        </aside>
-        <main className="retro-shell-center min-w-0 overflow-hidden px-2 py-4 sm:px-4">
-          <div className="mb-4 text-center"><span className="retro-title text-xl">Brain in Cup</span><p className="mt-1 text-[11px] text-brand-text-muted">Starfall Observatory · Sample conversation</p></div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-2" aria-label="Sample conversation">
-            <div className="mx-auto flex max-w-4xl flex-col gap-6 py-3">
-              {messages.map((message, index) => <MessageBubble key={index} message={message} isGameMasterMode
-                variant="desktop" expanded={expanded === index} onToggleExpanded={() => setExpanded(expanded === index ? null : index)} />)}
+        </aside>}
+        <main className="retro-shell-center min-w-0 overflow-hidden px-2 py-4 sm:px-4 max-lg:!col-start-1">
+          <header className="cosmic-workspace-header"><h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1></header>
+          <div className="cosmic-chat-viewport">
+            <div ref={scrollRef} className="cosmic-chat-scroll min-h-0 flex-1 overflow-y-auto px-2" aria-label="Sample conversation">
+              <div ref={contentRef} className="cosmic-chat-content mx-auto flex max-w-4xl flex-col gap-6">
+                {empty ? <ChatWelcome isGameMasterMode onPrompt={prompt => { composer.current?.clear(); composer.current?.append(prompt); composer.current?.focus(); }} />
+                  : <MessageList messages={conversation} isGameMasterMode variant={isDesktop ? 'desktop' : 'mobile'} activeDiceRequestId={activeRequestId} onDiceRoll={roll} />}
+              </div>
             </div>
           </div>
-          <div className="retro-input-dock px-2 pt-4 sm:px-6">
-            <div className="retro-input-shell mx-auto flex max-w-4xl items-center gap-3 rounded-2xl border p-3">
-              <textarea aria-label="Preview composer" className="retro-input-textarea min-w-0 flex-1 resize-none bg-transparent p-1" rows={1} readOnly placeholder="What do you do next?" />
-              <button type="button" disabled aria-label="Send unavailable in visual preview" className="retro-send-button retro-send-button-disabled h-10 w-10 rounded-xl text-brand-text-muted">↑</button>
-            </div>
-            <p className="mt-2 text-center text-[11px] text-brand-text-muted">Visual preview only · Scroll to see the full conversation</p>
+          <div className="retro-input-dock relative px-2 pt-4 sm:px-6">
+            {!isAtBottom && <button className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages ↓</button>}
+            <ChatComposer ref={composer} draft={draft} isLocked={!empty && hasPendingRoll} isWaiting={false} isPrimed={false} placeholder={!empty && hasPendingRoll ? 'Resolve the requested check above…' : 'What do you do next?'}
+              onSend={async content => { setConversation(previous => [...previous, { role: 'user', content }]); scrollToLatest(); return true; }} />
+            <p className="mt-2 text-center text-[11px] text-brand-text-muted">Local visual preview · <a className="text-brand-accent-secondary underline underline-offset-2" href="/?testmode=true&preview=dice">Dice set</a></p>
           </div>
         </main>
-        <aside className="retro-shell-right retro-right-container hidden p-4 lg:flex">
-          <ContextWindowPanel currentLocation="Stillwater Reservoir"
-            character={{ name: 'The Wanderer', level: 3, currentHP: 24, maxHP: 28, stats: { strength: 12, dexterity: 16, constitution: 13, intelligence: 14, wisdom: 15, charisma: 10 } }}
-            playerState={{ currentLevel: 3, currentXP: 640, xpToNextLevel: 900 }}
-            activeQuests={[{ id: 'preview-quest', title: 'The Missing Constellation', currentStep: 'Explore the light beneath Stillwater', stepProgress: '2 / 4' }]}
-            timelineEntries={messages.map((message, i) => ({ ...message, id: String(i), location: 'Starfall Observatory' }))}>
-            <div className="retro-right-section mt-4"><p className="text-sm font-semibold text-brand-text-secondary">In your pack</p><ul className="mt-3 space-y-2 text-sm text-brand-text-muted"><li>Brass compass</li><li>Keeper’s notebook</li><li>Silver lantern</li></ul></div>
-          </ContextWindowPanel>
-        </aside>
+        {isDesktop && <aside className="retro-shell-right">
+          <div className="retro-right-container flex h-full min-h-0 flex-col">
+            <div className="retro-right-stack flex min-h-0 flex-1 flex-col">
+              <ContextWindowPanel currentLocation="Stillwater Reservoir"
+                character={{ name: 'The Wanderer', level: 3, currentHP: 24, maxHP: 28, avatarSrc: previewAvatar?.src, avatarSrcWebp: previewAvatar?.srcMedium,
+                  stats: { strength: 12, dexterity: 16, constitution: 13, intelligence: 14, wisdom: 15, charisma: 10 } }}
+                playerState={{ currentLevel: 3, currentXP: 640, xpToNextLevel: 900 }}
+                activeQuests={[{ id: 'preview-quest', title: 'The Missing Constellation', currentStep: 'Explore the light beneath Stillwater', stepProgress: '2 / 4' }]}
+                timelineEntries={messages.map((message, i) => ({ ...message, id: String(i), location: 'Starfall Observatory' }))}>
+                <div className="retro-right-section mt-4"><p className="text-sm font-semibold text-brand-text-secondary">In your pack</p><ul className="mt-3 space-y-2 text-sm text-brand-text-muted"><li>Brass compass</li><li>Keeper’s notebook</li><li>Silver lantern</li></ul></div>
+              </ContextWindowPanel>
+            </div>
+          </div>
+        </aside>}
       </div>
     </div>
   </>;

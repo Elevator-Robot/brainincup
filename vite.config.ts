@@ -19,8 +19,21 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // Precache the shell; fetch optional artwork and 3D physics on demand.
+        globPatterns: ['**/*.{js,css,html,ico,woff2}', 'favicon.svg', 'images/workspace-nebula.svg'],
+        globIgnores: ['**/DiceScene-*.js', '**/rapier-*.js'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        runtimeCaching: [{
+          urlPattern: ({ url, request, sameOrigin }) => sameOrigin && (
+            request.destination === 'image' || /^\/assets\/(DiceScene|rapier)-.*\.js$/.test(url.pathname)
+          ),
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'brainincup-on-demand-v1',
+            expiration: { maxEntries: 80, maxAgeSeconds: 30 * 24 * 60 * 60 },
+            cacheableResponse: { statuses: [200] },
+          },
+        }],
       },
       includeAssets: ['brain-icon-192.png', 'brain-icon-512.png'],
       manifest: {

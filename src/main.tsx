@@ -1,148 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { getCurrentUser } from 'aws-amplify/auth';
-import App from './App';
-import CustomAuth from './components/CustomAuth';
 import SiteBackground from './components/SiteBackground';
+import WorkspaceLoading from './components/WorkspaceLoading';
 import { isTestModeEnabled } from './utils/testMode';
 import './index.css';
 import './cosmic-theme.css';
+import '@fontsource/cinzel/latin-700.css';
 import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
-import { CHARACTER_AVATAR_OPTIONS } from './constants/gameMasterAvatars';
-
-(window as unknown as { __AMPLIFY_OUTPUTS__: typeof outputs }).__AMPLIFY_OUTPUTS__ = outputs;
-console.log('Amplify outputs (mock):', outputs);
-Amplify.configure(outputs);
-
-// Preload critical avatars for faster initial render
-const preloadCriticalAvatars = () => {
-  const criticalRaces = ['terran', 'goblin', 'elvin'];
-  const criticalAvatars = CHARACTER_AVATAR_OPTIONS
-    .filter(avatar => criticalRaces.includes(avatar.race))
-    .slice(0, 3); // Preload first 3 avatars from each critical race
-
-  criticalAvatars.forEach(avatar => {
-    // Preload WebP version
-    const linkWebp = document.createElement('link');
-    linkWebp.rel = 'preload';
-    linkWebp.as = 'image';
-    linkWebp.href = avatar.srcWebp;
-    linkWebp.type = 'image/webp';
-    document.head.appendChild(linkWebp);
-
-    // Preload thumbnail for avatar selection
-    const linkThumb = document.createElement('link');
-    linkThumb.rel = 'preload';
-    linkThumb.as = 'image';
-    linkThumb.href = avatar.srcThumbnail;
-    linkThumb.type = 'image/webp';
-    document.head.appendChild(linkThumb);
-  });
-};
-
-// Run preloading after a short delay to not block initial render
-setTimeout(preloadCriticalAvatars, 100);
-
-// Add auth event listeners
 import { Hub } from 'aws-amplify/utils';
 
-let authStateCallback: (() => void) | null = null;
+const App = React.lazy(() => import('./App'));
+const CustomAuth = React.lazy(() => import('./components/CustomAuth'));
 
-Hub.listen('auth', (data) => {
-  console.log('Auth event:', data);
-  if (data.payload.event === 'signInWithRedirect_failure') {
-    console.error('🚨 OAuth failure details:', data.payload.data);
-  }
-  if (data.payload.event === 'signedIn' && authStateCallback) {
-    authStateCallback();
-  }
-});
-
-// Register service worker for PWA
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('SW registered: ', registration);
-      })
-      .catch((registrationError) => {
-        console.log('SW registration failed: ', registrationError);
-      });
-  });
-}
+(window as unknown as { __AMPLIFY_OUTPUTS__: typeof outputs }).__AMPLIFY_OUTPUTS__ = outputs;
+Amplify.configure(outputs);
 
 // Entry file intentionally hosts auth gate + app mount.
 // eslint-disable-next-line react-refresh/only-export-components
 function AuthWrapper() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [initialModeTheme, setInitialModeTheme] = useState<'brain' | 'game_master'>(() => {
-    if (typeof window === 'undefined') return 'brain';
-    return window.localStorage.getItem('lastPersonalityMode') === 'game_master' ? 'game_master' : 'brain';
-  });
-
-  useEffect(() => {
-    checkAuthState();
-    authStateCallback = checkAuthState;
-    
-    // Handle OAuth redirects
-    const handleOAuthCallback = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('code') || urlParams.get('state')) {
-        console.log('OAuth callback detected, checking auth state...');
-        setTimeout(() => checkAuthState(), 1000); // Give OAuth time to complete
-      }
-    };
-    
-    handleOAuthCallback();
-    
-    return () => {
-      authStateCallback = null;
-    };
-  }, []);
-
-  const checkAuthState = async () => {
-    console.log('Checking auth state...');
+  const checkAuthState = useCallback(async () => {
     try {
       if (isTestModeEnabled()) {
-        console.log('✅ Test mode enabled, bypassing auth');
         setIsAuthenticated(true);
-        setIsLoading(false);
         return;
       }
-
-      const user = await getCurrentUser();
-      console.log('✅ User found:', user);
+      await getCurrentUser();
       setIsAuthenticated(true);
-    } catch (error) {
-      console.log('❌ No user found:', error);
+    } catch {
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const handleAuthSuccess = () => {
-    console.log('Auth success callback triggered');
-    setInitialModeTheme(window.localStorage.getItem('lastPersonalityMode') === 'game_master' ? 'game_master' : 'brain');
-    checkAuthState();
-  };
+  useEffect(() => {
+    void checkAuthState();
+    const unsubscribe = Hub.listen('auth', ({ payload }) => {
+      if (payload.event === 'signedIn' || payload.event === 'signInWithRedirect') void checkAuthState();
+      if (payload.event === 'signedOut') setIsAuthenticated(false);
+    });
+    const params = new URLSearchParams(window.location.search);
+    const retry = params.has('code') || params.has('state')
+      ? window.setTimeout(checkAuthState, 1000)
+      : undefined;
+    return () => { unsubscribe(); window.clearTimeout(retry); };
+  }, [checkAuthState]);
 
-  if (isLoading) {
-    return (
-      <div className={`retro-rpg-ui ${initialModeTheme === 'game_master' ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain'} min-h-screen flex items-center justify-center`}>
-        <div className="text-brand-text-primary">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <CustomAuth onAuthSuccess={handleAuthSuccess} />;
-  }
-
-  return <><SiteBackground /><App /></>;
+  return <>
+    <SiteBackground />
+    <React.Suspense fallback={<WorkspaceLoading />}>
+      {isLoading ? <WorkspaceLoading /> : isAuthenticated ? <App /> : <CustomAuth onAuthSuccess={checkAuthState} />}
+    </React.Suspense>
+  </>;
 }
 
 interface RootElementWithCache extends HTMLElement {
@@ -151,6 +65,9 @@ interface RootElementWithCache extends HTMLElement {
 
 const ConversationPreview = import.meta.env.DEV
   ? React.lazy(() => import('./dev/ConversationPreview'))
+  : null;
+const DicePreview = import.meta.env.DEV
+  ? React.lazy(() => import('./dev/DicePreview'))
   : null;
 
 const rootElement = document.getElementById('root') as RootElementWithCache | null;
@@ -164,8 +81,10 @@ rootElement.__brainInCupRoot = root;
 
 root.render(
   <React.StrictMode>
-    {ConversationPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'conversation'
-      ? <React.Suspense fallback={<div role="status">Loading preview…</div>}><ConversationPreview /></React.Suspense>
-      : <AuthWrapper />}
+    {DicePreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'dice'
+      ? <React.Suspense fallback={<WorkspaceLoading />}><DicePreview /></React.Suspense>
+      : ConversationPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'conversation'
+        ? <React.Suspense fallback={<WorkspaceLoading />}><ConversationPreview /></React.Suspense>
+        : <AuthWrapper />}
   </React.StrictMode>,
 );
