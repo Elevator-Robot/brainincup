@@ -9,6 +9,7 @@
   --cosmic-border: rgb(187 184 244 / 20%);
   --cosmic-glass: linear-gradient(145deg, rgb(40 32 74 / 78%), rgb(13 23 43 / 86%));
   --cosmic-frame-surface: #0e1325;
+  --cosmic-reading-tint: rgb(10 16 33 / 72%);
   --cosmic-control: linear-gradient(135deg, rgb(110 77 165 / 24%), rgb(48 86 115 / 22%));
   --cosmic-primary: linear-gradient(135deg, #8254c7, #5458ad 60%, #387a99);
   --cosmic-shadow: inset 0 1px 0 rgb(237 224 255 / 8%), 0 8px 24px rgb(2 5 18 / 16%);
@@ -25,7 +26,7 @@
 }
 
 .retro-rpg-ui.cosmic-workspace { height: calc(100dvh - var(--site-footer-height)); min-height: 0; }
-.site-footer { position: fixed; inset: auto 0 0; z-index: 20; display: flex; align-items: center; justify-content: flex-start; gap: .3em; height: var(--site-footer-height); padding: 0 1.25rem env(safe-area-inset-bottom, 0px); border: 0; border-radius: 0 24px 24px 0; box-shadow: none; background: var(--cosmic-frame-surface); color: var(--cosmic-muted); font-family: var(--rpg-font-display); font-size: .6875rem; letter-spacing: .025em; line-height: 1.4; }
+.site-footer { position: fixed; inset: auto auto 0 0; z-index: 20; display: flex; align-items: center; justify-content: flex-start; gap: .3em; width: max-content; max-width: 100vw; height: var(--site-footer-height); padding: 0 1.25rem env(safe-area-inset-bottom, 0px); border: 0; border-radius: 0 24px 24px 0; box-shadow: none; background: var(--cosmic-frame-surface); color: var(--cosmic-muted); font-family: var(--rpg-font-display); font-size: .6875rem; letter-spacing: .025em; line-height: 1.4; }
 .site-footer a { color: var(--cosmic-violet); text-decoration: none; text-underline-offset: .2em; }
 .site-footer a:hover { color: var(--cosmic-cyan); text-decoration: underline; }
 .site-footer a:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 4px; border-radius: 2px; }
@@ -123,7 +124,9 @@ body::before { display: none; }
 }
 .site-background::after {
   content: ''; position: absolute; inset: 0; z-index: 2;
-  background: radial-gradient(ellipse at 48% 47%, rgb(6 10 25 / 30%), transparent 70%),
+  /* Shade the complete backdrop, not individual panes, so exposed gaps match. */
+  background: linear-gradient(var(--cosmic-reading-tint), var(--cosmic-reading-tint)),
+    radial-gradient(ellipse at 48% 47%, rgb(6 10 25 / 30%), transparent 70%),
     linear-gradient(180deg, rgb(8 12 28 / 8%), transparent 25%, transparent 75%, rgb(8 12 28 / 18%));
 }
 .retro-rpg-ui, .retro-app { background: transparent; color: var(--cosmic-text); }
@@ -148,7 +151,7 @@ body::before { display: none; }
 /* Window surfaces: quiet reading areas with the nebula visible around them. */
 .retro-shell-left { z-index: 30; background: var(--cosmic-frame-surface); border-bottom: 0; }
 .retro-shell-left::after { background: linear-gradient(transparent, rgb(189 165 255 / 28%), transparent); }
-.retro-shell-center { background: rgb(10 16 33 / 72%); }
+.retro-shell-center { background: transparent; }
 .retro-right-container { background: var(--cosmic-frame-surface); border-left-color: var(--cosmic-border); border-bottom: 0; }
 .retro-nav, .retro-mobile-card, .retro-mode-header, .retro-right-section,
 .retro-right-stat-tile, .rpg-panel, .retro-frame {
@@ -259,7 +262,6 @@ body::before { display: none; }
 .cosmic-workspace .retro-right-container { padding-left: 0; border-left: 1px solid var(--cosmic-border); }
 /* Separate the right context panel from the footer with a deliberate curved gap. */
 @media (min-width: 1024px) {
-  body:has(.cosmic-workspace .retro-shell-right) .site-footer { right: calc(20rem + 12px); }
   body:has(.cosmic-workspace .retro-shell-left) .site-footer::before { content: ''; position: absolute; left: 4.5rem; bottom: 100%; width: 24px; height: 24px; pointer-events: none; background: radial-gradient(circle at 100% 0%, transparent 23.5px, var(--cosmic-frame-surface) 24px); }
   .cosmic-workspace .retro-shell-left { border-right: 0; }
   .cosmic-workspace .retro-shell-left::after { display: block; height: calc(100% - 24px); background: var(--cosmic-border); }
@@ -462,7 +464,7 @@ body::before { display: none; }
 @media (max-width: 1023px) {
   .site-background-nebula { object-position: 60% center; }
   .retro-mobile-main { background: rgb(10 15 34 / 25%); }
-  .cosmic-workspace .retro-mobile-main { padding: 0; background: rgb(10 16 33 / 72%); }
+  .cosmic-workspace .retro-mobile-main { padding: 0; background: transparent; }
   .cosmic-workspace .retro-mobile-nav { border: 0; border-bottom: 1px solid var(--cosmic-border); border-radius: 0; background: transparent; box-shadow: none; }
   .cosmic-workspace .retro-mobile-card { border: 0; border-bottom: 1px solid var(--cosmic-border); border-radius: 0; background: rgb(14 19 37 / 96%); box-shadow: none; }
   .cosmic-chat-content { padding-inline: 0; }
