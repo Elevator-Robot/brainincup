@@ -158,7 +158,6 @@ export const MessageBubble = memo(function MessageBubble({
               } : undefined}
             >
               <MarkdownContent content={visibleContent} />
-              {hasInsights && <span className="cosmic-insight-cue" aria-hidden="true"><i /><i /><i /></span>}
             </div>
             {hasInsights && <span id={hintId} className="sr-only">Activate this message to {expanded ? 'hide' : 'reveal'} its thoughts.</span>}
           </div>

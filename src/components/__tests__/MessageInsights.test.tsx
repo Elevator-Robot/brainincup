@@ -15,6 +15,7 @@ describe('thoughts unfold from the message', () => {
   it.each(['desktop', 'mobile'] as const)('toggles by clicking the text on %s', variant => {
     render(<MessageList messages={[message]} isGameMasterMode={false} variant={variant} />);
     expect(screen.queryByText('Explore thoughts')).not.toBeInTheDocument();
+    expect(document.querySelector('.cosmic-insight-cue')).toBeNull();
     const trigger = screen.getByRole('button', { name: /The stars remember/ });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(trigger);
@@ -49,6 +50,6 @@ describe('thoughts unfold from the message', () => {
   it('does not imply hidden thoughts when no details exist', () => {
     render(<MessageList messages={[{ role: 'assistant', content: 'Just a message.' }]} isGameMasterMode={false} variant="desktop" />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    expect(document.querySelector('.cosmic-insight-cue')).toBeNull();
+    expect(document.querySelector('.cosmic-insight-trigger')).toBeNull();
   });
 });
