@@ -20,12 +20,12 @@ export default defineConfig({
       registerType: 'autoUpdate',
       workbox: {
         // Precache the shell; fetch optional artwork and 3D physics on demand.
-        globPatterns: ['**/*.{js,css,html,ico}', 'favicon.svg', 'images/workspace-nebula.svg'],
-        globIgnores: ['**/TroubleDice3D-*.js', '**/rapier-*.js'],
+        globPatterns: ['**/*.{js,css,html,ico,woff2}', 'favicon.svg', 'images/workspace-nebula.svg'],
+        globIgnores: ['**/DiceScene-*.js', '**/rapier-*.js'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [{
           urlPattern: ({ url, request, sameOrigin }) => sameOrigin && (
-            request.destination === 'image' || /^\/assets\/(TroubleDice3D|rapier)-.*\.js$/.test(url.pathname)
+            request.destination === 'image' || /^\/assets\/(DiceScene|rapier)-.*\.js$/.test(url.pathname)
           ),
           handler: 'CacheFirst',
           options: {

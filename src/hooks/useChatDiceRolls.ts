@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { Message } from '../components/MessageBubble';
-import { DICE_ROLL_DURATION_MS, isDiceRollExpired, parseDiceRollRequest, rollD20, type ChatDiceRoll, type DiceRollRequest } from '../utils/diceRolls';
+import { DICE_ROLL_DURATION_MS, isDiceRollExpired, parseDiceRollRequest, rollDie, type ChatDiceRoll, type DiceRollRequest } from '../utils/diceRolls';
 import { useMediaQuery } from './useMediaQuery';
 
 interface ChatDiceRollOptions {
@@ -92,7 +92,7 @@ export function useChatDiceRolls({ conversationId, messages, setMessages, busy, 
     if (!request || !['pending', 'error'].includes(request.phase) || isDiceRollExpired(request)) return;
     inFlight.current.add(requestId);
     const version = generation.current;
-    const value = request.value ?? rollD20();
+    const value = request.value ?? rollDie(request.sides ?? 20);
     const duration = request.value !== undefined || reducedMotion ? 0 : DICE_ROLL_DURATION_MS;
     const patch = (update: Partial<ChatDiceRoll>) => {
       if (generation.current !== version || current.current.conversationId !== state.conversationId) return;

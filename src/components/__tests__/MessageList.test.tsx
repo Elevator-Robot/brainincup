@@ -1,14 +1,29 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import MessageList from '../MessageList';
 import type { Message } from '../MessageBubble';
 import { DICE_ROLL_DURATION_MS } from '../../utils/diceRolls';
 
-vi.mock('../DiceRoller', () => ({ default: () => <span aria-hidden="true" /> }));
-beforeEach(() => vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} })));
+beforeEach(() => {
+  vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
+  vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} });
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe('dice result reveal', () => {
+  it('offers only the die and purpose supplied by the active Brain request', () => {
+    const onDiceRoll = vi.fn();
+    render(<MessageList messages={[{ role: 'assistant', content: '', diceRoll: {
+      requestId: 'damage', sides: 8, statName: 'ability', purpose: 'Longsword damage', phase: 'pending',
+    } }]} isGameMasterMode variant="desktop" activeDiceRequestId="damage" onDiceRoll={onDiceRoll} />);
+    expect(screen.getByRole('heading', { name: 'Longsword damage' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Roll d20' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(document.querySelector('.cosmic-roll-die-number')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Roll d8' }));
+    expect(onDiceRoll).toHaveBeenCalledExactlyOnceWith('damage');
+  });
+
   it('holds early backend narration until the roll finishes', () => {
     const messages: Message[] = [
       { role: 'assistant', content: 'Make a Dexterity check.' },

@@ -13,6 +13,7 @@
   --cosmic-shadow: inset 0 1px 0 rgb(237 224 255 / 8%), 0 8px 24px rgb(2 5 18 / 16%);
   --cosmic-ease: cubic-bezier(.22, 1, .36, 1);
   --cosmic-accent-rgb: 140 236 243;
+  --dice-number-font: Cinzel, Georgia, serif;
   --rpg-font-display: Oxanium, "Trebuchet MS", sans-serif;
   --rpg-font-body: Nunito, system-ui, sans-serif;
   --rpg-text-parchment: var(--cosmic-text);
@@ -280,38 +281,74 @@ body::before { display: none; }
 .cosmic-roll-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-inline: 1rem; }
 .cosmic-roll-heading h3 { color: var(--cosmic-violet); font-size: .8125rem; font-weight: 500; text-transform: capitalize; }
 .cosmic-roll-heading > span { color: var(--cosmic-muted); font-size: .6875rem; font-variant-numeric: tabular-nums; }
-.cosmic-roll-trigger { display: block; position: relative; width: 100%; padding: 0; border: 0; border-radius: .375rem; background: transparent; cursor: pointer; }
-.cosmic-roll-trigger:disabled { cursor: default; }
-.cosmic-roll-die { position: relative; display: block; width: 100%; height: 15rem; overflow: visible; pointer-events: none; }
-.cosmic-roll-die::before {
+.cosmic-roll-interaction { position: relative; width: 100%; }
+.cosmic-roll-die { position: relative; display: block; width: 100%; height: 15rem; overflow: visible; }
+.cosmic-roll-die::before, .cosmic-die-light::before {
   content: ''; position: absolute; left: 50%; top: 50%; width: 22rem; height: 20rem;
   translate: calc(-50% + var(--dice-x, 0px)) calc(-50% + var(--dice-y, 0px));
   /* Each halo fades completely inside its bounds, including the offset cyan light. */
   background:
     radial-gradient(ellipse closest-side at 50% 48%, rgb(211 184 255 / 14%), transparent 72%),
-    radial-gradient(ellipse closest-side at 46% 47%, rgb(151 92 238 / 34%), rgb(122 76 206 / 18%) 35%, rgb(100 65 174 / 6%) 68%, transparent 100%),
+    radial-gradient(ellipse closest-side at 46% 47%, rgb(var(--dice-light, 151 92 238) / 34%), rgb(var(--dice-light, 122 76 206) / 18%) 35%, rgb(var(--dice-light, 100 65 174) / 6%) 68%, transparent 100%),
     radial-gradient(ellipse closest-side at 63% 58%, rgb(91 224 241 / 24%), rgb(65 169 201 / 10%) 45%, transparent 100%);
   opacity: .8; transition: opacity 180ms ease;
 }
-.cosmic-roll-die::after { content: ''; position: absolute; left: 50%; bottom: 1.75rem; width: 9rem; height: 1rem; translate: calc(-50% + var(--dice-x, 0px)) 0; scale: var(--dice-shadow-scale, 1) 1; opacity: var(--dice-shadow-opacity, .65); background: radial-gradient(ellipse closest-side, rgb(132 103 225 / 32%), transparent 100%); }
-.cosmic-roll-trigger:hover:not(:disabled) .cosmic-roll-die::before { opacity: 1; }
+.cosmic-roll-die::after, .cosmic-die-light::after { content: ''; position: absolute; left: 50%; top: 50%; width: 9rem; height: 1rem; translate: calc(-50% + var(--dice-shadow-x, var(--dice-x, 0px))) calc(-50% + var(--dice-shadow-y, 4.25rem)); scale: var(--dice-shadow-scale, 1) 1; opacity: var(--dice-shadow-opacity, .65); background: radial-gradient(ellipse closest-side, rgb(var(--dice-light, 132 103 225) / 32%), transparent 100%); }
+.cosmic-die-light { position: absolute; inset: 0; pointer-events: none; }
+.cosmic-roll-die::before, .cosmic-roll-die::after { pointer-events: none; }
+.cosmic-roll-die--multiple::before, .cosmic-roll-die--multiple::after { display: none; }
+.cosmic-roll-die[data-pressed='true']::before, .cosmic-die-light[data-pressed='true']::before { opacity: 1; transform: scale(1.08); }
+.cosmic-roll-die[data-focused='true']::before, .cosmic-die-light[data-focused='true']::before { opacity: 1; }
 .cosmic-three-dice-shell, .cosmic-three-dice-canvas-wrap { position: absolute; inset: 0; display: block; }
+.cosmic-three-dice-shell { pointer-events: none; }
 .cosmic-three-dice-canvas-wrap { top: -100%; pointer-events: none; }
 .cosmic-three-dice-canvas { width: 100% !important; height: 100% !important; pointer-events: none !important; }
-.cosmic-roll-die-number { position: absolute; left: 50%; top: 50%; z-index: 1; transform: translate(-50%, -50%); color: #fff; font: 700 2.5rem/1 var(--rpg-font-body); font-variant-numeric: tabular-nums lining-nums; text-shadow: 0 1px 5px #100d29; }
+.cosmic-roll-die-number { position: absolute; left: 50%; top: 50%; z-index: 1; transform: translate(-50%, -50%); color: #fff3d5; font: 700 2rem/1 var(--dice-number-font); font-variant-numeric: tabular-nums lining-nums; text-shadow: 0 1px 3px rgb(16 13 41 / 75%); }
 .cosmic-roll-die-fallback { position: absolute; inset: 0; display: block; }
+.cosmic-die-keyboard-target { position: absolute; left: 50%; top: 50%; width: var(--dice-hit-size, 8rem); height: var(--dice-hit-size, 8rem); translate: calc(-50% + var(--dice-x, 0px)) calc(-50% + var(--dice-y, 0px)); padding: 0; border: 0; border-radius: .375rem; background: transparent; opacity: 0; pointer-events: none; }
+.cosmic-die-keyboard-target:focus-visible { opacity: 1; outline: 2px solid var(--cosmic-violet); outline-offset: 4px; }
+.cosmic-dice-fallback-item { position: absolute; left: calc(50% - 4.5rem); top: calc(50% - 4.5rem); width: 9rem; height: 9rem; }
+.cosmic-die-fallback-target { padding: 0; border: 0; background: transparent; pointer-events: none; }
+.cosmic-die-fallback-target:not(:disabled) .cosmic-roll-die-face, .cosmic-die-fallback-target:not(:disabled) .cosmic-roll-die-edges { pointer-events: visiblePainted; cursor: pointer; }
+.cosmic-die-fallback-target[data-pressed='true'] .cosmic-roll-die-face { fill: rgb(var(--dice-light, 150 105 224) / 45%); }
+.cosmic-die-fallback-target .cosmic-roll-die-number { pointer-events: none; }
+.cosmic-dice-fallback-pair { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1.5rem; }
+.cosmic-dice-fallback-pair .cosmic-dice-fallback-item { position: relative; inset: auto; width: 9rem; height: 9rem; }
 .cosmic-roll-die-shape { position: absolute; left: calc(50% - 4.5rem); top: calc(50% - 4.5rem); width: 9rem; height: 9rem; }
 .cosmic-roll-die-face { fill: rgb(150 105 224 / 18%); }
 .cosmic-roll-die-edges { stroke: var(--cosmic-violet); stroke-opacity: .8; stroke-width: 1; stroke-linejoin: round; }
-.cosmic-roll-die--rolling::before { animation: cosmic-dice-energy var(--dice-roll-duration, 4800ms) ease-out both; }
+.cosmic-roll-die--rolling::before, .cosmic-die-light[data-rolling='true']::before { animation: cosmic-dice-energy var(--dice-roll-duration, 4800ms) ease-out both; }
+.cosmic-roll-die--rolling .cosmic-roll-die-number { animation: cosmic-dice-number-in var(--dice-number-fade, 180ms) ease-out both; animation-delay: var(--dice-number-delay, 300ms); }
 .cosmic-roll-die--rolling .cosmic-roll-die-shape { animation: cosmic-dice-turn 650ms ease-in-out infinite; }
 .cosmic-roll-caption { display: flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2rem; color: var(--cosmic-violet); font-size: .75rem; }
-.cosmic-roll-trigger:hover:not(:disabled) .cosmic-roll-caption { color: var(--cosmic-cyan); }
 .cosmic-roll-math { margin-top: .25rem; color: var(--cosmic-muted); text-align: center; font-size: .75rem; font-variant-numeric: tabular-nums; }
 .cosmic-roll-math strong { color: var(--cosmic-cyan); font-size: 1rem; font-weight: 600; }
 .cosmic-roll-prompt[data-phase='submitted'] .cosmic-roll-caption { color: var(--cosmic-cyan); }
 .cosmic-roll-prompt[data-revealed] .cosmic-roll-die-number { animation: cosmic-dice-result 420ms var(--cosmic-ease) both; color: #e4fcff; }
 .cosmic-roll-error { margin-top: .5rem; color: #fca5a5; font-size: .75rem; line-height: 1.5; }
+.cosmic-dice-lab { min-height: 100dvh; background: linear-gradient(135deg, rgb(9 13 29 / 78%), rgb(10 18 34 / 72%)); }
+.cosmic-dice-lab-header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1rem; max-width: 80rem; margin: 0 auto; padding: 1.25rem 1.5rem; }
+.cosmic-dice-lab-back { display: inline-flex; align-items: center; gap: .65rem; min-height: 44px; color: var(--cosmic-muted); font-size: .8125rem; }
+.cosmic-dice-lab-back:hover { color: var(--cosmic-cyan); }
+.cosmic-dice-lab-status { justify-self: end; display: flex; align-items: center; min-height: 44px; color: var(--cosmic-muted); font-size: .75rem; text-align: right; }
+.cosmic-dice-lab-main { max-width: 80rem; margin: 0 auto; padding: 1rem 1.5rem 2rem; }
+.cosmic-dice-lab-title h1 { font-size: 1.5rem; font-weight: 500; }
+.cosmic-dice-lab-title p { margin-top: .5rem; color: var(--cosmic-muted); font-size: .875rem; }
+.cosmic-dice-table { margin-top: 2.5rem; }
+.cosmic-dice-collection { height: 22rem; }
+.cosmic-dice-results { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1rem; padding: 1.5rem 0; border-block: 1px solid var(--cosmic-border); }
+.cosmic-dice-results li { min-width: 0; text-align: center; }
+.cosmic-dice-results h2 { font-size: .875rem; font-weight: 600; }
+.cosmic-dice-result-value { margin: .5rem 0; font: 700 1.75rem/1.2 var(--dice-number-font); color: #fff3d5; }
+.cosmic-dice-results li > p:last-child { color: var(--cosmic-muted); font-size: .6875rem; line-height: 1.5; }
+.cosmic-dice-lab-note { margin-top: 1rem; color: var(--cosmic-muted); text-align: center; font-size: .75rem; }
+@media (max-width: 640px) {
+  .cosmic-dice-lab-header, .cosmic-dice-lab-main { padding-inline: 1rem; }
+  .cosmic-dice-lab-back span { display: none; }
+  .cosmic-dice-lab-header .cosmic-wordmark { font-size: 1rem; }
+  .cosmic-dice-lab .cosmic-dice-collection { height: 32rem; }
+  .cosmic-dice-results { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 @keyframes cosmic-dice-energy {
   0% { opacity: .45; transform: scale(.85); }
   8%, 38% { opacity: 1; transform: scale(1.14); }
@@ -320,6 +357,7 @@ body::before { display: none; }
   100% { opacity: .45; transform: scale(.96); }
 }
 @keyframes cosmic-dice-result { 0% { scale: .88; } 55% { scale: 1.12; } 100% { scale: 1; } }
+@keyframes cosmic-dice-number-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes cosmic-dice-turn {
   from { transform: rotate(-8deg); }
   to { transform: rotate(352deg); }
@@ -347,7 +385,7 @@ body::before { display: none; }
   .cosmic-composer-hint { display: none; }
   .cosmic-roll-prompt { align-self: center; }
   .cosmic-roll-die { height: 14rem; }
-  .cosmic-roll-die-number { font-size: 2.25rem; }
+  .cosmic-roll-die-number { font-size: 1.8rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .site-background-nebula, .site-background::before { animation: none; will-change: auto; }

@@ -989,7 +989,7 @@ function App() {
     setIsWaitingForResponse(true);
     try {
       const result = await dataClient.models.Message.create({
-        content: JSON.stringify({ type: 'DICE_RESULT', requestId: request.requestId, diceValue }),
+        content: JSON.stringify({ type: 'DICE_RESULT', requestId: request.requestId, diceValue, sides: request.sides ?? 20 }),
         conversationId,
       });
       if (result.errors?.length || !result.data?.id) throw new Error(formatModelErrors(result.errors) || 'Result was not saved');

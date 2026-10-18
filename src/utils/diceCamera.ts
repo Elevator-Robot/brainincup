@@ -4,9 +4,9 @@ export const DIE_RADIUS = .82;
 export const DICE_ARENA_HALF_HEIGHT = 1.45;
 const EDGE_GUTTER = .22;
 
-export function getDiceView(width: number, height: number, headroom = 0) {
+export function getDiceView(width: number, height: number, headroom = 0, minimumHalfHeight = DICE_ARENA_HALF_HEIGHT + EDGE_GUTTER) {
   const aspect = Math.max(1, width) / Math.max(1, height);
-  const halfHeight = Math.max(DICE_ARENA_HALF_HEIGHT + EDGE_GUTTER, (DIE_RADIUS + .45 + EDGE_GUTTER) / aspect);
+  const halfHeight = Math.max(minimumHalfHeight, (DIE_RADIUS + .45 + EDGE_GUTTER) / aspect);
   const halfWidth = halfHeight * aspect;
   const unitsPerPixel = halfHeight * 2 / Math.max(1, height);
   return {

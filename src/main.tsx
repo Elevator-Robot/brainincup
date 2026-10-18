@@ -7,6 +7,7 @@ import WorkspaceLoading from './components/WorkspaceLoading';
 import { isTestModeEnabled } from './utils/testMode';
 import './index.css';
 import './cosmic-theme.css';
+import '@fontsource/cinzel/latin-700.css';
 import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
 import { Hub } from 'aws-amplify/utils';
@@ -65,6 +66,9 @@ interface RootElementWithCache extends HTMLElement {
 const ConversationPreview = import.meta.env.DEV
   ? React.lazy(() => import('./dev/ConversationPreview'))
   : null;
+const DicePreview = import.meta.env.DEV
+  ? React.lazy(() => import('./dev/DicePreview'))
+  : null;
 
 const rootElement = document.getElementById('root') as RootElementWithCache | null;
 
@@ -77,8 +81,10 @@ rootElement.__brainInCupRoot = root;
 
 root.render(
   <React.StrictMode>
-    {ConversationPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'conversation'
-      ? <React.Suspense fallback={<WorkspaceLoading />}><ConversationPreview /></React.Suspense>
-      : <AuthWrapper />}
+    {DicePreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'dice'
+      ? <React.Suspense fallback={<WorkspaceLoading />}><DicePreview /></React.Suspense>
+      : ConversationPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'conversation'
+        ? <React.Suspense fallback={<WorkspaceLoading />}><ConversationPreview /></React.Suspense>
+        : <AuthWrapper />}
   </React.StrictMode>,
 );

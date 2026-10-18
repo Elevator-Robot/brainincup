@@ -78,7 +78,7 @@ export default function ConversationPreview() {
             {!isAtBottom && <button className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages ↓</button>}
             <ChatComposer ref={composer} draft={draft} isLocked={!empty && hasPendingRoll} isWaiting={false} isPrimed={false} placeholder={!empty && hasPendingRoll ? 'Resolve the requested check above…' : 'What do you do next?'}
               onSend={async content => { setConversation(previous => [...previous, { role: 'user', content }]); scrollToLatest(); return true; }} />
-            <p className="mt-2 text-center text-[11px] text-brand-text-muted">Local visual preview</p>
+            <p className="mt-2 text-center text-[11px] text-brand-text-muted">Local visual preview · <a className="text-brand-accent-secondary underline underline-offset-2" href="/?testmode=true&preview=dice">Dice set</a></p>
           </div>
         </main>
         {isDesktop && <aside className="retro-shell-right">

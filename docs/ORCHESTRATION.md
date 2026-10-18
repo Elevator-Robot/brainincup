@@ -294,7 +294,7 @@ sequenceDiagram
     B->>DB: write_pending_dice_roll (idempotent)
     DB-->>F: observeQuery pendingDiceRoll (fallback trigger)
     F->>F: show an inline check prompt after narration
-    P->>F: click Roll d20 (once per active request)
+    P->>F: press and release the die asset (once per active request)
     F->>F: animate the centered number, retain the selected result
     F->>B: Message {type:"DICE_RESULT", requestId, diceValue}
     B->>DB: validate requestId, resolve_stat_check, XP, diceRollLog<-, clear pending
@@ -311,9 +311,27 @@ Two **redundant sources** create the same inline prompt, deduplicated by request
    as a fallback (e.g. when streaming is bypassed).
 
 Neither source rolls automatically. Only an active, unexpired request enables
-the chat's Roll d20 button. Completed or superseded checks cannot be rerolled;
+the chat's die asset. Pointer input is raycast against the geometry, not the
+surrounding canvas; drags and scrolling cancel a press. Keyboard activation
+targets the same die. Completed or superseded checks cannot be rerolled;
 failed submissions retry the original selected value. There is no free-roll
 control in the context panel.
+
+The chat renderer also accepts `sides` (`4`, `6`, `8`, `10`, `12`, `20`, or
+`100`), a `purpose` label, and an optional integer `modifier` on a pending
+request. Omitted `sides` means d20, preserving existing ability checks. The
+client reports the selected `sides` alongside `diceValue`; it does not expose
+a player-facing die selector. A d100 is visualized as two pentagonal
+trapezohedra (tens and units), with `00 + 0` representing 100.
+
+The current orchestrator issues d20 stat checks. Additional purposes and their
+adjudication belong in Brain's orchestrator; the generalized client rendering
+contract is ready for those requests. The dice preview table at
+`/?testmode=true&preview=dice` is development-only and never submits game data.
+Clicking a die there rolls only that die, with independent timing and results.
+Dice rest face-down on the floor and reveal their numeral after a brief
+post-click delay. Renderer structure and extension
+points are documented in `src/components/dice/README.md`.
 
 The die result arrives as a normal `Message` whose content is the JSON
 `{"type":"DICE_RESULT","requestId":...,"diceValue":...}`. `intent.py` parses it

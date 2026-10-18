@@ -2,11 +2,11 @@ import { act, renderHook } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message } from '../components/MessageBubble';
-import { DICE_ROLL_DURATION_MS, rollD20, type DiceRollRequest } from '../utils/diceRolls';
+import { DICE_ROLL_DURATION_MS, rollDie, type DiceRollRequest } from '../utils/diceRolls';
 import { useChatDiceRolls } from './useChatDiceRolls';
 
 vi.mock('../utils/diceRolls', async importOriginal => ({
-  ...await importOriginal<typeof import('../utils/diceRolls')>(), rollD20: vi.fn(() => 14),
+  ...await importOriginal<typeof import('../utils/diceRolls')>(), rollDie: vi.fn(() => 14),
 }));
 
 const request: DiceRollRequest = { requestId: 'check-1', statName: 'dexterity', statValue: 16, difficultyClass: 15 };
@@ -15,7 +15,7 @@ let reducedMotion = false;
 beforeEach(() => {
   vi.useFakeTimers();
   reducedMotion = false;
-  vi.mocked(rollD20).mockClear();
+  vi.mocked(rollDie).mockClear();
   vi.stubGlobal('matchMedia', () => ({ matches: reducedMotion, addEventListener() {}, removeEventListener() {} }));
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
@@ -36,7 +36,7 @@ describe('requested chat dice checks', () => {
     expect(result.current.messages).toHaveLength(1);
     expect(result.current.messages[0].diceRoll?.phase).toBe('pending');
     expect(result.current.hasPendingRoll).toBe(true);
-    expect(rollD20).not.toHaveBeenCalled();
+    expect(rollDie).not.toHaveBeenCalled();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -57,7 +57,7 @@ describe('requested chat dice checks', () => {
     expect(result.current.hasPendingRoll).toBe(false);
     await act(async () => { await result.current.roll(request.requestId); });
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(rollD20).toHaveBeenCalledTimes(1);
+    expect(rollDie).toHaveBeenCalledExactlyOnceWith(20);
   });
 
   it('retries failed submissions with the original number, not a new roll', async () => {
@@ -70,7 +70,7 @@ describe('requested chat dice checks', () => {
     await act(async () => { await result.current.roll(request.requestId); });
     expect(result.current.messages[0].diceRoll).toMatchObject({ phase: 'submitted', value: 14 });
     expect(onSubmit.mock.calls.map(call => call[1])).toEqual([14, 14]);
-    expect(rollD20).toHaveBeenCalledTimes(1);
+    expect(rollDie).toHaveBeenCalledTimes(1);
   });
 
   it('rejects unsolicited, expired, replaced, or other-conversation checks', async () => {
@@ -121,7 +121,7 @@ describe('requested chat dice checks', () => {
     act(() => result.current.requestRoll(request));
     await act(async () => { await result.current.roll(request.requestId); });
     expect(onSubmit).toHaveBeenCalledExactlyOnceWith(expect.objectContaining(request), 8);
-    expect(rollD20).not.toHaveBeenCalled();
+    expect(rollDie).not.toHaveBeenCalled();
   });
 
   it('keeps the turn locked until the reveal even when the server resolves early', async () => {
@@ -143,5 +143,19 @@ describe('requested chat dice checks', () => {
     expect(result.current.messages[0].diceRoll).toMatchObject({ phase: 'submitted', duration: 0 });
     unmount();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('rolls the die Brain requested and retains that result on a retry', async () => {
+    reducedMotion = true;
+    vi.mocked(rollDie).mockReturnValueOnce(4);
+    const onSubmit = vi.fn().mockRejectedValueOnce(new Error('Offline')).mockResolvedValue(undefined);
+    const { result } = mountRolls(onSubmit);
+    act(() => result.current.requestRoll({ requestId: 'damage', sides: 6, purpose: 'Dagger damage' }));
+    await act(async () => { await result.current.roll('damage'); });
+    expect(rollDie).toHaveBeenCalledExactlyOnceWith(6);
+    expect(result.current.messages[0].diceRoll).toMatchObject({ sides: 6, purpose: 'Dagger damage', value: 4, phase: 'error' });
+    await act(async () => { await result.current.roll('damage'); });
+    expect(onSubmit.mock.calls.map(call => call[1])).toEqual([4, 4]);
+    expect(rollDie).toHaveBeenCalledTimes(1);
   });
 });

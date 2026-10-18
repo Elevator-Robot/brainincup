@@ -1,14 +1,21 @@
 import { Component, lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePageVisible } from '../hooks/usePageVisible';
+import { DIE_STYLES, getVisualDice, type DiceSides } from '../game/dice';
+import DieFallback from './dice/DieFallback';
+import { NUMBER_REVEAL_DELAY_MS, NUMBER_REVEAL_FADE_MS } from './dice/presentation';
 
-const TroubleDice3D = lazy(() => import('./TroubleDice3D'));
+const DiceScene = lazy(() => import('./dice/DiceScene'));
 
 interface DiceRollerProps {
   isRolling: boolean;
-  displayValue: string;
+  displayValue?: string;
   rollNonce: number;
   duration: number;
+  sides?: DiceSides;
+  disabled?: boolean;
+  onRoll?: () => void;
+  actionLabel?: string;
 }
 
 class DiceBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
@@ -18,7 +25,7 @@ class DiceBoundary extends Component<{ children: ReactNode; fallback: ReactNode 
 }
 
 /** Load on first appearance, then pause offscreen without resetting the settled die. */
-export default function DiceRoller({ isRolling, displayValue, rollNonce, duration }: DiceRollerProps) {
+export default function DiceRoller({ isRolling, displayValue, rollNonce, duration, sides = 20, disabled = false, onRoll, actionLabel = `Roll d${sides}` }: DiceRollerProps) {
   const shell = useRef<HTMLSpanElement>(null);
   const [inView, setInView] = useState(false);
   const [hasAppeared, setHasAppeared] = useState(false);
@@ -33,19 +40,20 @@ export default function DiceRoller({ isRolling, displayValue, rollNonce, duratio
     return () => observer.disconnect();
   }, []);
 
-  const fallback = <span className="cosmic-roll-die-fallback">
-    <svg className="cosmic-roll-die-shape" viewBox="0 0 120 120" fill="none">
-      <path className="cosmic-roll-die-face" d="m60 5 47 28v54l-47 28L13 87V33L60 5Z" />
-      <path className="cosmic-roll-die-edges" d="m60 5 47 28v54l-47 28L13 87V33L60 5Zm0 0L32 42h56L60 5ZM13 33l19 9-9 40-10 5m94-54-19 9 9 40 10 5M23 82l37 33 37-33M32 42l-9 40m65-40 9 40" />
-    </svg>
-    <span className="cosmic-roll-die-number">{displayValue}</span>
+  const dice = getVisualDice(sides, displayValue === undefined ? undefined : Number(displayValue));
+  const enabled = Boolean(onRoll && !disabled && !isRolling);
+  const fallback = <span className={dice.length > 1 ? 'cosmic-dice-fallback-pair' : 'cosmic-roll-die-fallback'}>
+    {dice.map(die => <DieFallback key={die.id} die={die} enabled={enabled}
+      label={`${actionLabel}${dice.length > 1 ? ` (${die.label})` : ''}`} onActivate={() => onRoll?.()} />)}
   </span>;
 
-  return <span ref={shell} className={`cosmic-roll-die ${isRolling ? 'cosmic-roll-die--rolling' : ''}`}
-    style={{ '--dice-roll-duration': `${duration}ms` } as CSSProperties} aria-hidden="true">
+  return <span ref={shell} className={`cosmic-roll-die ${isRolling ? 'cosmic-roll-die--rolling' : ''} ${dice.length > 1 ? 'cosmic-roll-die--multiple' : ''}`}
+    style={{ '--dice-roll-duration': `${duration}ms`, '--dice-light': DIE_STYLES[dice[0].kind].light,
+      '--dice-number-delay': `${NUMBER_REVEAL_DELAY_MS}ms`, '--dice-number-fade': `${NUMBER_REVEAL_FADE_MS}ms` } as CSSProperties} role="group" aria-label={`d${sides} dice`}>
     {hasAppeared && !reducedMotion
       ? <DiceBoundary fallback={fallback}><Suspense fallback={fallback}>
-        <TroubleDice3D rollNonce={rollNonce} isRolling={isRolling} displayValue={displayValue} duration={duration} active={visible && inView} stageRef={shell} />
+        <DiceScene dice={dice} rollNonce={rollNonce} isRolling={isRolling} duration={duration} active={visible && inView} stageRef={shell}
+          canActivate={enabled} onDieActivate={() => onRoll?.()} actionLabel={actionLabel} />
       </Suspense></DiceBoundary>
       : fallback}
   </span>;
