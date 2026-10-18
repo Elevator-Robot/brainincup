@@ -25,7 +25,8 @@
   --rpg-tracking-label: .08em;
 }
 
-.retro-rpg-ui.cosmic-workspace { height: calc(100dvh - var(--site-footer-height)); min-height: 0; }
+.retro-rpg-ui.cosmic-workspace { height: 100dvh; min-height: 0; }
+/* The fixed credit is decorative chrome, with no space reserved in page layout. */
 .site-footer { position: fixed; inset: auto auto 0 0; z-index: 20; display: flex; align-items: center; justify-content: flex-start; gap: .3em; width: max-content; max-width: 100vw; height: var(--site-footer-height); padding: 0 1.25rem env(safe-area-inset-bottom, 0px); border: 0; border-radius: 0 24px 24px 0; box-shadow: none; background: var(--cosmic-frame-surface); color: var(--cosmic-muted); font-family: var(--rpg-font-display); font-size: .6875rem; letter-spacing: .025em; line-height: 1.4; }
 .site-footer a { color: var(--cosmic-violet); text-decoration: none; text-underline-offset: .2em; }
 .site-footer a:hover { color: var(--cosmic-cyan); text-decoration: underline; }
@@ -208,6 +209,9 @@ body::before { display: none; }
 }
 .retro-input-textarea { color: var(--cosmic-text) !important; }
 .retro-input-textarea::placeholder { color: var(--cosmic-muted) !important; }
+.cosmic-composer .retro-input-shell { border-radius: 24px; }
+.cosmic-composer .retro-input-textarea { border-radius: 16px; }
+.cosmic-composer .retro-send-button { border-radius: 50%; }
 .retro-keycap { background: rgb(30 37 66 / 80%) !important; border-color: var(--cosmic-border) !important; color: #d6def3; }
 .retro-status-pill { border-color: var(--cosmic-border); background: rgb(189 165 255 / 12%); color: #e3dcff; }
 .retro-context-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; padding: 0; margin-bottom: 1rem; border-radius: 0; border-bottom: 1px solid var(--cosmic-border); background: transparent; box-shadow: none; }
@@ -251,7 +255,7 @@ body::before { display: none; }
 .cosmic-wordmark { font: 500 1.25rem/1.3 var(--rpg-font-display); letter-spacing: -.025em; color: #f6edff; }
 .cosmic-wordmark strong { font-weight: 700; color: var(--cosmic-violet); }
 .cosmic-workspace-header { display: grid; place-items: center; flex: none; min-height: 3.25rem; margin-bottom: .5rem; }
-.cosmic-workspace .retro-shell { padding: 0; gap: 0; grid-template-columns: 4.5rem minmax(0, 1fr) minmax(17rem, 20rem); }
+.cosmic-workspace .retro-shell { padding: 0; gap: 0; grid-template-columns: 4.5rem minmax(0, 1fr) fit-content(20rem); }
 .cosmic-workspace :is(.retro-shell-left, .retro-shell-center, .retro-right-container) { border: 0; border-radius: 0; box-shadow: none; }
 .cosmic-workspace .retro-shell-left { border-right: 1px solid var(--cosmic-border); }
 .cosmic-workspace .retro-shell-left::after { display: none; }
@@ -265,15 +269,16 @@ body::before { display: none; }
 @media (min-width: 1024px) {
   body:has(.cosmic-workspace .retro-shell-left) .site-footer::before { content: ''; position: absolute; left: calc(4.5rem - 1px); bottom: calc(100% - 1px); width: 25px; height: 25px; pointer-events: none; background: radial-gradient(circle at 100% 0%, transparent 24px, var(--cosmic-border) 24px, var(--cosmic-border) 25px, transparent 25px), radial-gradient(circle at 100% 0%, transparent 24px, var(--cosmic-frame-surface) 24px); }
   body:has(.cosmic-workspace .retro-shell-left) .site-footer::after { clip-path: inset(0 0 0 calc(4.5rem + 24px)); }
-  .cosmic-workspace .retro-shell-left { border-right: 0; }
-  .cosmic-workspace .retro-shell-left::after { display: block; height: calc(100% - 24px); background: var(--cosmic-border); }
-  .cosmic-workspace .retro-shell-right { padding-bottom: 12px; }
-  .cosmic-workspace .retro-right-container { border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+  .cosmic-workspace .retro-shell-left { border-right: 0; background: linear-gradient(var(--cosmic-frame-surface), var(--cosmic-frame-surface)) top / 100% calc(100% - var(--site-footer-height)) no-repeat; }
+  .cosmic-workspace .retro-shell-left::after { display: block; height: calc(100% - var(--site-footer-height) - 24px); background: var(--cosmic-border); }
+  .cosmic-workspace .retro-shell-right { align-self: start; max-height: calc(100dvh - 12px); }
+  .cosmic-workspace .retro-right-container { height: auto; max-height: calc(100dvh - 12px); border-bottom: 1px solid var(--cosmic-border); border-right: 1px solid var(--cosmic-border); border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+  .cosmic-workspace .retro-right-stack { height: auto; }
 }
 .cosmic-workspace .retro-main { padding-top: .75rem; }
 .cosmic-workspace .retro-right-stack { padding: 1rem; }
 .cosmic-context-panel { width: 100%; min-width: 0; }
-.cosmic-context-panel .retro-context-body { scrollbar-gutter: stable both-edges; padding-inline: .25rem; }
+.cosmic-context-panel .retro-context-body { scrollbar-gutter: stable both-edges; padding-inline: .25rem; overflow-wrap: anywhere; }
 /* Reserve the existing hover translation so the level stays inside the panel. */
 .retro-character-sheet .retro-character-identity { padding-right: 8px; }
 .cosmic-workspace .retro-right-section { padding: 1rem 0 0; border: 0; border-top: 1px solid var(--cosmic-border); border-radius: 0; background: transparent; box-shadow: none; }
@@ -348,11 +353,15 @@ body::before { display: none; }
 .gm-preview-mobile-context { margin: 0 .5rem .5rem; border: 1px solid var(--cosmic-border); border-radius: 12px; background: rgb(18 22 43 / 75%); }
 .gm-preview-mobile-context > button { display: flex; justify-content: space-between; width: 100%; padding: .75rem 1rem; min-height: 44px; color: var(--cosmic-text); font-size: .8rem; }
 .gm-preview-mobile-body { max-height: 52dvh; overflow-y: auto; overscroll-behavior: contain; padding: 0 1rem 1rem; }
-.gm-preview-desktop-context { display: flex; flex: 1; min-height: 0; flex-direction: column; overflow-y: auto; padding: 1.25rem; }
+.gm-preview-desktop-context { display: flex; flex: 1; min-height: 0; flex-direction: column; overflow-y: auto; padding: 1rem; }
 .gm-context-reveal { animation: gm-context-arrive 280ms var(--cosmic-ease) both; }
 @keyframes gm-context-arrive { from { opacity: 0; transform: translateX(var(--gm-panel-shift, 8px)); filter: blur(3px); } to { opacity: 1; transform: translateX(0); filter: blur(0); } }
+.cosmic-workspace .retro-right-container { animation: gm-menu-unfold 460ms var(--cosmic-ease); }
+.gm-menu-content-reveal, .cosmic-context-panel .retro-character-sheet { animation: gm-menu-unfold 340ms var(--cosmic-ease); }
+/* Reveal the surface downward without changing layout or clipping later hovers. */
+@keyframes gm-menu-unfold { from { clip-path: inset(0 0 100% 0); opacity: .35; } to { clip-path: inset(0); opacity: 1; } }
 @media (max-width: 639px) { .gm-quick-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); } .gm-quick-actions button { min-height: 44px; padding-inline: .25rem; font-size: .7rem; } }
-@media (prefers-reduced-motion: reduce) { .gm-quick-actions button, .gm-avatar-card { transition: none; } .gm-context-reveal { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .gm-quick-actions button, .gm-avatar-card { transition: none; } .gm-context-reveal, .cosmic-workspace .retro-right-container, .gm-menu-content-reveal, .cosmic-context-panel .retro-character-sheet { animation: none; } }
 .retro-send-button { transition: transform 180ms var(--cosmic-ease), background-color 180ms ease; }
 .retro-send-button:active:not(:disabled) { transform: scale(.95); }
 .retro-send-button:disabled { opacity: .5; cursor: not-allowed; }

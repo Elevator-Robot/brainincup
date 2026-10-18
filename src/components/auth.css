@@ -1,11 +1,11 @@
 /* Arcane Kitchen's glass auth treatment with Brain in Cup's layered artwork. */
 
-.bic-auth-landing { min-height: calc(100dvh - var(--site-footer-height)); color: var(--cosmic-text); font-family: var(--rpg-font-body); }
+.bic-auth-landing { min-height: 100dvh; color: var(--cosmic-text); font-family: var(--rpg-font-body); }
 .bic-auth-overlay {
   --auth-inset: clamp(.75rem, 3vw, 2rem);
-  --auth-content-height: calc(var(--auth-viewport-height, 100dvh) - var(--site-footer-height));
+  --auth-content-height: var(--auth-viewport-height, 100dvh);
   position: fixed; inset: 0; top: var(--auth-viewport-top, 0px); bottom: auto;
-  height: var(--auth-content-height); z-index: 60; display: grid;
+  height: var(--auth-viewport-height, 100dvh); z-index: 60; display: grid;
   place-items: center; padding: var(--auth-inset); background: rgb(9 12 29 / 55%);
   overflow-y: auto; overscroll-behavior: contain;
 }

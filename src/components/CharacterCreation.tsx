@@ -170,7 +170,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
   };
 
   const card = (
-    <div className={`${embedded ? 'w-full p-0' : 'retro-frame bg-brand-surface-elevated/95 border border-amber-700/35 rounded-2xl shadow-2xl max-w-md w-full p-4'} ${!inline ? 'max-h-[calc(100dvh-2rem)] overflow-y-auto' : ''} animate-slide-up`}>
+    <div className={`${embedded ? 'w-full p-0' : 'retro-frame bg-brand-surface-elevated/95 border border-amber-700/35 rounded-2xl shadow-2xl max-w-md w-full p-4'} ${!inline ? 'max-h-[calc(100dvh-2rem)] overflow-y-auto' : ''} gm-menu-content-reveal`}>
       
       <form onSubmit={handleSubmit} className="gm-character-form space-y-3">
         <div className="gm-character-preview">

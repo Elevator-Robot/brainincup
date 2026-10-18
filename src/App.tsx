@@ -2483,7 +2483,7 @@ function App() {
           <div className="retro-right-container flex h-full min-h-0 flex-col overflow-hidden">
                 {isGameMasterMode ? (
                     showRightPanelCharacterCreation ? (
-                      <div className="flex h-full min-h-0 flex-col overflow-y-auto p-5">
+                  <div className="flex h-full min-h-0 flex-col overflow-y-auto p-4">
                         <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
                     <CharacterCreation
                           inline
