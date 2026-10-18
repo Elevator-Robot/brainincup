@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useId, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -109,6 +109,12 @@ export const MessageBubble = memo(function MessageBubble({
   const detailIconClass = isDesktop ? 'w-4 h-4' : 'w-3.5 h-3.5';
   const detailTextClass = `text-brand-text-muted leading-relaxed ${isDesktop ? 'text-sm' : 'text-xs'}`;
   const detailListClass = `${isDesktop ? 'text-sm space-y-1.5 ml-6' : 'text-xs space-y-1 ml-5'} text-brand-text-muted`;
+  const insightsId = useId();
+  const hintId = useId();
+  const hasInsights = !isGameMasterMode && role === 'assistant' && Boolean(
+    [message.reasoning, message.memories, message.selfReflection].some(value => value?.trim())
+    || message.sensations?.some(value => value.trim()) || message.thoughts?.some(value => value.trim()),
+  );
 
   return (
     <div className={`retro-message-row flex ${isDesktop ? 'gap-4' : 'gap-3'} ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -131,136 +137,156 @@ export const MessageBubble = memo(function MessageBubble({
                 {role === 'user' ? 'You' : 'Brain'}
               </span>
             )}
-            <div aria-busy={visibleContent !== message.content}>
+            <div
+              className={hasInsights ? 'cosmic-insight-trigger' : undefined}
+              role={hasInsights ? 'button' : undefined}
+              tabIndex={hasInsights ? 0 : undefined}
+              aria-expanded={hasInsights ? expanded : undefined}
+              aria-controls={hasInsights && expanded ? insightsId : undefined}
+              aria-describedby={hasInsights ? hintId : undefined}
+              aria-busy={visibleContent !== message.content}
+              onClick={hasInsights ? event => {
+                if (event.target instanceof Element && event.target.closest('a, button, input, textarea, select')) return;
+                const selection = window.getSelection();
+                if (selection && !selection.isCollapsed) return;
+                onToggleExpanded();
+              } : undefined}
+              onKeyDown={hasInsights ? event => {
+                if (event.target !== event.currentTarget || !['Enter', ' '].includes(event.key)) return;
+                event.preventDefault();
+                onToggleExpanded();
+              } : undefined}
+            >
               <MarkdownContent content={visibleContent} />
+              {hasInsights && <span className="cosmic-insight-cue" aria-hidden="true"><i /><i /><i /></span>}
             </div>
-            {!isGameMasterMode && role === 'assistant' && (message.reasoning || message.sensations?.length || message.thoughts?.length || message.memories || message.selfReflection) ? (
-              <button type="button" className="cosmic-message-details" aria-expanded={expanded} onClick={onToggleExpanded}>
-                {expanded ? 'Hide' : 'Explore'} thoughts <span aria-hidden="true">{expanded ? '−' : '+'}</span>
-              </button>
-            ) : null}
+            {hasInsights && <span id={hintId} className="sr-only">Activate this message to {expanded ? 'hide' : 'reveal'} its thoughts.</span>}
           </div>
-        </div>
 
-        {/* AG-UI tool call cards (Game Master) */}
-        {role === 'assistant' && message.toolCalls && message.toolCalls.length > 0 && (
-          <div className="space-y-2">
-            {message.toolCalls.map((toolCall) => (
-              <div
-                key={toolCall.toolCallId}
-                className="rounded-xl border border-brand-surface-border/50 bg-brand-surface-elevated/40 px-3 py-2"
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-                    toolCall.status === 'running'
-                      ? 'bg-amber-400 animate-pulse'
-                      : toolCall.status === 'error'
-                        ? 'bg-red-400'
-                        : 'bg-green-400'
-                  }`} />
-                  <span className="text-xs font-semibold text-brand-accent-primary">{toolCall.name}</span>
-                  {toolCall.status === 'running' && (
-                    <span className="text-[10px] text-brand-text-muted">running…</span>
+          {/* AG-UI tool call cards (Game Master) */}
+          {role === 'assistant' && message.toolCalls && message.toolCalls.length > 0 && (
+            <div className="mt-2 space-y-2">
+              {message.toolCalls.map((toolCall) => (
+                <div
+                  key={toolCall.toolCallId}
+                  className="rounded-xl border border-brand-surface-border/50 bg-brand-surface-elevated/40 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                      toolCall.status === 'running'
+                        ? 'bg-amber-400 animate-pulse'
+                        : toolCall.status === 'error'
+                          ? 'bg-red-400'
+                          : 'bg-green-400'
+                    }`} />
+                    <span className="text-xs font-semibold text-brand-accent-primary">{toolCall.name}</span>
+                    {toolCall.status === 'running' && (
+                      <span className="text-[10px] text-brand-text-muted">running…</span>
+                    )}
+                  </div>
+                  {toolCall.args && (
+                    <pre className="mt-1 text-[10px] font-mono text-brand-text-muted whitespace-pre-wrap break-words">
+                      {toolCall.args}
+                    </pre>
+                  )}
+                  {toolCall.result && toolCall.result !== 'undefined' && (
+                    <pre className="mt-1 text-[10px] font-mono text-green-300/80 whitespace-pre-wrap break-words">
+                      {toolCall.result}
+                    </pre>
                   )}
                 </div>
-                {toolCall.args && (
-                  <pre className="mt-1 text-[10px] font-mono text-brand-text-muted whitespace-pre-wrap break-words">
-                    {toolCall.args}
-                  </pre>
-                )}
-                {toolCall.result && toolCall.result !== 'undefined' && (
-                  <pre className="mt-1 text-[10px] font-mono text-green-300/80 whitespace-pre-wrap break-words">
-                    {toolCall.result}
-                  </pre>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {/* Show additional details when expanded (Brain only) */}
-        {!isGameMasterMode && role === 'assistant' && expanded && (
-          <div className={`animate-slide-up ${isDesktop ? 'mt-4 space-y-3' : 'mt-3 space-y-2.5'}`}>
-            {/* Reasoning (AG-UI REASONING_MESSAGE stream) */}
-            {message.reasoning && message.reasoning.trim() && (
-              <div className={detailCardClass}>
-                <div className={`${detailTitleClass} text-amber-300`}>
-                  <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
+          {/* Show additional details when expanded (Brain only) */}
+          {hasInsights && expanded && (
+            <div id={insightsId} className="cosmic-message-insights" role="region" aria-label="Message thoughts">
+              <div className="cosmic-message-insights-clip">
+                <div className="cosmic-message-insights-content">
+                  {/* Reasoning (AG-UI REASONING_MESSAGE stream) */}
+                  {message.reasoning && message.reasoning.trim() && (
+                    <div className={detailCardClass}>
+                      <div className={`${detailTitleClass} text-amber-300`}>
+                        <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
                   Reasoning
-                </div>
-                <p className={`${detailTextClass} whitespace-pre-wrap`}>{message.reasoning}</p>
-              </div>
-            )}
-            {/* Sensations */}
-            {message.sensations && message.sensations.length > 0 && (
-              <div className={detailCardClass}>
-                <div className={`${detailTitleClass} text-brand-accent-primary`}>
-                  <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
+                      </div>
+                      <p className={`${detailTextClass} whitespace-pre-wrap`}>{message.reasoning}</p>
+                    </div>
+                  )}
+                  {/* Sensations */}
+                  {message.sensations && message.sensations.length > 0 && (
+                    <div className={detailCardClass}>
+                      <div className={`${detailTitleClass} text-brand-accent-primary`}>
+                        <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
                   Sensations
-                </div>
-                <ul className={detailListClass}>
-                  {message.sensations.map((sensation, i) => (
-                    <li key={i} className="leading-relaxed">• {sensation}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                      </div>
+                      <ul className={detailListClass}>
+                        {message.sensations.map((sensation, i) => (
+                          <li key={i} className="leading-relaxed">• {sensation}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-            {/* Thoughts */}
-            {message.thoughts && message.thoughts.length > 0 && (
-              <div className={detailCardClass}>
-                <div className={`${detailTitleClass} text-blue-300`}>
-                  <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
+                  {/* Thoughts */}
+                  {message.thoughts && message.thoughts.length > 0 && (
+                    <div className={detailCardClass}>
+                      <div className={`${detailTitleClass} text-blue-300`}>
+                        <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
                   Thoughts
-                </div>
-                <ul className={detailListClass}>
-                  {message.thoughts.map((thought, i) => (
-                    <li key={i} className="leading-relaxed">• {thought}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                      </div>
+                      <ul className={detailListClass}>
+                        {message.thoughts.map((thought, i) => (
+                          <li key={i} className="leading-relaxed">• {thought}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-            {/* Memories */}
-            {message.memories && message.memories.trim() && (
-              <div className={detailCardClass}>
-                <div className={`${detailTitleClass} text-green-300`}>
-                  <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
+                  {/* Memories */}
+                  {message.memories && message.memories.trim() && (
+                    <div className={detailCardClass}>
+                      <div className={`${detailTitleClass} text-green-300`}>
+                        <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
                   Memories
-                </div>
-                <p className={detailTextClass}>{message.memories}</p>
-              </div>
-            )}
+                      </div>
+                      <p className={detailTextClass}>{message.memories}</p>
+                    </div>
+                  )}
 
-            {/* Self Reflection */}
-            {message.selfReflection && message.selfReflection.trim() && (
-              <div className={detailCardClass}>
-                <div className={`${detailTitleClass} text-brand-accent-primary`}>
-                  <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  {/* Self Reflection */}
+                  {message.selfReflection && message.selfReflection.trim() && (
+                    <div className={detailCardClass}>
+                      <div className={`${detailTitleClass} text-brand-accent-primary`}>
+                        <svg className={detailIconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                   Self Reflection
+                      </div>
+                      <p className={detailTextClass}>{message.selfReflection}</p>
+                    </div>
+                  )}
                 </div>
-                <p className={detailTextClass}>{message.selfReflection}</p>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

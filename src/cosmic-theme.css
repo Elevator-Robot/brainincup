@@ -280,8 +280,22 @@ body::before { display: none; }
 .retro-message table { display: block; max-width: 100%; overflow-x: auto; }
 .retro-message :is(strong, h1, h2) { color: var(--cosmic-cyan); }
 .retro-message-user strong { color: #f0deff; }
-.cosmic-message-details { display: inline-flex; align-items: center; gap: .75rem; margin-top: .75rem; min-height: 32px; color: var(--cosmic-violet); font-size: .75rem; }
-.cosmic-message-details:hover { color: var(--cosmic-cyan); }
+.cosmic-insight-trigger { cursor: pointer; border-radius: .4rem; outline: none; transition: text-shadow 200ms ease; }
+.cosmic-insight-trigger:hover, .cosmic-insight-trigger[aria-expanded="true"] { text-shadow: 0 0 18px rgb(140 236 243 / 16%); }
+.cosmic-insight-trigger:focus-visible { outline: 1px solid var(--cosmic-violet); outline-offset: 7px; }
+.cosmic-insight-cue { display: flex; align-items: center; gap: 6px; width: fit-content; padding: 10px 0 3px; opacity: .6; transition: opacity 200ms ease, gap 200ms ease; }
+.cosmic-insight-cue i { display: block; width: 3px; height: 3px; border-radius: 50%; background: var(--cosmic-violet); box-shadow: 0 0 6px rgb(196 173 255 / 35%); }
+.cosmic-insight-cue i:nth-child(2) { width: 4px; height: 4px; border-radius: 1px; rotate: 45deg; background: var(--cosmic-cyan); }
+.cosmic-insight-trigger:hover .cosmic-insight-cue, .cosmic-insight-trigger:focus-visible .cosmic-insight-cue, .cosmic-insight-trigger[aria-expanded="true"] .cosmic-insight-cue { opacity: 1; gap: 9px; }
+.cosmic-message-insights { display: grid; grid-template-rows: 1fr; animation: cosmic-insight-unfold 320ms var(--cosmic-ease) both; }
+.cosmic-message-insights-clip { min-height: 0; overflow: hidden; }
+.cosmic-message-insights-content { display: grid; gap: 1rem; margin: .8rem 0 .2rem .15rem; padding: .2rem 0 .25rem 1rem; border-left: 1px solid rgb(196 173 255 / 30%); background: radial-gradient(ellipse at left top, rgb(140 236 243 / 3%), transparent 70%); }
+.cosmic-message-insights-content > div { padding: 0; border: 0; border-radius: 0; background: none; }
+.cosmic-message-insights-content > div > div:first-child { color: var(--cosmic-violet); font-size: .65rem; letter-spacing: .12em; text-transform: uppercase; margin-bottom: .45rem; }
+.cosmic-message-insights-content svg { width: 13px; height: 13px; opacity: .75; }
+.cosmic-message-insights-content p, .cosmic-message-insights-content li { color: var(--cosmic-muted); line-height: 1.7; }
+@keyframes cosmic-insight-unfold { from { grid-template-rows: 0fr; opacity: 0; } to { grid-template-rows: 1fr; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cosmic-message-insights { animation: none; } .cosmic-insight-trigger, .cosmic-insight-cue { transition: none; } }
 .cosmic-composer .retro-input-textarea { min-height: 44px; max-height: 144px; font-size: 1rem; scrollbar-width: thin; }
 .retro-rpg-ui .cosmic-composer .retro-input-textarea:focus-visible { outline: none; }
 .cosmic-composer-hint { min-height: 1rem; margin-top: .5rem; color: var(--cosmic-muted); font-size: .6875rem; text-align: center; }
