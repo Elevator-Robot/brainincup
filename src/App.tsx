@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { fetchUserAttributes, signOut } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
@@ -7,7 +7,10 @@ import ConversationSidebarIcons from './components/ConversationSidebarIcons';
 import InventoryManager, { type InventoryItem } from './components/InventoryManager';
 // import Panel from './components/ui/Panel';
 import { BottomInput } from './components/ui/RPGLayout';
-import ContextWindowPanel from './components/ContextWindowPanel';
+import ContextWindowPanel, { type Quest } from './components/ContextWindowPanel';
+import QuestLogPanel from './components/context/QuestLogPanel';
+import { mapActiveQuests } from './utils/gmQuests';
+import GameMasterBanner from './components/GameMasterBanner';
 import { normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import {
@@ -28,7 +31,7 @@ import type { DiceRollRequest } from './utils/diceRolls';
 import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
 import AccountMenu from './components/AccountMenu';
-const CharacterCreation = lazy(() => import('./components/CharacterCreation'));
+import CharacterCreation from './components/CharacterCreation';
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -489,6 +492,8 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
   const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
+  const [questContext, setQuestContext] = useState<{ conversationId: string; quests: Quest[] } | null>(null);
+  const activeQuests = questContext?.conversationId === conversationId ? questContext.quests : [];
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
   const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
   const [isLoadingAdventure, setIsLoadingAdventure] = useState(false);
@@ -850,7 +855,7 @@ function App() {
     }
   }, [characterState]);
 
-  const fetchAdventureBundle = useCallback(async (convId: string, modeOverride?: string) => {
+  const fetchAdventureBundle = useCallback(async (convId: string, modeOverride?: string, knownCharacter?: CharacterRecord) => {
     // Prevent duplicate fetches for the same conversation
     if (adventureFetchLock.current === convId) {
       return;
@@ -873,7 +878,7 @@ function App() {
 
       // Fetch character and adventure state in parallel
       const [character, adventure] = await Promise.all([
-        fetchCharacter(convId),
+        knownCharacter ? Promise.resolve(knownCharacter) : fetchCharacter(convId),
         ensureAdventureState(convId, activeMode),
       ]);
 
@@ -1340,6 +1345,21 @@ function App() {
     return () => sub.unsubscribe();
   }, [conversationId, effectivePersonality, syncRequestedRoll]);
 
+  // Keep both desktop and mobile quest views scoped to the current adventure.
+  useEffect(() => {
+    if (!conversationId || effectivePersonality !== 'game_master' || isTestModeEnabled()) return;
+    let active = true;
+    const sub = dataClient.models.ActiveQuest.observeQuery({
+      filter: { campaignId: { eq: conversationId } },
+    }).subscribe({
+      next: ({ items }) => {
+        if (active) setQuestContext({ conversationId, quests: mapActiveQuests(items) });
+      },
+      error: error => console.error('Quest subscription error:', error),
+    });
+    return () => { active = false; sub.unsubscribe(); };
+  }, [conversationId, effectivePersonality]);
+
   // Subscribe to GameMasterAdventure updates so currentLocation stays live
   useEffect(() => {
     if (!conversationId || effectivePersonality !== 'game_master') return;
@@ -1789,7 +1809,7 @@ function App() {
             setIsWaitingForResponse(false);
             return;
           }
-          await fetchAdventureBundle(selectedConversationId);
+          await fetchAdventureBundle(selectedConversationId, normalizedMode, character);
         } else {
           setAdventureState(null);
           setQuestSteps([]);
@@ -2235,11 +2255,7 @@ function App() {
     showGameMasterCharacterFlow && !characterState;
   const hasTypingMessage = messages.some(m => m.isTyping);
   const isInputLocked = isWaitingForResponse || hasTypingMessage || hasPendingRoll || isGameMasterContentLoading || isGameMasterCharacterRequired || isSelectingConversation;
-  const gameMasterInputPlaceholder = isGameMasterContentLoading
-    ? 'Loading adventure...'
-    : isGameMasterCharacterRequired
-      ? 'Create your character to begin your adventure...'
-      : 'What do you do next?';
+  const gameMasterInputPlaceholder = 'What do you do next?';
 
   const normalizedQuestSteps = useMemo(() => mapQuestStepsToHud(questSteps), [questSteps]);
 
@@ -2269,24 +2285,6 @@ function App() {
     return undefined;
   }, [authoritativeLocation, adventureState?.currentLocation, adventureState?.lastLocation]);
   
-  const currentAct = useMemo(() => {
-    if (!adventureState?.currentAct) return 'I';
-    
-    const actMap: Record<string, string> = {
-      'EXPOSITION': 'I',
-      'RISING_ACTION': 'II',
-      'CLIMAX': 'III',
-      'FALLING_ACTION': 'IV',
-      'RESOLUTION': 'V'
-    };
-    
-    return actMap[adventureState.currentAct] || 'I';
-  }, [adventureState?.currentAct]);
-  
-  const currentChapter = useMemo(() => {
-    return adventureState?.currentChapter || 1;
-  }, [adventureState?.currentChapter]);
-  
   const latestAssistantMessage = useMemo(
     () => [...messages].reverse().find((message) => message.role === 'assistant' && Boolean(message.content || message.fullContent)),
     [messages],
@@ -2306,14 +2304,15 @@ function App() {
     return Math.min(100, 25 + sensationCount * 14 + thoughtCount * 8 + (isWaitingForResponse ? 12 : 0));
   }, [isWaitingForResponse, latestAssistantMessage]);
   const composer = <ChatComposer ref={composerRef} draft={draft} onSend={handleSubmit}
+    isGameMasterMode={isGameMasterMode}
     isLocked={isInputLocked || isSelectingConversation} isWaiting={isWaitingForResponse} isPrimed={isNewInteractionPrimed}
-    placeholder={hasPendingRoll ? 'Resolve the requested check above…' : isWaitingForResponse ? 'Brain is thinking…' : conversationId
+    placeholder={hasPendingRoll ? 'Resolve the requested check above…' : isWaitingForResponse ? (isGameMasterMode ? 'Waiting for the GM…' : 'Brain is thinking…') : conversationId
       ? (isGameMasterMode ? gameMasterInputPlaceholder : 'Message Brain…')
-      : (isNewInteractionPrimed ? 'New chat ready. Start typing…' : 'Start a new conversation…')} />;
+      : (isGameMasterMode ? 'What do you do next?' : isNewInteractionPrimed ? 'New chat ready. Start typing…' : 'Start a new conversation…')} />;
   const jumpToLatest = !isAtBottom && <button type="button" className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages <span aria-hidden="true">↓</span></button>;
   const welcome = messages.length === 0 && !isWaitingForResponse && (
     !userAttributes || isSelectingConversation
-      ? <div className="cosmic-chat-loading" role="status"><span className="cosmic-loading-light" aria-hidden="true" /><p>Opening your conversation…</p></div>
+      ? null
       : <ChatWelcome isGameMasterMode={isGameMasterMode} isSettingUp={showGameMasterCharacterFlow || isGameMasterCharacterRequired}
         onPrompt={prompt => { composerRef.current?.clear(); composerRef.current?.append(prompt); composerRef.current?.focus(); }} />
   );
@@ -2436,26 +2435,7 @@ function App() {
               <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
                 <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden flex flex-col">
                       {conversationId && isGameMasterMode && (
-                        <div className="px-3 pt-2 shrink-0">
-                          <div className="mx-auto max-w-4xl">
-                            <div className="retro-status-strip retro-status-strip-floating">
-                              <div className="grid grid-cols-3 items-end text-center">
-                                <div className="text-left">
-                                  <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Day</p>
-                                  <p className="text-lg font-light text-brand-text-primary">{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Location</p>
-                                  <p className="text-lg font-light text-brand-text-primary">{currentLocation}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-[10px] uppercase tracking-[0.2em] text-brand-text-muted">Act</p>
-                                  <p className="text-lg font-light text-brand-text-primary">{currentAct} • Ch. {currentChapter}</p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                    <GameMasterBanner location={currentLocation} act={adventureState?.currentAct} chapter={adventureState?.currentChapter} />
                       )}
 
                         <div className="cosmic-chat-viewport">
@@ -2482,22 +2462,6 @@ function App() {
               <MessageList key={conversationId} messages={messages} isGameMasterMode={isGameMasterMode} variant="desktop"
                 activeDiceRequestId={activeDiceRequestId} diceDisabled={diceBusy} onDiceRoll={handleDiceRoll} />
               
-                          {isWaitingForResponse && (
-                            <div className="retro-waiting-row flex gap-4 justify-start animate-slide-up">
-                              <div className="retro-message retro-waiting-bubble rounded-2xl px-4 py-3 backdrop-blur-lg text-brand-text-primary">
-                                <div className="flex items-center gap-2">
-                                  <div className="flex space-x-1">
-                                    <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
-                                    <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
-                                    <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
-                                  </div>
-                                  <span className="text-sm text-brand-text-muted">
-                                    Generating response…
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
               
                   
                           <div aria-hidden="true" />
@@ -2521,12 +2485,12 @@ function App() {
                     showRightPanelCharacterCreation ? (
                       <div className="flex h-full min-h-0 flex-col overflow-y-auto p-5">
                         <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
-                        <Suspense fallback={<p className="cosmic-panel-loading" role="status">Preparing character studio…</p>}><CharacterCreation
+                    <CharacterCreation
                           inline
                           embedded
                           onComplete={handleCharacterCreationComplete}
                           onCancel={handleCharacterCreationCancel}
-                        /></Suspense>
+                    />
                       </div>
                     ) : (
                       <div className="retro-right-stack flex h-full min-h-0 flex-col p-5">
@@ -2551,7 +2515,7 @@ function App() {
                             avatarSrcWebp: characterDisplay.avatarSrcWebp,
                           } : undefined}
                           currentLocation={currentLocation}
-                          activeQuests={[]}
+                      activeQuests={activeQuests}
                           timelineEntries={messages
                             .filter(m => !m.content?.startsWith('[SYSTEM:'))
                             .map((m, i) => ({
@@ -2638,6 +2602,7 @@ function App() {
                   {/* Collapsed Header Bar */}
                   <button
                     onClick={() => setMobileInfoExpanded(!mobileInfoExpanded)}
+                    aria-expanded={mobileInfoExpanded}
                     className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -2646,7 +2611,7 @@ function App() {
                       Quest Log
                         </p>
                         <p className="text-sm text-brand-text-primary font-medium truncate">
-                          No active quest
+                          {activeQuests[0]?.title}
                         </p>
                       </div>
                     </div>
@@ -2665,20 +2630,7 @@ function App() {
                   {/* Expanded Quest Log Content */}
                   {mobileInfoExpanded && (
                     <div className="px-4 pb-4 space-y-4 animate-slide-up border-t border-brand-surface-border/30 pt-4">
-                      {adventureState && (
-                        <div className="space-y-3">
-                          {/* TODO: Replace stubbed values with database data */}
-                          <div>
-                            <h3 className="text-base font-semibold text-brand-text-primary mb-1">
-                              {adventureState.title || 'The Shadowed Forest'}
-                            </h3>
-                            <p className="text-sm text-brand-text-secondary">
-                              {adventureState.genre || 'Dark Fantasy'} • Tone: {adventureState.tone || 'Gritty'} • Difficulty: {adventureState.difficulty || 'Deadly'}
-                            </p>
-                          </div>
-
-                        </div>
-                      )}
+                      <QuestLogPanel quests={activeQuests} />
                     </div>
                   )}
                 </div>
@@ -2693,6 +2645,7 @@ function App() {
                 >
                   <button
                     onClick={() => setMobileCharSheetExpanded(!mobileCharSheetExpanded)}
+                    aria-expanded={mobileCharSheetExpanded}
                     className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
                   >
                     <div className="retro-character-identity retro-character-identity--compact flex items-center gap-3 min-w-0">
@@ -2728,7 +2681,7 @@ function App() {
                   </button>
 
                   {/* Expanded Character Sheet Content */}
-                  {mobileCharSheetExpanded && adventureState && !isGameMasterContentLoading && characterState && characterDisplay && (() => {
+                  {mobileCharSheetExpanded && !isGameMasterContentLoading && characterState && characterDisplay && (() => {
                     const charData = characterDisplay;
                     return (
                       <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
@@ -2817,11 +2770,11 @@ function App() {
             <div ref={contentRef} className="cosmic-chat-content w-full max-w-4xl mx-auto space-y-4 flex flex-col">
               {showMobileInlineCharacterCreation && (
                 <div className="mx-auto w-full max-w-xl pb-2">
-                  <Suspense fallback={<p className="cosmic-panel-loading" role="status">Preparing character studio…</p>}><CharacterCreation
+                    <CharacterCreation
                     inline
                     onComplete={handleCharacterCreationComplete}
                     onCancel={handleCharacterCreationCancel}
-                  /></Suspense>
+                    />
                 </div>
               )}
               
@@ -2829,22 +2782,6 @@ function App() {
               <MessageList key={conversationId} messages={messages} isGameMasterMode={isGameMasterMode} variant="mobile"
                 activeDiceRequestId={activeDiceRequestId} diceDisabled={diceBusy} onDiceRoll={handleDiceRoll} />
               
-              {isWaitingForResponse && (
-                <div className="retro-waiting-row flex gap-3 justify-start animate-slide-up">
-                  <div className="retro-message retro-waiting-bubble rounded-2xl px-4 py-3 backdrop-blur-lg text-brand-text-primary">
-                    <div className="flex items-center gap-2">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse"></div>
-                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-150"></div>
-                        <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
-                      </div>
-                      <span className="text-sm text-brand-text-muted">
-                        Generating response…
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
               
               <div aria-hidden="true" />
             </div>

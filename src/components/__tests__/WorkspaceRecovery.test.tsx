@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import WorkspaceBoundary from '../WorkspaceBoundary';
-import WorkspaceLoading from '../WorkspaceLoading';
+import WorkspaceRecovery from '../WorkspaceRecovery';
 
 afterEach(() => {
   cleanup();
@@ -12,8 +12,8 @@ afterEach(() => {
 describe('workspace startup recovery', () => {
   it('offers recovery when loading never resolves', () => {
     vi.useFakeTimers();
-    render(<WorkspaceLoading />);
-    expect(screen.getByText('Loading workspace…')).toBeInTheDocument();
+    const { container } = render(<WorkspaceRecovery />);
+    expect(container).toBeEmptyDOMElement();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     act(() => vi.advanceTimersByTime(15000));
     expect(screen.getByRole('button', { name: 'Reload workspace' })).toBeInTheDocument();

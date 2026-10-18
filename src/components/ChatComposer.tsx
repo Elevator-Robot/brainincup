@@ -13,11 +13,19 @@ interface ChatComposerProps {
   isWaiting: boolean;
   isPrimed: boolean;
   placeholder: string;
+  isGameMasterMode?: boolean;
 }
+
+const GM_ACTIONS = [
+  { label: 'Look around', prompt: 'I look around carefully. What catches my attention?' },
+  { label: 'Talk', prompt: 'I approach someone nearby and start a conversation.' },
+  { label: 'Inventory', prompt: 'I check my inventory.' },
+  { label: 'Quests', prompt: 'I review my active quests.' },
+];
 
 /** Keep keystrokes local so typing never rerenders the conversation or context. */
 const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function ChatComposer({
-  draft, onSend, isLocked, isWaiting, isPrimed, placeholder,
+  draft, onSend, isLocked, isWaiting, isPrimed, placeholder, isGameMasterMode = false,
 }, ref) {
   const [value, setValue] = useState(draft.current);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,7 +68,7 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
     <form onSubmit={event => { event.preventDefault(); void submit(); }} className="cosmic-composer">
       <div className={`retro-input-shell flex items-end gap-2 rounded-lg border p-2 ${isPrimed ? 'retro-input-shell-primed' : ''}`}>
         <textarea ref={textarea} value={value} onChange={event => update(event.target.value)}
-          aria-label="Message Brain" placeholder={placeholder} rows={1} readOnly={isSubmitting}
+          aria-label={isGameMasterMode ? 'Your next action' : 'Message Brain'} placeholder={placeholder} rows={1} readOnly={isSubmitting}
           className="retro-input-textarea min-w-0 flex-1 resize-none border-0 bg-transparent px-3 py-2.5 leading-relaxed focus:outline-none"
           onKeyDown={event => {
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
@@ -75,6 +83,12 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
             : <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m5 12 7-7 7 7M12 5v14" /></svg>}
         </button>
       </div>
+      {isGameMasterMode && <div className="gm-quick-actions" role="group" aria-label="Adventure actions">
+        {GM_ACTIONS.map(action => <button key={action.label} type="button" disabled={isLocked || isSubmitting}
+          onClick={() => { update(`${draft.current}${draft.current.trim() ? '\n' : ''}${action.prompt}`); textarea.current?.focus(); }}>
+          {action.label}
+        </button>)}
+      </div>}
       {error && <p className="mt-2 text-xs text-brand-status-error" role="alert">{error}</p>}
       <p className="cosmic-composer-hint"><span><kbd>Enter</kbd> to send · <kbd>Shift + Enter</kbd> for a new line</span></p>
     </form>

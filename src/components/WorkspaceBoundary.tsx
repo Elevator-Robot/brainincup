@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import WorkspaceLoading from './WorkspaceLoading';
+import WorkspaceRecovery from './WorkspaceRecovery';
 
 /** Keep failed lazy chunks and startup errors from leaving an unusable shell. */
 export default class WorkspaceBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -14,6 +14,6 @@ export default class WorkspaceBoundary extends Component<{ children: ReactNode }
   }
 
   render() {
-    return this.state.failed ? <WorkspaceLoading failed /> : this.props.children;
+    return this.state.failed ? <WorkspaceRecovery failed /> : this.props.children;
   }
 }

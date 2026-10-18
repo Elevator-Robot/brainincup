@@ -4,7 +4,7 @@ const EXCLUDED = 'script, style, noscript, textarea, input, select, option, [con
 const TEXT_BLOCK = 'p, li, h1, h2, h3, h4, h5, h6, pre, td, th, label, button, summary, dt, dd, figcaption';
 const LIFETIME = 720;
 
-/** A decorative, site-wide trail for arriving text; never rewrites text or markup. */
+/** Decorative trails for new assistant chat text only; never rewrites markup. */
 export default function TextArrivalEffects() {
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return;
@@ -77,14 +77,18 @@ export default function TextArrivalEffects() {
 
     const queueText = (node: Text) => {
       const parent = node.parentElement;
-      if (!parent || !node.data.trim() || parent.closest(EXCLUDED) || !(parent instanceof HTMLElement)) return;
+      if (!parent || !node.data.trim() || parent.closest(EXCLUDED) || !(parent instanceof HTMLElement) || !parent.closest('[data-chat-arrival]')) return;
       const owner = parent.closest<HTMLElement>(TEXT_BLOCK) ?? parent;
       pending.set(owner, node);
     };
-    const collect = (node: Node) => {
+    const collect = (node: Node): void => {
       if (node.nodeType === Node.TEXT_NODE) {
         queueText(node as Text);
       } else if (node instanceof HTMLElement && !node.closest(EXCLUDED)) {
+        if (!node.closest('[data-chat-arrival]')) {
+          node.querySelectorAll('[data-chat-arrival]').forEach(collect);
+          return;
+        }
         const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
         let text: Node | null;
         while ((text = walker.nextNode())) queueText(text as Text);
@@ -105,7 +109,7 @@ export default function TextArrivalEffects() {
       }
       if (pending.size && !frame) frame = window.requestAnimationFrame(paint);
     };
-    // Observe portals as well as the root: menus, details, and dialogs share it.
+    // Only marked assistant replies are collected; other UI mutations are ignored.
     observer.observe(document.body, { subtree: true, childList: true, characterData: true });
     motion.addEventListener('change', clear);
     document.addEventListener('scroll', followScroll, true);

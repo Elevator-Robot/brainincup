@@ -31,9 +31,9 @@ async function paint() {
   act(() => { vi.advanceTimersByTime(20); });
 }
 
-describe('universal text-arrival accents', () => {
+describe('assistant chat text-arrival accents', () => {
   it('decorates updated paragraphs, headings, lists, and code without altering their text', async () => {
-    const view = (text: string) => <><TextArrivalEffects /><section>
+    const view = (text: string) => <><TextArrivalEffects /><section data-chat-arrival>
       <h2>{text}</h2><p>{text}<strong> bold</strong></p><ul><li>{text}</li></ul><pre><code>{text}</code></pre>
     </section></>;
     const { rerender, container } = render(view('Before'));
@@ -50,10 +50,10 @@ describe('universal text-arrival accents', () => {
   });
 
   it('does not decorate editable or hidden text', async () => {
-    const view = (text: string) => <><TextArrivalEffects />
+    const view = (text: string) => <><TextArrivalEffects /><section data-chat-arrival>
       <div contentEditable suppressContentEditableWarning>{text}</div>
       <p aria-hidden="true">{text}</p><p data-text-arrival="off">{text}</p>
-    </>;
+    </section></>;
     const { rerender } = render(view('Before'));
     rerender(view('After'));
     await paint();
@@ -62,7 +62,7 @@ describe('universal text-arrival accents', () => {
 
   it('respects reduced motion and removes its layer on unmount', async () => {
     reducedMotion = true;
-    const view = (text: string) => <><TextArrivalEffects /><p>{text}</p></>;
+    const view = (text: string) => <><TextArrivalEffects /><p data-chat-arrival>{text}</p></>;
     const { rerender, unmount } = render(view('Before'));
     rerender(view('After'));
     await paint();
@@ -72,14 +72,14 @@ describe('universal text-arrival accents', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('covers text inserted outside the root, such as portal dialogs', async () => {
+  it('ignores dialogs and other text outside assistant chat', async () => {
     render(<TextArrivalEffects />);
     const dialog = document.createElement('div');
     dialog.innerHTML = '<p>New portal text</p>';
     document.body.appendChild(dialog);
     try {
       await paint();
-      expect(document.querySelectorAll('.cosmic-text-arrival-trail')).toHaveLength(1);
+      expect(document.querySelectorAll('.cosmic-text-arrival-trail')).toHaveLength(0);
     } finally {
       dialog.remove();
     }
