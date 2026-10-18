@@ -39,7 +39,11 @@ const sampleCheck: DiceRollRequest = {
 
 /** Dev-only visual fixture: real UI components, no account or backend writes. */
 export default function ConversationPreview() {
-  const [conversation, setConversation] = useState(messages);
+  const typewriter = new URLSearchParams(window.location.search).has('typewriter');
+  const [conversation, setConversation] = useState<Message[]>(() => typewriter ? [{
+    role: 'assistant', populateOnMount: true,
+    content: 'The observatory falls quiet. Beyond the glass, a silver constellation begins to move.\n\nYour compass warms in your hand, its needle turning toward **a doorway made of starlight**. Mira raises her lantern.\n\n“Some stories wait to be discovered,” she whispers. “This one has been waiting for you.”\n\n### What lies ahead\n- A violet glow beneath the old stone stairs.\n- A distant voice calling your name.\n- One small, impossible choice.\n\n**What do you do next?**',
+  }] : messages);
   const draft = useRef('');
   const composer = useRef<ChatComposerHandle>(null);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -55,7 +59,7 @@ export default function ConversationPreview() {
   const { requestRoll, roll, activeRequestId, hasPendingRoll } = useChatDiceRolls({
     conversationId: 'preview', messages: conversation, setMessages: setConversation, busy: false, onSubmit: submitPreviewRoll,
   });
-  useEffect(() => { if (!empty) requestRoll(sampleCheck); }, [empty, requestRoll]);
+  useEffect(() => { if (!empty && !typewriter) requestRoll(sampleCheck); }, [empty, typewriter, requestRoll]);
   return <>
     <SiteBackground />
     <div className="retro-rpg-ui cosmic-workspace retro-rpg-ui--gm relative h-dvh overflow-hidden">
@@ -78,7 +82,7 @@ export default function ConversationPreview() {
             {!isAtBottom && <button className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages ↓</button>}
             <ChatComposer ref={composer} draft={draft} isLocked={!empty && hasPendingRoll} isWaiting={false} isPrimed={false} placeholder={!empty && hasPendingRoll ? 'Resolve the requested check above…' : 'What do you do next?'}
               onSend={async content => { setConversation(previous => [...previous, { role: 'user', content }]); scrollToLatest(); return true; }} />
-            <p className="mt-2 text-center text-[11px] text-brand-text-muted">Local visual preview · <a className="text-brand-accent-secondary underline underline-offset-2" href="/?testmode=true&preview=dice">Dice set</a></p>
+            <p className="mt-2 text-center text-[11px] text-brand-text-muted">Local visual preview · <a className="text-brand-accent-secondary underline underline-offset-2" href="/?testmode=true&preview=conversation&typewriter=true">Replay text reveal</a> · <a className="text-brand-accent-secondary underline underline-offset-2" href="/?testmode=true&preview=dice">Dice set</a></p>
           </div>
         </main>
         {isDesktop && <aside className="retro-shell-right">

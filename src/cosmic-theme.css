@@ -44,6 +44,29 @@
   --rpg-highlight-corner-glow: rgb(189 165 255 / 20%);
 }
 
+/* A small comet at the newest text: shared by all dynamically rendered copy.
+   Fixed overlays leave wrapping, selection, Markdown, and click targets intact. */
+.cosmic-text-arrival-layer { position: fixed; inset: 0; z-index: 100; pointer-events: none; overflow: hidden; }
+.cosmic-text-arrival-trail {
+  position: absolute; height: 2px; border-radius: 999px; pointer-events: none;
+  transform: translateX(-100%); transform-origin: right center;
+  background: linear-gradient(90deg, transparent, var(--cosmic-violet) 55%, var(--cosmic-cyan));
+  box-shadow: 0 0 7px rgb(140 236 243 / 35%);
+  animation: cosmic-text-arrival 700ms var(--cosmic-ease) both;
+}
+.cosmic-text-arrival-trail::after {
+  content: ''; position: absolute; right: 0; top: -1px; width: 4px; height: 4px;
+  border-radius: 50%; background: var(--cosmic-cyan); box-shadow: 0 0 6px var(--cosmic-violet);
+}
+.cosmic-text-arrival-trail[data-direction="rtl"] { transform: none; transform-origin: left center; background: linear-gradient(270deg, transparent, var(--cosmic-violet) 55%, var(--cosmic-cyan)); }
+.cosmic-text-arrival-trail[data-direction="rtl"]::after { right: auto; left: 0; }
+@keyframes cosmic-text-arrival {
+  0% { opacity: .6; scale: .75 1; }
+  16% { opacity: .8; scale: 1 1; }
+  100% { opacity: 0; scale: .35 1; }
+}
+@media (prefers-reduced-motion: reduce) { .cosmic-text-arrival-layer { display: none; } }
+
 .retro-rpg-ui--gm {
   --cosmic-accent-rgb: 196 173 255;
   --rpg-accent: var(--cosmic-violet);
