@@ -2454,7 +2454,6 @@ function App() {
                                 </div>
                               </div>
                             </div>
-                            <div className="mt-3 h-px bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
                           </div>
                         </div>
                       )}
@@ -2505,9 +2504,6 @@ function App() {
                         </div>
                       </div>
                       </div>
-                    </div>
-                    <div className="mx-auto w-full max-w-4xl px-3">
-                      <div className="h-px bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
                     </div>
                       <BottomInput className="px-0 pt-3 shrink-0">
                         <div className="relative mx-auto max-w-4xl">

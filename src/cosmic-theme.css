@@ -236,9 +236,13 @@ body::before { display: none; }
 .cosmic-character-stats { border-top: 1px solid var(--cosmic-border); }
 .cosmic-workspace .retro-roll-panel-button { border: 0; border-top: 1px solid var(--cosmic-border); border-radius: 0; background: transparent; box-shadow: none; }
 .cosmic-workspace .retro-roll-panel-button:not(:disabled):hover { transform: none; border-color: var(--cosmic-violet); background: rgb(196 173 255 / 4%); box-shadow: none; }
-.cosmic-chat-viewport { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+.cosmic-chat-viewport {
+  display: flex; flex: 1; min-width: 0; min-height: 0; overflow: visible;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
 .cosmic-chat-scroll { min-width: 0; min-height: 0; overscroll-behavior: none; scrollbar-gutter: stable; overflow-anchor: none; }
-.cosmic-chat-content { padding: 1rem .5rem .5rem; }
+.cosmic-chat-content { padding: 1.75rem .5rem; }
 .cosmic-welcome { display: flex; flex-direction: column; justify-content: center; width: min(100%, 28rem); min-height: min(52dvh, 30rem); margin-inline: auto; padding: 2rem 1rem; }
 .cosmic-welcome h2 { margin: 0 0 1rem; color: #f3ecff; font-size: 1.5rem; font-weight: 500; line-height: 1.3; letter-spacing: -.025em; }
 .cosmic-welcome > p { color: var(--cosmic-muted); font-size: .875rem; line-height: 1.7; }
@@ -294,7 +298,7 @@ body::before { display: none; }
 .cosmic-three-dice-shell, .cosmic-three-dice-canvas-wrap { position: absolute; inset: 0; display: block; }
 .cosmic-three-dice-canvas-wrap { top: -100%; pointer-events: none; }
 .cosmic-three-dice-canvas { width: 100% !important; height: 100% !important; pointer-events: none !important; }
-.cosmic-roll-die-number { position: absolute; left: 50%; top: 50%; z-index: 1; transform: translate(-50%, -50%); color: #fff; font: 700 2.5rem/1 var(--rpg-font-display); font-variant-numeric: tabular-nums; text-shadow: 0 2px 8px #100d29, 0 0 3px #100d29; }
+.cosmic-roll-die-number { position: absolute; left: 50%; top: 50%; z-index: 1; transform: translate(-50%, -50%); color: #fff; font: 700 2.5rem/1 var(--rpg-font-body); font-variant-numeric: tabular-nums lining-nums; text-shadow: 0 1px 5px #100d29; }
 .cosmic-roll-die-fallback { position: absolute; inset: 0; display: block; }
 .cosmic-roll-die-shape { position: absolute; left: calc(50% - 4.5rem); top: calc(50% - 4.5rem); width: 9rem; height: 9rem; }
 .cosmic-roll-die-face { fill: rgb(150 105 224 / 18%); }

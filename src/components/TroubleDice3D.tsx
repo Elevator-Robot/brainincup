@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { CuboidCollider, Physics, RigidBody, type RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { createDiceCamera, fitDiceCamera, getDiceView, DIE_RADIUS, DICE_ARENA_HALF_HEIGHT } from '../utils/diceCamera';
+import DiceNumber3D from './DiceNumber3D';
 
 type TroubleDice3DProps = {
   rollNonce: number;
@@ -23,9 +24,9 @@ const RAIL_TOP = 100;
 const RAIL_HALF_HEIGHT = (RAIL_TOP - FLOOR_Y) / 2;
 const RAIL_CENTER_Y = (RAIL_TOP + FLOOR_Y) / 2;
 
-type DiceSceneProps = Pick<TroubleDice3DProps, 'rollNonce' | 'isRolling' | 'duration' | 'stageRef'> & { numberRef: RefObject<HTMLSpanElement> };
+type DiceSceneProps = Pick<TroubleDice3DProps, 'rollNonce' | 'isRolling' | 'duration' | 'stageRef' | 'displayValue'>;
 
-function DiceBody({ rollNonce, isRolling, duration, numberRef, stageRef, halfWidth, headroom }: DiceSceneProps & { halfWidth: number; headroom: number }) {
+function DiceBody({ rollNonce, isRolling, duration, displayValue, stageRef, halfWidth, headroom }: DiceSceneProps & { halfWidth: number; headroom: number }) {
   const rigidBodyRef = useRef<RapierRigidBody | null>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const projectedPosition = useMemo(() => new THREE.Vector3(), []);
@@ -124,16 +125,14 @@ function DiceBody({ rollNonce, isRolling, duration, numberRef, stageRef, halfWid
   useFrame(({ clock, camera, size }, delta) => {
     const progress = isRolling ? Math.min(1, (Date.now() - rollNonce) / Math.max(1, duration)) : 1;
     const settle = THREE.MathUtils.smoothstep(progress, .58, .96);
-    // Only lighting and the number overlay are animated here. Rapier alone
+    // Only lighting is animated here. Rapier alone
     // owns the trajectory and decides when the body has come to rest.
     if (isRolling) invalidate();
-    if (meshRef.current && numberRef.current) {
+    if (meshRef.current) {
       meshRef.current.getWorldPosition(projectedPosition);
       const lift = Math.max(0, projectedPosition.y - FLOOR_Y - DIE_RADIUS);
       projectedPosition.project(camera);
       const x = projectedPosition.x * size.width / 2;
-      // Follow the physical die without rotating the number or rerendering React.
-      numberRef.current.style.transform = `translate3d(${x}px, ${-projectedPosition.y * size.height / 2}px, 0) translate(-50%, -50%)`;
       stageRef.current?.style.setProperty('--dice-x', `${x}px`);
       stageRef.current?.style.setProperty('--dice-y', `${-projectedPosition.y * size.height / 2 - headroom / 2}px`);
       stageRef.current?.style.setProperty('--dice-shadow-scale', String(1 + lift * .3));
@@ -178,7 +177,7 @@ function DiceBody({ rollNonce, isRolling, duration, numberRef, stageRef, halfWid
       canSleep
       onCollisionEnter={onImpact}
     >
-      <mesh ref={meshRef} geometry={geometry} castShadow receiveShadow>
+      <mesh ref={meshRef} name="dice-shell" geometry={geometry} castShadow receiveShadow>
         <meshPhysicalMaterial
           ref={shellMaterialRef}
           color="#9b83db"
@@ -233,6 +232,7 @@ function DiceBody({ rollNonce, isRolling, duration, numberRef, stageRef, halfWid
           scale={1.6}
         />
       </lineSegments>
+      <DiceNumber3D value={displayValue} isRolling={isRolling} />
     </RigidBody>
   );
 }
@@ -261,7 +261,6 @@ function DiceArena(props: DiceSceneProps) {
 }
 
 export default function TroubleDice3D({ rollNonce, isRolling, displayValue, duration, active, stageRef }: TroubleDice3DProps) {
-  const numberRef = useRef<HTMLSpanElement>(null);
   const camera = useMemo(createDiceCamera, []);
   return (
     <span className="cosmic-three-dice-shell" aria-hidden="true">
@@ -282,12 +281,9 @@ export default function TroubleDice3D({ rollNonce, isRolling, displayValue, dura
           <pointLight position={[0, 0.8, 1.6]} intensity={1.1} color="#8b5cf6" distance={6} />
 
           <Physics gravity={[0, -18, 0]} timeStep={1 / 60} paused={!active}>
-            <DiceArena rollNonce={rollNonce} isRolling={isRolling} duration={duration} numberRef={numberRef} stageRef={stageRef} />
+            <DiceArena rollNonce={rollNonce} isRolling={isRolling} duration={duration} displayValue={displayValue} stageRef={stageRef} />
           </Physics>
         </Canvas>
-        <span ref={numberRef} className="cosmic-roll-die-number">
-          {displayValue}
-        </span>
       </span>
     </span>
   );

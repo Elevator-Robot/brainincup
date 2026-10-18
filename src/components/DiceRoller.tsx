@@ -17,14 +17,18 @@ class DiceBoundary extends Component<{ children: ReactNode; fallback: ReactNode 
   render() { return this.state.failed ? this.props.fallback : this.props.children; }
 }
 
-/** Full physics when visible; historical checks and reduced motion stay lightweight. */
+/** Load on first appearance, then pause offscreen without resetting the settled die. */
 export default function DiceRoller({ isRolling, displayValue, rollNonce, duration }: DiceRollerProps) {
   const shell = useRef<HTMLSpanElement>(null);
   const [inView, setInView] = useState(false);
+  const [hasAppeared, setHasAppeared] = useState(false);
   const visible = usePageVisible();
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting));
+    const observer = new IntersectionObserver(([entry]) => {
+      setInView(entry.isIntersecting);
+      if (entry.isIntersecting) setHasAppeared(true);
+    });
     if (shell.current) observer.observe(shell.current);
     return () => observer.disconnect();
   }, []);
@@ -39,7 +43,7 @@ export default function DiceRoller({ isRolling, displayValue, rollNonce, duratio
 
   return <span ref={shell} className={`cosmic-roll-die ${isRolling ? 'cosmic-roll-die--rolling' : ''}`}
     style={{ '--dice-roll-duration': `${duration}ms` } as CSSProperties} aria-hidden="true">
-    {inView && !reducedMotion
+    {hasAppeared && !reducedMotion
       ? <DiceBoundary fallback={fallback}><Suspense fallback={fallback}>
         <TroubleDice3D rollNonce={rollNonce} isRolling={isRolling} displayValue={displayValue} duration={duration} active={visible && inView} stageRef={shell} />
       </Suspense></DiceBoundary>
