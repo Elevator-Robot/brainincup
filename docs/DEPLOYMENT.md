@@ -75,7 +75,7 @@ The original AgentCore container setup is preserved and ready to use. To switch 
 
 Optional settings in `.env.agentcore`:
 
-- `BEDROCK_MODEL_ID`: Regional Mantle model (default: `anthropic.claude-haiku-4-5`). Brain, GM, and title generation use the us-east-1 Messages endpoint; cross-region inference profiles are not supported.
+- `BEDROCK_MODEL_ID`: Regional Mantle model (default: `openai.gpt-oss-120b`). Brain, GM, and title generation use the us-east-1 Chat Completions endpoint; cross-region inference profiles are not supported. Previous Haiku settings are migrated to the user-selected GPT OSS model.
 - `AGENTCORE_TRACE_ENABLED`: Enable tracing (default: `true`)
 - `AGENTCORE_TRACE_SAMPLE_RATE`: Trace sample rate 0.0-1.0 (default: `1.0`)
 

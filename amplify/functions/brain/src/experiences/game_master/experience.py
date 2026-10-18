@@ -85,7 +85,7 @@ class GameMasterExperience(BaseExperience):
             store=self._store(),
             model_id=os.environ.get(
                 "BEDROCK_MODEL_ID",
-                "anthropic.claude-haiku-4-5",
+                "openai.gpt-oss-120b",
             ),
             region=os.environ.get("AWS_REGION", "us-east-1"),
         )
@@ -111,7 +111,7 @@ class GameMasterExperience(BaseExperience):
                 store=self._store(),
                 model_id=os.environ.get(
                     "BEDROCK_MODEL_ID",
-                    "anthropic.claude-haiku-4-5",
+                    "openai.gpt-oss-120b",
                 ),
                 region=os.environ.get("AWS_REGION", "us-east-1"),
             )

@@ -9,7 +9,7 @@ from core.regional_bedrock import DEFAULT_MODEL_ID, RegionalBedrockClient
 logger = logging.getLogger(__name__)
 
 class BedrockDirectClient:
-    """Regional Bedrock Messages invocation, without an AgentCore container hop.
+    """Regional Bedrock Chat Completions, without an AgentCore container hop.
 
     The transport uses the us-east-1 Mantle endpoint while preserving the
     existing response shapes consumed by Brain's language agent.
