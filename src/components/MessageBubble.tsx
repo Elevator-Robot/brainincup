@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import type { ChatDiceRoll } from '../utils/diceRolls';
+import { useTypewriterText } from '../hooks/useTypewriterText';
 
 export interface ToolCallRecord {
   toolCallId: string;
@@ -87,6 +88,10 @@ export const MessageBubble = memo(function MessageBubble({
 }: MessageBubbleProps) {
   const isDesktop = variant === 'desktop';
   const { role } = message;
+  const visibleContent = useTypewriterText(
+    message.content,
+    role === 'assistant' && Boolean(message.populateOnMount || message.isTyping),
+  );
   const [populating, setPopulating] = useState(() => Boolean(message.populateOnMount && message.content));
   const previousContent = useRef(message.content);
   useEffect(() => {
@@ -126,7 +131,9 @@ export const MessageBubble = memo(function MessageBubble({
                 {role === 'user' ? 'You' : 'Brain'}
               </span>
             )}
-            <MarkdownContent content={message.content} />
+            <div aria-busy={visibleContent !== message.content}>
+              <MarkdownContent content={visibleContent} />
+            </div>
             {!isGameMasterMode && role === 'assistant' && (message.reasoning || message.sensations?.length || message.thoughts?.length || message.memories || message.selfReflection) ? (
               <button type="button" className="cosmic-message-details" aria-expanded={expanded} onClick={onToggleExpanded}>
                 {expanded ? 'Hide' : 'Explore'} thoughts <span aria-hidden="true">{expanded ? '−' : '+'}</span>
