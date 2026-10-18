@@ -270,6 +270,8 @@ body::before { display: none; }
 .cosmic-jump-to-latest:hover { background: #343052; }
 .cosmic-loading { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; font-family: var(--rpg-font-body); animation: cosmic-arrive 300ms ease both; }
 .cosmic-loading p, .cosmic-panel-loading { color: var(--cosmic-muted); font-size: .875rem; }
+.cosmic-loading-retry { padding: .65rem 1.1rem; border: 1px solid var(--cosmic-violet); border-radius: 999px; color: var(--cosmic-cyan); cursor: pointer; }
+.cosmic-loading-retry:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 4px; }
 .cosmic-loading-light { width: 7rem; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--cosmic-violet), var(--cosmic-cyan), transparent); animation: cosmic-breathe 1.8s ease-in-out infinite alternate; }
 .cosmic-dice-viewport, .cosmic-dice-preview { position: relative; display: grid; place-items: center; width: 100%; min-height: 9.4rem; }
 .cosmic-dice-preview { color: var(--cosmic-violet); background: radial-gradient(ellipse at center, rgb(152 104 219 / 15%), transparent 70%); }
