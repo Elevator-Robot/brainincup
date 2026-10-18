@@ -14,6 +14,7 @@
   --cosmic-ease: cubic-bezier(.22, 1, .36, 1);
   --cosmic-accent-rgb: 140 236 243;
   --dice-number-font: Cinzel, Georgia, serif;
+  --site-footer-height: calc(2rem + env(safe-area-inset-bottom, 0px));
   --rpg-font-display: Oxanium, "Trebuchet MS", sans-serif;
   --rpg-font-body: Nunito, system-ui, sans-serif;
   --rpg-text-parchment: var(--cosmic-text);
@@ -21,6 +22,12 @@
   --rpg-text-muted: var(--cosmic-muted);
   --rpg-tracking-label: .08em;
 }
+
+.retro-rpg-ui.cosmic-workspace { height: calc(100dvh - var(--site-footer-height)); min-height: 0; }
+.site-footer { position: fixed; inset: auto 0 0; z-index: 20; display: flex; align-items: center; justify-content: center; gap: .3em; height: var(--site-footer-height); padding: 0 .75rem env(safe-area-inset-bottom, 0px); color: var(--cosmic-muted); font-family: var(--rpg-font-body); font-size: .6875rem; line-height: 1.4; }
+.site-footer a { color: var(--cosmic-violet); text-decoration: none; text-underline-offset: .2em; }
+.site-footer a:hover { color: var(--cosmic-cyan); text-decoration: underline; }
+.site-footer a:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 4px; border-radius: 2px; }
 
 :root, .retro-rpg-ui--brain, .retro-rpg-ui--gm {
   --rpg-accent: var(--cosmic-cyan);

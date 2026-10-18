@@ -9,6 +9,7 @@ import SiteBackground from './components/SiteBackground';
 import WorkspaceRecovery from './components/WorkspaceRecovery';
 import WorkspaceBoundary from './components/WorkspaceBoundary';
 import TextArrivalEffects from './components/TextArrivalEffects';
+import SiteFooter from './components/SiteFooter';
 import { isTestModeEnabled } from './utils/testMode';
 import './index.css';
 import './cosmic-theme.css';
@@ -69,6 +70,7 @@ function AuthWrapper() {
         {isLoading ? <WorkspaceRecovery /> : isAuthenticated ? <App /> : <CustomAuth onAuthSuccess={checkAuthState} />}
       </React.Suspense>
     </WorkspaceBoundary>
+    {(isLoading || isAuthenticated) && <SiteFooter />}
   </>;
 }
 
@@ -105,5 +107,6 @@ root.render(
         : ConversationPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'conversation'
           ? <React.Suspense fallback={<WorkspaceRecovery />}><ConversationPreview /></React.Suspense>
           : <AuthWrapper />}
+    {isTestModeEnabled() && ['gm', 'dice', 'conversation'].includes(new URLSearchParams(window.location.search).get('preview') || '') && <SiteFooter />}
   </React.StrictMode>,
 );
