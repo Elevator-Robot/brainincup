@@ -54,7 +54,7 @@ function CharacterSheetPanel({
 
   return (
     <div className={`retro-character-sheet space-y-3 ${levelUpAnimating ? 'animate-pulse' : ''}`}>
-      {/* Avatar + name + level — padding leaves room for avatar glow */}
+      {/* Character identity */}
       <div className="retro-character-identity flex items-center gap-3">
         {avatarSrc && (
           <picture className="retro-character-avatar-picture">
@@ -71,10 +71,10 @@ function CharacterSheetPanel({
         <div className="retro-character-meta flex-1 min-w-0">
           <div className="flex items-start justify-between gap-1">
             <h2 className="text-brand-text-primary font-semibold text-sm truncate">{name}</h2>
-            <span className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+            <span className={`shrink-0 text-[10px] font-medium py-0.5 ${
               levelUpAnimating
-                ? 'bg-brand-accent-primary/20 border-brand-accent-primary text-brand-accent-primary'
-                : 'bg-brand-surface-dark border-brand-surface-border text-brand-text-secondary'
+                ? 'text-brand-accent-primary'
+                : 'text-brand-text-muted'
             }`}>
               Lv {level}
             </span>
@@ -111,21 +111,21 @@ function CharacterSheetPanel({
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-3 gap-1.5">
+      <dl className="cosmic-character-stats grid grid-cols-3 gap-x-4">
         {STAT_LABELS.map(([key, label]) => {
           const value = stats?.[key] ?? 0;
           return (
             <div
               key={key}
-              className="bg-brand-surface-dark rounded-lg p-1.5 text-center"
+              className="py-2"
             >
-              <div className="text-[9px] text-brand-text-muted uppercase tracking-wider">{label}</div>
-              <div className="text-brand-text-primary font-semibold text-sm leading-tight">{value}</div>
-              <div className="text-[10px] text-brand-text-secondary">{statModifier(value)}</div>
+              <dt className="text-[9px] text-brand-text-muted uppercase tracking-wider">{label}</dt>
+              <dd className="mt-1 flex items-baseline gap-2"><span className="text-brand-text-primary font-semibold text-sm leading-tight">{value}</span>
+                <span className="text-[10px] text-brand-text-muted">{statModifier(value)}</span></dd>
             </div>
           );
         })}
-      </div>
+      </dl>
     </div>
   );
 }

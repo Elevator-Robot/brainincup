@@ -1,16 +1,13 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { fetchUserAttributes, signOut } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
 import InstallPrompt from './components/InstallPrompt';
-import CharacterCreation from './components/CharacterCreation';
 import ConversationSidebarIcons from './components/ConversationSidebarIcons';
 import InventoryManager, { type InventoryItem } from './components/InventoryManager';
-import TroubleDice3D from './components/TroubleDice3D';
 // import Panel from './components/ui/Panel';
 import { BottomInput } from './components/ui/RPGLayout';
 import ContextWindowPanel from './components/ContextWindowPanel';
-import type { GameEvent } from './hooks/useContextPanel';
 import { normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import {
@@ -20,10 +17,18 @@ import {
 import { isTestModeEnabled } from './utils/testMode';
 import { GM_PLACEHOLDER_LOCATION, pickLatestAdventure, resolveLocationName } from './utils/gmLocations';
 import { streamAgentMessage, type AguiEvent } from './utils/aguiStream';
-import { MessageBubble, type Message } from './components/MessageBubble';
+import type { Message } from './components/MessageBubble';
+import MessageList from './components/MessageList';
+import ChatComposer, { type ChatComposerHandle } from './components/ChatComposer';
+import ChatWelcome from './components/ChatWelcome';
+import { useMediaQuery } from './hooks/useMediaQuery';
+import { useChatScroll } from './hooks/useChatScroll';
+import { useChatDiceRolls } from './hooks/useChatDiceRolls';
+import type { DiceRollRequest } from './utils/diceRolls';
 import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
 import AccountMenu from './components/AccountMenu';
+const CharacterCreation = lazy(() => import('./components/CharacterCreation'));
 const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
@@ -41,11 +46,6 @@ type CharacterCreationInput = {
   intelligence: number;
   wisdom: number;
   charisma: number;
-};
-
-type DiceRollResult = {
-  value: number;
-  sides: number;
 };
 
 const formatModelErrors = (errors: unknown): string => {
@@ -428,7 +428,9 @@ function GameMasterHud({ adventure, questSteps, character, isLoadingCharacter, o
 function App() {
   const [userAttributes, setUserAttributes] = useState<Record<string, string | undefined> | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
+  const draft = useRef('');
+  const composerRef = useRef<ChatComposerHandle>(null);
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
   // Initialize both conversationId and personality mode from localStorage synchronously
   const [conversationId, setConversationId] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
@@ -447,7 +449,6 @@ function App() {
   const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(() =>
     readStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, false)
   );
-  const [expandedMessageIndex, setExpandedMessageIndex] = useState<number | null>(null); // Track which message's details are shown
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
@@ -458,11 +459,6 @@ function App() {
   const [isTrashDragOver, setIsTrashDragOver] = useState(false);
   const [isNewInteractionPrimed, setIsNewInteractionPrimed] = useState(false);
   const [pendingCharacterDraft, setPendingCharacterDraft] = useState<CharacterCreationInput | null>(null);
-  const [lastManualDiceRoll, setLastManualDiceRoll] = useState<DiceRollResult | null>(null);
-  const [isDiceRolling, setIsDiceRolling] = useState(false);
-  const [diceRollPulseId, setDiceRollPulseId] = useState(0);
-  const [diceRollNonce, setDiceRollNonce] = useState(0);
-  const [gameEvents, setGameEvents] = useState<GameEvent[]>([]);
 
   // PlayerState — authoritative game state synced via AppSync subscription
   type PlayerStateRecord = Schema['PlayerState']['type'];
@@ -470,8 +466,6 @@ function App() {
   // Optimistic snapshot: last confirmed state used for rollback
   const confirmedPlayerStateRef = useRef<PlayerStateRecord | null>(null);
   const optimisticRollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Task 11.4 — tracks the last requestId that triggered the dice animation to avoid re-triggering
-  const lastTriggeredDiceRequestIdRef = useRef<string | null>(null);
 
   // Error toast state for optimistic rollback notifications
   const [playerStateError, setPlayerStateError] = useState<string | null>(null);
@@ -986,26 +980,28 @@ function App() {
     }
   }, [conversationId, effectivePersonality, fetchAdventureBundle]);
 
-  // Scroll to bottom when messages are loaded
-  useEffect(() => {
-    if (messages.length > 0 && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages.length]);
-
-
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { scrollRef, contentRef, isAtBottom, scrollToLatest } = useChatScroll(conversationId, isDesktop);
   const newInteractionPrimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const messageContainerRefs = useRef<Map<number, HTMLDivElement>>(new Map()); // Track individual message container refs (bubble + details)
-  const desktopScrollContainerRef = useRef<HTMLDivElement>(null); // Desktop scroll container
-  const desktopContentRef = useRef<HTMLDivElement>(null); // Desktop chat content (observed for growth)
-  const mobileScrollContainerRef = useRef<HTMLDivElement>(null); // Mobile scroll container
-  const mobileContentRef = useRef<HTMLDivElement>(null); // Mobile chat content (observed for growth)
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const streamedMessageIdsRef = useRef<Set<string>>(new Set());
+  const submitDiceResult = useCallback(async (request: DiceRollRequest, diceValue: number) => {
+    if (!conversationId) throw new Error('No active adventure');
+    setIsWaitingForResponse(true);
+    try {
+      const result = await dataClient.models.Message.create({
+        content: JSON.stringify({ type: 'DICE_RESULT', requestId: request.requestId, diceValue }),
+        conversationId,
+      });
+      if (result.errors?.length || !result.data?.id) throw new Error(formatModelErrors(result.errors) || 'Result was not saved');
+    } catch (error) {
+      setIsWaitingForResponse(false);
+      throw error;
+    }
+  }, [conversationId]);
+  const diceBusy = isWaitingForResponse || isSelectingConversation || messages.some(message => message.isTyping);
+  const { requestRoll, syncRequestedRoll, roll: handleDiceRoll, activeRequestId: activeDiceRequestId, hasPendingRoll } = useChatDiceRolls({
+    conversationId, messages, setMessages, busy: diceBusy, onSubmit: submitDiceResult,
+  });
 
   useEffect(() => {
     if (!isProfileMenuOpen) return;
@@ -1155,125 +1151,6 @@ function App() {
     loadInitialConversation();
   }, [userAttributes, conversationId, brainConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Ensure scroll to bottom on initial load and page refresh
-  useEffect(() => {
-    if (conversationId && messages.length > 0 && messagesEndRef.current) {
-      // Multiple attempts to ensure scroll happens after render
-      const attemptScroll = () => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
-        }
-      };
-      
-      attemptScroll();
-      requestAnimationFrame(attemptScroll);
-      setTimeout(attemptScroll, 100);
-      setTimeout(attemptScroll, 300);
-    }
-  }, [conversationId, messages.length]);
-
-  // Auto-scroll to bottom when expanded message details change
-  useEffect(() => {
-    if (expandedMessageIndex !== null) {
-      const containerElement = messageContainerRefs.current.get(expandedMessageIndex);
-      if (!containerElement) return;
-
-      const bubbleElement = containerElement.querySelector('.message-bubble') as HTMLElement;
-      if (!bubbleElement) return;
-
-      const scrollContainer = bubbleElement.closest('.overflow-y-auto') as HTMLElement;
-      if (!scrollContainer) return;
-
-      // Function to ensure bubble stays visible
-      const ensureBubbleVisible = () => {
-        const bubbleRect = bubbleElement.getBoundingClientRect();
-        const scrollRect = scrollContainer.getBoundingClientRect();
-        
-        const bubbleTop = bubbleRect.top;
-        const scrollTop = scrollRect.top;
-        const isAboveViewport = bubbleTop < scrollTop + 60;
-        
-        if (isAboveViewport) {
-          bubbleElement.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start',
-            inline: 'nearest' 
-          });
-        }
-      };
-
-      // Run once immediately
-      ensureBubbleVisible();
-
-      // Use ResizeObserver to detect when the container size changes due to expansion
-      const resizeObserver = new ResizeObserver(ensureBubbleVisible);
-      resizeObserver.observe(containerElement);
-
-      // Cleanup
-      return () => {
-        resizeObserver.disconnect();
-      };
-    }
-  }, [expandedMessageIndex]);
-
-  // Scroll desktop container to bottom when messages load
-  useEffect(() => {
-    if (desktopScrollContainerRef.current && messages.length > 0) {
-      desktopScrollContainerRef.current.scrollTop = desktopScrollContainerRef.current.scrollHeight;
-    }
-  }, [messages.length]);
-
-  // Keep the chat pinned to the bottom while content grows — streamed deltas,
-  // the typewriter reveal, expanded details, and new messages — so the user
-  // never has to scroll to follow the conversation. Pinning pauses while the
-  // user scrolls up and resumes once they return near the bottom.
-  useEffect(() => {
-    const containers: Array<{ scroll: HTMLDivElement; content: HTMLDivElement }> = [];
-    if (desktopScrollContainerRef.current && desktopContentRef.current) {
-      containers.push({ scroll: desktopScrollContainerRef.current, content: desktopContentRef.current });
-    }
-    if (mobileScrollContainerRef.current && mobileContentRef.current) {
-      containers.push({ scroll: mobileScrollContainerRef.current, content: mobileContentRef.current });
-    }
-    if (containers.length === 0) return;
-
-    const pinned = new Map<HTMLDivElement, boolean>();
-    const observers: ResizeObserver[] = [];
-    const removeListeners: Array<() => void> = [];
-
-    for (const { scroll, content } of containers) {
-      pinned.set(scroll, true);
-      const onScroll = () => {
-        pinned.set(scroll, scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 100);
-      };
-      scroll.addEventListener('scroll', onScroll, { passive: true });
-      removeListeners.push(() => scroll.removeEventListener('scroll', onScroll));
-
-      const observer = new ResizeObserver(() => {
-        if (pinned.get(scroll)) {
-          scroll.scrollTop = scroll.scrollHeight;
-        }
-      });
-      observer.observe(content);
-      observers.push(observer);
-    }
-
-    return () => {
-      removeListeners.forEach(remove => remove());
-      observers.forEach(observer => observer.disconnect());
-    };
-  }, []);
-
-  // Cleanup typing animation when conversation changes or component unmounts
-  useEffect(() => {
-    return () => {
-      if (typingIntervalRef.current) {
-        clearInterval(typingIntervalRef.current);
-        typingIntervalRef.current = null;
-      }
-    };
-  }, [conversationId]);
-
   useEffect(() => {
     if (!conversationId) return;
 
@@ -1384,29 +1261,19 @@ function App() {
                 return;
               }
 
-              console.log('✅ MATCH: Starting typing animation for response:', brainResponse.response);
-              console.log('✅ MATCH: Including metadata - sensations:', brainResponse.sensations, 'thoughts:', brainResponse.thoughts);
-
-              // Add empty assistant message to start typing animation
+              // A single update; the bubble handles its own arrival animation.
               setMessages(prev => {
                 const newMessages: Message[] = [...prev, { 
                   role: 'assistant' as const, 
-                  content: '',
-                  isTyping: true,
+                  content: brainResponse.response ?? '',
+                  isTyping: false,
+                  populateOnMount: true,
                   fullContent: brainResponse.response ?? '',
                   sensations: brainResponse.sensations?.filter((s): s is string => s !== null) || [],
                   thoughts: brainResponse.thoughts?.filter((t): t is string => t !== null) || [],
                   memories: brainResponse.memories || '',
                   selfReflection: brainResponse.selfReflection || '',
                 }];
-                
-                console.log('Message being added:', newMessages[newMessages.length - 1]);
-                
-                // Start typing animation for the newly added message
-                const messageIndex = newMessages.length - 1;
-                setTimeout(() => {
-                  startTypingAnimation(messageIndex, brainResponse.response ?? '');
-                }, 100); // Small delay to ensure state is updated
                 
                 return newMessages;
               });
@@ -1461,25 +1328,8 @@ function App() {
           }
           setPlayerStateError(null);
 
-          // Task 11.4 — wire pendingDiceRoll to dice animation
-          // Guard: only trigger if there is a non-expired, not-yet-triggered request.
-          const pending = latest.pendingDiceRoll as
-            | { requestId?: string; expiresAt?: string }
-            | null
-            | undefined;
-          if (pending?.requestId) {
-            const isExpired = pending.expiresAt
-              ? new Date(pending.expiresAt).getTime() < Date.now()
-              : false;
-            const alreadyTriggered =
-              lastTriggeredDiceRequestIdRef.current === pending.requestId;
-            if (!isExpired && !alreadyTriggered) {
-              lastTriggeredDiceRequestIdRef.current = pending.requestId;
-              setDiceRollNonce((n) => n + 1);
-              setIsDiceRolling(true);
-              setGameEvents((prev) => [...prev, { type: 'DICE_ROLL_REQUESTED' }]);
-            }
-          }
+          // A request adds a chat prompt, never an automatic roll.
+          syncRequestedRoll(latest.pendingDiceRoll, conversationId);
         }
       },
       error: (err) => {
@@ -1488,7 +1338,7 @@ function App() {
     });
 
     return () => sub.unsubscribe();
-  }, [conversationId, effectivePersonality]);
+  }, [conversationId, effectivePersonality, syncRequestedRoll]);
 
   // Subscribe to GameMasterAdventure updates so currentLocation stays live
   useEffect(() => {
@@ -1531,85 +1381,6 @@ function App() {
     return () => sub.unsubscribe();
   }, [conversationId, effectivePersonality]);
 
-
-  const startTypingAnimation = (messageIndex: number, fullText: string) => {
-    // Clear any existing typing animation
-    if (typingIntervalRef.current) {
-      clearInterval(typingIntervalRef.current);
-    }
-
-    let currentIndex = 0;
-    const typingSpeed = 30; // Characters per second
-    let loggedOnce = false; // Only log once to avoid spam
-
-    const typeNextCharacter = () => {
-      if (currentIndex < fullText.length) {
-        setMessages(prev => {
-          const updatedMessages = [...prev];
-          if (updatedMessages[messageIndex]) {
-            // Log once to see what we're preserving
-            if (!loggedOnce && currentIndex === 0) {
-              console.log('Typing animation - preserving fields:', {
-                sensations: updatedMessages[messageIndex].sensations,
-                thoughts: updatedMessages[messageIndex].thoughts,
-                memories: updatedMessages[messageIndex].memories,
-                selfReflection: updatedMessages[messageIndex].selfReflection,
-              });
-              loggedOnce = true;
-            }
-            
-            // Preserve all existing fields when updating content
-            updatedMessages[messageIndex] = {
-              ...updatedMessages[messageIndex],
-              content: fullText.substring(0, currentIndex + 1),
-              isTyping: true,
-              fullContent: fullText,
-              // Keep the additional fields from the original message
-              sensations: updatedMessages[messageIndex].sensations,
-              thoughts: updatedMessages[messageIndex].thoughts,
-              memories: updatedMessages[messageIndex].memories,
-              selfReflection: updatedMessages[messageIndex].selfReflection,
-            };
-          }
-          return updatedMessages;
-        });
-        currentIndex++;
-      } else {
-        // Typing complete
-        setMessages(prev => {
-          const updatedMessages = [...prev];
-          if (updatedMessages[messageIndex]) {
-            console.log('Typing animation complete - final message:', {
-              sensations: updatedMessages[messageIndex].sensations,
-              thoughts: updatedMessages[messageIndex].thoughts,
-              memories: updatedMessages[messageIndex].memories,
-              selfReflection: updatedMessages[messageIndex].selfReflection,
-            });
-            
-            // Preserve all existing fields when marking typing complete
-            updatedMessages[messageIndex] = {
-              ...updatedMessages[messageIndex],
-              content: fullText,
-              isTyping: false,
-              fullContent: fullText,
-              // Keep the additional fields from the original message
-              sensations: updatedMessages[messageIndex].sensations,
-              thoughts: updatedMessages[messageIndex].thoughts,
-              memories: updatedMessages[messageIndex].memories,
-              selfReflection: updatedMessages[messageIndex].selfReflection,
-            };
-          }
-          return updatedMessages;
-        });
-        if (typingIntervalRef.current) {
-          clearInterval(typingIntervalRef.current);
-          typingIntervalRef.current = null;
-        }
-      }
-    };
-
-    typingIntervalRef.current = setInterval(typeNextCharacter, 1000 / typingSpeed);
-  };
 
   // Task 11.2 — optimistic XP and HP update applied immediately on message submit.
   // Task 11.3 — if subscription doesn't confirm within 10s, roll back and show error toast.
@@ -1819,18 +1590,7 @@ function App() {
 
             case 'CUSTOM':
               if (event.name === 'dice_roll_requested') {
-                // The GM wants a stat check: kick off the TroubleDice animation.
-                // Guard against duplicate triggers for the same requestId.
-                const roll = event.value as
-                  | { requestId?: string; statName?: string; difficultyClass?: number }
-                  | null
-                  | undefined;
-                if (roll?.requestId && lastTriggeredDiceRequestIdRef.current !== roll.requestId) {
-                  lastTriggeredDiceRequestIdRef.current = roll.requestId;
-                  setDiceRollNonce((n) => n + 1);
-                  setIsDiceRolling(true);
-                  setGameEvents((prev) => [...prev, { type: 'DICE_ROLL_REQUESTED' }]);
-                }
+                requestRoll(event.value, targetConversationId);
                 break;
               }
               if (event.name === 'response_complete') {
@@ -1917,51 +1677,16 @@ function App() {
     }
   };
 
-  // Task 11.5 — submitDiceResult: called after TroubleDice3D produces a result.
-  // Sends the dice value and requestId to the backend via AppSync mutation.
-  const submitDiceResult = useCallback(
-    async (diceValue: number) => {
-      const pending = playerState?.pendingDiceRoll as
-        | { requestId?: string; statName?: string; difficultyClass?: number }
-        | null
-        | undefined;
-      if (!pending?.requestId || !conversationId) return;
-
-      // Optimistic: clear pendingDiceRoll locally so the UI stops showing the pending state
-      applyOptimisticPlayerStateUpdate({ pendingDiceRoll: null });
-
-      try {
-        // The backend resolves the stat check and updates PlayerState via the stream.
-        // We write a Message with the dice result so the Lambda picks it up.
-        await dataClient.models.Message.create({
-          content: JSON.stringify({
-            type: 'DICE_RESULT',
-            requestId: pending.requestId,
-            diceValue,
-          }),
-          conversationId,
-        });
-      } catch (err) {
-        console.error('submitDiceResult failed:', err);
-      }
-    },
-    [playerState, conversationId, applyOptimisticPlayerStateUpdate],
-  );
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (content: string): Promise<boolean> => {
     if (
-      !inputMessage.trim() ||
-      isWaitingForResponse ||
-      messages.some(m => m.isTyping) ||
-      (effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState)
-    ) return;
+      !content.trim() || isInputLocked
+    ) return false;
 
     let activeConversationId = conversationId;
     if (!activeConversationId) {
       activeConversationId = await createConversationWithMode(effectivePersonality);
       if (!activeConversationId) {
-        return;
+        return false;
       }
       if (effectivePersonality === 'game_master') {
         if (pendingCharacterDraft) {
@@ -1970,16 +1695,16 @@ function App() {
         } else {
           const existingCharacter = await fetchCharacter(activeConversationId);
           if (!existingCharacter) {
-            return;
+            return false;
           }
         }
       }
     }
 
-    const userMessage = inputMessage.trim();
+    const userMessage = content.trim();
     setIsNewInteractionPrimed(false);
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-    setInputMessage('');
+    scrollToLatest();
 
     // Task 11.2 — optimistic XP update: apply a small baseline XP gain immediately
     // so the Context_Window reflects the change before the DynamoDB write confirms.
@@ -1994,22 +1719,8 @@ function App() {
       applyOptimisticPlayerStateUpdate({ currentXP: optimisticXP });
     }
 
-    await handleSendMessage(userMessage, activeConversationId);
-    // Assistant reply will come via subscription
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (
-        inputMessage.trim() &&
-        !isWaitingForResponse &&
-        !messages.some(m => m.isTyping) &&
-        !(effectivePersonality === 'game_master' && Boolean(conversationId) && !characterState)
-      ) {
-        handleSubmit(e as React.FormEvent);
-      }
-    }
+    void handleSendMessage(userMessage, activeConversationId);
+    return true;
   };
 
   const handleSelectConversation = async (selectedConversationId: string) => {
@@ -2091,19 +1802,13 @@ function App() {
       if (cached) {
         setIsWaitingForResponse(false);
         setIsSelectingConversation(false);
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-        }, 100);
         return;
       }
       
-      const { data: conversationMessages } = await dataClient.models.Message.list({
-        filter: { conversationId: { eq: selectedConversationId } }
-      });
-      
-      const { data: brainResponses } = await dataClient.models.BrainResponse.list({
-        filter: { conversationId: { eq: selectedConversationId } }
-      });
+      const [{ data: conversationMessages }, { data: brainResponses }] = await Promise.all([
+        dataClient.models.Message.list({ filter: { conversationId: { eq: selectedConversationId } } }),
+        dataClient.models.BrainResponse.list({ filter: { conversationId: { eq: selectedConversationId } } }),
+      ]);
       
       // Create a timeline of messages and responses
       const timeline: Message[] = [];
@@ -2118,12 +1823,13 @@ function App() {
       // Check if there's a pending message (message without response)
       let hasPendingMessage = false;
       
-      // For each message, add it and its corresponding response
+      const responseByMessageId = new Map((brainResponses || []).map(response => [response.messageId, response]));
+      // For each message, add it and its corresponding response in linear time.
       sortedMessages.forEach(msg => {
         timeline.push({ role: 'user', content: msg.content || '' });
         
         // Find corresponding brain response
-        const response = brainResponses?.find(br => br.messageId === msg.id);
+        const response = responseByMessageId.get(msg.id);
         if (response?.response) {
           timeline.push({ 
             role: 'assistant', 
@@ -2142,11 +1848,6 @@ function App() {
       // Set messages and scroll to bottom
       setMessages(timeline);
       saveCachedMessages(selectedConversationId, timeline);
-      
-      // Scroll to bottom after messages load
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-      }, 100);
       
       // Set waiting state based on whether there's a pending message
       setIsWaitingForResponse(hasPendingMessage);
@@ -2169,7 +1870,8 @@ function App() {
     setIsSelectingConversation(false);
     setConversationId(null);
     setMessages([]);
-    setInputMessage('');
+    draft.current = '';
+    composerRef.current?.clear();
     setIsWaitingForResponse(false);
     setAdventureState(null);
     setQuestSteps([]);
@@ -2178,7 +1880,6 @@ function App() {
     setShowCharacterCreation(true);
     setDraggingConversationId(null);
     setIsTrashDragOver(false);
-    setExpandedMessageIndex(null);
     setIsNewInteractionPrimed(false);
 
     setIsSelectingConversation(true);
@@ -2475,7 +2176,8 @@ function App() {
     }
     setConversationId(null);
     setMessages([]);
-    setInputMessage('');
+    draft.current = '';
+    composerRef.current?.clear();
     setIsWaitingForResponse(false);
     setAdventureState(null);
     setQuestSteps([]);
@@ -2532,7 +2234,7 @@ function App() {
   const showRightPanelCharacterCreation =
     showGameMasterCharacterFlow && !characterState;
   const hasTypingMessage = messages.some(m => m.isTyping);
-  const isInputLocked = isWaitingForResponse || hasTypingMessage || isGameMasterContentLoading || isGameMasterCharacterRequired;
+  const isInputLocked = isWaitingForResponse || hasTypingMessage || hasPendingRoll || isGameMasterContentLoading || isGameMasterCharacterRequired || isSelectingConversation;
   const gameMasterInputPlaceholder = isGameMasterContentLoading
     ? 'Loading adventure...'
     : isGameMasterCharacterRequired
@@ -2585,24 +2287,6 @@ function App() {
     return adventureState?.currentChapter || 1;
   }, [adventureState?.currentChapter]);
   
-  const latestDiceRoll = useMemo(() => {
-    if (lastManualDiceRoll) {
-      return String(lastManualDiceRoll.value);
-    }
-    const patterns = [
-      /\bd20\b[^0-9]*(\d{1,2})/i,
-      /\broll(?:ed)?\b[^0-9]*(\d{1,2})/i,
-      /\b(\d{1,2})\s*\/\s*20\b/i,
-    ];
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      const text = messages[i]?.fullContent || messages[i]?.content || '';
-      for (const pattern of patterns) {
-        const match = text.match(pattern);
-        if (match?.[1]) return match[1];
-      }
-    }
-    return null;
-  }, [lastManualDiceRoll, messages]);
   const latestAssistantMessage = useMemo(
     () => [...messages].reverse().find((message) => message.role === 'assistant' && Boolean(message.content || message.fullContent)),
     [messages],
@@ -2621,52 +2305,21 @@ function App() {
     const thoughtCount = latestAssistantMessage?.thoughts?.length ?? 0;
     return Math.min(100, 25 + sensationCount * 14 + thoughtCount * 8 + (isWaitingForResponse ? 12 : 0));
   }, [isWaitingForResponse, latestAssistantMessage]);
-  const sendButtonStateClass = !inputMessage.trim() || isInputLocked
-    ? 'retro-send-button-disabled cursor-not-allowed opacity-60'
-    : 'retro-send-button-active-brain text-white hover:-translate-y-0.5 active:translate-y-0';
-  const canUseDiceRoll = isGameMasterMode && !isInputLocked && !isDiceRolling;
-
-  const handleDiceRoll = useCallback(async () => {
-    if (!canUseDiceRoll) return;
-
-    const sides = 20;
-    setIsDiceRolling(true);
-    setDiceRollNonce((prev) => prev + 1);
-
-    // Pop-o-matic "bubbles" effect window.
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 620);
-    });
-
-    const value = Math.floor(Math.random() * sides) + 1;
-    setLastManualDiceRoll({ value, sides });
-    setDiceRollPulseId((prev) => prev + 1);
-
-    // Task 11.5 — if a pendingDiceRoll is active, submit the result to the backend
-    const hasPendingRoll = Boolean(
-      (playerState?.pendingDiceRoll as { requestId?: string } | null | undefined)?.requestId,
-    );
-    if (hasPendingRoll) {
-      await submitDiceResult(value);
-    } else {
-      setInputMessage((prev) => {
-        const trimmed = prev.trim();
-        if (!trimmed) {
-          return `I rolled a d${sides}: ${value}. `;
-        }
-        return `${prev}${prev.endsWith(' ') ? '' : ' '}[d${sides}: ${value}] `;
-      });
-      requestAnimationFrame(() => {
-        inputRef.current?.focus();
-      });
-    }
-    setIsDiceRolling(false);
-  }, [canUseDiceRoll, playerState, submitDiceResult]);
-
-  const keyboardHintKeyClass = 'retro-keycap px-1.5 py-0.5 rounded-md text-[10px] font-mono';
+  const composer = <ChatComposer ref={composerRef} draft={draft} onSend={handleSubmit}
+    isLocked={isInputLocked || isSelectingConversation} isWaiting={isWaitingForResponse} isPrimed={isNewInteractionPrimed}
+    placeholder={hasPendingRoll ? 'Resolve the requested check above…' : isWaitingForResponse ? 'Brain is thinking…' : conversationId
+      ? (isGameMasterMode ? gameMasterInputPlaceholder : 'Message Brain…')
+      : (isNewInteractionPrimed ? 'New chat ready. Start typing…' : 'Start a new conversation…')} />;
+  const jumpToLatest = !isAtBottom && <button type="button" className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages <span aria-hidden="true">↓</span></button>;
+  const welcome = messages.length === 0 && !isWaitingForResponse && (
+    !userAttributes || isSelectingConversation
+      ? <div className="cosmic-chat-loading" role="status"><span className="cosmic-loading-light" aria-hidden="true" /><p>Opening your conversation…</p></div>
+      : <ChatWelcome isGameMasterMode={isGameMasterMode} isSettingUp={showGameMasterCharacterFlow || isGameMasterCharacterRequired}
+        onPrompt={prompt => { composerRef.current?.clear(); composerRef.current?.append(prompt); composerRef.current?.focus(); }} />
+  );
 
   return (
-    <div className={`retro-rpg-ui ${appThemeClass} h-screen overflow-hidden relative`}>
+    <div className={`retro-rpg-ui cosmic-workspace ${appThemeClass} h-dvh overflow-hidden relative`}>
 
       {/* Task 11.3 — optimistic rollback error toast */}
       {playerStateError && (
@@ -2684,7 +2337,7 @@ function App() {
       )}
 
       {/* Desktop: Main Layout */}
-      <div className="hidden lg:flex flex-col h-full">
+      {isDesktop ? <div className="flex flex-col h-full">
         <div className="flex-1 min-h-0 grid retro-shell">
         {/* Left Sidebar - full height */}
         <aside className="retro-shell-left">
@@ -2766,9 +2419,9 @@ function App() {
           <main 
             className="retro-shell-center retro-main flex flex-col min-w-0 overflow-hidden relative px-4 pb-4 pt-4"
           >
-          <div className="text-center mb-4 flex-shrink-0">
-            <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide relative inline-block after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-full after:h-[2px] after:bg-gradient-to-r after:from-transparent after:via-brand-accent-primary after:to-transparent after:rounded-full after:shadow-[0_0_8px_rgba(94,234,212,0.5)]">Brain in Cup</span>
-          </div>
+          <header className="cosmic-workspace-header">
+            <h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1>
+          </header>
           {/* Screen reader live region for message updates */}
           <div
             aria-live="polite"
@@ -2807,10 +2460,10 @@ function App() {
                       )}
 
                         <div
-                          ref={desktopScrollContainerRef}
-                          className="flex-1 overflow-y-auto pr-2"
+                          ref={scrollRef}
+                          className="cosmic-chat-scroll flex-1 overflow-y-auto pr-2"
                         >
-                          <div ref={desktopContentRef} className="mx-auto max-w-4xl space-y-6 flex flex-col transition-all duration-300">
+                          <div ref={contentRef} className="cosmic-chat-content mx-auto max-w-4xl space-y-6 flex flex-col">
                           {/* Mode indicator removed */}
 
                           {conversationId && effectivePersonality === 'game_master' && adventureState && (
@@ -2825,25 +2478,9 @@ function App() {
                             </div>
                           )}
               
-              {messages.filter(m => !m.content?.startsWith('[SYSTEM:')).map((message, index) => (
-                <MessageBubble
-                  key={index}
-                  message={message}
-                  isGameMasterMode={isGameMasterMode}
-                  variant="desktop"
-                  expanded={expandedMessageIndex === index}
-                  onToggleExpanded={() => {
-                    if (message.role === 'assistant') {
-                      setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
-                    }
-                  }}
-                  containerRef={(el) => {
-                    if (el && message.role === 'assistant') {
-                      messageContainerRefs.current.set(index, el);
-                    }
-                  }}
-                />
-              ))}
+              {welcome}
+              <MessageList key={conversationId} messages={messages} isGameMasterMode={isGameMasterMode} variant="desktop"
+                activeDiceRequestId={activeDiceRequestId} diceDisabled={diceBusy} onDiceRoll={handleDiceRoll} />
               
                           {isWaitingForResponse && (
                             <div className="retro-waiting-row flex gap-4 justify-start animate-slide-up">
@@ -2855,7 +2492,7 @@ function App() {
                                     <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
                                   </div>
                                   <span className="text-sm text-brand-text-muted">
-                                    {isGameMasterMode ? 'The world shifts around your decision...' : 'Brain is thinking...'}
+                                    Generating response…
                                   </span>
                                 </div>
                               </div>
@@ -2863,8 +2500,7 @@ function App() {
                           )}
               
                   
-                          {/* Invisible element to scroll to - at the bottom */}
-                          <div ref={messagesEndRef} />
+                          <div aria-hidden="true" />
                         </div>
                       </div>
                     </div>
@@ -2872,59 +2508,9 @@ function App() {
                       <div className="h-px bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
                     </div>
                       <BottomInput className="px-0 pt-3 shrink-0">
-                        <div className="mx-auto max-w-4xl transition-all duration-300">
-                          <form onSubmit={handleSubmit} className="relative">
-                            <div className={`retro-input-shell flex gap-2 items-end rounded-2xl border border-brand-surface-border/50 bg-brand-surface-elevated/80 backdrop-blur-xl p-2 shadow-lg transition-all duration-200 ${isNewInteractionPrimed ? 'retro-input-shell-primed' : ''}`}>
-                              {/* Textarea */}
-                              <div className="flex-1 min-w-0">
-                                <textarea
-                                  ref={inputRef}
-                                  value={inputMessage}
-                                  onChange={(e) => setInputMessage(e.target.value)}
-                                  onKeyDown={handleKeyDown}
-                                  placeholder={
-                                    isWaitingForResponse
-                                      ? 'Brain is thinking...'
-                                      : conversationId
-                                        ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
-                                        : (isNewInteractionPrimed ? 'New chat ready. Start typing...' : 'Start a new conversation...')
-                                  }
-                                  className="retro-input-textarea w-full px-3 py-2.5 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-[15px] leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
-                                  rows={1}
-                                  style={{
-                                    maxHeight: '140px',
-                                    minHeight: '44px',
-                                    height: 'auto'
-                                  }}
-                                  onInput={(e) => {
-                                    const target = e.target as HTMLTextAreaElement;
-                                    target.style.height = 'auto';
-                                    target.style.height = Math.min(target.scrollHeight, 140) + 'px';
-                                  }}
-                                />
-                              </div>
-
-                              {/* Send Button */}
-                              <button
-                                type="submit"
-                                className={`retro-send-button flex-shrink-0 rounded-xl p-2.5 transition-all duration-200 focus:outline-none ${sendButtonStateClass}`}
-                                disabled={!inputMessage.trim()}
-                                aria-label="Send message"
-                              >
-                                {isWaitingForResponse ? (
-                                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                ) : (
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                  </svg>
-                                )}
-                              </button>
-                            </div>
-
-                            <p className="mt-1.5 text-center text-[11px] text-brand-text-muted/45">
-                              Press <kbd className={keyboardHintKeyClass}>Enter</kbd> to send, <kbd className={keyboardHintKeyClass}>Shift+Enter</kbd> for new line
-                            </p>
-                          </form>
+                        <div className="relative mx-auto max-w-4xl">
+                          {jumpToLatest}
+                          {composer}
                         </div>
                       </BottomInput>
                   </section>
@@ -2937,16 +2523,16 @@ function App() {
                     showRightPanelCharacterCreation ? (
                       <div className="flex h-full min-h-0 flex-col overflow-y-auto p-5">
                         <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
-                        <CharacterCreation
+                        <Suspense fallback={<p className="cosmic-panel-loading" role="status">Preparing character studio…</p>}><CharacterCreation
                           inline
                           embedded
                           onComplete={handleCharacterCreationComplete}
                           onCancel={handleCharacterCreationCancel}
-                        />
+                        /></Suspense>
                       </div>
                     ) : (
                       <div className="retro-right-stack flex h-full min-h-0 flex-col p-5">
-                        {/* Tabs pin; body (sheet / timeline / inventory / dice) scrolls beneath */}
+                        {/* Tabs pin; character and timeline content scroll beneath. */}
                         <ContextWindowPanel
                           playerState={playerState ? {
                             currentLevel: playerState.currentLevel ?? undefined,
@@ -2978,7 +2564,6 @@ function App() {
                             thoughts: m.thoughts,
                             location: currentLocation ?? undefined,
                           }))}
-                          gameEvents={gameEvents}
                         >
                           {characterDisplay ? (
                             <div className="retro-right-section retro-right-section--inventory">
@@ -2989,26 +2574,6 @@ function App() {
                               />
                             </div>
                           ) : null}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void handleDiceRoll();
-                            }}
-                            disabled={!canUseDiceRoll}
-                            className={`retro-roll-panel-button retro-tooltip-trigger relative w-full rounded-xl ${
-                              isDiceRolling ? 'retro-roll-panel-button--rolling' : ''
-                            }`}
-                            aria-label={isDiceRolling ? 'Rolling d20' : 'Roll a d20'}
-                            data-tooltip={isDiceRolling ? 'Rolling d20…' : 'Roll d20'}
-                            data-tooltip-position="top"
-                          >
-                            <TroubleDice3D
-                              rollNonce={diceRollNonce}
-                              isRolling={isDiceRolling}
-                              pulseId={diceRollPulseId}
-                              displayValue={latestDiceRoll || (isDiceRolling ? '...' : 'd20')}
-                            />
-                          </button>
                         </ContextWindowPanel>
                       </div>
                     )
@@ -3033,11 +2598,8 @@ function App() {
           </div>
         </aside>
       </div>
-      </div>
-
-      {/* Mobile: Main Content Area */}
-      <main 
-        className="retro-mobile-main lg:hidden flex flex-col h-full px-2 pb-2 pt-2"
+      </div> : <main
+        className="retro-mobile-main flex flex-col h-full px-2 pb-2 pt-2"
       >
         {/* Mobile Top Nav Bar */}
         <nav className="retro-nav retro-mobile-nav sticky top-0 z-[60] bg-brand-surface-elevated/95 backdrop-blur-xl border-b border-brand-surface-border/50 shadow-lg pt-safe rounded-3xl">
@@ -3054,7 +2616,7 @@ function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M4 7h16M4 12h16M4 17h16" />
                   </svg>
                 </button>
-                <span className="retro-title text-lg font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
+                <h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1>
               </div>
             </div>
 
@@ -3250,39 +2812,23 @@ function App() {
         <div className="retro-chat-area flex-1 flex flex-col min-h-0 mt-2">
           {/* Messages with improved styling and animations */}
           <div
-            ref={mobileScrollContainerRef}
-            className="retro-scroll-panel flex-1 overflow-y-auto px-4 py-5 pb-3 scrollbar-thin scrollbar-thumb-brand-surface-tertiary flex flex-col rounded-3xl"
+            ref={scrollRef}
+            className="retro-scroll-panel cosmic-chat-scroll flex-1 overflow-y-auto px-3 py-5 pb-3 flex flex-col rounded-3xl"
           >
-            <div ref={mobileContentRef} className="max-w-4xl mx-auto space-y-4 flex flex-col">
+            <div ref={contentRef} className="cosmic-chat-content w-full max-w-4xl mx-auto space-y-4 flex flex-col">
               {showMobileInlineCharacterCreation && (
                 <div className="mx-auto w-full max-w-xl pb-2">
-                  <CharacterCreation
+                  <Suspense fallback={<p className="cosmic-panel-loading" role="status">Preparing character studio…</p>}><CharacterCreation
                     inline
                     onComplete={handleCharacterCreationComplete}
                     onCancel={handleCharacterCreationCancel}
-                  />
+                  /></Suspense>
                 </div>
               )}
               
-              {messages.filter(m => !m.content?.startsWith('[SYSTEM:')).map((message, index) => (
-                <MessageBubble
-                  key={index}
-                  message={message}
-                  isGameMasterMode={isGameMasterMode}
-                  variant="mobile"
-                  expanded={expandedMessageIndex === index}
-                  onToggleExpanded={() => {
-                    if (message.role === 'assistant') {
-                      setExpandedMessageIndex(expandedMessageIndex === index ? null : index);
-                    }
-                  }}
-                  containerRef={(el) => {
-                    if (el && message.role === 'assistant') {
-                      messageContainerRefs.current.set(index, el);
-                    }
-                  }}
-                />
-              ))}
+              {!showMobileInlineCharacterCreation && welcome}
+              <MessageList key={conversationId} messages={messages} isGameMasterMode={isGameMasterMode} variant="mobile"
+                activeDiceRequestId={activeDiceRequestId} diceDisabled={diceBusy} onDiceRoll={handleDiceRoll} />
               
               {isWaitingForResponse && (
                 <div className="retro-waiting-row flex gap-3 justify-start animate-slide-up">
@@ -3294,77 +2840,27 @@ function App() {
                         <div className="w-2 h-2 rounded-full bg-brand-accent-primary animate-pulse delay-300"></div>
                       </div>
                       <span className="text-sm text-brand-text-muted">
-                        {isGameMasterMode ? 'The world shifts around your decision...' : 'Brain is thinking...'}
+                        Generating response…
                       </span>
                     </div>
                   </div>
                 </div>
               )}
               
-              {/* Invisible element to scroll to - at the bottom */}
-              <div ref={messagesEndRef} />
+              <div aria-hidden="true" />
             </div>
           </div>
 
           {/* Mobile Input Area */}
             <div className="retro-input-dock pt-3 pb-3 px-3 pb-safe">
-              <div className="max-w-4xl mx-auto">
-                <form onSubmit={handleSubmit} className="relative">
-                  <div className={`retro-input-shell flex gap-2 items-end bg-brand-surface-elevated/80 backdrop-blur-xl rounded-2xl border border-brand-surface-border/50 p-2.5 transition-all duration-200 ${isNewInteractionPrimed ? 'retro-input-shell-primed' : ''}`}>
-                    {/* Textarea */}
-                    <div className="flex-1 min-w-0">
-                      <textarea
-                        ref={inputRef}
-                        value={inputMessage}
-                        onChange={(e) => setInputMessage(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder={
-                          isWaitingForResponse
-                            ? 'Brain is thinking...'
-                            : conversationId
-                              ? (effectivePersonality === 'game_master' ? gameMasterInputPlaceholder : 'Message Brain...')
-                              : (isNewInteractionPrimed ? 'New chat ready. Start typing...' : 'Start a new conversation...')
-                        }
-                        className="retro-input-textarea w-full px-3 py-2 resize-none bg-transparent text-brand-text-primary placeholder-brand-text-muted/60 border-0 focus:outline-none focus:ring-0 transition-all duration-200 text-sm leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed scrollbar-thin scrollbar-thumb-brand-surface-tertiary"
-                        rows={1}
-                        style={{ 
-                          maxHeight: '112px',
-                          minHeight: '40px',
-                          height: 'auto'
-                        }}
-                        onInput={(e) => {
-                          const target = e.target as HTMLTextAreaElement;
-                          target.style.height = 'auto';
-                          target.style.height = Math.min(target.scrollHeight, 112) + 'px';
-                        }}
-                      />
-                    </div>
-
-                    {/* Send Button */}
-                    <button
-                      type="submit"
-                      className={`retro-send-button flex-shrink-0 p-2 rounded-xl transition-all duration-200 focus:outline-none active:scale-95 ${sendButtonStateClass}`}
-                      disabled={!inputMessage.trim()}
-                      aria-label="Send message"
-                    >
-                      {isWaitingForResponse ? (
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                  <p className="mt-1.5 text-center text-[11px] text-brand-text-muted/45">
-                    Press <kbd className={keyboardHintKeyClass}>Enter</kbd> to send, <kbd className={keyboardHintKeyClass}>Shift+Enter</kbd> for new line
-                  </p>
-                </form>
+              <div className="relative max-w-4xl mx-auto">
+                {jumpToLatest}
+                {composer}
               </div>
             </div>
         </div>
 
-      </main>
+      </main>}
 
       {/* Mobile Menu Drawer */}
       <MobileMenu

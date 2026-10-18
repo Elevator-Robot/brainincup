@@ -1,17 +1,18 @@
-@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&display=swap');
-
 /* Shared visual tokens. The retro-* hooks keep their existing layout roles. */
 :root {
   color-scheme: dark;
-  --cosmic-cyan: #7ae8f4;
-  --cosmic-violet: #bda5ff;
-  --cosmic-text: #f4f7ff;
-  --cosmic-muted: #a4b0cf;
-  --cosmic-border: rgb(181 192 236 / 22%);
-  --cosmic-glass: linear-gradient(145deg, rgb(26 31 61 / 78%), rgb(10 16 36 / 82%));
-  --cosmic-control: linear-gradient(145deg, rgb(69 63 115 / 35%), rgb(26 36 67 / 55%));
-  --cosmic-primary: linear-gradient(135deg, rgb(92 43 166 / 88%), rgb(57 46 123 / 94%));
-  --cosmic-shadow: inset 0 1px 0 rgb(227 233 255 / 9%), 0 12px 32px rgb(2 5 18 / 24%);
+  --cosmic-cyan: #8cecf3;
+  --cosmic-violet: #c4adff;
+  --cosmic-rose: #efb9dd;
+  --cosmic-text: #f4f3ff;
+  --cosmic-muted: #abb5d1;
+  --cosmic-border: rgb(187 184 244 / 20%);
+  --cosmic-glass: linear-gradient(145deg, rgb(40 32 74 / 78%), rgb(13 23 43 / 86%));
+  --cosmic-control: linear-gradient(135deg, rgb(110 77 165 / 24%), rgb(48 86 115 / 22%));
+  --cosmic-primary: linear-gradient(135deg, #8254c7, #5458ad 60%, #387a99);
+  --cosmic-shadow: inset 0 1px 0 rgb(237 224 255 / 8%), 0 8px 24px rgb(2 5 18 / 16%);
+  --cosmic-ease: cubic-bezier(.22, 1, .36, 1);
+  --cosmic-accent-rgb: 140 236 243;
   --rpg-font-display: Oxanium, "Trebuchet MS", sans-serif;
   --rpg-font-body: Nunito, system-ui, sans-serif;
   --rpg-text-parchment: var(--cosmic-text);
@@ -43,6 +44,7 @@
 }
 
 .retro-rpg-ui--gm {
+  --cosmic-accent-rgb: 196 173 255;
   --rpg-accent: var(--cosmic-violet);
   --rpg-accent-strong: #a18be8;
   --rpg-accent-soft: rgb(189 165 255 / 12%);
@@ -52,7 +54,6 @@ html { font-family: var(--rpg-font-body); }
 body {
   background: radial-gradient(ellipse at 15% 15%, #292052 0%, transparent 55%),
     radial-gradient(ellipse at 90% 80%, #10314b 0%, transparent 60%), #080c1c;
-  background-attachment: fixed;
   color: var(--cosmic-text);
 }
 body::before { display: none; }
@@ -67,26 +68,26 @@ body::before { display: none; }
 }
 .site-background-nebula {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;
-  transform: translate3d(-1.5%, 1%, 0) scale(1.1);
-  animation: nebula-drift 38s ease-in-out infinite;
+  transform: translate3d(-1.5%, 1%, 0) scale(1.08);
+  animation: nebula-drift 44s ease-in-out infinite;
   will-change: transform;
-  filter: saturate(1.2);
 }
 .site-background::before {
   content: ''; position: absolute; inset: -12%; z-index: 1; pointer-events: none;
-  background: radial-gradient(ellipse at 18% 30%, rgb(147 91 244 / 22%), transparent 42%),
-    radial-gradient(ellipse at 82% 70%, rgb(65 220 237 / 16%), transparent 40%);
-  animation: nebula-light-drift 27s ease-in-out infinite alternate;
+  background: radial-gradient(ellipse at 18% 30%, rgb(170 102 243 / 30%), transparent 48%),
+    radial-gradient(ellipse at 82% 70%, rgb(65 220 237 / 24%), transparent 46%),
+    radial-gradient(ellipse at 52% 5%, rgb(235 148 206 / 12%), transparent 38%);
+  animation: nebula-light-drift 24s ease-in-out infinite alternate;
   will-change: transform, opacity;
 }
 @keyframes nebula-drift {
-  0%, 100% { transform: translate3d(-1.5%, 1%, 0) scale(1.1); }
-  35% { transform: translate3d(1.8%, -1.4%, 0) scale(1.14); }
-  70% { transform: translate3d(-.5%, -1.8%, 0) scale(1.12); }
+  0%, 100% { transform: translate3d(-1.5%, 1%, 0) scale(1.08); }
+  35% { transform: translate3d(1.8%, -1.4%, 0) scale(1.08); }
+  70% { transform: translate3d(-.5%, -1.8%, 0) scale(1.08); }
 }
 @keyframes nebula-light-drift {
   from { transform: translate3d(-3%, -2%, 0) scale(1); opacity: .45; }
-  to { transform: translate3d(4%, 3%, 0) scale(1.12); opacity: 1; }
+  to { transform: translate3d(4%, 3%, 0) scale(1); opacity: 1; }
 }
 .site-background::after {
   content: ''; position: absolute; inset: 0; z-index: 2;
@@ -113,10 +114,10 @@ body::before { display: none; }
 .retro-rpg-ui ::selection { background: rgb(139 92 246 / 45%); color: #fff; }
 
 /* Window surfaces: quiet reading areas with the nebula visible around them. */
-.retro-shell-left { z-index: 30; background: rgb(10 15 34 / 62%); backdrop-filter: blur(18px); }
+.retro-shell-left { z-index: 30; background: rgb(12 16 34 / 72%); }
 .retro-shell-left::after { background: linear-gradient(transparent, rgb(189 165 255 / 28%), transparent); }
-.retro-shell-center { background: linear-gradient(180deg, rgb(11 16 36 / 24%), rgb(11 16 36 / 42%)); }
-.retro-right-container { background: rgb(12 17 38 / 66%); border-left-color: var(--cosmic-border); backdrop-filter: blur(18px); }
+.retro-shell-center { background: rgb(10 16 33 / 72%); }
+.retro-right-container { background: rgb(14 19 37 / 86%); border-left-color: var(--cosmic-border); }
 .retro-nav, .retro-mobile-card, .retro-mode-header, .retro-right-section,
 .retro-right-stat-tile, .rpg-panel, .retro-frame {
   background: var(--cosmic-glass); border-color: var(--cosmic-border); box-shadow: var(--cosmic-shadow);
@@ -132,17 +133,18 @@ body::before { display: none; }
 .retro-status-strip { background: linear-gradient(95deg, rgb(35 31 70 / 70%), rgb(28 49 79 / 48%), rgb(35 31 70 / 70%)); }
 .retro-empty-state { color: #bcc8e6; }
 
-/* Messages retain strong contrast while the shared background moves behind. */
+/* Assistant text belongs to the reading surface, not another nested card. */
 .retro-message, .retro-message-assistant, .retro-waiting-bubble {
-  background: linear-gradient(145deg, rgb(23 30 59 / 92%), rgb(13 20 42 / 94%));
-  border-color: rgb(181 192 236 / 20%); box-shadow: var(--cosmic-shadow);
-  color: var(--cosmic-text); line-height: 1.7;
+  background: transparent; border: 0; box-shadow: none;
+  color: var(--cosmic-text); line-height: 1.75; font-size: .9375rem;
+  border-radius: 0;
 }
 .retro-message-user {
-  background: linear-gradient(145deg, rgb(77 49 127 / 94%), rgb(42 45 97 / 96%));
-  border-color: rgb(189 165 255 / 38%);
+  background: rgb(160 132 225 / 12%);
+  border-radius: .375rem;
 }
-.retro-message:hover { border-color: rgb(189 165 255 / 40%); box-shadow: var(--cosmic-shadow); }
+.retro-message-assistant { padding: .25rem 0; }
+.retro-message:hover { box-shadow: none; }
 .retro-message pre { background: #080e20; border: 1px solid var(--cosmic-border); border-radius: .75rem; }
 .retro-message a { color: var(--cosmic-cyan); text-decoration: underline; text-underline-offset: 3px; }
 
@@ -156,27 +158,27 @@ body::before { display: none; }
 :is(.retro-icon-button, .retro-input-action, .retro-side-action, .retro-sidebar-action, .retro-profile-trigger, .retro-divider-handle, .retro-roll-panel-button):hover:not(:disabled) {
   background: rgb(108 92 167 / 28%); border-color: rgb(189 165 255 / 48%);
 }
-.retro-send-button { border-color: rgb(189 165 255 / 38%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%); }
+.retro-send-button { border: 0; box-shadow: none; }
 .retro-send-button-active-brain { background: var(--cosmic-primary); color: #fff; }
-.retro-send-button-active-brain:hover { background: linear-gradient(135deg, #713ab7, #4a409b); }
-.retro-send-button-disabled { background: rgb(31 39 67 / 75%); border-color: var(--cosmic-border); }
+.retro-send-button-active-brain:hover { background: linear-gradient(135deg, #9566dc, #6568c3 60%, #458ba9); transform: translateY(-1px); }
+.retro-send-button-disabled { background: transparent; color: var(--cosmic-muted); }
 .retro-input-shell {
-  background: linear-gradient(145deg, rgb(24 29 59 / 90%), rgb(12 19 40 / 94%)) !important;
-  border-color: rgb(181 192 236 / 32%) !important; box-shadow: var(--cosmic-shadow);
+  background: rgb(22 27 46 / 94%) !important;
+  border-color: rgb(181 192 236 / 24%) !important; box-shadow: none;
 }
 .retro-input-shell:focus-within, .retro-input-shell-primed {
-  border-color: rgb(189 165 255 / 65%) !important;
-  box-shadow: inset 0 1px 0 rgb(235 231 255 / 12%), 0 0 0 3px rgb(189 165 255 / 8%);
+  border-color: rgb(var(--cosmic-accent-rgb) / 65%) !important;
+  box-shadow: none;
 }
 .retro-input-textarea { color: var(--cosmic-text) !important; }
 .retro-input-textarea::placeholder { color: var(--cosmic-muted) !important; }
 .retro-keycap { background: rgb(30 37 66 / 80%) !important; border-color: var(--cosmic-border) !important; color: #d6def3; }
 .retro-status-pill { border-color: var(--cosmic-border); background: rgb(189 165 255 / 12%); color: #e3dcff; }
-.retro-context-tabs { background: rgb(9 14 32 / 94%); box-shadow: inset 0 1px 0 rgb(235 231 255 / 8%); }
+.retro-context-tabs { gap: 1.5rem; padding: 0; margin-bottom: 1rem; border-radius: 0; border-bottom: 1px solid var(--cosmic-border); background: transparent; box-shadow: none; }
 .retro-rpg-ui .retro-context-tab, .retro-rpg-ui .retro-side-action { font-family: var(--rpg-font-display); }
-.retro-context-tab { color: var(--cosmic-muted); letter-spacing: .06em; }
-.retro-context-tab:hover { color: var(--cosmic-text); background: rgb(189 165 255 / 10%); }
-.retro-context-tab--active, .retro-context-tab--active:hover { color: #f0e9ff; background: rgb(113 81 173 / 38%); }
+.retro-context-tab { margin-bottom: -1px; padding: .9rem 0; border-radius: 0; border-bottom: 2px solid transparent; color: var(--cosmic-muted); letter-spacing: .025em; text-align: left; }
+.retro-context-tab:hover { color: var(--cosmic-text); background: transparent; }
+.retro-context-tab--active, .retro-context-tab--active:hover { color: #f3edff; border-bottom-color: var(--cosmic-violet); background: transparent; box-shadow: none; }
 .retro-dropdown { background: linear-gradient(145deg, rgb(28 30 61 / 98%), rgb(13 20 42 / 98%)) !important; border-color: rgb(189 165 255 / 30%) !important; box-shadow: var(--rpg-shadow-elevated); }
 .retro-dropdown-item:hover { background: rgb(189 165 255 / 13%) !important; }
 .retro-tooltip-trigger::after { background: #171d38; border-color: rgb(189 165 255 / 32%); color: var(--cosmic-text); font-family: var(--rpg-font-body); }
@@ -208,11 +210,133 @@ body::before { display: none; }
 .cosmic-delete-dialog::backdrop { background: rgb(3 6 18 / 78%); backdrop-filter: blur(8px); }
 .cosmic-delete-dialog > div { max-height: calc(100dvh - 2rem); overflow-y: auto; }
 
+/* One atmosphere from sign-in to the workspace. Only transform/opacity drift. */
+.cosmic-workspace { animation: cosmic-arrive 480ms var(--cosmic-ease) both; }
+.cosmic-wordmark { font: 500 1.25rem/1.3 var(--rpg-font-display); letter-spacing: -.025em; color: #f6edff; }
+.cosmic-wordmark strong { font-weight: 700; color: var(--cosmic-violet); }
+.cosmic-workspace-header { display: grid; place-items: center; flex: none; min-height: 3.25rem; margin-bottom: .5rem; }
+.cosmic-workspace .retro-shell { padding: 0; gap: 0; grid-template-columns: 4.5rem minmax(0, 1fr) minmax(17rem, 20rem); }
+.cosmic-workspace :is(.retro-shell-left, .retro-shell-center, .retro-right-container) { border: 0; border-radius: 0; box-shadow: none; }
+.cosmic-workspace .retro-shell-left { border-right: 1px solid var(--cosmic-border); }
+.cosmic-workspace .retro-shell-left::after { display: none; }
+.cosmic-workspace .retro-right-container { padding-left: 0; border-left: 1px solid var(--cosmic-border); }
+.cosmic-workspace .retro-main { padding-top: .75rem; }
+.cosmic-workspace .retro-right-stack { padding: 1rem; }
+.cosmic-workspace .retro-right-section { padding: 1rem 0 0; border: 0; border-top: 1px solid var(--cosmic-border); border-radius: 0; background: transparent; box-shadow: none; }
+.cosmic-workspace :is(.retro-right-section--character, .retro-right-section--inventory) { padding: 0; border: 0; }
+.cosmic-character-stats { border-top: 1px solid var(--cosmic-border); }
+.cosmic-workspace .retro-roll-panel-button { border: 0; border-top: 1px solid var(--cosmic-border); border-radius: 0; background: transparent; box-shadow: none; }
+.cosmic-workspace .retro-roll-panel-button:not(:disabled):hover { transform: none; border-color: var(--cosmic-violet); background: rgb(196 173 255 / 4%); box-shadow: none; }
+.cosmic-chat-scroll { overscroll-behavior: contain; scrollbar-gutter: stable; overflow-anchor: none; }
+.cosmic-chat-content { padding: 1rem .5rem .5rem; }
+.cosmic-welcome { display: flex; flex-direction: column; justify-content: center; width: min(100%, 28rem); min-height: min(52dvh, 30rem); margin-inline: auto; padding: 2rem 1rem; }
+.cosmic-welcome h2 { margin: 0 0 1rem; color: #f3ecff; font-size: 1.5rem; font-weight: 500; line-height: 1.3; letter-spacing: -.025em; }
+.cosmic-welcome > p { color: var(--cosmic-muted); font-size: .875rem; line-height: 1.7; }
+.cosmic-prompt-list { display: flex; flex-direction: column; margin-top: .5rem; }
+.cosmic-prompt-list button { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 48px; padding: .75rem 0; border: 0; border-bottom: 1px solid var(--cosmic-border); border-radius: 0; background: transparent; color: #dcd5ee; text-align: left; font-size: .875rem; transition: color 180ms ease; }
+.cosmic-prompt-list button:hover { color: var(--cosmic-cyan); }
+.cosmic-prompt-list button span { color: var(--cosmic-cyan); }
+.cosmic-chat-loading { display: grid; justify-items: center; align-content: center; gap: 1rem; min-height: 40dvh; color: var(--cosmic-muted); font-size: .875rem; }
+.retro-message-row > div { min-width: 0; }
+.retro-message { overflow-wrap: anywhere; }
+.retro-message table { display: block; max-width: 100%; overflow-x: auto; }
+.retro-message :is(strong, h1, h2) { color: var(--cosmic-cyan); }
+.retro-message-user strong { color: #f0deff; }
+.cosmic-message-details { display: inline-flex; align-items: center; gap: .75rem; margin-top: .75rem; min-height: 32px; color: var(--cosmic-violet); font-size: .75rem; }
+.cosmic-message-details:hover { color: var(--cosmic-cyan); }
+.cosmic-composer .retro-input-textarea { min-height: 44px; max-height: 144px; font-size: 1rem; scrollbar-width: thin; }
+.retro-rpg-ui .cosmic-composer .retro-input-textarea:focus-visible { outline: none; }
+.cosmic-composer-hint { min-height: 1rem; margin-top: .5rem; color: var(--cosmic-muted); font-size: .6875rem; text-align: center; }
+.cosmic-composer-hint kbd { font: inherit; color: #d5c9ec; }
+.retro-send-button { transition: transform 180ms var(--cosmic-ease), background-color 180ms ease; }
+.retro-send-button:active:not(:disabled) { transform: scale(.95); }
+.retro-send-button:disabled { opacity: .5; cursor: not-allowed; }
+.cosmic-jump-to-latest { position: absolute; z-index: 5; left: 50%; bottom: calc(100% + .75rem); transform: translateX(-50%); display: flex; align-items: center; gap: .75rem; white-space: nowrap; min-height: 36px; padding: .45rem 1rem; border: 1px solid rgb(196 173 255 / 40%); border-radius: .25rem; background: #26223f; color: #eae2ff; font-size: .75rem; box-shadow: 0 4px 20px rgb(0 0 0 / 25%); }
+.cosmic-jump-to-latest:hover { background: #343052; }
+.cosmic-loading { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; font-family: var(--rpg-font-body); animation: cosmic-arrive 300ms ease both; }
+.cosmic-loading p, .cosmic-panel-loading { color: var(--cosmic-muted); font-size: .875rem; }
+.cosmic-loading-light { width: 7rem; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--cosmic-violet), var(--cosmic-cyan), transparent); animation: cosmic-breathe 1.8s ease-in-out infinite alternate; }
+.cosmic-dice-viewport, .cosmic-dice-preview { position: relative; display: grid; place-items: center; width: 100%; min-height: 9.4rem; }
+.cosmic-dice-preview { color: var(--cosmic-violet); background: radial-gradient(ellipse at center, rgb(152 104 219 / 15%), transparent 70%); }
+.cosmic-dice-preview svg { margin-bottom: 1.5rem; }
+.retro-roll-panel-value-badge { bottom: .25rem; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--cosmic-violet); font-size: .75rem; box-shadow: none; }
+
+/* The requested die is the interaction: open space, full physics, minimal copy. */
+.cosmic-roll-prompt { width: 100%; min-width: 0; padding: 1rem 0; }
+.cosmic-roll-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-inline: 1rem; }
+.cosmic-roll-heading h3 { color: var(--cosmic-violet); font-size: .8125rem; font-weight: 500; text-transform: capitalize; }
+.cosmic-roll-heading > span { color: var(--cosmic-muted); font-size: .6875rem; font-variant-numeric: tabular-nums; }
+.cosmic-roll-trigger { display: block; position: relative; width: 100%; padding: 0; border: 0; border-radius: .375rem; background: transparent; cursor: pointer; }
+.cosmic-roll-trigger:disabled { cursor: default; }
+.cosmic-roll-die { position: relative; display: block; width: 100%; height: 15rem; overflow: visible; pointer-events: none; }
+.cosmic-roll-die::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 22rem; height: 20rem;
+  translate: calc(-50% + var(--dice-x, 0px)) calc(-50% + var(--dice-y, 0px));
+  /* Each halo fades completely inside its bounds, including the offset cyan light. */
+  background:
+    radial-gradient(ellipse closest-side at 50% 48%, rgb(211 184 255 / 14%), transparent 72%),
+    radial-gradient(ellipse closest-side at 46% 47%, rgb(151 92 238 / 34%), rgb(122 76 206 / 18%) 35%, rgb(100 65 174 / 6%) 68%, transparent 100%),
+    radial-gradient(ellipse closest-side at 63% 58%, rgb(91 224 241 / 24%), rgb(65 169 201 / 10%) 45%, transparent 100%);
+  opacity: .8; transition: opacity 180ms ease;
+}
+.cosmic-roll-die::after { content: ''; position: absolute; left: 50%; bottom: 1.75rem; width: 9rem; height: 1rem; translate: calc(-50% + var(--dice-x, 0px)) 0; scale: var(--dice-shadow-scale, 1) 1; opacity: var(--dice-shadow-opacity, .65); background: radial-gradient(ellipse closest-side, rgb(132 103 225 / 32%), transparent 100%); }
+.cosmic-roll-trigger:hover:not(:disabled) .cosmic-roll-die::before { opacity: 1; }
+.cosmic-three-dice-shell, .cosmic-three-dice-canvas-wrap { position: absolute; inset: 0; display: block; }
+.cosmic-three-dice-canvas-wrap { top: -100%; pointer-events: none; }
+.cosmic-three-dice-canvas { width: 100% !important; height: 100% !important; pointer-events: none !important; }
+.cosmic-roll-die-number { position: absolute; left: 50%; top: 50%; z-index: 1; transform: translate(-50%, -50%); color: #fff; font: 700 2.5rem/1 var(--rpg-font-display); font-variant-numeric: tabular-nums; text-shadow: 0 2px 8px #100d29, 0 0 3px #100d29; }
+.cosmic-roll-die-fallback { position: absolute; inset: 0; display: block; }
+.cosmic-roll-die-shape { position: absolute; left: calc(50% - 4.5rem); top: calc(50% - 4.5rem); width: 9rem; height: 9rem; }
+.cosmic-roll-die-face { fill: rgb(150 105 224 / 18%); }
+.cosmic-roll-die-edges { stroke: var(--cosmic-violet); stroke-opacity: .8; stroke-width: 1; stroke-linejoin: round; }
+.cosmic-roll-die--rolling::before { animation: cosmic-dice-energy var(--dice-roll-duration, 4800ms) ease-out both; }
+.cosmic-roll-die--rolling .cosmic-roll-die-shape { animation: cosmic-dice-turn 650ms ease-in-out infinite; }
+.cosmic-roll-caption { display: flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2rem; color: var(--cosmic-violet); font-size: .75rem; }
+.cosmic-roll-trigger:hover:not(:disabled) .cosmic-roll-caption { color: var(--cosmic-cyan); }
+.cosmic-roll-math { margin-top: .25rem; color: var(--cosmic-muted); text-align: center; font-size: .75rem; font-variant-numeric: tabular-nums; }
+.cosmic-roll-math strong { color: var(--cosmic-cyan); font-size: 1rem; font-weight: 600; }
+.cosmic-roll-prompt[data-phase='submitted'] .cosmic-roll-caption { color: var(--cosmic-cyan); }
+.cosmic-roll-prompt[data-revealed] .cosmic-roll-die-number { animation: cosmic-dice-result 420ms var(--cosmic-ease) both; color: #e4fcff; }
+.cosmic-roll-error { margin-top: .5rem; color: #fca5a5; font-size: .75rem; line-height: 1.5; }
+@keyframes cosmic-dice-energy {
+  0% { opacity: .45; transform: scale(.85); }
+  8%, 38% { opacity: 1; transform: scale(1.14); }
+  25%, 60% { opacity: .85; transform: scale(1.05); }
+  85% { opacity: .65; transform: scale(1); }
+  100% { opacity: .45; transform: scale(.96); }
+}
+@keyframes cosmic-dice-result { 0% { scale: .88; } 55% { scale: 1.12; } 100% { scale: 1; } }
+@keyframes cosmic-dice-turn {
+  from { transform: rotate(-8deg); }
+  to { transform: rotate(352deg); }
+}
+
+/* Moving backdrops do not need a separate blur pass for every panel/message. */
+.retro-rpg-ui :is(.retro-message, .retro-input-shell, .retro-right-section, .retro-mobile-card, .retro-nav, .retro-frame, .rpg-panel) {
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.retro-rpg-ui .retro-message { transition: border-color 180ms ease; }
+.retro-rpg-ui .retro-input-shell { transition: border-color 200ms ease, box-shadow 200ms ease; }
+.site-background[data-paused] .site-background-nebula, .site-background[data-paused]::before { animation-play-state: paused; }
+@keyframes cosmic-arrive { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cosmic-breathe { from { opacity: .35; transform: scaleX(.75); } to { opacity: 1; transform: scaleX(1); } }
+
 @media (max-width: 1023px) {
   .site-background-nebula { object-position: 60% center; }
   .retro-mobile-main { background: rgb(10 15 34 / 25%); }
+  .cosmic-workspace .retro-mobile-main { padding: 0; background: rgb(10 16 33 / 72%); }
+  .cosmic-workspace .retro-mobile-nav { border: 0; border-bottom: 1px solid var(--cosmic-border); border-radius: 0; background: transparent; box-shadow: none; }
+  .cosmic-workspace .retro-mobile-card { border: 0; border-bottom: 1px solid var(--cosmic-border); border-radius: 0; background: rgb(14 19 37 / 96%); box-shadow: none; }
+  .cosmic-chat-content { padding-inline: 0; }
+  .cosmic-workspace .retro-scroll-panel { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .cosmic-workspace .retro-input-dock { padding-inline: .75rem; padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
+  .cosmic-composer-hint { display: none; }
+  .cosmic-roll-prompt { align-self: center; }
+  .cosmic-roll-die { height: 14rem; }
+  .cosmic-roll-die-number { font-size: 2.25rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .site-background-nebula, .site-background::before { animation: none; will-change: auto; }
-  .retro-rpg-ui *, .retro-rpg-ui *::before, .retro-rpg-ui *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  .cosmic-workspace, .cosmic-loading, .cosmic-loading-light { animation: none; }
+  .retro-rpg-ui *, .retro-rpg-ui *::before, .retro-rpg-ui *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

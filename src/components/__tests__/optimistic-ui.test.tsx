@@ -4,8 +4,8 @@
  * Verifies:
  * 1. Optimistic XP update applied before subscription confirms
  * 2. Rollback reverts state on timeout (10s)
- * 3. pendingDiceRoll triggers dice animation (isDiceRolling / diceRollNonce)
- * 4. submitDiceResult mutation called with correct dice value
+ * 3. submitDiceResult mutation called with correct dice value
+ * Requested-check behavior is covered by useChatDiceRolls.test.tsx.
  *
  * **Validates: Requirements 11.2, 11.3, 11.4, 11.5**
  */
@@ -68,34 +68,6 @@ function useOptimisticPlayerState(initial: PlayerStateRecord | null) {
     applyOptimisticPlayerStateUpdate,
     confirmFromSubscription,
   };
-}
-
-/** Mirrors the pendingDiceRoll subscription handler from App.tsx */
-function usePendingDiceRoll() {
-  const [isDiceRolling, setIsDiceRolling] = useState(false);
-  const [diceRollNonce, setDiceRollNonce] = useState(0);
-  const [gameEvents, setGameEvents] = useState<{ type: string }[]>([]);
-  const lastTriggeredRef = useRef<string | null>(null);
-
-  const handleSubscriptionPush = useCallback(
-    (pendingDiceRoll: { requestId?: string; expiresAt?: string } | null | undefined) => {
-      if (pendingDiceRoll?.requestId) {
-        const isExpired = pendingDiceRoll.expiresAt
-          ? new Date(pendingDiceRoll.expiresAt).getTime() < Date.now()
-          : false;
-        const alreadyTriggered = lastTriggeredRef.current === pendingDiceRoll.requestId;
-        if (!isExpired && !alreadyTriggered) {
-          lastTriggeredRef.current = pendingDiceRoll.requestId;
-          setDiceRollNonce((n) => n + 1);
-          setIsDiceRolling(true);
-          setGameEvents((prev) => [...prev, { type: 'DICE_ROLL_REQUESTED' }]);
-        }
-      }
-    },
-    [],
-  );
-
-  return { isDiceRolling, diceRollNonce, gameEvents, handleSubscriptionPush };
 }
 
 // ---------------------------------------------------------------------------
@@ -219,73 +191,6 @@ describe('Optimistic rollback on timeout', () => {
 
     expect(result.current.playerState?.currentXP).toBe(108);
     expect(result.current.playerStateError).toBeNull();
-  });
-});
-
-describe('pendingDiceRoll triggers dice animation', () => {
-  it('sets isDiceRolling to true when a new non-expired requestId arrives', () => {
-    const { result } = renderHook(() => usePendingDiceRoll());
-    const futureExpiry = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-    act(() => {
-      result.current.handleSubscriptionPush({ requestId: 'req-1', expiresAt: futureExpiry });
-    });
-
-    expect(result.current.isDiceRolling).toBe(true);
-  });
-
-  it('increments diceRollNonce when a new non-expired requestId arrives', () => {
-    const { result } = renderHook(() => usePendingDiceRoll());
-    const futureExpiry = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-    const initialNonce = result.current.diceRollNonce;
-
-    act(() => {
-      result.current.handleSubscriptionPush({ requestId: 'req-1', expiresAt: futureExpiry });
-    });
-
-    expect(result.current.diceRollNonce).toBe(initialNonce + 1);
-  });
-
-  it('adds DICE_ROLL_REQUESTED to gameEvents', () => {
-    const { result } = renderHook(() => usePendingDiceRoll());
-    const futureExpiry = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-    act(() => {
-      result.current.handleSubscriptionPush({ requestId: 'req-1', expiresAt: futureExpiry });
-    });
-
-    expect(result.current.gameEvents).toContainEqual({ type: 'DICE_ROLL_REQUESTED' });
-  });
-
-  it('does NOT re-trigger for the same requestId on a second push', () => {
-    const { result } = renderHook(() => usePendingDiceRoll());
-    const futureExpiry = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-    act(() => {
-      result.current.handleSubscriptionPush({ requestId: 'req-1', expiresAt: futureExpiry });
-    });
-
-    const nonceAfterFirst = result.current.diceRollNonce;
-
-    act(() => {
-      result.current.handleSubscriptionPush({ requestId: 'req-1', expiresAt: futureExpiry });
-    });
-
-    expect(result.current.diceRollNonce).toBe(nonceAfterFirst);
-    expect(result.current.gameEvents.filter((e) => e.type === 'DICE_ROLL_REQUESTED')).toHaveLength(1);
-  });
-
-  it('does NOT trigger for an expired requestId', () => {
-    const { result } = renderHook(() => usePendingDiceRoll());
-    const pastExpiry = new Date(Date.now() - 1000).toISOString();
-
-    act(() => {
-      result.current.handleSubscriptionPush({ requestId: 'req-expired', expiresAt: pastExpiry });
-    });
-
-    expect(result.current.isDiceRolling).toBe(false);
-    expect(result.current.diceRollNonce).toBe(0);
-    expect(result.current.gameEvents).toHaveLength(0);
   });
 });
 

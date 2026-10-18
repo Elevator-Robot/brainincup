@@ -17,8 +17,7 @@ export function useContextPanel(gameEvents: GameEvent[]) {
     const latest = gameEvents[gameEvents.length - 1];
     if (!latest) return;
 
-    // Dice rolls should not steal focus to the Timeline tab — dice UI lives
-    // under Character (and the floating roll control), not the story timeline.
+    // Dice requests are resolved inline in chat; keep the context tab stable.
     if (latest.type === 'DICE_ROLL_REQUESTED') {
       return;
     } else if (latest.type === 'LEVEL_UP') {

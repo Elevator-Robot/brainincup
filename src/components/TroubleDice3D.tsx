@@ -1,26 +1,39 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { CuboidCollider, Physics, RigidBody, type RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
+import { createDiceCamera, fitDiceCamera, getDiceView, DIE_RADIUS, DICE_ARENA_HALF_HEIGHT } from '../utils/diceCamera';
 
 type TroubleDice3DProps = {
   rollNonce: number;
   isRolling: boolean;
   displayValue: string;
-  pulseId: number;
+  duration: number;
+  active: boolean;
+  stageRef: RefObject<HTMLSpanElement>;
 };
 
 const randomBetween = (min: number, max: number) => Math.random() * (max - min) + min;
-const CHAMBER_HALF_WIDTH = 2.12;
-const CHAMBER_HALF_HEIGHT = 1.26;
-const CHAMBER_HALF_DEPTH = 1.82;
+const CHAMBER_HALF_HEIGHT = DICE_ARENA_HALF_HEIGHT;
+const CHAMBER_HALF_DEPTH = 1.15;
 const WALL_THICKNESS = 0.14;
 const FLOOR_Y = -CHAMBER_HALF_HEIGHT;
-const CEILING_Y = CHAMBER_HALF_HEIGHT;
+// Side rails extend upward, but there is no horizontal ceiling collider.
+const RAIL_TOP = 100;
+const RAIL_HALF_HEIGHT = (RAIL_TOP - FLOOR_Y) / 2;
+const RAIL_CENTER_Y = (RAIL_TOP + FLOOR_Y) / 2;
 
-function DiceBody({ rollNonce, isRolling }: Pick<TroubleDice3DProps, 'rollNonce' | 'isRolling'>) {
+type DiceSceneProps = Pick<TroubleDice3DProps, 'rollNonce' | 'isRolling' | 'duration' | 'stageRef'> & { numberRef: RefObject<HTMLSpanElement> };
+
+function DiceBody({ rollNonce, isRolling, duration, numberRef, stageRef, halfWidth, headroom }: DiceSceneProps & { halfWidth: number; headroom: number }) {
   const rigidBodyRef = useRef<RapierRigidBody | null>(null);
-  const lastRollNonceRef = useRef(0);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const projectedPosition = useMemo(() => new THREE.Vector3(), []);
+  const [launched, setLaunched] = useState(isRolling);
+  const lastRollNonceRef = useRef(isRolling ? 0 : rollNonce);
+  const previousHalfWidth = useRef(halfWidth);
+  const impact = useRef(0);
+  const invalidate = useThree(state => state.invalidate);
   const shellMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
   const coreMaterialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const edgeMaterialRef = useRef<THREE.LineBasicMaterial | null>(null);
@@ -28,7 +41,7 @@ function DiceBody({ rollNonce, isRolling }: Pick<TroubleDice3DProps, 'rollNonce'
   const edgeEtchMaterialRef = useRef<THREE.LineBasicMaterial | null>(null);
   const edgeGlowMaterialRef = useRef<THREE.LineBasicMaterial | null>(null);
   const edgeAccentRef = useRef<THREE.LineSegments | null>(null);
-  const geometry = useMemo(() => new THREE.IcosahedronGeometry(0.68, 0), []);
+  const geometry = useMemo(() => new THREE.IcosahedronGeometry(DIE_RADIUS, 0), []);
   const edgesGeometry = useMemo(() => new THREE.EdgesGeometry(geometry), [geometry]);
 
   useEffect(() => {
@@ -55,46 +68,81 @@ function DiceBody({ rollNonce, isRolling }: Pick<TroubleDice3DProps, 'rollNonce'
     );
     const rotation = new THREE.Quaternion().setFromEuler(euler);
 
-    body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-    body.setTranslation({ x: randomBetween(-0.2, 0.2), y: 0.74, z: randomBetween(-0.2, 0.2) }, true);
+    impact.current = 1;
+    const position = { x: randomBetween(-0.2, 0.2), y: 0.05, z: randomBetween(-0.12, 0.12) };
+    body.setTranslation(position, true);
     body.setRotation(rotation, true);
     body.wakeUp();
-    body.applyImpulse(
-      {
-        x: randomBetween(-1.9, 1.9),
-        y: randomBetween(4.2, 5.6),
-        z: randomBetween(-1.9, 1.9),
-      },
-      true,
-    );
-    body.applyTorqueImpulse(
-      {
-        x: randomBetween(-24, 24),
-        y: randomBetween(-24, 24),
-        z: randomBetween(-24, 24),
-      },
-      true,
-    );
-  }, []);
+    const direction = Math.random() < .5 ? -1 : 1;
+    const mass = body.mass();
+    // One off-center throw supplies both linear momentum and natural spin.
+    // Its strength does not depend on the screen width or a prescribed route.
+    body.applyImpulseAtPoint({
+      x: direction * mass * randomBetween(9.5, 12.5),
+      y: mass * randomBetween(9, 11),
+      z: mass * randomBetween(-1.6, 1.6),
+    }, {
+      x: position.x + randomBetween(-.2, .2),
+      y: position.y + randomBetween(.2, .3),
+      z: position.z + randomBetween(-.24, .24),
+    }, true);
+    invalidate();
+  }, [invalidate]);
 
   useEffect(() => {
+    const previous = previousHalfWidth.current;
+    previousHalfWidth.current = halfWidth;
+    const body = rigidBodyRef.current;
+    if (!body || previous === halfWidth) return;
+    // Contain the die on viewport resize only; never rescale its momentum.
+    const limit = halfWidth - DIE_RADIUS - .08;
+    const position = body.translation();
+    if (Math.abs(position.x) > limit) body.setTranslation({ ...position, x: THREE.MathUtils.clamp(position.x, -limit, limit) }, true);
+    invalidate();
+  }, [halfWidth, invalidate]);
+
+  useEffect(() => {
+    if (isRolling) setLaunched(true);
+  }, [isRolling]);
+
+  useEffect(() => {
+    if (!launched || !isRolling) return;
     if (rollNonce <= 0) return;
     if (rollNonce === lastRollNonceRef.current) return;
-    lastRollNonceRef.current = rollNonce;
-
     const rafId = window.requestAnimationFrame(() => {
+      lastRollNonceRef.current = rollNonce;
       tossDie();
     });
 
     return () => {
       window.cancelAnimationFrame(rafId);
     };
-  }, [rollNonce, tossDie]);
+  }, [rollNonce, tossDie, launched, isRolling]);
 
-  useFrame(({ clock }) => {
-    const pulse = 0.3 + Math.sin(clock.elapsedTime * 2.7) * 0.07 + (isRolling ? 0.14 : 0);
-    const edgePulse = 0.62 + Math.sin(clock.elapsedTime * 4.2) * 0.17 + (isRolling ? 0.18 : 0);
+  const onImpact = useCallback(() => { if (isRolling) impact.current = 1; }, [isRolling]);
+
+  useFrame(({ clock, camera, size }, delta) => {
+    const progress = isRolling ? Math.min(1, (Date.now() - rollNonce) / Math.max(1, duration)) : 1;
+    const settle = THREE.MathUtils.smoothstep(progress, .58, .96);
+    // Only lighting and the number overlay are animated here. Rapier alone
+    // owns the trajectory and decides when the body has come to rest.
+    if (isRolling) invalidate();
+    if (meshRef.current && numberRef.current) {
+      meshRef.current.getWorldPosition(projectedPosition);
+      const lift = Math.max(0, projectedPosition.y - FLOOR_Y - DIE_RADIUS);
+      projectedPosition.project(camera);
+      const x = projectedPosition.x * size.width / 2;
+      // Follow the physical die without rotating the number or rerendering React.
+      numberRef.current.style.transform = `translate3d(${x}px, ${-projectedPosition.y * size.height / 2}px, 0) translate(-50%, -50%)`;
+      stageRef.current?.style.setProperty('--dice-x', `${x}px`);
+      stageRef.current?.style.setProperty('--dice-y', `${-projectedPosition.y * size.height / 2 - headroom / 2}px`);
+      stageRef.current?.style.setProperty('--dice-shadow-scale', String(1 + lift * .3));
+      stageRef.current?.style.setProperty('--dice-shadow-opacity', String(Math.max(.2, .7 - lift * .3)));
+    }
+    impact.current = Math.max(0, impact.current - delta * 4);
+    const energy = isRolling ? 1 - settle : 0;
+    const pulse = .3 + energy * (.18 + Math.sin(clock.elapsedTime * 5) * .06) + impact.current * .1;
+    const edgePulse = .75 + energy * .15 + impact.current * .1;
     if (shellMaterialRef.current) {
       shellMaterialRef.current.emissiveIntensity = pulse;
     }
@@ -120,17 +168,20 @@ function DiceBody({ rollNonce, isRolling }: Pick<TroubleDice3DProps, 'rollNonce'
   return (
     <RigidBody
       ref={rigidBodyRef}
+      type={launched ? 'dynamic' : 'fixed'}
       colliders="hull"
       ccd
-      restitution={0.78}
-      friction={0.22}
+      restitution={0.62}
+      friction={0.65}
       linearDamping={0.12}
-      angularDamping={0.14}
+      angularDamping={0.18}
+      canSleep
+      onCollisionEnter={onImpact}
     >
-      <mesh geometry={geometry} castShadow receiveShadow>
+      <mesh ref={meshRef} geometry={geometry} castShadow receiveShadow>
         <meshPhysicalMaterial
           ref={shellMaterialRef}
-          color="#d7deff"
+          color="#9b83db"
           emissive="#5b39d4"
           emissiveIntensity={0.3}
           roughness={0.14}
@@ -186,82 +237,57 @@ function DiceBody({ rollNonce, isRolling }: Pick<TroubleDice3DProps, 'rollNonce'
   );
 }
 
-function SceneBackground() {
-  const { scene } = useThree();
-  useEffect(() => {
-    scene.background = new THREE.Color('#0e2924');
-  }, [scene]);
-  return null;
+function DiceArena(props: DiceSceneProps) {
+  const { camera, size, invalidate } = useThree();
+  // The canvas extends one stage-height above the chat entry. Keep the same
+  // world-to-pixel scale and floor position while exposing that extra airspace.
+  const view = useMemo(() => getDiceView(size.width, size.height / 2, size.height / 2), [size.width, size.height]);
+  useLayoutEffect(() => {
+    fitDiceCamera(camera as THREE.OrthographicCamera, view);
+    invalidate();
+  }, [camera, view, invalidate]);
+  // Leave a fixed gutter beyond the collision walls for every rotating edge.
+  const halfWidth = view.wallHalfWidth;
+  return <>
+    <RigidBody type="fixed" colliders={false}>
+      <CuboidCollider args={[halfWidth, WALL_THICKNESS, CHAMBER_HALF_DEPTH]} position={[0, FLOOR_Y - WALL_THICKNESS, 0]} restitution={.58} friction={.8} />
+      <CuboidCollider args={[WALL_THICKNESS, RAIL_HALF_HEIGHT, CHAMBER_HALF_DEPTH]} position={[-halfWidth - WALL_THICKNESS, RAIL_CENTER_Y, 0]} restitution={.5} friction={.55} />
+      <CuboidCollider args={[WALL_THICKNESS, RAIL_HALF_HEIGHT, CHAMBER_HALF_DEPTH]} position={[halfWidth + WALL_THICKNESS, RAIL_CENTER_Y, 0]} restitution={.5} friction={.55} />
+      <CuboidCollider args={[halfWidth, RAIL_HALF_HEIGHT, WALL_THICKNESS]} position={[0, RAIL_CENTER_Y, -CHAMBER_HALF_DEPTH - WALL_THICKNESS]} restitution={.45} friction={.55} />
+      <CuboidCollider args={[halfWidth, RAIL_HALF_HEIGHT, WALL_THICKNESS]} position={[0, RAIL_CENTER_Y, CHAMBER_HALF_DEPTH + WALL_THICKNESS]} restitution={.45} friction={.55} />
+    </RigidBody>
+    <DiceBody {...props} halfWidth={halfWidth} headroom={view.headroom} />
+  </>;
 }
 
-export default function TroubleDice3D({ rollNonce, isRolling, displayValue, pulseId }: TroubleDice3DProps) {
+export default function TroubleDice3D({ rollNonce, isRolling, displayValue, duration, active, stageRef }: TroubleDice3DProps) {
+  const numberRef = useRef<HTMLSpanElement>(null);
+  const camera = useMemo(createDiceCamera, []);
   return (
-    <span className="retro-three-dice-shell" aria-hidden="true">
-      <span className="retro-three-dice-canvas-wrap">
+    <span className="cosmic-three-dice-shell" aria-hidden="true">
+      <span className="cosmic-three-dice-canvas-wrap">
         <Canvas
-          className="retro-three-dice-canvas"
-          camera={{ position: [0, 0.72, 4.1], fov: 36 }}
-          dpr={[1, 1.6]}
-          gl={{ antialias: true, alpha: true }}
+          frameloop={active ? 'demand' : 'never'}
+          className="cosmic-three-dice-canvas"
+          orthographic
+          camera={camera}
+          dpr={[1, 1.5]}
+          gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
           shadows={false}
         >
-          <SceneBackground />
           <ambientLight intensity={0.34} />
           <hemisphereLight intensity={0.72} color="#b28cff" groundColor="#143f4f" />
           <directionalLight position={[3.2, 4.4, 2.2]} intensity={1.12} color="#f2f6ff" />
           <directionalLight position={[-2.6, 1.8, -3.2]} intensity={0.52} color="#7dd3fc" />
           <pointLight position={[0, 0.8, 1.6]} intensity={1.1} color="#8b5cf6" distance={6} />
 
-          <Physics gravity={[0, -22, 0]} timeStep={1 / 120}>
-            <RigidBody type="fixed" colliders={false}>
-              <CuboidCollider
-                args={[CHAMBER_HALF_WIDTH, WALL_THICKNESS, CHAMBER_HALF_DEPTH]}
-                position={[0, FLOOR_Y - WALL_THICKNESS, 0]}
-                restitution={0.7}
-                friction={0.62}
-              />
-              <CuboidCollider
-                args={[CHAMBER_HALF_WIDTH, WALL_THICKNESS, CHAMBER_HALF_DEPTH]}
-                position={[0, CEILING_Y + WALL_THICKNESS, 0]}
-                restitution={0.68}
-                friction={0.58}
-              />
-              <CuboidCollider
-                args={[WALL_THICKNESS, CHAMBER_HALF_HEIGHT, CHAMBER_HALF_DEPTH]}
-                position={[-CHAMBER_HALF_WIDTH - WALL_THICKNESS, 0, 0]}
-                restitution={0.68}
-                friction={0.55}
-              />
-              <CuboidCollider
-                args={[WALL_THICKNESS, CHAMBER_HALF_HEIGHT, CHAMBER_HALF_DEPTH]}
-                position={[CHAMBER_HALF_WIDTH + WALL_THICKNESS, 0, 0]}
-                restitution={0.68}
-                friction={0.55}
-              />
-              <CuboidCollider
-                args={[CHAMBER_HALF_WIDTH, CHAMBER_HALF_HEIGHT, WALL_THICKNESS]}
-                position={[0, 0, -CHAMBER_HALF_DEPTH - WALL_THICKNESS]}
-                restitution={0.68}
-                friction={0.55}
-              />
-              <CuboidCollider
-                args={[CHAMBER_HALF_WIDTH, CHAMBER_HALF_HEIGHT, WALL_THICKNESS]}
-                position={[0, 0, CHAMBER_HALF_DEPTH + WALL_THICKNESS]}
-                restitution={0.68}
-                friction={0.55}
-              />
-            </RigidBody>
-
-            <DiceBody rollNonce={rollNonce} isRolling={isRolling} />
+          <Physics gravity={[0, -18, 0]} timeStep={1 / 60} paused={!active}>
+            <DiceArena rollNonce={rollNonce} isRolling={isRolling} duration={duration} numberRef={numberRef} stageRef={stageRef} />
           </Physics>
         </Canvas>
-      </span>
-
-      <span
-        key={`dice-value-${pulseId}`}
-        className={`retro-roll-panel-value-badge ${isRolling ? 'retro-roll-panel-value-badge--rolling' : ''}`}
-      >
-        {displayValue}
+        <span ref={numberRef} className="cosmic-roll-die-number">
+          {displayValue}
+        </span>
       </span>
     </span>
   );
