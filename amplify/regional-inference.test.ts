@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_REGIONAL_MODEL, regionalInferencePolicy, regionalModelId } from './regional-inference';
 
 describe('regional inference configuration', () => {
-  it('migrates the old Haiku setting to the same regional model', () => {
+  it('migrates old Haiku settings to the user-selected GPT OSS model', () => {
     expect(regionalModelId()).toBe(DEFAULT_REGIONAL_MODEL);
     expect(regionalModelId('us.anthropic.claude-haiku-4-5-20251001-v1:0')).toBe(DEFAULT_REGIONAL_MODEL);
+    expect(regionalModelId('anthropic.claude-haiku-4-5')).toBe('openai.gpt-oss-120b');
   });
 
   it('rejects cross-region profiles and ARNs', () => {

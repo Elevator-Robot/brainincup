@@ -241,7 +241,7 @@ brainLambda.addEnvironment('ACTIVE_QUEST_TABLE_NAME', activeQuestTable.tableName
 brainLambda.addEnvironment('APPSYNC_API_URL', backend.data.resources.cfnResources.cfnGraphqlApi.attrGraphQlUrl);
 brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 
-// Mantle Messages keeps Haiku inference entirely within us-east-1.
+// Mantle Chat Completions keeps GPT OSS inference entirely within us-east-1.
 const bedrockModelId = regionalModelId(getAgentCoreConfig('BEDROCK_MODEL_ID'));
 brainLambda.addEnvironment('BEDROCK_MODEL_ID', bedrockModelId);
 

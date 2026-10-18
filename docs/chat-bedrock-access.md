@@ -1,5 +1,41 @@
 # Chat outage: Bedrock cross-region access
 
+## Current repair: user-selected GPT OSS 120B
+
+The later regional request identified an account entitlement restriction, not
+another cross-region failure. On October 18 at 18:45:49 UTC, Mantle returned:
+
+```text
+403 permission_error
+anthropic.claude-haiku-4-5 is not available for this account.
+```
+
+The individual model GET confirmed `status: unavailable`; the earlier generic
+catalog listing and Bedrock foundation-model availability were insufficient to
+establish Mantle access. The user selected **GPT OSS 120B** as the replacement.
+Its individual model GET reports `status: available` in us-east-1.
+
+Active configuration:
+
+```text
+Model: openai.gpt-oss-120b
+Endpoint: https://bedrock-mantle.us-east-1.api.aws/v1/chat/completions
+```
+
+The shared transport converts the existing prompt format into Chat Completions,
+including the system message. It converts final-answer text back to the response
+shapes used by Brain, GM, and title generation. Separate model reasoning fields
+are ignored. Low reasoning effort and additional completion-token headroom avoid
+exhausting short title budgets before visible output. Streaming requires both
+normal completion and `[DONE]`; empty, truncated, and error responses fail.
+
+Deployment defaults, previous Haiku environment settings, and the IAM model
+condition migrate together. SigV4, default-project scoping, diagnostics, and
+us-east-1-only enforcement remain in place. No live inference was invoked during
+the read-only investigation; verify Brain, GM, and titles after deployment.
+
+Reference: [AWS GPT OSS 120B model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-oss-120b.html).
+
 ## Confirmed cause — October 18, 2026
 
 Both Brain chat and Game Master narration use Bedrock streaming inference.
@@ -22,9 +58,9 @@ This application must run inference strictly in **us-east-1**. Keep the
 organization's region restrictions intact. Selecting the us-east-1 API endpoint
 does not constrain a `us.` or `global.` inference profile to that region.
 
-## Application repair
+## Initial regional Claude repair (superseded)
 
-Keep Claude Haiku 4.5, but invoke its regional Mantle Messages API:
+The first repair kept Claude Haiku 4.5 but used its regional Mantle Messages API:
 
 ```text
 Model: anthropic.claude-haiku-4-5
@@ -46,8 +82,9 @@ Streaming error events and connections closed before `message_stop` are treated
 as failures, not successful empty replies. No live inference calls were made
 during the read-only investigation or offline tests.
 
-Read-only verification confirmed Mantle's us-east-1 model catalog reports
-`anthropic.claude-haiku-4-5` as `available`, and the account has an active default
+Initial read-only verification found Mantle's us-east-1 model catalog reporting
+`anthropic.claude-haiku-4-5` as `available`, but the later individual-model check
+and actual request contradicted that summary. The account has an active default
 project. IAM simulation allowed `bedrock-mantle:CreateInference` on that project
 with the us-east-1 and model conditions, including the Organizations decision.
 The deployment declares that project-scoped permission with both conditions;

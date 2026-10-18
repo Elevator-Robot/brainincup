@@ -29,18 +29,21 @@ class RegionalBedrockTest(unittest.TestCase):
         self.body = json.dumps({
             "anthropic_version": "bedrock-2023-05-31", "max_tokens": 50,
             "temperature": 0.9, "top_p": 1.0,
+            "system": "You are the Game Master.",
             "messages": [{"role": "user", "content": "hello"}],
         })
 
     def stream(self, events):
         lines = []
         for event in events:
-            lines.extend(["event: " + event["type"], "data: " + json.dumps(event), ""])
+            lines.extend(["data: " + (event if isinstance(event, str) else json.dumps(event)), ""])
         self.response.iter_lines.return_value = lines
         return self.client.invoke_model_with_response_stream(modelId=DEFAULT_MODEL_ID, body=self.body)["body"]
 
     def test_regional_signed_request_and_legacy_model_migration(self):
-        self.response.content = b'{"content":[{"type":"text","text":"hello"}]}'
+        self.response.json.return_value = {"choices": [{
+            "message": {"content": "hello", "reasoning": "private reasoning"}, "finish_reason": "stop",
+        }]}
         result = self.client.invoke_model(
             modelId="us.anthropic.claude-haiku-4-5-20251001-v1:0", body=self.body,
         )
@@ -55,15 +58,28 @@ class RegionalBedrockTest(unittest.TestCase):
         self.assertFalse(payload["stream"])
         self.assertNotIn("anthropic_version", payload)
         self.assertNotIn("top_p", payload)
+        self.assertNotIn("system", payload)
+        self.assertNotIn("anthropic-version", kwargs["headers"])
+        self.assertEqual(payload["messages"][0], {"role": "system", "content": "You are the Game Master."})
+        self.assertEqual(payload["messages"][1], {"role": "user", "content": "hello"})
+        self.assertEqual(payload["max_completion_tokens"], 2098)
+        self.assertEqual(payload["reasoning_effort"], "low")
+        self.assertEqual(kwargs["headers"]["OpenAI-Project"], "default")
 
     def test_stream_preserves_unicode_text_and_completion(self):
         events = [
-            {"type": "message_start"},
-            {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "A dragon’s lair"}},
-            {"type": "message_stop"},
+            {"choices": [{"delta": {"role": "assistant"}, "finish_reason": None}]},
+            {"choices": [{"delta": {"reasoning": "private reasoning", "reasoning_content": "also private"}}]},
+            {"choices": [{"delta": {"content": "A dragon’s lair"}, "finish_reason": None}]},
+            {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+            {"choices": [], "usage": {"completion_tokens": 42}},
+            "[DONE]",
         ]
         chunks = list(self.stream(events))
-        self.assertEqual([json.loads(chunk["chunk"]["bytes"]) for chunk in chunks], events)
+        self.assertEqual([json.loads(chunk["chunk"]["bytes"]) for chunk in chunks], [
+            {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "A dragon’s lair"}},
+            {"type": "message_stop"},
+        ])
         self.assertTrue(json.loads(self.post.call_args.kwargs["data"])["stream"])
         self.response.__exit__.assert_called_once()
 
@@ -73,8 +89,26 @@ class RegionalBedrockTest(unittest.TestCase):
         self.response.__exit__.assert_called_once()
 
     def test_truncated_stream_is_rejected(self):
-        with self.assertRaisesRegex(RuntimeError, "before message_stop"):
-            list(self.stream([{"type": "message_start"}]))
+        with self.assertRaisesRegex(RuntimeError, r"before \[DONE\]"):
+            list(self.stream([{"choices": [{"delta": {"content": "partial"}}]}]))
+
+    def test_token_limit_is_not_successful_completion(self):
+        with self.assertRaisesRegex(RuntimeError, "without a complete text response"):
+            list(self.stream([{"choices": [{"delta": {}, "finish_reason": "length"}]}, "[DONE]"]))
+
+    def test_reasoning_only_stream_is_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, "no complete visible text"):
+            list(self.stream([
+                {"choices": [{"delta": {"reasoning": "private reasoning"}, "finish_reason": "stop"}]},
+                "[DONE]",
+            ]))
+
+    def test_nonstream_empty_or_truncated_results_are_rejected(self):
+        for message, reason in [({"content": None, "reasoning": "private"}, "stop"), ({"content": "partial"}, "length")]:
+            with self.subTest(reason=reason):
+                self.response.json.return_value = {"choices": [{"message": message, "finish_reason": reason}]}
+                with self.assertRaises(RuntimeError):
+                    self.client.invoke_model(modelId=DEFAULT_MODEL_ID, body=self.body)
 
     def test_http_denial_propagates_and_closes_response(self):
         self.response.status_code = 403
