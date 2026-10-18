@@ -312,10 +312,10 @@ def _maybe_generate_title(
         f"Assistant response: {response_text[:900]}"
     )
     try:
-        import boto3 as _boto3
+        from core.regional_bedrock import DEFAULT_MODEL_ID, RegionalBedrockClient
         import json as _json
-        client = _boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1"))
-        model_id = os.environ.get("BEDROCK_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+        client = RegionalBedrockClient(region_name=os.environ.get("AWS_REGION", "us-east-1"))
+        model_id = os.environ.get("BEDROCK_MODEL_ID", DEFAULT_MODEL_ID)
         result = client.invoke_model(
             modelId=model_id,
             body=_json.dumps({

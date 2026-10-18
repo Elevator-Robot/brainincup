@@ -13,8 +13,9 @@ import logging
 import uuid
 from typing import Any, Generator
 
-import boto3
 from langgraph.config import get_stream_writer
+from core.errors import TECHNICAL_DIFFICULTIES_MESSAGE
+from core.regional_bedrock import DEFAULT_MODEL_ID, RegionalBedrockClient
 
 from experiences.agui import (
     text_message_content,
@@ -24,7 +25,7 @@ from experiences.agui import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+DEFAULT_MODEL = DEFAULT_MODEL_ID
 
 
 def _emit(event: dict) -> None:
@@ -54,7 +55,7 @@ def generate_narration(
 ) -> str:
     """Call Bedrock (streaming), emit AG-UI text events, return the text."""
     mid = message_id or str(uuid.uuid4())
-    client = boto3.client("bedrock-runtime", region_name=region)
+    client = RegionalBedrockClient(region_name=region)
 
     request = {
         "anthropic_version": "bedrock-2023-05-31",
@@ -85,8 +86,9 @@ def generate_narration(
                 _emit(text_message_content(mid, text))
     except Exception as exc:  # noqa: BLE001 - keep the stream alive on failure
         logger.error("Bedrock narration failed: %s", exc, exc_info=True)
-        _emit(text_message_content(mid, "\n(The GM's voice falters and dies, though the world remains.)"))
-        parts.append("\n(The GM's voice falters and dies, and the world waits.)")
+        failure_text = ("\n" if parts else "") + TECHNICAL_DIFFICULTIES_MESSAGE
+        _emit(text_message_content(mid, failure_text))
+        parts.append(failure_text)
     finally:
         _emit(text_message_end(mid))
 

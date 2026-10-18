@@ -2,6 +2,9 @@
 
 Keep repository instructions minimal.
 
+- Keep AWS workloads and model inference in `us-east-1`. Do not use cross-region
+  inference profiles (`us.`, `global.`, etc.) or expand regional SCP permissions.
+
 - Shared cosmic styling and typography live in `src/cosmic-theme.css`; `retro-*` classes retain their layout roles. Brand utility colors live in `tailwind.config.js`.
 - The workspace uses a violet/cyan nebula SVG with slow CSS drift and moving light in `SiteBackground`; respect reduced-motion preferences. The MP4 is exclusive to login. Match its soft luminous atmosphere, without orbital rings, diagram grids, or painted bands.
 - Authentication is required: the login modal has no dismiss button or Escape-to-close behavior.
