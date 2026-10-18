@@ -173,7 +173,7 @@ export default function ConversationSidebarIcons({
             if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
             setHoveredId(null);
           }}
-          className={`h-10 w-10 rounded-lg transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none ${
+          className={`cosmic-rail-control h-10 w-10 rounded-lg transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none ${
             activeConversationId === 'brain'
               ? 'border-brand-accent-primary/60 bg-brand-accent-primary/10 scale-95'
               : 'border-brand-surface-border/70 bg-brand-surface-elevated/40 hover:border-brand-accent-primary/60 hover:bg-brand-accent-primary/15'
@@ -217,7 +217,7 @@ export default function ConversationSidebarIcons({
       </div>
 
       {/* GM conversation icons - scrollable area */}
-      <div className="flex w-full flex-col items-center gap-2 overflow-y-auto flex-1 min-h-0 py-2">
+      <div className="cosmic-conversation-list flex w-full flex-col items-center gap-2 overflow-y-auto flex-1 min-h-0 py-2">
         {icons.filter(icon => icon.avatarSrc).map((icon) => (
         <div key={icon.id} className="relative">
           <button
@@ -232,7 +232,7 @@ export default function ConversationSidebarIcons({
               if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
               setHoveredId(null);
             }}
-            className={`h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ${
+            className={`cosmic-rail-control h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ${
               activeConversationId === icon.id
                 ? 'border-brand-surface-border/40 bg-brand-surface-dark/80 scale-95'
                 : 'border-transparent bg-brand-surface-secondary/50 hover:bg-brand-surface-border/60'
@@ -268,7 +268,7 @@ export default function ConversationSidebarIcons({
             type="button"
             onClick={onNewConversation}
             disabled={isDisabled}
-            className="plus-button h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
+            className="cosmic-rail-control plus-button h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
             aria-label="Start new chat"
             data-tooltip="New chat"
             data-tooltip-position="right"

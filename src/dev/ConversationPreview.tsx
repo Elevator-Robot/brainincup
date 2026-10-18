@@ -10,6 +10,9 @@ import type { DiceRollRequest } from '../utils/diceRolls';
 import { useChatScroll } from '../hooks/useChatScroll';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import ContextWindowPanel from '../components/ContextWindowPanel';
+import { DEFAULT_CHARACTER_AVATAR_ID, getAvatarOptionById } from '../constants/gameMasterAvatars';
+
+const previewAvatar = getAvatarOptionById(DEFAULT_CHARACTER_AVATAR_ID);
 
 const messages: Message[] = [
   { role: 'assistant', content: 'The last tram leaves you at the foot of **Starfall Observatory**. Above the treeline, violet clouds move against the wind. A single window is lit.\n\nIn your pocket, the brass compass ticks once. Its needle points straight up.' },
@@ -58,15 +61,17 @@ export default function ConversationPreview() {
     <div className="retro-rpg-ui cosmic-workspace retro-rpg-ui--gm relative h-dvh overflow-hidden">
       <div className="retro-shell h-full max-lg:!grid-cols-[minmax(0,1fr)]">
         {isDesktop && <aside className="retro-shell-left items-center gap-6 py-5">
-          <a href="/?testmode=true" aria-label="Back to workspace" className="rounded-xl"><BrainIcon className="h-9 w-9" /></a>
+          <a href="/?testmode=true" aria-label="Back to workspace" className="cosmic-rail-control rounded-xl"><BrainIcon className="h-9 w-9" /></a>
           <span className="text-[10px] uppercase tracking-widest text-brand-text-muted [writing-mode:vertical-rl]">Visual preview</span>
         </aside>}
         <main className="retro-shell-center min-w-0 overflow-hidden px-2 py-4 sm:px-4 max-lg:!col-start-1">
           <header className="cosmic-workspace-header"><h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1></header>
-          <div ref={scrollRef} className="cosmic-chat-scroll min-h-0 flex-1 overflow-y-auto px-2" aria-label="Sample conversation">
-            <div ref={contentRef} className="cosmic-chat-content mx-auto flex max-w-4xl flex-col gap-6">
-              {empty ? <ChatWelcome isGameMasterMode onPrompt={prompt => { composer.current?.clear(); composer.current?.append(prompt); composer.current?.focus(); }} />
-                : <MessageList messages={conversation} isGameMasterMode variant={isDesktop ? 'desktop' : 'mobile'} activeDiceRequestId={activeRequestId} onDiceRoll={roll} />}
+          <div className="cosmic-chat-viewport">
+            <div ref={scrollRef} className="cosmic-chat-scroll min-h-0 flex-1 overflow-y-auto px-2" aria-label="Sample conversation">
+              <div ref={contentRef} className="cosmic-chat-content mx-auto flex max-w-4xl flex-col gap-6">
+                {empty ? <ChatWelcome isGameMasterMode onPrompt={prompt => { composer.current?.clear(); composer.current?.append(prompt); composer.current?.focus(); }} />
+                  : <MessageList messages={conversation} isGameMasterMode variant={isDesktop ? 'desktop' : 'mobile'} activeDiceRequestId={activeRequestId} onDiceRoll={roll} />}
+              </div>
             </div>
           </div>
           <div className="retro-input-dock relative px-2 pt-4 sm:px-6">
@@ -80,7 +85,8 @@ export default function ConversationPreview() {
           <div className="retro-right-container flex h-full min-h-0 flex-col">
             <div className="retro-right-stack flex min-h-0 flex-1 flex-col">
               <ContextWindowPanel currentLocation="Stillwater Reservoir"
-                character={{ name: 'The Wanderer', level: 3, currentHP: 24, maxHP: 28, stats: { strength: 12, dexterity: 16, constitution: 13, intelligence: 14, wisdom: 15, charisma: 10 } }}
+                character={{ name: 'The Wanderer', level: 3, currentHP: 24, maxHP: 28, avatarSrc: previewAvatar?.src, avatarSrcWebp: previewAvatar?.srcMedium,
+                  stats: { strength: 12, dexterity: 16, constitution: 13, intelligence: 14, wisdom: 15, charisma: 10 } }}
                 playerState={{ currentLevel: 3, currentXP: 640, xpToNextLevel: 900 }}
                 activeQuests={[{ id: 'preview-quest', title: 'The Missing Constellation', currentStep: 'Explore the light beneath Stillwater', stepProgress: '2 / 4' }]}
                 timelineEntries={messages.map((message, i) => ({ ...message, id: String(i), location: 'Starfall Observatory' }))}>

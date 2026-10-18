@@ -174,9 +174,9 @@ body::before { display: none; }
 .retro-input-textarea::placeholder { color: var(--cosmic-muted) !important; }
 .retro-keycap { background: rgb(30 37 66 / 80%) !important; border-color: var(--cosmic-border) !important; color: #d6def3; }
 .retro-status-pill { border-color: var(--cosmic-border); background: rgb(189 165 255 / 12%); color: #e3dcff; }
-.retro-context-tabs { gap: 1.5rem; padding: 0; margin-bottom: 1rem; border-radius: 0; border-bottom: 1px solid var(--cosmic-border); background: transparent; box-shadow: none; }
+.retro-context-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; padding: 0; margin-bottom: 1rem; border-radius: 0; border-bottom: 1px solid var(--cosmic-border); background: transparent; box-shadow: none; }
 .retro-rpg-ui .retro-context-tab, .retro-rpg-ui .retro-side-action { font-family: var(--rpg-font-display); }
-.retro-context-tab { margin-bottom: -1px; padding: .9rem 0; border-radius: 0; border-bottom: 2px solid transparent; color: var(--cosmic-muted); letter-spacing: .025em; text-align: left; }
+.retro-context-tab { min-width: 0; margin-bottom: -1px; padding: .9rem 0; border-radius: 0; border-bottom: 2px solid transparent; color: var(--cosmic-muted); letter-spacing: .025em; text-align: left; }
 .retro-context-tab:hover { color: var(--cosmic-text); background: transparent; }
 .retro-context-tab--active, .retro-context-tab--active:hover { color: #f3edff; border-bottom-color: var(--cosmic-violet); background: transparent; box-shadow: none; }
 .retro-dropdown { background: linear-gradient(145deg, rgb(28 30 61 / 98%), rgb(13 20 42 / 98%)) !important; border-color: rgb(189 165 255 / 30%) !important; box-shadow: var(--rpg-shadow-elevated); }
@@ -219,15 +219,25 @@ body::before { display: none; }
 .cosmic-workspace :is(.retro-shell-left, .retro-shell-center, .retro-right-container) { border: 0; border-radius: 0; box-shadow: none; }
 .cosmic-workspace .retro-shell-left { border-right: 1px solid var(--cosmic-border); }
 .cosmic-workspace .retro-shell-left::after { display: none; }
+.cosmic-workspace .retro-left-panel-icon-only { width: 100%; min-width: 0; max-width: none; padding-inline: 0; }
+.cosmic-rail-control { display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; padding: 0; line-height: 1; }
+.cosmic-conversation-list { scrollbar-gutter: stable both-edges; scrollbar-width: thin; }
+.cosmic-conversation-list > * { flex-shrink: 0; }
+.cosmic-conversation-list picture { display: block; width: 100%; height: 100%; }
 .cosmic-workspace .retro-right-container { padding-left: 0; border-left: 1px solid var(--cosmic-border); }
 .cosmic-workspace .retro-main { padding-top: .75rem; }
 .cosmic-workspace .retro-right-stack { padding: 1rem; }
+.cosmic-context-panel { width: 100%; min-width: 0; }
+.cosmic-context-panel .retro-context-body { scrollbar-gutter: stable both-edges; padding-inline: .25rem; }
+/* Reserve the existing hover translation so the level stays inside the panel. */
+.retro-character-sheet .retro-character-identity { padding-right: 8px; }
 .cosmic-workspace .retro-right-section { padding: 1rem 0 0; border: 0; border-top: 1px solid var(--cosmic-border); border-radius: 0; background: transparent; box-shadow: none; }
 .cosmic-workspace :is(.retro-right-section--character, .retro-right-section--inventory) { padding: 0; border: 0; }
 .cosmic-character-stats { border-top: 1px solid var(--cosmic-border); }
 .cosmic-workspace .retro-roll-panel-button { border: 0; border-top: 1px solid var(--cosmic-border); border-radius: 0; background: transparent; box-shadow: none; }
 .cosmic-workspace .retro-roll-panel-button:not(:disabled):hover { transform: none; border-color: var(--cosmic-violet); background: rgb(196 173 255 / 4%); box-shadow: none; }
-.cosmic-chat-scroll { overscroll-behavior: contain; scrollbar-gutter: stable; overflow-anchor: none; }
+.cosmic-chat-viewport { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+.cosmic-chat-scroll { min-width: 0; min-height: 0; overscroll-behavior: none; scrollbar-gutter: stable; overflow-anchor: none; }
 .cosmic-chat-content { padding: 1rem .5rem .5rem; }
 .cosmic-welcome { display: flex; flex-direction: column; justify-content: center; width: min(100%, 28rem); min-height: min(52dvh, 30rem); margin-inline: auto; padding: 2rem 1rem; }
 .cosmic-welcome h2 { margin: 0 0 1rem; color: #f3ecff; font-size: 1.5rem; font-weight: 500; line-height: 1.3; letter-spacing: -.025em; }

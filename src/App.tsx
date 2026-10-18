@@ -2364,7 +2364,7 @@ function App() {
                       onDragOver={handleTrashDragOver}
                       onDragLeave={handleTrashDragLeave}
                       onDrop={handleTrashDrop}
-                      className={`retro-icon-button retro-tooltip-trigger h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
+                      className={`cosmic-rail-control retro-icon-button retro-tooltip-trigger h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
                         isProfileMenuOpen || isTrashDragOver
                           ? isTrashDragOver
                             ? 'border-brand-status-error/70 bg-brand-status-error/28 text-brand-status-error scale-[1.16] shadow-[0_12px_26px_rgba(239,68,68,0.34)]'
@@ -2459,6 +2459,7 @@ function App() {
                         </div>
                       )}
 
+                        <div className="cosmic-chat-viewport">
                         <div
                           ref={scrollRef}
                           className="cosmic-chat-scroll flex-1 overflow-y-auto pr-2"
@@ -2502,6 +2503,7 @@ function App() {
                   
                           <div aria-hidden="true" />
                         </div>
+                      </div>
                       </div>
                     </div>
                     <div className="mx-auto w-full max-w-4xl px-3">
@@ -2811,6 +2813,7 @@ function App() {
         {/* Enhanced Chat Area with glass morphism design */}
         <div className="retro-chat-area flex-1 flex flex-col min-h-0 mt-2">
           {/* Messages with improved styling and animations */}
+          <div className="cosmic-chat-viewport">
           <div
             ref={scrollRef}
             className="retro-scroll-panel cosmic-chat-scroll flex-1 overflow-y-auto px-3 py-5 pb-3 flex flex-col rounded-3xl"
@@ -2849,6 +2852,7 @@ function App() {
               
               <div aria-hidden="true" />
             </div>
+          </div>
           </div>
 
           {/* Mobile Input Area */}

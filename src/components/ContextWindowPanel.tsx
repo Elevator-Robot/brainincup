@@ -79,7 +79,7 @@ function ContextWindowPanel({
   }, [activePanel, onActivePanelChange]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="cosmic-context-panel flex min-h-0 flex-1 flex-col">
       {/* Pinned tab switcher — stays fixed while the panel body scrolls */}
       <div className="retro-context-tabs shrink-0 z-20" role="tablist" aria-label="Context panels">
         {TABS.map((tab) => {
