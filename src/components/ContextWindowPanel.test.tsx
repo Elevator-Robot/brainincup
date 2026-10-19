@@ -134,6 +134,31 @@ describe('ContextWindowPanel', () => {
 
     expect(screen.getByRole('tab', { name: /character/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /timeline/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /quests/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /location/i })).toBeInTheDocument();
+  });
+
+  it('makes quest and location panels reachable by keyboard', () => {
+    render(<ContextWindowPanel character={sampleCharacter} />);
+    const character = screen.getByRole('tab', { name: /character/i });
+    fireEvent.keyDown(character, { key: 'ArrowRight' });
+    expect(screen.getByRole('tab', { name: /quests/i })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('quest-log-panel')).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('tab', { name: /quests/i }), { key: 'ArrowRight' });
+    expect(screen.getByRole('tab', { name: /location/i })).toHaveFocus();
+    expect(screen.getByTestId('world-map-panel')).toBeInTheDocument();
+  });
+
+  it('restarts the content transition only on tab changes and resets panel scroll', () => {
+    const { container, rerender } = render(<ContextWindowPanel character={sampleCharacter} />);
+    const first = container.querySelector('.gm-context-reveal');
+    rerender(<ContextWindowPanel character={{ ...sampleCharacter, currentHP: 9 }} />);
+    expect(container.querySelector('.gm-context-reveal')).toBe(first);
+    const body = screen.getByRole('tabpanel');
+    body.scrollTop = 200;
+    fireEvent.click(screen.getByRole('tab', { name: /quests/i }));
+    expect(container.querySelector('.gm-context-reveal')).not.toBe(first);
+    expect(body.scrollTop).toBe(0);
   });
 
   it('defaults to Character Sheet panel when no events provided', () => {

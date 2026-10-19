@@ -21,10 +21,10 @@ function WorldMapPanel({
   return (
     <div className="p-4 space-y-4">
       {/* Current location */}
-      <div>
+      {currentLocation?.trim() && <div>
         <div className="text-xs text-brand-text-secondary mb-1">Current Location</div>
         <div className="text-brand-text-primary font-semibold text-sm">{currentLocation}</div>
-      </div>
+      </div>}
 
       {/* Connected areas */}
       {connectedAreas.length > 0 && (

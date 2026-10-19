@@ -3,6 +3,7 @@
 .bic-auth-landing { min-height: 100dvh; color: var(--cosmic-text); font-family: var(--rpg-font-body); }
 .bic-auth-overlay {
   --auth-inset: clamp(.75rem, 3vw, 2rem);
+  --auth-content-height: var(--auth-viewport-height, 100dvh);
   position: fixed; inset: 0; top: var(--auth-viewport-top, 0px); bottom: auto;
   height: var(--auth-viewport-height, 100dvh); z-index: 60; display: grid;
   place-items: center; padding: var(--auth-inset); background: rgb(9 12 29 / 55%);
@@ -10,7 +11,7 @@
 }
 .bic-auth-card {
   user-select: none; -webkit-user-select: none; position: relative;
-  width: min(76rem, 100%, calc((var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset)) * 1.5));
+  width: min(76rem, 100%, calc((var(--auth-content-height) - 2 * var(--auth-inset)) * 1.5));
   aspect-ratio: 3 / 2; min-height: 0; overflow: hidden; border: 1px solid rgb(196 173 255 / 30%);
   border-radius: 1.75rem; background: #101326; box-shadow: inset 0 1px 0 rgb(237 224 255 / 10%), 0 32px 100px rgb(9 7 28 / 40%);
   animation: cosmic-arrive 400ms var(--cosmic-ease) both;
@@ -106,18 +107,18 @@
 .bic-auth-panel form[data-amplify-authenticator-confirmsignup] input[name='confirmation_code'],
 .bic-auth-panel form[data-amplify-authenticator-confirmsignup] .amplify-label,
 .bic-auth-panel form[data-amplify-authenticator-confirmsignup] .amplify-fieldset__legend { display: none; }
-.bic-auth-card[data-compact] { border-radius: 1rem; min-height: min(18rem, calc(var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset))); }
+.bic-auth-card[data-compact] { border-radius: 1rem; min-height: min(18rem, calc(var(--auth-content-height) - 2 * var(--auth-inset))); }
 .bic-auth-card[data-compact] .bic-auth-content { padding: .25rem .5rem .75rem; }
 .bic-auth-card[data-compact] .bic-auth-sheet { width: min(28rem, 90%); max-height: calc(100% - 4rem); left: 50%; }
 .bic-auth-card[data-compact] .bic-auth-intro { margin-bottom: .625rem; }
 .bic-auth-card[data-compact] .bic-auth-wordmark { font-size: clamp(1.25rem, 6vw, 1.75rem); padding-block: .125rem .25rem; }
 .bic-auth-card[data-compact]:has(.bic-auth-methods[data-email-expanded='true'], .bic-auth-panel form:not([data-amplify-authenticator-signin])) {
   display: flex; align-items: center; justify-content: center; width: min(42rem, 100%); height: auto; min-height: 0;
-  max-height: calc(var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset)); padding: 1.25rem .75rem .75rem; aspect-ratio: auto;
+  max-height: calc(var(--auth-content-height) - 2 * var(--auth-inset)); padding: 1.25rem .75rem .75rem; aspect-ratio: auto;
 }
 .bic-auth-card[data-compact]:has(.bic-auth-methods[data-email-expanded='true'], .bic-auth-panel form:not([data-amplify-authenticator-signin])) .bic-auth-sheet {
   position: relative; inset: auto; transform: none; width: min(28rem, 100%);
-  max-height: calc(var(--auth-viewport-height, 100dvh) - 2 * var(--auth-inset) - 2rem - 2px);
+  max-height: calc(var(--auth-content-height) - 2 * var(--auth-inset) - 2rem - 2px);
 }
 .bic-auth-card[data-compact] .bic-auth-methods[data-email-expanded='true'] .bic-auth-email-footer { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .bic-auth-card[data-compact] .bic-auth-email-footer .bic-auth-glass-secondary { min-width: 0; padding-inline: .5rem; gap: .375rem; font-size: .75rem; }

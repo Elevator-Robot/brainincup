@@ -857,7 +857,7 @@ textarea.w-full:focus {
   display: block;
   flex-shrink: 0;
   background: linear-gradient(145deg, rgba(35, 84, 76, 0.26), rgba(27, 64, 58, 0.22));
-  transform-origin: center;
+  transform-origin: left center;
   transition: transform 300ms ease, filter 300ms ease;
 }
 
@@ -879,6 +879,7 @@ textarea.w-full:focus {
   display: block;
   line-height: 0;
   overflow: visible;
+  transform-origin: left center;
   transition: transform 300ms ease, filter 300ms ease;
 }
 
@@ -912,7 +913,8 @@ textarea.w-full:focus {
 }
 
 .retro-character-identity--compact:hover .retro-character-meta--compact {
-  transform: translateX(6px);
+  /* The left-anchored portrait grows rightward; leave its existing zoom room. */
+  transform: translateX(34px);
 }
 
 .retro-right-section--character:has(.retro-character-identity:hover) .retro-character-heading {

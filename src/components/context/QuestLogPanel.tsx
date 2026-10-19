@@ -14,11 +14,7 @@ const STATUS_BADGE_CLASSES = 'text-xs px-2 py-0.5 rounded-full font-medium';
 
 function QuestLogPanel({ quests = [] }: QuestLogPanelProps) {
   if (quests.length === 0) {
-    return (
-      <div className="p-4 text-brand-text-secondary text-sm text-center">
-        No active quests.
-      </div>
-    );
+    return null;
   }
 
   return (

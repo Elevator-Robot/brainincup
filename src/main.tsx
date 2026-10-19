@@ -6,9 +6,10 @@ import { getCurrentUser } from 'aws-amplify/auth';
 // CustomAuth is lazy-loaded, so its signInWithRedirect import arrives too late.
 import 'aws-amplify/auth/enable-oauth-listener';
 import SiteBackground from './components/SiteBackground';
-import WorkspaceLoading from './components/WorkspaceLoading';
+import WorkspaceRecovery from './components/WorkspaceRecovery';
 import WorkspaceBoundary from './components/WorkspaceBoundary';
 import TextArrivalEffects from './components/TextArrivalEffects';
+import SiteFooter from './components/SiteFooter';
 import { isTestModeEnabled } from './utils/testMode';
 import './index.css';
 import './cosmic-theme.css';
@@ -17,11 +18,17 @@ import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
 import { Hub } from 'aws-amplify/utils';
 
-const App = React.lazy(() => import('./App'));
-const CustomAuth = React.lazy(() => import('./components/CustomAuth'));
+const loadWorkspace = () => import('./App');
+const loadAuth = () => import('./components/CustomAuth');
+const App = React.lazy(loadWorkspace);
+const CustomAuth = React.lazy(loadAuth);
 
 (window as unknown as { __AMPLIFY_OUTPUTS__: typeof outputs }).__AMPLIFY_OUTPUTS__ = outputs;
 Amplify.configure(outputs);
+// Fetch both entry chunks while authentication settles, avoiding a second wait
+// after sign-in. This imports UI code; authenticated data effects mount later.
+void loadWorkspace().catch(error => console.warn('Workspace preload failed:', error));
+void loadAuth().catch(error => console.warn('Sign-in preload failed:', error));
 
 // Entry file intentionally hosts auth gate + app mount.
 // eslint-disable-next-line react-refresh/only-export-components
@@ -59,10 +66,11 @@ function AuthWrapper() {
   return <>
     <SiteBackground />
     <WorkspaceBoundary>
-      <React.Suspense fallback={<WorkspaceLoading />}>
-        {isLoading ? <WorkspaceLoading /> : isAuthenticated ? <App /> : <CustomAuth onAuthSuccess={checkAuthState} />}
+      <React.Suspense fallback={<WorkspaceRecovery />}>
+        {isLoading ? <WorkspaceRecovery /> : isAuthenticated ? <App /> : <CustomAuth onAuthSuccess={checkAuthState} />}
       </React.Suspense>
     </WorkspaceBoundary>
+    {(isLoading || isAuthenticated) && <SiteFooter />}
   </>;
 }
 
@@ -75,6 +83,9 @@ const ConversationPreview = import.meta.env.DEV
   : null;
 const DicePreview = import.meta.env.DEV
   ? React.lazy(() => import('./dev/DicePreview'))
+  : null;
+const GameMasterPreview = import.meta.env.DEV
+  ? React.lazy(() => import('./dev/GameMasterPreview'))
   : null;
 
 const rootElement = document.getElementById('root') as RootElementWithCache | null;
@@ -89,10 +100,13 @@ rootElement.__brainInCupRoot = root;
 root.render(
   <React.StrictMode>
     <TextArrivalEffects />
-    {DicePreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'dice'
-      ? <React.Suspense fallback={<WorkspaceLoading />}><DicePreview /></React.Suspense>
-      : ConversationPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'conversation'
-        ? <React.Suspense fallback={<WorkspaceLoading />}><ConversationPreview /></React.Suspense>
-        : <AuthWrapper />}
+    {GameMasterPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'gm'
+      ? <React.Suspense fallback={<WorkspaceRecovery />}><GameMasterPreview /></React.Suspense>
+      : DicePreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'dice'
+        ? <React.Suspense fallback={<WorkspaceRecovery />}><DicePreview /></React.Suspense>
+        : ConversationPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'conversation'
+          ? <React.Suspense fallback={<WorkspaceRecovery />}><ConversationPreview /></React.Suspense>
+          : <AuthWrapper />}
+    {isTestModeEnabled() && ['gm', 'dice', 'conversation'].includes(new URLSearchParams(window.location.search).get('preview') || '') && <SiteFooter />}
   </React.StrictMode>,
 );

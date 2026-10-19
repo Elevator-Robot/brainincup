@@ -2,7 +2,6 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { calculateFinalStats, getAllRaces, getAllClasses } from '../game';
 import {
   getAvatarOptionsForRace,
-  getAvatarOptionById,
 } from '../constants/gameMasterAvatars';
 
 interface CharacterCreationProps {
@@ -27,10 +26,12 @@ interface CharacterCreationProps {
 const raceOptions = getAllRaces().map((raceOption) => ({
   id: raceOption.id,
   name: raceOption.name,
+  description: raceOption.description,
 }));
 const classOptions = getAllClasses().map((classOption) => ({
   id: classOption.id,
   name: classOption.name,
+  description: classOption.description,
 }));
 const DEFAULT_RACE_NAME = raceOptions.find((raceOption) => raceOption.id === 'terran')?.name ?? raceOptions[0]?.name ?? 'Terran';
 const DEFAULT_CLASS_NAME = classOptions.find((classOption) => classOption.id === 'wanderer')?.name ?? classOptions[0]?.name ?? 'Wanderer';
@@ -50,6 +51,27 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
   const classPickerRef = useRef<HTMLDivElement>(null);
 
   const availableAvatarOptions = useMemo(() => getAvatarOptionsForRace(race), [race]);
+  const selectedRace = raceOptions.find(option => option.name === race)!;
+  const selectedClass = classOptions.find(option => option.name === characterClass)!;
+  const selectedAvatar = availableAvatarOptions.find(option => option.id === avatarId);
+  const previewStats = useMemo(() => calculateFinalStats(selectedClass.id, selectedRace.id), [selectedClass.id, selectedRace.id]);
+
+  const navigatePicker = (event: React.KeyboardEvent<HTMLDivElement>, picker: 'race' | 'class') => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End', 'Escape'].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      setOpenPicker(null);
+      document.getElementById(picker === 'race' ? racePickerId : classPickerId)?.focus();
+      return;
+    }
+    if (openPicker !== picker) { setOpenPicker(picker); return; }
+    const options = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]')];
+    const index = options.indexOf(document.activeElement as HTMLButtonElement);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1
+      : event.key === 'ArrowDown' ? (index + 1) % options.length : (index + options.length - 1) % options.length;
+    options[next]?.focus();
+  };
 
   useEffect(() => {
     if (avatarId && availableAvatarOptions.some((avatarOption) => avatarOption.id === avatarId)) {
@@ -60,6 +82,8 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
 
   useEffect(() => {
     if (!openPicker) return;
+    const picker = openPicker === 'race' ? racePickerRef.current : classPickerRef.current;
+    const frame = requestAnimationFrame(() => picker?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus());
 
     const handleOutsideClick = (event: Event) => {
       const target = event.target as Node;
@@ -80,6 +104,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
     document.addEventListener('touchstart', handleOutsideClick);
     document.addEventListener('keydown', handleEscape);
     return () => {
+      cancelAnimationFrame(frame);
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('touchstart', handleOutsideClick);
       document.removeEventListener('keydown', handleEscape);
@@ -99,7 +124,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
       return;
     }
 
-    const selectedAvatarId = getAvatarOptionById(avatarId)?.id ?? '';
+    const selectedAvatarId = selectedAvatar?.id ?? '';
     if (availableAvatarOptions.length > 0 && !selectedAvatarId) {
       setError('Please select an avatar before starting.');
       return;
@@ -145,12 +170,18 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
   };
 
   const card = (
-    <div className={`${embedded ? 'w-full p-0' : 'retro-frame bg-brand-surface-elevated/95 border border-amber-700/35 rounded-2xl shadow-2xl max-w-md w-full p-4'} animate-slide-up`}>
+    <div className={`${embedded ? 'w-full p-0' : 'retro-frame bg-brand-surface-elevated/95 border border-amber-700/35 rounded-2xl shadow-2xl max-w-md w-full p-4'} ${!inline ? 'max-h-[calc(100dvh-2rem)] overflow-y-auto' : ''} gm-menu-content-reveal`}>
       
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="gm-character-form space-y-3">
+        <div className="gm-character-preview">
+          {selectedAvatar
+            ? <img src={selectedAvatar.srcThumbnail} width="64" height="64" alt="Selected portrait" />
+            : <span className="gm-portrait-placeholder" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="3" /><path d="M5 21v-2a7 7 0 0 1 14 0v2" /></svg></span>}
+          <div>{name.trim() && <strong>{name.trim()}</strong>}<span>{race} · {characterClass}</span></div>
+        </div>
         <div>
           <label htmlFor={nameInputId} className="block text-sm font-medium text-brand-text-primary mb-1">
-            Your name?
+            Name
           </label>
           <input
             id={nameInputId}
@@ -161,19 +192,19 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               setError('');
             }}
             maxLength={50}
-            aria-label="Your name?"
+            aria-label="Character name"
+            autoComplete="off"
             className="w-full bg-transparent border-0 border-b border-brand-surface-border/70 rounded-none px-1 py-1 text-lg tracking-wide text-brand-text-primary focus:outline-none focus:ring-0 focus:border-brand-accent-primary/80 transition-all disabled:opacity-60"
-            autoFocus
+            autoFocus={typeof window.matchMedia === 'function' && window.matchMedia('(pointer: fine)').matches}
             disabled={isSubmitting}
           />
-          <p className="mt-0.5 text-xs text-brand-text-muted">{name.length}/50 characters</p>
         </div>
 
         <div>
           <label id={`${racePickerId}-label`} className="mb-1 block text-sm font-medium text-brand-text-primary">
             Race
           </label>
-          <div ref={racePickerRef} className="relative">
+          <div ref={racePickerRef} className="relative" onKeyDown={event => navigatePicker(event, 'race')}>
             <button
               id={racePickerId}
               type="button"
@@ -195,6 +226,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
             <div
               id={`${racePickerId}-listbox`}
               role="listbox"
+              aria-hidden={openPicker !== 'race'}
               aria-labelledby={`${racePickerId}-label`}
               className={`retro-dropdown absolute left-0 right-0 z-40 mt-2 origin-top overflow-hidden rounded-xl border border-brand-surface-border/80 shadow-glass-lg transition-all duration-200 ${openPicker === 'race' ? 'max-h-56 scale-y-100 opacity-100' : 'pointer-events-none max-h-0 scale-y-95 opacity-0'}`}
             >
@@ -208,10 +240,12 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
                       type="button"
                       role="option"
                       aria-selected={isSelected}
+                      tabIndex={-1}
                       onClick={() => {
                         setRace(raceOption.name);
                         setOpenPicker(null);
                         setError('');
+                        document.getElementById(racePickerId)?.focus();
                       }}
                       className={`w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
                         isSelected
@@ -228,13 +262,14 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/25 to-transparent" />
             </div>
           </div>
+          <p className="gm-choice-description">{selectedRace.description}</p>
         </div>
 
         <div>
           <label id={`${classPickerId}-label`} className="mb-1 block text-sm font-medium text-brand-text-primary">
             Class
           </label>
-          <div ref={classPickerRef} className="relative">
+          <div ref={classPickerRef} className="relative" onKeyDown={event => navigatePicker(event, 'class')}>
             <button
               id={classPickerId}
               type="button"
@@ -256,6 +291,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
             <div
               id={`${classPickerId}-listbox`}
               role="listbox"
+              aria-hidden={openPicker !== 'class'}
               aria-labelledby={`${classPickerId}-label`}
               className={`retro-dropdown absolute left-0 right-0 z-40 mt-2 origin-top overflow-hidden rounded-xl border border-brand-surface-border/80 shadow-glass-lg transition-all duration-200 ${openPicker === 'class' ? 'max-h-56 scale-y-100 opacity-100' : 'pointer-events-none max-h-0 scale-y-95 opacity-0'}`}
             >
@@ -269,10 +305,12 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
                       type="button"
                       role="option"
                       aria-selected={isSelected}
+                      tabIndex={-1}
                       onClick={() => {
                         setCharacterClass(classOption.name);
                         setOpenPicker(null);
                         setError('');
+                        document.getElementById(classPickerId)?.focus();
                       }}
                       className={`w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
                         isSelected
@@ -289,11 +327,18 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/25 to-transparent" />
             </div>
           </div>
+          <p className="gm-choice-description">{selectedClass.description}</p>
         </div>
+
+        <dl className="gm-build-stats" aria-label="Starting attributes">
+          {Object.entries(previewStats).map(([stat, value]) => <div key={stat}>
+            <dt title={stat}>{stat.slice(0, 3).toUpperCase()}</dt><dd>{value}</dd>
+          </div>)}
+        </dl>
 
         <div>
           <p className="mb-1 block text-sm font-medium text-brand-text-primary">
-            Avatar
+            Portrait
           </p>
           {availableAvatarOptions.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
@@ -305,21 +350,20 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
                     setAvatarId(avatarOption.id);
                     setError('');
                   }}
-                  className={`group relative overflow-hidden rounded-lg p-0.5 transition-all duration-200 disabled:opacity-60 ${
-                    avatarOption.id === avatarId
-                      ? 'scale-95 ring-2 ring-brand-surface-border/80 shadow-[0_0_0_2px_rgba(255,255,255,0.1)]'
-                      : 'hover:scale-[1.08] hover:-translate-y-1 hover:shadow-[0_16px_28px_rgba(28,16,56,0.34)]'
-                  }`}
+                  className="gm-avatar-card"
                   aria-label={`Select ${avatarOption.label}`}
+                  aria-pressed={avatarOption.id === avatarId}
                   disabled={isSubmitting}
                 >
                   <img
-                    src={avatarOption.srcWebp}
+                    src={avatarOption.srcThumbnail}
+                    width="96" height="80"
                     alt={avatarOption.label}
                     loading="lazy"
                     decoding="async"
-                    className="h-20 w-full rounded-md object-cover object-center transition-all duration-200 group-hover:scale-[1.08]"
+                    className="h-20 w-full rounded-md object-cover object-center"
                   />
+                  {avatarOption.id === avatarId && <span className="gm-avatar-check" aria-hidden="true">✓</span>}
                 </button>
               ))}
             </div>
@@ -329,10 +373,18 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
           {availableAvatarOptions.length > 0 && !avatarId && (
             <p className="mt-1 text-xs text-brand-text-muted">Select an avatar to continue.</p>
           )}
+          {availableAvatarOptions.length > 1 && <button type="button" className="gm-shuffle-portrait" disabled={isSubmitting}
+            onClick={() => {
+              const options = availableAvatarOptions.filter(option => option.id !== avatarId);
+              setAvatarId(options[Math.floor(Math.random() * options.length)].id);
+              setError('');
+            }}>
+            Shuffle portrait
+          </button>}
         </div>
 
         {error && (
-          <div className="rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2">
+          <div role="alert" className="rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2">
             <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
@@ -351,9 +403,9 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
           <button
             type="submit"
             className="flex-1 rounded-xl border border-brand-accent-primary/45 bg-brand-accent-primary/18 px-3 py-1.5 text-sm font-semibold text-brand-text-primary backdrop-blur-md transition-all duration-200 hover:border-brand-accent-primary/65 hover:bg-brand-accent-primary/26 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !name.trim() || (availableAvatarOptions.length > 0 && !selectedAvatar)}
           >
-            {isSubmitting ? 'Starting…' : 'Start'}
+            {isSubmitting ? 'Starting…' : 'Begin adventure'}
           </button>
         </div>
       </form>

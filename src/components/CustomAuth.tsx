@@ -4,6 +4,7 @@ import { I18n } from 'aws-amplify/utils';
 import { authServices } from '../utils/authServices';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePageVisible } from '../hooks/usePageVisible';
+import SiteFooter from './SiteFooter';
 import '@aws-amplify/ui-react/styles.css';
 import './auth.css';
 
@@ -218,6 +219,7 @@ function AuthModal({ children }: { children: ReactNode }) {
       <AuthArtwork />
       <section className="bic-auth-sheet" aria-label="Account access"><div className="bic-auth-content"><div className="bic-auth-form-rail"><div className="bic-auth-panel">{children}</div></div></div></section>
     </div>
+    <SiteFooter />
   </div>;
 }
 

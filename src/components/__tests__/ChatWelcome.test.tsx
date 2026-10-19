@@ -12,10 +12,8 @@ describe('conversation empty state', () => {
     expect(onPrompt).toHaveBeenCalledExactlyOnceWith('Work through a problem');
   });
 
-  it('shows only character setup guidance until an adventure is ready', () => {
-    render(<ChatWelcome isGameMasterMode isSettingUp onPrompt={vi.fn()} />);
-    expect(screen.getByRole('heading', { name: 'New adventure' })).toBeInTheDocument();
-    expect(screen.getByText('Create a character to begin.')).toBeInTheDocument();
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  it('keeps the GM interaction area empty during character setup', () => {
+    const { container } = render(<ChatWelcome isGameMasterMode isSettingUp onPrompt={vi.fn()} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

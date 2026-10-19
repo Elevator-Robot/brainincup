@@ -145,6 +145,7 @@ export const MessageBubble = memo(function MessageBubble({
               aria-controls={hasInsights && expanded ? insightsId : undefined}
               aria-describedby={hasInsights ? hintId : undefined}
               aria-busy={visibleContent !== message.content}
+              data-chat-arrival={role === 'assistant' && (message.populateOnMount || message.isTyping) ? '' : undefined}
               onClick={hasInsights ? event => {
                 if (event.target instanceof Element && event.target.closest('a, button, input, textarea, select')) return;
                 const selection = window.getSelection();
