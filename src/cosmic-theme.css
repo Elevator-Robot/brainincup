@@ -26,8 +26,11 @@
 }
 
 .retro-rpg-ui.cosmic-workspace { height: 100dvh; min-height: 0; }
-/* The fixed credit is decorative chrome, with no space reserved in page layout. */
-.site-footer { position: fixed; inset: auto auto 0 0; z-index: 20; display: flex; align-items: center; justify-content: flex-start; gap: .3em; width: max-content; max-width: 100vw; height: var(--site-footer-height); padding: 0 1.25rem env(safe-area-inset-bottom, 0px); border: 0; border-radius: 0; box-shadow: none; background: var(--cosmic-frame-surface); color: var(--cosmic-muted); font-family: var(--rpg-font-display); font-size: .6875rem; letter-spacing: .025em; line-height: 1.4; }
+/* The fixed credit is decorative chrome, with no space reserved in page layout.
+   It sits opposite the settings gear so the floor of the frame reads balanced. */
+.site-footer { position: fixed; inset: auto 0 0 0; z-index: 20; display: flex; align-items: center; justify-content: flex-end; gap: .42rem; width: auto; max-width: 100vw; height: var(--site-footer-height); padding: 0 1.4rem env(safe-area-inset-bottom, 0px); border: 0; border-radius: 0; box-shadow: none; background: var(--cosmic-frame-surface); color: var(--cosmic-muted); font-family: var(--rpg-font-display); font-size: .625rem; letter-spacing: .09em; text-transform: uppercase; line-height: 1.4; }
+.site-footer-spark { display: inline-grid; place-items: center; color: rgb(140 236 243 / 45%); transition: color 320ms ease, transform 700ms var(--cosmic-ease); }
+.site-footer:hover .site-footer-spark, .site-footer:focus-within .site-footer-spark { color: var(--cosmic-cyan); transform: rotate(90deg); }
 .site-footer a { color: var(--cosmic-violet); text-decoration: none; text-underline-offset: .2em; }
 .site-footer a:hover { color: var(--cosmic-cyan); text-decoration: underline; }
 .site-footer a:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 4px; border-radius: 2px; }
@@ -363,6 +366,7 @@ body::before { display: none; }
   .cosmic-composer .retro-input-textarea, .cosmic-composer-hint { transition: none; }
   .cosmic-slash-menu, .cosmic-wheel-layer, .cosmic-wheel, .cosmic-wheel-item { animation: none; }
   .cosmic-wheel-item { opacity: 1; }
+  .site-footer-spark { transition: none; }
 }
 .retro-rpg-ui .cosmic-composer .retro-input-shell { width: min(100%, var(--composer-width, 20rem)); max-width: 100%; margin-left: 0; margin-right: auto; transition: width 360ms cubic-bezier(.2, 1.25, .35, 1), border-color 260ms ease, box-shadow 260ms ease; }
 .cosmic-composer-measure-wrap { position: fixed; top: 0; left: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
@@ -426,10 +430,13 @@ body::before { display: none; }
 .cosmic-conversation-list > * { flex-shrink: 0; }
 .cosmic-conversation-list picture { display: block; width: 100%; height: 100%; }
 .cosmic-workspace .retro-right-container { padding-left: 0; border-left: 1px solid var(--cosmic-border); }
-/* The rail, footer, and context panel meet in square corners on purpose. */
+/* The rail keeps its fillet into the credit bar; the bar ends square and its
+   top hairline starts after the curve, so nothing cuts under the rail icons. */
 @media (min-width: 1024px) {
+  body:has(.cosmic-workspace .retro-shell-left) .site-footer::before { content: ''; position: absolute; left: calc(4.5rem - 1px); bottom: calc(100% - 1px); width: 25px; height: 25px; pointer-events: none; background: radial-gradient(circle at 100% 0%, transparent 24px, var(--cosmic-border) 24px, var(--cosmic-border) 25px, transparent 25px), radial-gradient(circle at 100% 0%, transparent 24px, var(--cosmic-frame-surface) 24px); }
+  body:has(.cosmic-workspace .retro-shell-left) .site-footer::after { clip-path: inset(0 0 0 calc(4.5rem + 24px)); }
   .cosmic-workspace .retro-shell-left { border-right: 0; background: linear-gradient(var(--cosmic-frame-surface), var(--cosmic-frame-surface)) top / 100% calc(100% - var(--site-footer-height)) no-repeat; }
-  .cosmic-workspace .retro-shell-left::after { display: block; height: calc(100% - var(--site-footer-height)); background: var(--cosmic-border); }
+  .cosmic-workspace .retro-shell-left::after { display: block; height: calc(100% - var(--site-footer-height) - 24px); background: var(--cosmic-border); }
   .cosmic-workspace .retro-shell-right { align-self: start; max-height: calc(100dvh - 12px); }
   .cosmic-workspace .retro-right-container { height: auto; max-height: calc(100dvh - 12px); border-bottom: 1px solid var(--cosmic-border); border-right: 1px solid var(--cosmic-border); border-bottom-left-radius: 24px; border-bottom-right-radius: 0; }
   .cosmic-workspace .retro-right-stack { height: auto; }
