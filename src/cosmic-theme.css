@@ -195,24 +195,96 @@ body::before { display: none; }
 :is(.retro-icon-button, .retro-input-action, .retro-side-action, .retro-sidebar-action, .retro-profile-trigger, .retro-divider-handle, .retro-roll-panel-button):hover:not(:disabled) {
   background: rgb(108 92 167 / 28%); border-color: rgb(189 165 255 / 48%);
 }
-.retro-send-button { border: 0; box-shadow: none; }
-.retro-send-button-active-brain { background: var(--cosmic-primary); color: #fff; }
-.retro-send-button-active-brain:hover { background: linear-gradient(135deg, #9566dc, #6568c3 60%, #458ba9); transform: translateY(-1px); }
-.retro-send-button-disabled { background: transparent; color: var(--cosmic-muted); }
-.retro-input-shell {
-  background: rgb(22 27 46 / 94%) !important;
-  border-color: rgb(181 192 236 / 24%) !important; box-shadow: none;
+/* The composer idles as a barely-there glass plate. On focus the surface drifts
+   and a comet of cyan/violet light orbits the rim; the caret stays dim so the
+   words lead. */
+.cosmic-composer .retro-input-shell {
+  position: relative;
+  border-radius: 24px !important;
+  border-color: rgb(181 192 236 / 13%) !important;
+  background: linear-gradient(180deg, rgb(23 22 50 / 56%), rgb(11 15 32 / 46%)) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(115%);
+  backdrop-filter: blur(16px) saturate(115%);
+  transition: border-color 260ms ease, box-shadow 260ms ease;
 }
-.retro-input-shell:focus-within, .retro-input-shell-primed {
-  border-color: rgb(var(--cosmic-accent-rgb) / 65%) !important;
+.cosmic-composer .retro-input-shell:hover { border-color: rgb(196 173 255 / 26%) !important; }
+.cosmic-composer .retro-input-shell:focus-within,
+.cosmic-composer .retro-input-shell-primed {
+  border-color: rgb(140 236 243 / 30%) !important;
+  box-shadow: 0 0 0 1px rgb(140 236 243 / 6%), 0 18px 44px -24px rgb(140 236 243 / 34%) !important;
+}
+.cosmic-composer .retro-input-shell:focus-within {
+  background:
+    radial-gradient(90% 160% at 8% 50%, rgb(140 236 243 / 9%), transparent 62%),
+    linear-gradient(112deg, rgb(21 25 49 / 70%), rgb(29 24 55 / 62%), rgb(13 29 41 / 66%)) !important;
+  background-size: 200% 200% !important;
+  animation: cosmic-composer-drift 10s ease-in-out infinite;
+}
+@property --composer-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.cosmic-composer .retro-input-shell::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: 2;
+  padding: 1.4px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--composer-angle), transparent 0deg 54deg, rgb(140 236 243 / 0%) 76deg, rgb(140 236 243 / 80%) 108deg, rgb(196 173 255 / 98%) 145deg, rgb(140 236 243 / 0%) 192deg, transparent 214deg 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 360ms ease;
+}
+.cosmic-composer .retro-input-shell:focus-within::before,
+.cosmic-composer .retro-input-shell-primed::before { opacity: 1; animation: cosmic-composer-orbit 4.8s linear infinite; }
+@supports not (mask-composite: exclude) { .cosmic-composer .retro-input-shell::before { display: none; } }
+@keyframes cosmic-composer-drift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes cosmic-composer-orbit { to { --composer-angle: 360deg; } }
+.cosmic-composer .retro-input-textarea {
+  border-radius: 16px;
+  color: rgb(231 235 250 / 92%) !important;
+  caret-color: rgb(196 173 255 / 48%);
+  transition: caret-color 220ms ease;
+}
+.cosmic-composer .retro-input-shell:focus-within .retro-input-textarea { caret-color: rgb(152 240 246 / 62%); }
+.cosmic-composer .retro-input-textarea::placeholder { color: rgb(171 181 209 / 58%) !important; }
+.cosmic-composer .retro-input-textarea::selection { background: rgb(140 236 243 / 20%); color: #f4fbff; }
+.cosmic-composer .retro-send-button {
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: rgb(196 173 255 / 52%);
   box-shadow: none;
+  transition: color 220ms ease, background 260ms ease, border-color 260ms ease, box-shadow 300ms ease, transform 200ms var(--cosmic-ease);
 }
-.retro-input-textarea { color: var(--cosmic-text) !important; }
-.retro-input-textarea::placeholder { color: var(--cosmic-muted) !important; }
-.cosmic-composer .retro-input-shell { border-radius: 24px; }
-.cosmic-composer .retro-input-textarea { border-radius: 16px; }
-.cosmic-composer .retro-send-button { border-radius: 50%; }
-.retro-rpg-ui .cosmic-composer .retro-input-shell { width: min(100%, var(--composer-width, 20rem)); max-width: 100%; margin-left: 0; margin-right: auto; transition: width 360ms cubic-bezier(.2, 1.25, .35, 1), border-color 200ms ease, box-shadow 200ms ease; }
+.cosmic-composer .retro-send-button:hover:not(:disabled) { color: #fff; }
+.cosmic-composer .retro-send-button-active-brain {
+  background: rgb(154 116 224 / 14%);
+  border-color: rgb(196 173 255 / 26%);
+  color: rgb(233 226 255 / 94%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 6px 18px -10px rgb(154 116 224 / 45%);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.cosmic-composer .retro-send-button-active-brain:hover {
+  background: linear-gradient(135deg, rgb(154 116 224 / 52%), rgb(96 126 200 / 52%));
+  border-color: rgb(196 173 255 / 50%);
+  box-shadow: 0 0 0 1px rgb(196 173 255 / 12%), 0 8px 26px -8px rgb(154 116 224 / 55%);
+  transform: translateY(-1px);
+}
+.cosmic-composer .retro-send-button-disabled { background: transparent; color: rgb(196 173 255 / 32%); box-shadow: none; opacity: 1; }
+.cosmic-composer-hint { opacity: .55; transition: opacity 220ms ease; }
+.cosmic-composer:focus-within .cosmic-composer-hint { opacity: .8; }
+@media (prefers-reduced-motion: reduce) {
+  .cosmic-composer .retro-input-shell:focus-within,
+  .cosmic-composer .retro-input-shell::before,
+  .cosmic-composer .retro-send-button-active-brain { animation: none; }
+  .cosmic-composer .retro-input-textarea, .cosmic-composer-hint { transition: none; }
+}
+.retro-rpg-ui .cosmic-composer .retro-input-shell { width: min(100%, var(--composer-width, 20rem)); max-width: 100%; margin-left: 0; margin-right: auto; transition: width 360ms cubic-bezier(.2, 1.25, .35, 1), border-color 260ms ease, box-shadow 260ms ease; }
 .cosmic-composer-measure-wrap { position: fixed; top: 0; left: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
 .cosmic-composer-measure { display: block; width: max-content; white-space: pre; }
 .retro-keycap { background: rgb(30 37 66 / 80%) !important; border-color: var(--cosmic-border) !important; color: #d6def3; }
