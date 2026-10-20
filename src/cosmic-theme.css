@@ -278,11 +278,91 @@ body::before { display: none; }
 .cosmic-composer .retro-send-button-disabled { background: transparent; color: rgb(196 173 255 / 32%); box-shadow: none; opacity: 1; }
 .cosmic-composer-hint { opacity: .55; transition: opacity 220ms ease; }
 .cosmic-composer:focus-within .cosmic-composer-hint { opacity: .8; }
+
+/* Predictive ghost text: the typed glyphs stay in the textarea, only the
+   suggested tail is painted, so the caret never fights the suggestion. */
+.cosmic-composer-field { position: relative; display: flex; flex: 1; min-width: 0; }
+.cosmic-composer-field .retro-input-textarea { position: relative; z-index: 2; }
+.cosmic-ghost {
+  position: absolute; inset: 0; z-index: 1;
+  padding: .625rem .75rem;
+  font: inherit; line-height: 1.625; letter-spacing: inherit;
+  white-space: pre; overflow: hidden; color: transparent;
+  pointer-events: none; user-select: none;
+}
+.cosmic-ghost-tail { color: rgb(196 173 255 / 40%); }
+
+/* Slash commands open a small palette above the composer. */
+.cosmic-slash-menu {
+  position: absolute; left: 0; right: 0; bottom: calc(100% + .5rem); z-index: 6;
+  display: flex; flex-direction: column; gap: .12rem;
+  padding: .35rem; max-height: 19rem; overflow-y: auto;
+  border: 1px solid rgb(196 173 255 / 22%); border-radius: 16px;
+  background: linear-gradient(160deg, rgb(20 22 44 / 97%), rgb(11 14 31 / 97%));
+  box-shadow: 0 26px 60px -30px rgb(0 0 0 / 85%), 0 0 0 1px rgb(255 255 255 / 2%);
+  animation: cosmic-menu-in 160ms ease-out;
+}
+.cosmic-slash-item {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: .55rem;
+  padding: .45rem .6rem; border: 0; border-radius: 10px; background: transparent;
+  color: var(--cosmic-muted); font-size: .8125rem; text-align: left; cursor: pointer;
+}
+.cosmic-slash-item.is-active { background: linear-gradient(100deg, rgb(140 236 243 / 10%), rgb(196 173 255 / 13%)); color: #f3f6ff; }
+.cosmic-slash-command { color: var(--cosmic-cyan); letter-spacing: .01em; }
+.cosmic-slash-hint { color: rgb(171 181 209 / 55%); font-size: .72rem; }
+@keyframes cosmic-menu-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 1023px) { .cosmic-hint-desktop { display: none; } }
+
+/* Action wheel: right-click the composer, flick or click a verb. */
+.cosmic-wheel-layer {
+  position: fixed; inset: 0; z-index: 120;
+  background: radial-gradient(circle at var(--wheel-x, 50%) var(--wheel-y, 50%), rgb(10 12 28 / 64%), rgb(4 6 15 / 84%));
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  backdrop-filter: blur(6px) saturate(120%);
+  animation: cosmic-wheel-layer-in 150ms ease-out;
+}
+.cosmic-wheel { position: fixed; transform: translate(-50%, -50%); display: grid; place-items: center; outline: none; animation: cosmic-wheel-in 200ms cubic-bezier(.2, 1.1, .3, 1); }
+/* The dialog takes focus on open; the global focus ring would box the wheel. */
+.cosmic-wheel:focus-visible { outline: none; box-shadow: none; --tw-ring-shadow: 0 0 #0000; --tw-ring-offset-shadow: 0 0 #0000; }
+.cosmic-wheel-ring { position: absolute; inset: 32px; border-radius: 50%; border: 1px dashed rgb(196 173 255 / 18%); }
+.cosmic-wheel-ring::after { content: ''; position: absolute; inset: 20px; border-radius: 50%; border: 1px solid rgb(140 236 243 / 8%); }
+.cosmic-wheel-core {
+  display: grid; place-items: center; gap: .12rem; width: 108px; height: 108px; border-radius: 50%;
+  border: 1px solid rgb(196 173 255 / 18%);
+  background: radial-gradient(circle at 40% 28%, rgb(31 35 68 / 94%), rgb(13 16 34 / 94%));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+  text-align: center; transition: border-color 200ms ease, box-shadow 240ms ease;
+}
+.cosmic-wheel-core strong { color: #f4f0ff; font-size: .8rem; font-weight: 500; }
+.cosmic-wheel-core small { color: rgb(171 181 209 / 60%); font-size: .6rem; letter-spacing: .05em; }
+.cosmic-wheel-core.is-armed { border-color: rgb(140 236 243 / 42%); box-shadow: 0 0 0 1px rgb(140 236 243 / 12%), 0 20px 44px -22px rgb(140 236 243 / 50%); }
+.cosmic-wheel-item {
+  position: absolute; transform: translate(-50%, -50%);
+  display: grid; place-items: center; gap: .2rem;
+  width: 78px; height: 78px; border-radius: 50%;
+  border: 1px solid rgb(181 192 236 / 16%); background: rgb(17 21 42 / 78%);
+  color: rgb(200 210 238 / 84%); font-size: .625rem; letter-spacing: .02em;
+  cursor: pointer; opacity: 0;
+  animation: cosmic-wheel-item-in 220ms ease-out forwards;
+  transition: border-color 160ms ease, color 160ms ease, background 180ms ease, box-shadow 220ms ease, scale 180ms ease;
+}
+.cosmic-wheel-item span { max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cosmic-wheel-item.is-active {
+  scale: 1.08; color: #fff;
+  border-color: rgb(140 236 243 / 55%);
+  background: linear-gradient(140deg, rgb(154 116 224 / 42%), rgb(78 130 190 / 38%));
+  box-shadow: 0 0 0 1px rgb(140 236 243 / 18%), 0 18px 36px -16px rgb(140 236 243 / 55%);
+}
+@keyframes cosmic-wheel-layer-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cosmic-wheel-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes cosmic-wheel-item-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.88); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 @media (prefers-reduced-motion: reduce) {
   .cosmic-composer .retro-input-shell:focus-within,
   .cosmic-composer .retro-input-shell::before,
   .cosmic-composer .retro-send-button-active-brain { animation: none; }
   .cosmic-composer .retro-input-textarea, .cosmic-composer-hint { transition: none; }
+  .cosmic-slash-menu, .cosmic-wheel-layer, .cosmic-wheel, .cosmic-wheel-item { animation: none; }
+  .cosmic-wheel-item { opacity: 1; }
 }
 .retro-rpg-ui .cosmic-composer .retro-input-shell { width: min(100%, var(--composer-width, 20rem)); max-width: 100%; margin-left: 0; margin-right: auto; transition: width 360ms cubic-bezier(.2, 1.25, .35, 1), border-color 260ms ease, box-shadow 260ms ease; }
 .cosmic-composer-measure-wrap { position: fixed; top: 0; left: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
