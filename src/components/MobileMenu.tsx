@@ -4,7 +4,7 @@ import type { Schema } from '../../amplify/data/resource';
 import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
 import { normalizePersonalityMode } from '../constants/personalityModes';
 import { CHAT_LIMIT, readStoredAvatarId } from './ConversationSidebarIcons';
-import AccountMenu from './AccountMenu';
+import OptionsMenuContent from './OptionsMenu';
 
 const dataClient = generateClient<Schema>();
 
@@ -24,7 +24,6 @@ interface MobileMenuProps {
   conversationId: string | null;
   effectivePersonality: 'brain' | 'game_master';
   messagesCount: number;
-  displayName: string;
   email: string;
   onSelectBrain: () => void;
   onSelectConversation: (id: string) => void;
@@ -52,7 +51,6 @@ export default function MobileMenu({
   conversationId,
   effectivePersonality,
   messagesCount,
-  displayName,
   email,
   onSelectBrain,
   onSelectConversation,
@@ -131,21 +129,11 @@ export default function MobileMenu({
           if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
           else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
         }}>
-        <div className="flex items-center justify-between px-4 py-4 border-b border-brand-surface-border/50">
+        <div className="flex items-center justify-center px-4 py-4 border-b border-brand-surface-border/50">
           <div className="flex items-center gap-2">
             <img src="/favicon.svg" alt="Brain" className="h-6 w-6 object-contain" />
             <span className="retro-title text-base font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl p-2 text-brand-text-muted hover:text-brand-text-primary transition-colors"
-            aria-label="Close menu"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-2">
@@ -209,17 +197,30 @@ export default function MobileMenu({
         </div>
 
         <div className="cosmic-mobile-account">
-          <AccountMenu displayName={displayName} email={email} onSignOut={onSignOut}
-            onDeleteAccount={() => { onClose(); onDeleteAccount(); }}>
-            <button type="button" className="cosmic-menu-row"
-              onClick={() => { if (isGameMaster) onDeleteCurrent(); else onClearChat(); onClose(); }}
-              disabled={!conversationId || (!isGameMaster && messagesCount === 0)}>
-              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          <OptionsMenuContent email={email} onSignOut={onSignOut}
+            onDeleteAccount={() => { onClose(); onDeleteAccount(); }}
+            conversationAction={
+              <button type="button" className="cosmic-menu-row"
+                onClick={() => { if (isGameMaster) onDeleteCurrent(); else onClearChat(); onClose(); }}
+                disabled={!conversationId || (!isGameMaster && messagesCount === 0)}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                {isGameMaster ? 'Delete current chat' : 'Clear chat'}
+              </button>
+            } />
+          <div className="p-2 pt-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm font-medium text-brand-text-secondary border border-brand-surface-border/50 hover:bg-brand-surface-secondary/50 transition-colors"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 18L18 6M6 6l12 12" />
               </svg>
-              {isGameMaster ? 'Delete current chat' : 'Clear chat'}
+              Close menu
             </button>
-          </AccountMenu>
+          </div>
         </div>
       </div>
     </div>

@@ -169,6 +169,17 @@ input[type="password"]:focus {
   @apply shadow-glow-sm;
 }
 
+/*
+ * Placeholders are hints for an empty, unfocused field. Once the field has
+ * focus the caret carries that role, so the hint gets out of the way instead
+ * of sitting under the text the user is about to type.
+ */
+input:focus::placeholder,
+textarea:focus::placeholder {
+  color: transparent !important;
+  opacity: 0;
+}
+
 /* Remove all borders and backgrounds for main chat textarea */
 textarea {
   @apply bg-transparent border-0;

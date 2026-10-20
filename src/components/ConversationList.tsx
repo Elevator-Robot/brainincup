@@ -123,10 +123,10 @@ export default function ConversationList({
           },
           {
             id: 'test-conversation-2', 
-            title: 'Learning Session',
+            title: 'The Missing Constellation',
             personalityMode: 'game_master',
             createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-            updatedAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+            updatedAt: new Date(Date.now() - 60000).toISOString(), // 1 minute ago
           }
         ] as unknown as ConversationType[];
 
