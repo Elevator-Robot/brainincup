@@ -231,32 +231,35 @@ body::before { display: none; }
 .retro-mobile-bars { background: rgb(10 15 34 / 60%); }
 
 /* Shared desktop popover / mobile account navigation. */
-.cosmic-desktop-menu { width: 292px; max-height: calc(100dvh - 32px); overflow-y: auto; padding: .5rem; }
+.cosmic-desktop-menu { width: 248px; max-height: calc(100dvh - 32px); overflow-y: auto; padding: .3125rem; border-radius: .875rem; }
 .cosmic-account-menu { font-family: var(--rpg-font-body); }
-.cosmic-account-identity { display: flex; align-items: center; gap: .75rem; padding: .75rem; border-bottom: 1px solid var(--cosmic-border); }
-.cosmic-account-avatar { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 13px; background: linear-gradient(135deg, #534182, #214659); border: 1px solid rgb(189 165 255 / 28%); color: #f4efff; font: 600 1rem var(--rpg-font-display); }
-.cosmic-menu-section { padding: .5rem .25rem; }
-.cosmic-menu-section + .cosmic-menu-section { border-top: 1px solid rgb(181 192 236 / 10%); }
-.cosmic-menu-label { color: var(--cosmic-muted); padding: .25rem .65rem .4rem; font-size: .625rem; letter-spacing: .12em; text-transform: uppercase; }
-.cosmic-menu-row, .cosmic-menu-section > button { display: flex; align-items: center; gap: .75rem; width: 100%; min-height: 44px; padding: .65rem; border: 0; border-radius: .7rem; color: #d6def3; background: transparent; text-align: left; font-size: .875rem; }
-.cosmic-menu-row:hover, .cosmic-menu-section > button:hover:not(:disabled) { color: #fff; background: rgb(189 165 255 / 12%); }
-.cosmic-menu-section > button:disabled { opacity: .45; cursor: not-allowed; }
-.cosmic-menu-row svg, .cosmic-menu-section > button svg { flex: none; color: #bda5ff; }
-.cosmic-menu-chevron { margin-left: auto; font-size: 1.25rem; color: var(--cosmic-muted); }
-.cosmic-account-settings { padding: .75rem; }
-.cosmic-menu-back { display: flex; align-items: center; gap: .5rem; min-height: 40px; margin: -.25rem 0 .5rem; font-size: .8rem; color: var(--cosmic-violet); }
-.cosmic-account-danger { margin-top: 1.25rem; border-top: 1px solid var(--cosmic-border); padding-top: 1rem; }
-.cosmic-delete-link { margin-top: .75rem; min-height: 40px; padding: .4rem .75rem; border: 1px solid rgb(248 113 113 / 24%); border-radius: .65rem; color: #fca5a5; font-size: .8rem; }
+.cosmic-account-email { padding: .45rem .55rem .4rem; overflow: hidden; color: var(--cosmic-muted); font-size: .75rem; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.cosmic-menu-section { padding: .0625rem 0; }
+.cosmic-menu-section + .cosmic-menu-section { margin-top: .1875rem; border-top: 1px solid rgb(181 192 236 / 10%); padding-top: .25rem; }
+.cosmic-menu-row, .cosmic-menu-section > button { display: flex; align-items: center; gap: .625rem; width: 100%; min-height: 34px; padding: .4rem .55rem; border: 0; border-radius: .5rem; color: #d6def3; background: transparent; text-align: left; font-size: .8125rem; line-height: 1.25; }
+.cosmic-menu-row:hover, .cosmic-menu-section > button:hover:not(:disabled) { color: #fff; background: rgb(255 255 255 / 7%); }
+.cosmic-menu-section > button:disabled { opacity: .4; cursor: not-allowed; }
+.cosmic-menu-row svg, .cosmic-menu-section > button svg { flex: none; width: 16px; height: 16px; color: var(--cosmic-muted); }
+.cosmic-account-settings { padding: .5rem .5rem .375rem; }
+.cosmic-menu-back { display: flex; align-items: center; gap: .5rem; min-height: 32px; margin: -.125rem 0 .5rem; font-size: .8rem; color: var(--cosmic-violet); }
+.cosmic-account-danger { margin-top: 1rem; border-top: 1px solid var(--cosmic-border); padding-top: .875rem; }
+.cosmic-delete-link { margin-top: .625rem; min-height: 34px; padding: .35rem .7rem; border: 1px solid rgb(248 113 113 / 24%); border-radius: .55rem; color: #fca5a5; font-size: .8rem; }
 .cosmic-delete-link:hover { background: rgb(248 113 113 / 10%); border-color: rgb(248 113 113 / 50%); }
 .cosmic-mobile-menu { background: linear-gradient(150deg, #181c36, #0c1228); border-right: 1px solid var(--cosmic-border); }
 .cosmic-mobile-account { padding: .5rem; border-top: 1px solid var(--cosmic-border); max-height: 60dvh; overflow-y: auto; flex-shrink: 0; }
+.cosmic-mobile-account .cosmic-account-menu { display: flex; flex-direction: column-reverse; }
+.cosmic-mobile-account .cosmic-account-menu > .cosmic-menu-section:last-child { order: 1; margin-top: 0; margin-bottom: .35rem; border-top: 0; border-bottom: 1px solid rgb(181 192 236 / 10%); padding-bottom: .5rem; }
+.cosmic-mobile-account .cosmic-account-menu > .cosmic-menu-section + .cosmic-menu-section { order: 2; margin-top: 0; border-top: 0; }
 .cosmic-delete-dialog::backdrop { background: rgb(3 6 18 / 78%); backdrop-filter: blur(8px); }
 .cosmic-delete-dialog > div { max-height: calc(100dvh - 2rem); overflow-y: auto; }
 
 /* One atmosphere from sign-in to the workspace. Only transform/opacity drift. */
 .cosmic-workspace { --chat-gutter: .5rem; --chat-content-inset: .5rem; animation: cosmic-arrive 480ms var(--cosmic-ease) both; }
 .cosmic-workspace :is(.cosmic-chat-scroll, .retro-input-dock) { padding-inline: var(--chat-gutter); }
-.cosmic-workspace .retro-input-dock { padding-inline: calc(var(--chat-gutter) + var(--chat-content-inset)); }
+/* The credit pill is fixed and out of layout. Only its visible footprint may
+   collide, so dock content clears the pill's height while the chat column keeps
+   its full width to the right of it. */
+.cosmic-workspace .retro-input-dock { padding-inline: calc(var(--chat-gutter) + var(--chat-content-inset)); padding-bottom: calc(var(--site-footer-height) + .75rem); }
 .cosmic-composer { width: 100%; max-width: calc(56rem - var(--chat-content-inset, .5rem) - var(--chat-content-inset, .5rem)); margin-inline: auto; }
 .cosmic-wordmark { font: 500 1.25rem/1.3 var(--rpg-font-display); letter-spacing: -.025em; color: #f6edff; }
 .cosmic-wordmark strong { font-weight: 700; color: var(--cosmic-violet); }
@@ -488,7 +491,7 @@ body::before { display: none; }
   .cosmic-workspace .retro-mobile-card { border: 0; border-bottom: 1px solid var(--cosmic-border); border-radius: 0; background: rgb(14 19 37 / 96%); box-shadow: none; }
   .cosmic-chat-content { padding-inline: 0; }
   .cosmic-workspace .retro-scroll-panel { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-  .cosmic-workspace .retro-input-dock { padding-inline: .75rem; padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
+  .cosmic-workspace .retro-input-dock { padding-inline: .75rem; padding-bottom: calc(var(--site-footer-height) + .75rem); }
   .cosmic-composer-hint { display: none; }
   .cosmic-roll-prompt { align-self: center; }
   .cosmic-roll-die { height: 14rem; }

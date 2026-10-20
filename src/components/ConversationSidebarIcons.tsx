@@ -4,6 +4,7 @@ import type { Schema } from '../../amplify/data/resource';
 import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
 import { normalizePersonalityMode } from '../constants/personalityModes';
 import { pickLatestAdventure, resolveLocationName } from '../utils/gmLocations';
+import { isTestModeEnabled } from '../utils/testMode';
 
 const dataClient = generateClient<Schema>();
 
@@ -70,6 +71,20 @@ export default function ConversationSidebarIcons({
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   const loadIcons = useCallback(async () => {
+    // Test mode has no AppSync; surface the demo adventure in the rail.
+    if (isTestModeEnabled()) {
+      const demo = await import('../dev/gmDemoConversation');
+      const avatarId = demo.demoCharacter.avatarId ?? '';
+      setIcons([{
+        id: demo.DEMO_CONVERSATION_ID,
+        avatarSrc: getAvatarSrcById(avatarId),
+        avatarSrcWebp: getAvatarWebpSrcById(avatarId),
+        title: demo.demoCharacter.name || 'Adventurer',
+        preview: demo.demoAdventure.currentLocation || 'No messages yet',
+      }]);
+      return;
+    }
+
     // Show cached data immediately for instant load
     const cached = readConversationCache();
     if (cached.length > 0) {
@@ -268,16 +283,33 @@ export default function ConversationSidebarIcons({
             type="button"
             onClick={onNewConversation}
             disabled={isDisabled}
+            onMouseEnter={(e) => {
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setTooltipPos({ x: rect.right + 10, y: rect.top + rect.height / 2 });
+              hoverTimeoutRef.current = setTimeout(() => setHoveredId('new'), 300);
+            }}
+            onMouseLeave={() => {
+              if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+              setHoveredId(null);
+            }}
             className="cosmic-rail-control plus-button h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
             aria-label="Start new chat"
-            data-tooltip="New chat"
-            data-tooltip-position="right"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="10" y1="4" x2="10" y2="16" />
               <line x1="4" y1="10" x2="16" y2="10" />
             </svg>
           </button>
+        )}
+
+        {hoveredId === 'new' && (
+          <div
+            className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-brand-accent-primary/30 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
+            style={{ left: tooltipPos.x, top: tooltipPos.y, transform: 'translateY(-50%)' }}
+          >
+            <p className="text-sm font-semibold text-brand-text-primary">New character</p>
+            <p className="text-xs text-brand-text-muted mt-0.5">Forge a hero and begin an adventure</p>
+          </div>
         )}
       </div>
     </div>

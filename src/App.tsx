@@ -30,7 +30,7 @@ import { useChatDiceRolls } from './hooks/useChatDiceRolls';
 import type { DiceRollRequest } from './utils/diceRolls';
 import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
-import AccountMenu from './components/AccountMenu';
+import OptionsMenuContent from './components/OptionsMenu';
 import CharacterCreation from './components/CharacterCreation';
 const dataClient = generateClient<Schema>();
 
@@ -452,7 +452,7 @@ function App() {
   const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(() =>
     readStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, false)
   );
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isOptionsMenuOpen, setIsOptionsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -856,6 +856,8 @@ function App() {
   }, [characterState]);
 
   const fetchAdventureBundle = useCallback(async (convId: string, modeOverride?: string, knownCharacter?: CharacterRecord) => {
+    // Test mode has no AppSync; the demo fixture is authoritative.
+    if (isTestModeEnabled()) return;
     // Prevent duplicate fetches for the same conversation
     if (adventureFetchLock.current === convId) {
       return;
@@ -987,7 +989,7 @@ function App() {
 
   const { scrollRef, contentRef, isAtBottom, scrollToLatest } = useChatScroll(conversationId, isDesktop);
   const newInteractionPrimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const optionsMenuRef = useRef<HTMLDivElement>(null);
   const streamedMessageIdsRef = useRef<Set<string>>(new Set());
   const submitDiceResult = useCallback(async (request: DiceRollRequest, diceValue: number) => {
     if (!conversationId) throw new Error('No active adventure');
@@ -1009,13 +1011,13 @@ function App() {
   });
 
   useEffect(() => {
-    if (!isProfileMenuOpen) return;
-    profileMenuRef.current?.querySelector<HTMLButtonElement>('#desktop-account-menu button:not(:disabled)')?.focus();
+    if (!isOptionsMenuOpen) return;
+    optionsMenuRef.current?.querySelector<HTMLButtonElement>('#desktop-options-menu button:not(:disabled)')?.focus();
     const handleOutsideClick = (event: Event) => {
       const target = event.target as Node;
-      const clickedProfileDropdown = profileMenuRef.current?.contains(target);
+      const clickedProfileDropdown = optionsMenuRef.current?.contains(target);
       if (!clickedProfileDropdown) {
-        setIsProfileMenuOpen(false);
+        setIsOptionsMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -1024,7 +1026,7 @@ function App() {
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('touchstart', handleOutsideClick);
     };
-  }, [isProfileMenuOpen]);
+  }, [isOptionsMenuOpen]);
 
   useEffect(() => () => {
     if (newInteractionPrimeTimerRef.current) {
@@ -1064,6 +1066,8 @@ function App() {
   // Always runs to ensure brainConversationId is set
   useEffect(() => {
     async function initializeBrainConversation() {
+      // Test mode has no backend; the demo fixture owns the active conversation.
+      if (isTestModeEnabled()) return;
       if (!userAttributes || brainConversationId) {
         return;
       }
@@ -1142,6 +1146,25 @@ function App() {
     if (!userAttributes || initialLoadDoneRef.current) return;
 
     async function loadInitialConversation() {
+      // Test mode: hydrate the demo adventure so the workspace is populated
+      // without AppSync. DEV-only module, loaded on demand.
+      if (isTestModeEnabled()) {
+        initialLoadDoneRef.current = true;
+        const demo = await import('./dev/gmDemoConversation');
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem('mockNewConversation');
+        }
+        setConversationId(demo.DEMO_CONVERSATION_ID);
+        setStoredPersonalityMode('game_master');
+        setMessages(demo.demoMessages);
+        setCharacterState(demo.demoCharacter);
+        setAdventureState(demo.demoAdventure);
+        setQuestSteps(demo.demoQuestSteps);
+        setQuestContext({ conversationId: demo.DEMO_CONVERSATION_ID, quests: demo.demoQuests });
+        setShowCharacterCreation(false);
+        return;
+      }
+
       if (conversationId) {
         // We have a stored conversation — load its data
         initialLoadDoneRef.current = true;
@@ -1158,6 +1181,8 @@ function App() {
 
   useEffect(() => {
     if (!conversationId) return;
+    // Test mode fakes replies locally; no AppSync subscription to open.
+    if (isTestModeEnabled()) return;
 
     console.log('Setting up subscription for conversation:', conversationId);
     
@@ -1310,6 +1335,7 @@ function App() {
   // playerState in sync with authoritative DynamoDB values.
   useEffect(() => {
     if (!conversationId || effectivePersonality !== 'game_master') return;
+    if (isTestModeEnabled()) return;
 
     // Guard: PlayerState model may not exist if the sandbox hasn't been redeployed
     // after the schema was updated. Skip silently rather than crashing.
@@ -1363,6 +1389,7 @@ function App() {
   // Subscribe to GameMasterAdventure updates so currentLocation stays live
   useEffect(() => {
     if (!conversationId || effectivePersonality !== 'game_master') return;
+    if (isTestModeEnabled()) return;
     if (!dataClient.models.GameMasterAdventure) return;
 
     // Sync to this conversation's stored location so the badge hydrates
@@ -1425,6 +1452,20 @@ function App() {
   );
 
   const handleSendMessage = async (content: string, targetConversationId: string): Promise<void> => {
+    if (isTestModeEnabled()) {
+      if (!targetConversationId) return;
+      setIsWaitingForResponse(true);
+      const { buildGmDemoReply } = await import('./dev/gmDemoConversation');
+      window.setTimeout(() => {
+        setMessages(prev => [
+          ...prev,
+          { role: 'assistant', content: buildGmDemoReply(content), populateOnMount: true },
+        ]);
+        setIsWaitingForResponse(false);
+      }, 650);
+      return;
+    }
+
     try {
       setIsWaitingForResponse(true);
 
@@ -1986,7 +2027,7 @@ function App() {
 
   const handleSidebarDeleteAction = useCallback(async () => {
     if (!conversationId) return;
-    setIsProfileMenuOpen(false);
+    setIsOptionsMenuOpen(false);
 
     try {
       if (!isTestModeEnabled()) {
@@ -2083,7 +2124,7 @@ function App() {
 
   const handleClearBrainChat = async () => {
     if (!conversationId || effectivePersonality !== 'brain') return;
-    setIsProfileMenuOpen(false);
+    setIsOptionsMenuOpen(false);
 
     try {
       if (!isTestModeEnabled()) {
@@ -2222,34 +2263,7 @@ function App() {
   const hasGameMasterCharacterReady = Boolean(characterState || pendingCharacterDraft);
   const showGameMasterCharacterFlow = showCharacterCreation && isGameMasterMode;
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && !hasGameMasterCharacterReady;
-  const websiteUserProfile = useMemo(() => {
-    const attrs = userAttributes ?? {};
-    const joinedName = [attrs.given_name, attrs.family_name]
-      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-      .join(' ')
-      .trim();
-    const displayName = attrs.name?.trim()
-      || joinedName
-      || attrs.preferred_username?.trim()
-      || attrs.email?.split('@')[0]
-      || 'Website User';
-    const email = attrs.email?.trim() || 'No email available';
-    const userId = attrs.sub?.trim() || '';
-    const avatarUrl = attrs.picture?.trim() || '';
-    const initials = displayName
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('') || 'WU';
-    return {
-      displayName,
-      email,
-      userId,
-      avatarUrl,
-      initials,
-    };
-  }, [userAttributes]);
+  const accountEmail = userAttributes?.email?.trim() || 'No email available';
   const showMobileInlineCharacterCreation = showGameMasterCharacterFlow;
   const showRightPanelCharacterCreation =
     showGameMasterCharacterFlow && !characterState;
@@ -2341,7 +2355,7 @@ function App() {
         {/* Left Sidebar - full height */}
         <aside className="retro-shell-left">
           <div className="retro-left-container retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-3">
-                <div className="flex h-full flex-col items-center gap-5 py-4">
+                <div className="flex h-full flex-col items-center gap-5 pt-4 pb-[calc(var(--site-footer-height)+1rem)]">
                   <ConversationSidebarIcons
                     onSelectConversation={handleSelectConversation}
                     onSelectBrain={() => {
@@ -2356,59 +2370,60 @@ function App() {
                     isDisabled={isWaitingForResponse || isSelectingConversation}
                   />
 
-                  <div ref={profileMenuRef} className="relative z-40">
+                  {/* Settings pinned to the foot of the rail, clear of the credit pill */}
+                  <div ref={optionsMenuRef} className="relative shrink-0">
                     <button
                       type="button"
-                      onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                      onClick={() => setIsOptionsMenuOpen((prev) => !prev)}
                       onDragOver={handleTrashDragOver}
                       onDragLeave={handleTrashDragLeave}
                       onDrop={handleTrashDrop}
-                      className={`cosmic-rail-control retro-icon-button retro-tooltip-trigger h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
-                        isProfileMenuOpen || isTrashDragOver
+                      className={`cosmic-rail-control retro-icon-button h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-200 ${
+                        isOptionsMenuOpen || isTrashDragOver
                           ? isTrashDragOver
                             ? 'border-brand-status-error/70 bg-brand-status-error/28 text-brand-status-error scale-[1.16] shadow-[0_12px_26px_rgba(239,68,68,0.34)]'
                             : 'border-brand-accent-primary/65 bg-brand-accent-primary/18 text-brand-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]'
                           : 'border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary hover:border-brand-surface-border/70 hover:bg-brand-surface-elevated/70'
                       }`}
-                      aria-label="Open menu"
-                      aria-expanded={isProfileMenuOpen}
-                      aria-controls="desktop-account-menu"
-                      data-tooltip="Menu"
-                      data-tooltip-position="right"
+                      aria-label="Options"
+                      aria-expanded={isOptionsMenuOpen}
+                      aria-controls="desktop-options-menu"
                     >
-                      <span className="relative flex items-center justify-center" aria-hidden="true">
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M4 7h16M4 12h16M4 17h16" />
-                        </svg>
-                        <span className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full transition-colors ${
-                          isProfileMenuOpen ? 'bg-brand-accent-primary' : 'bg-brand-text-muted/50'
-                        }`} />
-                      </span>
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                      </svg>
                     </button>
 
-                    {isProfileMenuOpen && (
-                      <div id="desktop-account-menu" className="retro-dropdown cosmic-desktop-menu absolute bottom-0 left-[calc(100%+10px)] z-[90] rounded-2xl border shadow-glass-lg backdrop-blur-xl"
-                        onKeyDown={event => {
-                          if (event.key === 'Escape') {
-                            setIsProfileMenuOpen(false);
-                            profileMenuRef.current?.querySelector<HTMLButtonElement>('[aria-controls="desktop-account-menu"]')?.focus();
-                          }
-                        }}>
-                        <AccountMenu displayName={websiteUserProfile.displayName} email={websiteUserProfile.email}
-                          onSignOut={handleSignOut} onDeleteAccount={() => {
-                            setIsProfileMenuOpen(false);
-                            setIsDeleteAccountModalOpen(true);
-                          }}>
-                          <button type="button" className="cosmic-menu-row"
-                            onClick={() => { if (isGameMasterMode) void handleSidebarDeleteAction(); else void handleClearBrainChat(); }}
-                            disabled={!conversationId || (!isGameMasterMode && messages.length === 0)}>
-                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            {isGameMasterMode ? 'Delete current chat' : 'Clear chat'}
-                          </button>
-                        </AccountMenu>
-                      </div>
+                    {isOptionsMenuOpen && (
+                        <div
+                          id="desktop-options-menu"
+                          role="dialog"
+                          aria-label="Options"
+                          className="retro-dropdown cosmic-desktop-menu absolute bottom-full left-0 z-[90] mb-2 rounded-xl border shadow-glass-lg backdrop-blur-xl"
+                          onKeyDown={event => {
+                            if (event.key === 'Escape') {
+                              setIsOptionsMenuOpen(false);
+                              optionsMenuRef.current?.querySelector<HTMLButtonElement>('[aria-controls="desktop-options-menu"]')?.focus();
+                            }
+                          }}
+                        >
+                          <OptionsMenuContent email={accountEmail}
+                            onSignOut={handleSignOut} onDeleteAccount={() => {
+                              setIsOptionsMenuOpen(false);
+                              setIsDeleteAccountModalOpen(true);
+                            }}
+                            conversationAction={
+                              <button type="button" className="cosmic-menu-row"
+                                onClick={() => { if (isGameMasterMode) void handleSidebarDeleteAction(); else void handleClearBrainChat(); }}
+                                disabled={!conversationId || (!isGameMasterMode && messages.length === 0)}>
+                                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                {isGameMasterMode ? 'Delete current chat' : 'Clear chat'}
+                              </button>
+                            } />
+                        </div>
                     )}
                   </div>
                 </div>
@@ -2559,7 +2574,7 @@ function App() {
                 )}
           </div>
         </aside>
-      </div>
+        </div>
       </div> : <main
         className="retro-mobile-main flex flex-col h-full px-2 pb-2 pt-2"
       >
@@ -2807,8 +2822,7 @@ function App() {
         conversationId={conversationId}
         effectivePersonality={effectivePersonality}
         messagesCount={messages.length}
-        displayName={websiteUserProfile.displayName}
-        email={websiteUserProfile.email}
+        email={accountEmail}
         onSelectBrain={() => {
           setIsMobileMenuOpen(false);
           if (brainConversationId) {
@@ -2822,7 +2836,7 @@ function App() {
         onDeleteCurrent={() => { void handleSidebarDeleteAction(); }}
         onClearChat={() => { void handleClearBrainChat(); }}
         onDeleteAccount={() => {
-          setIsProfileMenuOpen(false);
+          setIsOptionsMenuOpen(false);
           setIsMobileMenuOpen(false);
           setIsDeleteAccountModalOpen(true);
         }}
