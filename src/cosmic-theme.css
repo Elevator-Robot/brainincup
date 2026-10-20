@@ -426,10 +426,13 @@ body::before { display: none; }
 .cosmic-conversation-list > * { flex-shrink: 0; }
 .cosmic-conversation-list picture { display: block; width: 100%; height: 100%; }
 .cosmic-workspace .retro-right-container { padding-left: 0; border-left: 1px solid var(--cosmic-border); }
-/* The rail, footer, and context panel meet in square corners on purpose. */
+/* The rail keeps its fillet into the credit bar; the bar ends square and its
+   top hairline starts after the curve, so nothing cuts under the rail icons. */
 @media (min-width: 1024px) {
+  body:has(.cosmic-workspace .retro-shell-left) .site-footer::before { content: ''; position: absolute; left: calc(4.5rem - 1px); bottom: calc(100% - 1px); width: 25px; height: 25px; pointer-events: none; background: radial-gradient(circle at 100% 0%, transparent 24px, var(--cosmic-border) 24px, var(--cosmic-border) 25px, transparent 25px), radial-gradient(circle at 100% 0%, transparent 24px, var(--cosmic-frame-surface) 24px); }
+  body:has(.cosmic-workspace .retro-shell-left) .site-footer::after { clip-path: inset(0 0 0 calc(4.5rem + 24px)); }
   .cosmic-workspace .retro-shell-left { border-right: 0; background: linear-gradient(var(--cosmic-frame-surface), var(--cosmic-frame-surface)) top / 100% calc(100% - var(--site-footer-height)) no-repeat; }
-  .cosmic-workspace .retro-shell-left::after { display: block; height: calc(100% - var(--site-footer-height)); background: var(--cosmic-border); }
+  .cosmic-workspace .retro-shell-left::after { display: block; height: calc(100% - var(--site-footer-height) - 24px); background: var(--cosmic-border); }
   .cosmic-workspace .retro-shell-right { align-self: start; max-height: calc(100dvh - 12px); }
   .cosmic-workspace .retro-right-container { height: auto; max-height: calc(100dvh - 12px); border-bottom: 1px solid var(--cosmic-border); border-right: 1px solid var(--cosmic-border); border-bottom-left-radius: 24px; border-bottom-right-radius: 0; }
   .cosmic-workspace .retro-right-stack { height: auto; }
