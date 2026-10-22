@@ -10,7 +10,6 @@ import { BottomInput } from './components/ui/RPGLayout';
 import ContextWindowPanel, { type Quest } from './components/ContextWindowPanel';
 import QuestLogPanel from './components/context/QuestLogPanel';
 import { mapActiveQuests } from './utils/gmQuests';
-import GameMasterBanner from './components/GameMasterBanner';
 import { normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import {
@@ -300,26 +299,14 @@ interface GameMasterHudProps {
   adventure: AdventureRecord;
   questSteps: HudQuestStep[];
   character: CharacterRecord | null;
-  isLoadingCharacter?: boolean;
   onUpdateInventory?: (newInventory: InventoryItem[]) => Promise<void>;
 }
 
-function GameMasterHud({ adventure, questSteps, character, isLoadingCharacter, onUpdateInventory }: GameMasterHudProps) {
+function GameMasterHud({ adventure, questSteps, character, onUpdateInventory }: GameMasterHudProps) {
   const latestStep = questSteps.slice(-1)[0];
-  
-  // Don't show placeholder data while loading
-  if (isLoadingCharacter || !character) {
-    return (
-      <div className="animate-slide-up w-full space-y-6">
-        <div className="w-full p-5 rounded-lg">
-          <div className="flex flex-col gap-4 animate-pulse">
-            <div className="h-6 bg-brand-surface-hover rounded w-3/4"></div>
-            <div className="h-4 bg-brand-surface-hover rounded w-1/2"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+
+  // Nothing renders until the character is real; the panel fades in with live data.
+  if (!character) return null;
   
   // Use character data from database
   const characterName = character.name;
@@ -2320,9 +2307,9 @@ function App() {
   const composer = <ChatComposer ref={composerRef} draft={draft} onSend={handleSubmit}
     isGameMasterMode={isGameMasterMode}
     isLocked={isInputLocked || isSelectingConversation} isWaiting={isWaitingForResponse} isPrimed={isNewInteractionPrimed}
-    placeholder={hasPendingRoll ? 'Resolve the requested check above…' : isWaitingForResponse ? (isGameMasterMode ? 'Waiting for the GM…' : 'Brain is thinking…') : conversationId
+    placeholder={hasPendingRoll ? 'Resolve the requested check above…' : conversationId
       ? (isGameMasterMode ? gameMasterInputPlaceholder : 'Message Brain…')
-      : (isGameMasterMode ? 'What do you do next?' : isNewInteractionPrimed ? 'New chat ready. Start typing…' : 'Start a new conversation…')} />;
+      : (isGameMasterMode ? gameMasterInputPlaceholder : isNewInteractionPrimed ? 'New chat ready. Start typing…' : 'Start a new conversation…')} />;
   const jumpToLatest = !isAtBottom && <button type="button" className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages <span aria-hidden="true">↓</span></button>;
   const welcome = messages.length === 0 && !isWaitingForResponse && (
     !userAttributes || isSelectingConversation
@@ -2449,10 +2436,6 @@ function App() {
           <div className="retro-center-container flex-1 min-h-0">
               <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
                 <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden flex flex-col">
-                      {conversationId && isGameMasterMode && (
-                    <GameMasterBanner location={currentLocation} act={adventureState?.currentAct} chapter={adventureState?.currentChapter} />
-                      )}
-
                         <div className="cosmic-chat-viewport">
                         <div
                           ref={scrollRef}
@@ -2462,12 +2445,11 @@ function App() {
                           {/* Mode indicator removed */}
 
                           {conversationId && effectivePersonality === 'game_master' && adventureState && (
-                            <div className="lg:hidden">
+                            <div className="lg:hidden cosmic-fade-in">
                               <GameMasterHud
                                 adventure={adventureState}
                                 questSteps={hudQuestSteps}
                                 character={characterState}
-                                isLoadingCharacter={isLoadingCharacter}
                                 onUpdateInventory={updateInventory}
                               />
                             </div>
@@ -2507,8 +2489,8 @@ function App() {
                           onCancel={handleCharacterCreationCancel}
                     />
                       </div>
-                    ) : (
-                      <div className="retro-right-stack flex h-full min-h-0 flex-col p-5">
+                    ) : characterDisplay ? (
+                      <div className="retro-right-stack cosmic-fade-in flex h-full min-h-0 flex-col p-5">
                         {/* Tabs pin; character and timeline content scroll beneath. */}
                         <ContextWindowPanel
                           playerState={playerState ? {
@@ -2553,7 +2535,7 @@ function App() {
                           ) : null}
                         </ContextWindowPanel>
                       </div>
-                    )
+                    ) : null
                 ) : (
                   <div className="flex h-full flex-col gap-4 p-5">
                     <div className="retro-mental-state-section">
@@ -2604,8 +2586,8 @@ function App() {
         </nav>
 
         {/* Floating Expandable Header Bars - Side by Side - Only for Game Master mode */}
-        {effectivePersonality === 'game_master' && characterState && characterDisplay && !isGameMasterContentLoading && (
-          <div className="retro-mobile-bars lg:hidden sticky top-0 z-40 pt-safe">
+        {effectivePersonality === 'game_master' && characterState && characterDisplay && (
+          <div className="retro-mobile-bars cosmic-fade-in lg:hidden sticky top-0 z-40 pt-safe">
             <div className="flex gap-2 mx-4 mt-4 items-start">
               {/* First Bar - Quest Log */}
               <div className="flex-1 relative">
@@ -2696,7 +2678,7 @@ function App() {
                   </button>
 
                   {/* Expanded Character Sheet Content */}
-                  {mobileCharSheetExpanded && !isGameMasterContentLoading && characterState && characterDisplay && (() => {
+                  {mobileCharSheetExpanded && characterState && characterDisplay && (() => {
                     const charData = characterDisplay;
                     return (
                       <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">

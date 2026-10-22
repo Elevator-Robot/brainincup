@@ -170,8 +170,12 @@ body::before { display: none; }
 .retro-interactions-pane, .retro-interactions-pane-collapsed { border-right-color: var(--cosmic-border); }
 .retro-character-avatar { background: rgb(189 165 255 / 8%); }
 .retro-interaction-avatar { background: linear-gradient(135deg, rgb(189 165 255 / 18%), rgb(122 232 244 / 9%)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%); }
-.retro-status-strip { background: linear-gradient(95deg, rgb(35 31 70 / 70%), rgb(28 49 79 / 48%), rgb(35 31 70 / 70%)); }
 .retro-empty-state { color: #bcc8e6; }
+
+/* Content arrives by fading in. Nothing dims, blurs or reserves space first. */
+.cosmic-fade-in { animation: cosmic-fade-in 320ms var(--cosmic-ease) both; }
+@keyframes cosmic-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cosmic-fade-in { animation: none; } }
 
 /* Assistant text belongs to the reading surface, not another nested card. */
 .retro-message, .retro-message-assistant, .retro-waiting-bubble {
