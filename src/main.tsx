@@ -14,13 +14,16 @@ import { isTestModeEnabled } from './utils/testMode';
 import './index.css';
 import './cosmic-theme.css';
 import '@fontsource/cinzel/latin-700.css';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { RouterProvider } from '@tanstack/react-router';
 import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
 import { Hub } from 'aws-amplify/utils';
+import { queryClient } from './queries/queryClient';
+import { router } from './router';
 
 const loadWorkspace = () => import('./App');
 const loadAuth = () => import('./components/CustomAuth');
-const App = React.lazy(loadWorkspace);
 const CustomAuth = React.lazy(loadAuth);
 
 (window as unknown as { __AMPLIFY_OUTPUTS__: typeof outputs }).__AMPLIFY_OUTPUTS__ = outputs;
@@ -67,7 +70,15 @@ function AuthWrapper() {
     <SiteBackground />
     <WorkspaceBoundary>
       <React.Suspense fallback={<WorkspaceRecovery />}>
-        {isLoading ? <WorkspaceRecovery /> : isAuthenticated ? <App /> : <CustomAuth onAuthSuccess={checkAuthState} />}
+        {isLoading
+          ? <WorkspaceRecovery />
+          : isAuthenticated
+            ? (
+              <QueryClientProvider client={queryClient}>
+                <RouterProvider router={router} />
+              </QueryClientProvider>
+            )
+            : <CustomAuth onAuthSuccess={checkAuthState} />}
       </React.Suspense>
     </WorkspaceBoundary>
     {(isLoading || isAuthenticated) && <SiteFooter />}

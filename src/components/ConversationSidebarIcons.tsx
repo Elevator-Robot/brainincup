@@ -1,12 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { generateClient } from 'aws-amplify/data';
-import type { Schema } from '../../amplify/data/resource';
+import { dataClient } from '../api/dataClient';
 import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
 import { normalizePersonalityMode } from '../constants/personalityModes';
 import { pickLatestAdventure, resolveLocationName } from '../utils/gmLocations';
 import { isTestModeEnabled } from '../utils/testMode';
 
-const dataClient = generateClient<Schema>();
 
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
 const CONVERSATION_CACHE_KEY = 'conversationMetadataCache';
