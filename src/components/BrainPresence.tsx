@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type CSSProperties } from 'react';
+import { useCallback, useEffect, useId, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { BRAIN_ARTWORK } from '../utils/brainHandoff';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePageVisible } from '../hooks/usePageVisible';
@@ -9,14 +9,49 @@ interface BrainPresenceProps { mood?: BrainPresenceMood; intensity?: number }
 
 const STATUS: Record<BrainPresenceMood, string> = { idle: 'Resting', listening: 'Listening', thinking: 'Thinking', speaking: 'Speaking' };
 
-/** A passive living portrait. Only conversation activity changes his behavior. */
+/** A living portrait with gentle local hover, never dragging or click actions. */
 export default function BrainPresence({ mood = 'idle', intensity = 35 }: BrainPresenceProps) {
   const presenceRef = useRef<HTMLElement>(null);
   const activity = mood === 'speaking' ? 1 : mood === 'thinking' ? .45 : .05;
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const finePointer = useMediaQuery('(hover: hover) and (pointer: fine)');
   const visible = usePageVisible();
+  const pointerFrame = useRef(0);
+  const pointer = useRef({ x: 0, y: 0 });
   const energy = Number.isFinite(intensity) ? Math.max(0, Math.min(100, intensity)) / 100 : .35;
   const glowId = `brain-synapse-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
+  const clearGaze = useCallback(() => {
+    cancelAnimationFrame(pointerFrame.current);
+    pointerFrame.current = 0;
+    for (const property of ['--brain-gaze-x', '--brain-gaze-y', '--brain-gaze-rx', '--brain-gaze-ry']) {
+      presenceRef.current?.style.removeProperty(property);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (reducedMotion || !finePointer || !visible) clearGaze();
+    return clearGaze;
+  }, [reducedMotion, finePointer, visible, clearGaze]);
+
+  const followCursor = (event: ReactPointerEvent<HTMLElement>) => {
+    if (reducedMotion || !finePointer || !visible || event.pointerType !== 'mouse' || event.buttons) return;
+    pointer.current = { x: event.clientX, y: event.clientY };
+    if (pointerFrame.current) return;
+    pointerFrame.current = requestAnimationFrame(() => {
+      pointerFrame.current = 0;
+      const presence = presenceRef.current;
+      if (!presence || presence.querySelector('[data-brain-arriving]')) { clearGaze(); return; }
+      const bounds = presence.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) return;
+      const x = Math.max(-1, Math.min(1, (pointer.current.x - bounds.left) / bounds.width * 2 - 1));
+      const y = Math.max(-1, Math.min(1, (pointer.current.y - bounds.top) / bounds.height * 2 - 1));
+      presence.style.setProperty('--brain-gaze-x', `${(x * 4).toFixed(2)}px`);
+      presence.style.setProperty('--brain-gaze-y', `${(y * 3).toFixed(2)}px`);
+      presence.style.setProperty('--brain-gaze-rx', `${(-y * 2).toFixed(2)}deg`);
+      presence.style.setProperty('--brain-gaze-ry', `${(x * 3).toFixed(2)}deg`);
+    });
+  };
 
   useEffect(() => {
     const presence = presenceRef.current;
@@ -53,6 +88,7 @@ export default function BrainPresence({ mood = 'idle', intensity = 35 }: BrainPr
   }, [mood, visible, reducedMotion]);
 
   return <section ref={presenceRef} className="cosmic-brain-presence" data-mood={mood}
+    onPointerMove={followCursor} onPointerLeave={clearGaze} onPointerCancel={clearGaze}
     data-paused={!visible} data-reduced-motion={reducedMotion} style={{ '--brain-energy': energy } as CSSProperties} aria-label="Brain presence">
     <div className="cosmic-brain-stage" role="img" aria-label={`Brain, ${STATUS[mood].toLowerCase()}`}>
       <span className="cosmic-brain-aura" aria-hidden="true" />

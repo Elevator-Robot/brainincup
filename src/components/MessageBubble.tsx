@@ -130,13 +130,11 @@ export const MessageBubble = memo(function MessageBubble({
           } ${populating ? 'animate-text-populate' : ''}`}
         >
           <div className={isDesktop ? 'break-words' : 'break-words text-sm'}>
-            {isGameMasterMode && (
-              <span className={`mb-1 block uppercase text-brand-text-muted ${
-                isDesktop ? 'text-[11px] tracking-[0.22em]' : 'text-[10px] tracking-[0.2em]'
-              } ${role === 'user' ? 'text-brand-accent-secondary' : ''}`}>
-                {role === 'user' ? 'You' : 'Brain'}
-              </span>
-            )}
+            <span className={`mb-1 block uppercase text-brand-text-muted ${
+              isDesktop ? 'text-[11px] tracking-[0.22em]' : 'text-[10px] tracking-[0.2em]'
+            } ${role === 'user' ? 'text-brand-accent-secondary' : ''}`}>
+              {role === 'user' ? 'You' : 'Brain'}
+            </span>
             <div
               className={hasInsights ? 'cosmic-insight-trigger' : undefined}
               role={hasInsights ? 'button' : undefined}

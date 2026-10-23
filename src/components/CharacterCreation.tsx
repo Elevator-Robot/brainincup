@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 
 import { calculateDerivedStats, calculateFinalStats, getAllClasses, getAllRaces, type Stats } from '../game';
 import { getAvatarOptionsForRace } from '../constants/gameMasterAvatars';
 import CreationGlyph from './creation/CreationGlyph';
+import CreationPortrait from './creation/CreationPortrait';
 
 export interface CharacterCreationInput extends Stats {
   name: string;
@@ -19,8 +20,8 @@ interface CharacterCreationProps {
 const races = getAllRaces();
 const classes = getAllClasses();
 const STEPS = [
-  { label: 'Race', title: 'Where does your story begin?', hint: 'Choose a race. Discover the faces within it.', next: 'Choose your calling', icon: 'person' },
-  { label: 'Calling', title: 'How will you meet the world?', hint: 'Steel, shadows, or something beyond.', next: 'Bring them to life', icon: 'fighter' },
+  { label: 'Race', title: 'Where does your story begin?', hint: 'Choose a race.', next: 'Choose your calling', icon: 'person' },
+  { label: 'Calling', title: 'How will you meet the world?', hint: 'Steel, shadows, or magic.', next: 'Bring them to life', icon: 'fighter' },
   { label: 'Identity', title: 'Every legend needs a name.', hint: 'Your choices are made. Your story is not.', next: 'Begin adventure', icon: 'pack' },
 ];
 const CLASS_FLAVOR: Record<string, string> = {
@@ -34,7 +35,7 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
   const [furthest, setFurthest] = useState(0);
   const [raceId, setRaceId] = useState<string | null>('terran');
   const [classId, setClassId] = useState<string | null>(null);
-  const [avatarId, setAvatarId] = useState('terran-01');
+  const [avatarId, setAvatarId] = useState(() => getAvatarOptionsForRace('Terran')[0]?.id ?? '');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState<'creating' | 'cancelling' | null>(null);
@@ -133,19 +134,23 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
 
     <div ref={bodyRef} className="forge-body">
       <section className="forge-hero" aria-label="Character preview">
-        {selectedPortrait ? <img key={selectedPortrait.id} className="forge-hero-art" src={selectedPortrait.src}
-          width="1024" height="1536" alt="Character portrait preview" decoding="async" />
-          : <div className="forge-hero-silhouette"><CreationGlyph kind="person" /></div>}
+        <CreationPortrait portrait={selectedPortrait} />
         <div className="forge-hero-atmosphere" aria-hidden="true" />
         <div className="forge-hero-name">
-          {selectedClass && <span className="forge-calling-sign" title={`${selectedClass.name} calling`}><CreationGlyph kind={selectedClass.id} /></span>}
-          {(selectedRace || selectedClass) && <p>{selectedRace?.name}{selectedRace && selectedClass && <span>·</span>}{selectedClass?.name}</p>}
-          <h2>{name.trim() || 'An unwritten legend'}</h2>
-          {derived && selectedRace && <div className="forge-vitals">
-            <span><CreationGlyph kind="heart" /><strong>{derived.maxHP}</strong><abbr title="Hit points">HP</abbr></span>
-            <span><CreationGlyph kind="shield" /><strong>{derived.armorClass}</strong><abbr title="Armor class">AC</abbr></span>
-            <span><CreationGlyph kind="speed" /><strong>{selectedRace.speed}</strong><abbr title="Movement in feet">FT</abbr></span>
-          </div>}
+          <div className="forge-reveal-slot" data-visible={Boolean(selectedClass)}><div className="forge-reveal-clip">
+            {selectedClass && <span key={selectedClass.id} className="forge-calling-sign forge-portrait-reveal" title={`${selectedClass.name} calling`}><CreationGlyph kind={selectedClass.id} /></span>}
+          </div></div>
+          {(selectedRace || selectedClass) && <p key={`${raceId}:${classId}`} className="forge-portrait-reveal">{selectedRace?.name}{selectedRace && selectedClass && <span>·</span>}{selectedClass?.name}</p>}
+          <div className="forge-reveal-slot forge-name-reveal" data-visible={Boolean(name.trim())}><div className="forge-reveal-clip">
+            {name.trim() && <h2 className="forge-portrait-reveal">{name.trim()}</h2>}
+          </div></div>
+          <div className="forge-reveal-slot" data-visible={Boolean(derived && selectedRace)}><div className="forge-reveal-clip">
+            {derived && selectedRace && <div key={`${raceId}:${classId}`} className="forge-vitals forge-portrait-reveal">
+              <span><CreationGlyph kind="heart" /><strong>{derived.maxHP}</strong><abbr title="Hit points">HP</abbr></span>
+              <span><CreationGlyph kind="shield" /><strong>{derived.armorClass}</strong><abbr title="Armor class">AC</abbr></span>
+              <span><CreationGlyph kind="speed" /><strong>{selectedRace.speed}</strong><abbr title="Movement in feet">FT</abbr></span>
+            </div>}
+          </div></div>
         </div>
       </section>
 
@@ -159,7 +164,13 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
               {races.map(race => {
                 const art = getAvatarOptionsForRace(race.name)[0] ?? getAvatarOptionsForRace('Orc')[0];
                 return <button key={race.id} type="button" className="forge-race-choice" aria-label={`Select ${race.name} race`}
-                  aria-pressed={race.id === raceId} onClick={() => { if (raceId !== race.id) { setRaceId(race.id); setAvatarId(''); } setError(''); }}>
+                  aria-pressed={race.id === raceId} onClick={() => {
+                    if (raceId !== race.id) {
+                      setRaceId(race.id);
+                      setAvatarId(getAvatarOptionsForRace(race.name)[0]?.id ?? '');
+                    }
+                    setError('');
+                  }}>
                   <img src={art.srcMedium} width="133" height="200" alt="" loading="lazy" />
                   <span className="forge-choice-check"><CreationGlyph kind="check" /></span>
                   <span>{race.name}</span>
@@ -175,7 +186,6 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
                 <span className="forge-choice-check"><CreationGlyph kind="check" /></span>
               </button>)}</div> : <div className="forge-no-portraits"><CreationGlyph kind="person" /><p>A face not yet painted.</p>
                 <span>No portraits for this race yet. Your adventure can still begin.</span></div>}
-              <p className="forge-selection-hint">{portraitReady ? (selectedPortrait ? 'Your portrait is chosen.' : 'Your legend is yours to imagine.') : 'Choose one portrait to continue.'}</p>
               <div className="forge-selection-detail"><p>{selectedRace.description}</p>
                 <ul className="forge-traits">{selectedRace.traits.map(trait => <li key={trait}><CreationGlyph kind="spark" />{trait}</li>)}</ul>
               </div>

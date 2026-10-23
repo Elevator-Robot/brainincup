@@ -461,13 +461,13 @@ body::before { display: none; }
 }
 /* Timings stay fixed: BrainPresence eases playback rates without phase jumps. */
 .cosmic-brain-stage {
-  position: relative; display: block; contain: paint; isolation: isolate; overflow: hidden;
+  position: relative; display: block; contain: paint; isolation: isolate; overflow: hidden; perspective: 800px;
   width: 100%; height: clamp(12rem, 32dvh, 17rem); margin: 0; padding: 0;
   border: 0; border-radius: 1rem; background: none; color: inherit;
   pointer-events: none; user-select: none;
 }
-.cosmic-brain-float { position: absolute; inset: 0; animation: cosmic-brain-float 7.2s ease-in-out infinite; }
-.cosmic-brain-portrait { position: absolute; left: 50%; top: 50%; width: 218%; aspect-ratio: 1672 / 941; transform: translate(-50%, -50%); }
+.cosmic-brain-float { position: absolute; inset: 0; transform-style: preserve-3d; animation: cosmic-brain-float 7.2s ease-in-out infinite; }
+.cosmic-brain-portrait { position: absolute; left: 50%; top: 50%; width: 218%; aspect-ratio: 1672 / 941; transform: translate(calc(-50% + var(--brain-gaze-x, 0px)), calc(-50% + var(--brain-gaze-y, 0px))) rotateX(var(--brain-gaze-rx, 0deg)) rotateY(var(--brain-gaze-ry, 0deg)); transition: transform 360ms var(--cosmic-ease); }
 .cosmic-brain-image { display: block; width: 100%; max-width: none; height: auto; user-select: none; -webkit-user-drag: none; }
 .cosmic-brain-living { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
 .cosmic-brain-living[data-ready="true"] { opacity: 1; }
@@ -601,11 +601,16 @@ body::before { display: none; }
 .forge-close:hover:not(:disabled) { color: var(--cosmic-text); background: rgb(196 173 255 / 7%); }
 .forge-body { display: grid; grid-template-columns: minmax(260px, .86fr) minmax(0, 1.34fr); flex: 1; min-height: 0; overflow: hidden; }
 .forge-hero { position: relative; min-width: 0; min-height: 0; margin: 16px 0 16px 16px; overflow: hidden; border: 1px solid rgb(196 173 255 / 14%); border-radius: 15px; background: radial-gradient(ellipse at 50% 25%, #373257, #111729 80%); isolation: isolate; }
-.forge-hero-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; animation: forge-portrait-arrive 350ms var(--cosmic-ease) both; }
+.forge-hero-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; opacity: 0; }
+.forge-hero-art[data-loaded="true"] { animation: forge-portrait-arrive 480ms var(--cosmic-ease) both; opacity: 1; }
 .forge-hero-atmosphere { position: absolute; inset: 0; background: linear-gradient(180deg, rgb(9 13 28 / 12%), transparent 35%, rgb(9 13 28 / 35%) 55%, #0a1022 98%); pointer-events: none; }
 .forge-hero-silhouette { display: grid; place-items: center; height: 100%; color: rgb(196 173 255 / 35%); }
 .forge-hero-silhouette svg { width: 45%; height: auto; stroke-width: .7; }
 .forge-hero-name { position: absolute; inset: auto 24px 24px; }
+.forge-portrait-reveal { animation: forge-detail-arrive 420ms var(--cosmic-ease) both; }
+.forge-reveal-slot { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 420ms var(--cosmic-ease), opacity 420ms var(--cosmic-ease); }
+.forge-reveal-slot[data-visible="true"] { grid-template-rows: 1fr; opacity: 1; }
+.forge-reveal-clip { min-height: 0; overflow: hidden; }
 .forge-calling-sign { display: block; width: fit-content; margin-bottom: 12px; color: var(--cosmic-cyan); }
 .forge-calling-sign > svg { width: 28px; height: 28px; }
 .forge-hero-name > p { margin: 0 0 9px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #d1c3ed; }
@@ -657,7 +662,6 @@ body::before { display: none; }
 .forge-portrait-option { position: relative; aspect-ratio: 2 / 3; min-width: 0; padding: 0; border: 1px solid rgb(196 173 255 / 18%); border-radius: 10px; background: #141b2d; overflow: hidden; transition: border-color 180ms ease; }
 .forge-portrait-option img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .forge-portrait-option:hover { border-color: var(--cosmic-violet); }
-.forge-selection-hint { margin: 18px 0 0; color: var(--cosmic-muted); font-size: 11px; }
 .forge-no-portraits { display: flex; align-items: center; flex-direction: column; gap: 14px; min-height: 240px; justify-content: center; text-align: center; border: 1px solid var(--cosmic-border); border-radius: 14px; }
 .forge-no-portraits > svg { width: 60px; height: 60px; color: var(--cosmic-violet); stroke-width: .8; }
 .forge-no-portraits p { margin: 0; font: 500 19px var(--rpg-font-display); }
@@ -699,7 +703,8 @@ body::before { display: none; }
 .forge-next:hover:not(:disabled) > svg:last-child { translate: 4px 0; }
 .forge-begin { --forge-button-face: #193039; color: #c7f6f7; background: linear-gradient(120deg, rgb(140 236 243 / 90%), rgb(196 173 255 / 70%)); }
 .forge-begin:hover:not(:disabled) { --forge-button-face: #22434c; }
-@keyframes forge-portrait-arrive { from { opacity: .5; scale: 1.025; } to { opacity: 1; scale: 1; } }
+@keyframes forge-portrait-arrive { from { opacity: 0; } to { opacity: 1; } }
+@keyframes forge-detail-arrive { from { opacity: 0; } to { opacity: 1; } }
 @keyframes forge-choice-arrive { from { opacity: 0; translate: 0 7px; } to { opacity: 1; translate: 0 0; } }
 @media (max-width: 1050px) {
   .forge-top { gap: 16px; padding: 16px 20px; }
