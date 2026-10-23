@@ -2589,8 +2589,10 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
           </div>
         </nav>
 
-        {/* Floating Expandable Header Bars - Side by Side - Only for Game Master mode */}
-        {effectivePersonality === 'game_master' && characterState && characterDisplay && (
+        {/* Floating Expandable Header Bars - Side by Side - Only for Game Master mode.
+            The row stays mounted in GM mode so the character arriving never resizes
+            the chat area; the cards fill the reserved row instead. */}
+        {isGameMasterMode && (
           <div className="retro-mobile-bars cosmic-fade-in lg:hidden sticky top-0 z-40 pt-safe">
             <div className="flex gap-2 mx-4 mt-4 items-start">
               {/* First Bar - Quest Log */}
@@ -2612,7 +2614,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                       Quest Log
                         </p>
                         <p className="text-sm text-brand-text-primary font-medium truncate">
-                          {activeQuests[0]?.title}
+                          {activeQuests[0]?.title ?? 'No active quest'}
                         </p>
                       </div>
                     </div>
@@ -2641,16 +2643,19 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               <div className="flex-1 relative">
                 <div 
                   className={`retro-mobile-card rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
-                    mobileCharSheetExpanded ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
+                    mobileCharSheetExpanded && characterDisplay ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
                   }`}
                 >
                   <button
-                    onClick={() => setMobileCharSheetExpanded(!mobileCharSheetExpanded)}
-                    aria-expanded={mobileCharSheetExpanded}
+                    onClick={() => {
+                      if (!characterDisplay) return;
+                      setMobileCharSheetExpanded(!mobileCharSheetExpanded);
+                    }}
+                    aria-expanded={mobileCharSheetExpanded && Boolean(characterDisplay)}
                     className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
                   >
                     <div className="retro-character-identity retro-character-identity--compact flex items-center gap-3 min-w-0">
-                      {characterDisplay.avatarSrc ? (
+                      {characterDisplay?.avatarSrc ? (
                         <div className="retro-character-avatar-wrap">
                           <picture>
                             <source srcSet={characterDisplay.avatarSrcWebp} type="image/webp" />
@@ -2663,15 +2668,17 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                             />
                           </picture>
                         </div>
-                      ) : null}
+                      ) : (
+                        <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-brand-surface-secondary/50" aria-hidden="true" />
+                      )}
                       <div className="retro-character-meta retro-character-meta--compact min-w-0 flex-1">
                         <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
-                        <p className="text-sm text-brand-text-primary font-medium truncate">{characterDisplay.name}</p>
+                        <p className="text-sm text-brand-text-primary font-medium truncate">{characterDisplay?.name ?? 'Not created'}</p>
                       </div>
                     </div>
                     <svg 
                       className={`w-5 h-5 text-brand-text-muted transition-transform duration-300 flex-shrink-0 ${
-                        mobileCharSheetExpanded ? 'rotate-180' : ''
+                        mobileCharSheetExpanded && characterDisplay ? 'rotate-180' : ''
                       }`} 
                       fill="none" 
                       stroke="currentColor" 

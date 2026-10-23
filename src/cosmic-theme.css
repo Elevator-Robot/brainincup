@@ -414,7 +414,7 @@ body::before { display: none; }
 .cosmic-delete-dialog > div { max-height: calc(100dvh - 2rem); overflow-y: auto; }
 
 /* One atmosphere from sign-in to the workspace. Only transform/opacity drift. */
-.cosmic-workspace { --chat-gutter: .5rem; --chat-content-inset: .5rem; animation: cosmic-arrive 480ms var(--cosmic-ease) both; }
+.cosmic-workspace { --chat-gutter: .5rem; --chat-content-inset: .5rem; --context-rail-width: 18.25rem; animation: cosmic-arrive 480ms var(--cosmic-ease) both; }
 .cosmic-workspace :is(.cosmic-chat-scroll, .retro-input-dock) { padding-inline: var(--chat-gutter); }
 /* The credit pill is fixed and out of layout. Only its visible footprint may
    collide, so dock content clears the pill's height while the chat column keeps
@@ -423,8 +423,14 @@ body::before { display: none; }
 .cosmic-composer { width: 100%; max-width: calc(56rem - var(--chat-content-inset, .5rem) - var(--chat-content-inset, .5rem)); margin-inline: auto; }
 .cosmic-wordmark { font: 500 1.25rem/1.3 var(--rpg-font-display); letter-spacing: -.025em; color: #f6edff; }
 .cosmic-wordmark strong { font-weight: 700; color: var(--cosmic-violet); }
-.cosmic-workspace-header { display: grid; place-items: center; flex: none; min-height: 3.25rem; margin-bottom: .5rem; }
-.cosmic-workspace .retro-shell { padding: 0; gap: 0; grid-template-columns: 4.5rem minmax(0, 1fr) fit-content(20rem); }
+/* The wordmark shares the chat column's geometry so its left edge sits exactly
+   on the composer's left edge. */
+.cosmic-workspace-header { display: flex; align-items: center; flex: none; min-height: 3.25rem; margin-bottom: .5rem; padding-inline: calc(var(--chat-gutter) + var(--chat-content-inset)); }
+.cosmic-workspace-header > * { width: 100%; max-width: calc(56rem - var(--chat-content-inset) - var(--chat-content-inset)); margin-inline: auto; text-align: left; }
+/* Reserve the context rail before its data arrives. A content-sized track used
+   to collapse to zero and then push the whole workspace left once the panel
+   mounted. */
+.cosmic-workspace .retro-shell { padding: 0; gap: 0; grid-template-columns: 4.5rem minmax(0, 1fr) var(--context-rail-width); }
 .cosmic-workspace :is(.retro-shell-left, .retro-shell-center, .retro-right-container) { border: 0; border-radius: 0; box-shadow: none; }
 .cosmic-workspace .retro-shell-left { border-right: 1px solid var(--cosmic-border); }
 .cosmic-workspace .retro-shell-left::after { display: none; }
@@ -502,7 +508,7 @@ body::before { display: none; }
 .gm-quick-actions button { min-height: 34px; border: 1px solid var(--cosmic-border); border-radius: 999px; padding: .35rem .85rem; background: rgb(196 173 255 / 4%); color: var(--cosmic-muted); font-size: .75rem; transition: border-color 160ms ease, color 160ms ease, background 160ms ease; }
 .gm-quick-actions button:hover:not(:disabled) { color: var(--cosmic-text); border-color: rgb(140 236 243 / 45%); background: rgb(140 236 243 / 7%); }
 .gm-quick-actions button:disabled { opacity: .35; cursor: not-allowed; }
-.gm-quick-actions button:focus-visible, .gm-avatar-card:focus-visible, .gm-shuffle-portrait:focus-visible, .retro-context-tab:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 3px; }
+.gm-quick-actions button:focus-visible, .gm-avatar-card:focus-visible, .retro-context-tab:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 3px; }
 .gm-character-preview { display: flex; align-items: center; gap: .9rem; padding-bottom: .9rem; border-bottom: 1px solid var(--cosmic-border); }
 .gm-character-preview > img, .gm-portrait-placeholder { width: 64px; height: 64px; flex-shrink: 0; border-radius: 14px; object-fit: cover; background: rgb(196 173 255 / 7%); border: 1px solid var(--cosmic-border); }
 .gm-portrait-placeholder { display: grid; place-items: center; color: var(--cosmic-violet); }
@@ -519,7 +525,6 @@ body::before { display: none; }
 .gm-avatar-card[aria-pressed="true"] { border-color: var(--cosmic-cyan); background: rgb(140 236 243 / 10%); box-shadow: 0 0 12px rgb(140 236 243 / 10%); }
 .gm-avatar-card:disabled { opacity: .5; }
 .gm-avatar-check { position: absolute; bottom: 6px; right: 6px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--cosmic-cyan); color: #10202d; font-size: 11px; font-weight: 700; }
-.gm-shuffle-portrait { margin-top: .5rem; min-height: 36px; color: var(--cosmic-violet); font-size: .72rem; }
 .gm-preview-mobile-context { margin: 0 .5rem .5rem; border: 1px solid var(--cosmic-border); border-radius: 12px; background: rgb(18 22 43 / 75%); }
 .gm-preview-mobile-context > button { display: flex; justify-content: space-between; width: 100%; padding: .75rem 1rem; min-height: 44px; color: var(--cosmic-text); font-size: .8rem; }
 .gm-preview-mobile-body { max-height: 52dvh; overflow-y: auto; overscroll-behavior: contain; padding: 0 1rem 1rem; }
