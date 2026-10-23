@@ -373,14 +373,6 @@ export default function CharacterCreation({ onComplete, onCancel, inline = false
           {availableAvatarOptions.length > 0 && !avatarId && (
             <p className="mt-1 text-xs text-brand-text-muted">Select an avatar to continue.</p>
           )}
-          {availableAvatarOptions.length > 1 && <button type="button" className="gm-shuffle-portrait" disabled={isSubmitting}
-            onClick={() => {
-              const options = availableAvatarOptions.filter(option => option.id !== avatarId);
-              setAvatarId(options[Math.floor(Math.random() * options.length)].id);
-              setError('');
-            }}>
-            Shuffle portrait
-          </button>}
         </div>
 
         {error && (
