@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { getCurrentUser } from 'aws-amplify/auth';
@@ -11,6 +11,7 @@ import WorkspaceBoundary from './components/WorkspaceBoundary';
 import TextArrivalEffects from './components/TextArrivalEffects';
 import SiteFooter from './components/SiteFooter';
 import { isTestModeEnabled } from './utils/testMode';
+import { beginBrainHandoff, cancelBrainHandoff } from './utils/brainHandoff';
 import './index.css';
 import './cosmic-theme.css';
 import '@fontsource/cinzel/latin-700.css';
@@ -35,15 +36,24 @@ void loadAuth().catch(error => console.warn('Sign-in preload failed:', error));
 function AuthWrapper() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [authDeparting, setAuthDeparting] = useState(false);
+  const authenticatedRef = useRef(false);
+  const departureTimer = useRef<number>();
   const checkAuthState = useCallback(async () => {
     try {
-      if (isTestModeEnabled()) {
-        setIsAuthenticated(true);
-        return;
+      if (!isTestModeEnabled()) await getCurrentUser();
+      if (!authenticatedRef.current) {
+        const fromLogin = Boolean(document.querySelector('[data-brain-login]'));
+        if (beginBrainHandoff() && fromLogin) {
+          setAuthDeparting(true);
+          departureTimer.current = window.setTimeout(() => setAuthDeparting(false), 300);
+        }
       }
-      await getCurrentUser();
+      authenticatedRef.current = true;
       setIsAuthenticated(true);
     } catch {
+      authenticatedRef.current = false;
+      cancelBrainHandoff();
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
@@ -54,25 +64,32 @@ function AuthWrapper() {
     void checkAuthState();
     const unsubscribe = Hub.listen('auth', ({ payload }) => {
       if (payload.event === 'signedIn' || payload.event === 'signInWithRedirect') void checkAuthState();
-      if (payload.event === 'signedOut') setIsAuthenticated(false);
+      if (payload.event === 'signedOut') {
+        authenticatedRef.current = false;
+        window.clearTimeout(departureTimer.current);
+        setAuthDeparting(false);
+        cancelBrainHandoff();
+        setIsAuthenticated(false);
+      }
     });
     const params = new URLSearchParams(window.location.search);
     const retry = params.has('code') || params.has('state')
       ? window.setTimeout(checkAuthState, 1000)
       : undefined;
-    return () => { unsubscribe(); window.clearTimeout(retry); };
+    return () => { unsubscribe(); window.clearTimeout(retry); window.clearTimeout(departureTimer.current); cancelBrainHandoff(); };
   }, [checkAuthState]);
 
   return <>
     <SiteBackground />
     <WorkspaceBoundary>
-      <React.Suspense fallback={<WorkspaceRecovery />}>
-        {isLoading
-          ? <WorkspaceRecovery />
-          : isAuthenticated
-            ? <WorkspaceShell />
-            : <CustomAuth onAuthSuccess={checkAuthState} />}
-      </React.Suspense>
+      {isLoading ? <WorkspaceRecovery /> : <>
+        {isAuthenticated && <React.Suspense fallback={<WorkspaceRecovery />}><WorkspaceShell /></React.Suspense>}
+        {(!isAuthenticated || authDeparting) && <React.Suspense fallback={<WorkspaceRecovery />}>
+          <div className={authDeparting ? 'cosmic-auth-departing' : undefined} aria-hidden={authDeparting || undefined}>
+            <CustomAuth onAuthSuccess={checkAuthState} />
+          </div>
+        </React.Suspense>}
+      </>}
     </WorkspaceBoundary>
     {(isLoading || isAuthenticated) && <SiteFooter />}
   </>;
@@ -91,6 +108,9 @@ const DicePreview = import.meta.env.DEV
 const GameMasterPreview = import.meta.env.DEV
   ? React.lazy(() => import('./dev/GameMasterPreview'))
   : null;
+const BrainArrivalPreview = import.meta.env.DEV
+  ? React.lazy(() => import('./dev/BrainArrivalPreview'))
+  : null;
 
 const rootElement = document.getElementById('root') as RootElementWithCache | null;
 
@@ -104,13 +124,15 @@ rootElement.__brainInCupRoot = root;
 root.render(
   <React.StrictMode>
     <TextArrivalEffects />
-    {GameMasterPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'gm'
-      ? <React.Suspense fallback={<WorkspaceRecovery />}><GameMasterPreview /></React.Suspense>
-      : DicePreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'dice'
-        ? <React.Suspense fallback={<WorkspaceRecovery />}><DicePreview /></React.Suspense>
-        : ConversationPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'conversation'
-          ? <React.Suspense fallback={<WorkspaceRecovery />}><ConversationPreview /></React.Suspense>
-          : <AuthWrapper />}
-    {isTestModeEnabled() && ['gm', 'dice', 'conversation'].includes(new URLSearchParams(window.location.search).get('preview') || '') && <SiteFooter />}
+    {BrainArrivalPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'brain'
+      ? <React.Suspense fallback={<WorkspaceRecovery />}><BrainArrivalPreview /></React.Suspense>
+      : GameMasterPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'gm'
+        ? <React.Suspense fallback={<WorkspaceRecovery />}><GameMasterPreview /></React.Suspense>
+        : DicePreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'dice'
+          ? <React.Suspense fallback={<WorkspaceRecovery />}><DicePreview /></React.Suspense>
+          : ConversationPreview && isTestModeEnabled() && new URLSearchParams(window.location.search).get('preview') === 'conversation'
+            ? <React.Suspense fallback={<WorkspaceRecovery />}><ConversationPreview /></React.Suspense>
+            : <AuthWrapper />}
+    {isTestModeEnabled() && ['gm', 'dice', 'conversation', 'brain'].includes(new URLSearchParams(window.location.search).get('preview') || '') && <SiteFooter />}
   </React.StrictMode>,
 );

@@ -33,6 +33,7 @@ import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
 import OptionsMenuContent from './components/OptionsMenu';
 import CharacterCreation from './components/CharacterCreation';
+import BrainPresence, { type BrainPresenceMood } from './components/BrainPresence';
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
 type QuestStepRecord = Schema['GameMasterQuestStep']['type'];
@@ -572,6 +573,31 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     }
   };
 
+  const loadDemoConversation = useCallback(async (mode: PersonalityModeId) => {
+    const [gm, brain] = await Promise.all([
+      import('./dev/gmDemoConversation'),
+      import('./dev/brainDemoConversation'),
+    ]);
+    const isBrain = mode === 'brain';
+    setBrainConversationId(brain.BRAIN_DEMO_CONVERSATION_ID);
+    setConversationId(isBrain ? brain.BRAIN_DEMO_CONVERSATION_ID : gm.DEMO_CONVERSATION_ID);
+    setStoredPersonalityMode(mode);
+    setMessages(isBrain ? brain.brainDemoMessages : gm.demoMessages);
+    setCharacterState(isBrain ? null : gm.demoCharacter);
+    setAdventureState(isBrain ? null : gm.demoAdventure);
+    setQuestSteps(isBrain ? [] : gm.demoQuestSteps);
+    setQuestContext(isBrain ? null : { conversationId: gm.DEMO_CONVERSATION_ID, quests: gm.demoQuests });
+    setShowCharacterCreation(false);
+    setIsWaitingForResponse(false);
+  }, []);
+
+  // Local preview replies must not arrive in a different conversation or after unmount.
+  const demoReplyTimers = useRef<number[]>([]);
+  useEffect(() => () => {
+    demoReplyTimers.current.forEach(window.clearTimeout);
+    demoReplyTimers.current = [];
+  }, [conversationId]);
+
   const ensureAdventureState = useCallback(async (convId: string, modeOverride?: string): Promise<AdventureRecord | null> => {
     const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
     if (activeMode !== 'game_master') return null;
@@ -1099,22 +1125,13 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     if (!userAttributes || initialLoadDoneRef.current) return;
 
     async function loadInitialConversation() {
-      // Test mode: hydrate the demo adventure so the workspace is populated
-      // without AppSync. DEV-only module, loaded on demand.
+      // Test mode honors the routed mode; both previews stay entirely local.
       if (isTestModeEnabled()) {
         initialLoadDoneRef.current = true;
-        const demo = await import('./dev/gmDemoConversation');
         if (typeof window !== 'undefined') {
           window.sessionStorage.removeItem('mockNewConversation');
         }
-        setConversationId(demo.DEMO_CONVERSATION_ID);
-        setStoredPersonalityMode('game_master');
-        setMessages(demo.demoMessages);
-        setCharacterState(demo.demoCharacter);
-        setAdventureState(demo.demoAdventure);
-        setQuestSteps(demo.demoQuestSteps);
-        setQuestContext({ conversationId: demo.DEMO_CONVERSATION_ID, quests: demo.demoQuests });
-        setShowCharacterCreation(false);
+        await loadDemoConversation(routeMode ?? storedPersonalityMode);
         return;
       }
 
@@ -1412,14 +1429,24 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     if (isTestModeEnabled()) {
       if (!targetConversationId) return;
       setIsWaitingForResponse(true);
-      const { buildGmDemoReply } = await import('./dev/gmDemoConversation');
-      window.setTimeout(() => {
+      const isBrain = effectivePersonality === 'brain';
+      const reply = isBrain
+        ? (await import('./dev/brainDemoConversation')).buildBrainDemoReply(content)
+        : (await import('./dev/gmDemoConversation')).buildGmDemoReply(content);
+      const messageId = crypto.randomUUID();
+      demoReplyTimers.current.push(window.setTimeout(() => {
         setMessages(prev => [
           ...prev,
-          { role: 'assistant', content: buildGmDemoReply(content), populateOnMount: true },
+          { role: 'assistant', content: reply, populateOnMount: true, isTyping: isBrain, messageId },
         ]);
         setIsWaitingForResponse(false);
-      }, 650);
+        if (isBrain) {
+          demoReplyTimers.current.push(window.setTimeout(() => {
+            setMessages(prev => prev.map(message => message.messageId === messageId
+              ? { ...message, isTyping: false } : message));
+          }, Math.ceil(reply.length / 90 * 1000) + 250));
+        }
+      }, 950));
       return;
     }
 
@@ -1759,6 +1786,11 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       setQuestSteps([]);
       setCharacterState(null);
       setShowCharacterCreation(false);
+      return;
+    }
+
+    if (isTestModeEnabled()) {
+      await loadDemoConversation(selectedConversationId === brainConversationId ? 'brain' : 'game_master');
       return;
     }
     
@@ -2294,20 +2326,19 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     () => [...messages].reverse().find((message) => message.role === 'assistant' && Boolean(message.content || message.fullContent)),
     [messages],
   );
-  const mentalStateLabel = useMemo(() => {
-    const source = `${latestAssistantMessage?.selfReflection || ''} ${latestAssistantMessage?.memories || ''}`.toLowerCase();
-    if (isWaitingForResponse) return 'Neural Activity Rising';
-    if (source.includes('calm') || source.includes('serene')) return 'Calm Resonance';
-    if (source.includes('fear') || source.includes('anxious') || source.includes('panic')) return 'Anxious Interference';
-    if (source.includes('curious') || source.includes('wonder')) return 'Curious Drift';
-    if (source.includes('focused') || source.includes('clarity')) return 'Focused Coherence';
-    return 'Reflective Drift';
-  }, [isWaitingForResponse, latestAssistantMessage]);
-  const mentalStateIntensity = useMemo(() => {
+  const brainPresenceIntensity = useMemo(() => {
     const sensationCount = latestAssistantMessage?.sensations?.length ?? 0;
     const thoughtCount = latestAssistantMessage?.thoughts?.length ?? 0;
     return Math.min(100, 25 + sensationCount * 14 + thoughtCount * 8 + (isWaitingForResponse ? 12 : 0));
   }, [isWaitingForResponse, latestAssistantMessage]);
+  // Brain's rail presence mirrors the live conversation instead of a timer.
+  const brainPresenceMood: BrainPresenceMood = !conversationId
+    ? 'idle'
+    : isWaitingForResponse
+      ? 'thinking'
+      : hasTypingMessage
+        ? 'speaking'
+        : 'listening';
   const composer = <ChatComposer ref={composerRef} draft={draft} onSend={handleSubmit}
     isGameMasterMode={isGameMasterMode}
     isLocked={isInputLocked || isSelectingConversation} isWaiting={isWaitingForResponse} isPrimed={isNewInteractionPrimed}
@@ -2540,24 +2571,9 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                         </ContextWindowPanel>
                       </div>
                     ) : null
-                ) : (
-                  <div className="flex h-full flex-col gap-4 p-5">
-                    <div className="retro-mental-state-section">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Current Mental State</p>
-                      <p className="mt-2 text-lg font-medium text-brand-text-primary">{mentalStateLabel}</p>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-bg-primary">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-teal-400/50 via-emerald-400/70 to-teal-400/50 shadow-[0_0_12px_rgba(45,212,191,0.4)] transition-all duration-500"
-                          style={{ width: `${mentalStateIntensity}%` }}
-                        />
-                      </div>
-                      <p className="mt-2 text-xs text-brand-text-muted">Intensity: {Math.round(mentalStateIntensity)}%</p>
-                    </div>
-
-                    {/* Mode indicator removed */}
-
-                  </div>
-                )}
+              ) : (
+                <BrainPresence mood={brainPresenceMood} intensity={brainPresenceIntensity} />
+              )}
           </div>
         </aside>
         </div>

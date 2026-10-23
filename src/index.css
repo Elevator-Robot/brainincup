@@ -1239,11 +1239,6 @@ textarea.w-full:focus {
   overflow: hidden;
 }
 
-.retro-mental-state-section {
-  border-top: 1px solid rgba(174, 247, 234, 0.12);
-  padding-top: 1.1rem;
-}
-
 .retro-mode-trigger {
   border-color: rgba(171, 248, 234, 0.34) !important;
   background: linear-gradient(160deg, rgba(17, 45, 40, 0.56), rgba(10, 27, 24, 0.46)) !important;

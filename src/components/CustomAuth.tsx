@@ -5,6 +5,7 @@ import { authServices } from '../utils/authServices';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePageVisible } from '../hooks/usePageVisible';
 import SiteFooter from './SiteFooter';
+import { BRAIN_ARTWORK, rememberBrainDeparture } from '../utils/brainHandoff';
 import '@aws-amplify/ui-react/styles.css';
 import './auth.css';
 
@@ -116,6 +117,10 @@ function AuthArtwork() {
   const finePointer = useMediaQuery('(hover: hover) and (pointer: fine)');
   const visible = usePageVisible();
   useEffect(() => {
+    window.addEventListener('pagehide', rememberBrainDeparture);
+    return () => window.removeEventListener('pagehide', rememberBrainDeparture);
+  }, []);
+  useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     if (visible && !reducedMotion) void video.play().catch(() => {});
@@ -139,6 +144,8 @@ function AuthArtwork() {
         const bounds = card.getBoundingClientRect();
         const x = Math.max(-1, Math.min(1, (pointerX - bounds.left) / bounds.width * 2 - 1));
         const y = Math.max(-1, Math.min(1, (pointerY - bounds.top) / bounds.height * 2 - 1));
+        // Parallax owns transform; the passive bob uses the independent CSS
+        // translate property, so both motions remain active together.
         brain.style.transform = `perspective(1000px) translate3d(${x * 28}px, ${y * 20}px, 0) rotateX(${-y * 5}deg) rotateY(${x * 8}deg) scale(1.02)`;
         video.style.transform = `translate3d(${-x}%, ${-y}%, 0) scale(1.04)`;
       });
@@ -161,13 +168,13 @@ function AuthArtwork() {
       window.removeEventListener('blur', reset);
     };
   }, [reducedMotion, finePointer, visible]);
-  return <div className="bic-auth-art" aria-hidden="true">
+  return <div className="bic-auth-art" data-paused={!visible} aria-hidden="true">
     {!reducedMotion && <video ref={videoRef} className="bic-auth-video" src="/images/login-background.mp4" autoPlay={visible} muted loop playsInline preload="metadata" />}
-    <img ref={brainRef} className="bic-auth-brain" src="/images/login-brain.png" width="1672" height="941" alt="" />
+    <img ref={brainRef} data-brain-login className="bic-auth-brain" src={BRAIN_ARTWORK} width="1672" height="941" alt="" />
   </div>;
 }
 
-function AuthModal({ children }: { children: ReactNode }) {
+export function AuthModal({ children }: { children: ReactNode }) {
   const [viewport, setViewport] = useState(() => ({
     height: window.visualViewport?.height ?? window.innerHeight,
     top: window.visualViewport?.offsetTop ?? 0,
