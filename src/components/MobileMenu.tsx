@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { generateClient } from 'aws-amplify/data';
-import type { Schema } from '../../amplify/data/resource';
+import { dataClient } from '../api/dataClient';
 import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
 import { normalizePersonalityMode } from '../constants/personalityModes';
 import { CHAT_LIMIT, readStoredAvatarId } from './ConversationSidebarIcons';
 import OptionsMenuContent from './OptionsMenu';
 
-const dataClient = generateClient<Schema>();
 
 const CONVERSATION_CACHE_KEY = 'conversationMetadataCache';
 

@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { fetchUserAttributes, signOut } from 'aws-amplify/auth';
-import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
+import { useQueryClient } from '@tanstack/react-query';
+import { dataClient } from './api/dataClient';
+import { adventureQuery, characterQuery, conversationQuery, gmKeys, questStepsQuery } from './queries/gm';
 import InstallPrompt from './components/InstallPrompt';
 import ConversationSidebarIcons from './components/ConversationSidebarIcons';
 import InventoryManager, { type InventoryItem } from './components/InventoryManager';
@@ -31,7 +33,6 @@ import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
 import OptionsMenuContent from './components/OptionsMenu';
 import CharacterCreation from './components/CharacterCreation';
-const dataClient = generateClient<Schema>();
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
 type QuestStepRecord = Schema['GameMasterQuestStep']['type'];
@@ -415,18 +416,29 @@ function GameMasterHud({ adventure, questSteps, character, onUpdateInventory }: 
   );
 }
 
-function App() {
+interface AppRouteProps {
+  /** Conversation encoded in the URL. `null` means a fresh, unsaved interaction. */
+  routeConversationId?: string | null;
+  routeMode?: PersonalityModeId;
+  onRouteChange?: (route: { conversationId: string | null; mode: PersonalityModeId }) => void;
+}
+
+function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = {}) {
+  const queryClient = useQueryClient();
   const [userAttributes, setUserAttributes] = useState<Record<string, string | undefined> | undefined>();
   const [messages, setMessages] = useState<Message[]>([]);
   const draft = useRef('');
   const composerRef = useRef<ChatComposerHandle>(null);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
-  // Initialize both conversationId and personality mode from localStorage synchronously
+  // The route owns the conversation when it is present; localStorage is the
+  // fallback for direct renders (tests, previews) and legacy links.
   const [conversationId, setConversationId] = useState<string | null>(() => {
+    if (routeConversationId !== undefined) return routeConversationId;
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('lastActiveConversationId');
   });
   const [storedPersonalityMode, setStoredPersonalityMode] = useState<'brain' | 'game_master'>(() => {
+    if (routeMode) return routeMode;
     if (typeof window === 'undefined') return 'game_master';
     return (localStorage.getItem('lastPersonalityMode') as 'brain' | 'game_master') || 'game_master';
   });
@@ -564,12 +576,8 @@ function App() {
     const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
     if (activeMode !== 'game_master') return null;
     try {
-      const { data } = await dataClient.models.GameMasterAdventure.list({
-        filter: { conversationId: { eq: convId } },
-        authMode: 'userPool',
-      });
-      const latest = pickLatestAdventure((data as AdventureRecord[] | null | undefined) ?? null);
-      let adventure: AdventureRecord | null = latest;
+      const discovered = await queryClient.fetchQuery(adventureQuery(convId));
+      let adventure: AdventureRecord | null = discovered;
       if (!adventure) {
         const created = await dataClient.models.GameMasterAdventure.create({
           conversationId: convId,
@@ -580,6 +588,9 @@ function App() {
           safetyLevel: 'User Directed',
         });
         adventure = created.data ? (created.data as AdventureRecord) : null;
+        if (adventure) {
+          queryClient.setQueryData(gmKeys.adventure(convId), adventure);
+        }
       }
       if (adventure) {
         setAdventureState(adventure);
@@ -590,64 +601,11 @@ function App() {
       console.error('Error ensuring Game Master adventure state:', error);
       return null;
     }
-  }, [effectivePersonality]);
+  }, [effectivePersonality, queryClient]);
 
   const findCharacterByConversation = useCallback(async (convId: string): Promise<CharacterRecord | null> => {
-    const findMatch = (items: CharacterRecord[] | null | undefined): CharacterRecord | null =>
-      (items ?? []).find((character) => character?.conversationId === convId) ?? null;
-
-    try {
-      const filteredResult = await dataClient.models.GameMasterCharacter.list({
-        filter: { conversationId: { eq: convId } },
-        limit: 1,
-        authMode: 'userPool',
-      });
-      const directMatch = findMatch(filteredResult.data as CharacterRecord[] | undefined);
-      if (directMatch) {
-        return directMatch;
-      }
-    } catch (filterError) {
-      console.warn('Filtered character lookup failed, using paginated fallback:', filterError);
-    }
-
-    const fetchPaginated = async (authMode?: 'userPool'): Promise<CharacterRecord | null> => {
-      const pageLimit = 50;
-      const maxPages = 6;
-      let cursor: string | null | undefined = undefined;
-
-      for (let page = 0; page < maxPages; page += 1) {
-        const pageResult: { data?: CharacterRecord[]; nextToken?: string | null } = authMode
-          ? await dataClient.models.GameMasterCharacter.list({
-            limit: pageLimit,
-            nextToken: cursor ?? undefined,
-            authMode,
-          })
-          : await dataClient.models.GameMasterCharacter.list({
-            limit: pageLimit,
-            nextToken: cursor ?? undefined,
-          });
-
-        const match = findMatch(pageResult.data as CharacterRecord[] | undefined);
-        if (match) {
-          return match;
-        }
-
-        cursor = pageResult.nextToken;
-        if (!cursor) {
-          break;
-        }
-      }
-
-      return null;
-    };
-
-    try {
-      return await fetchPaginated('userPool');
-    } catch (authError) {
-      console.warn('User pool character pagination failed, retrying default auth mode:', authError);
-      return fetchPaginated();
-    }
-  }, []);
+    return queryClient.fetchQuery(characterQuery(convId));
+  }, [queryClient]);
 
   const fetchCharacter = useCallback(async (convId: string): Promise<CharacterRecord | null> => {
     // Prevent duplicate creation with ref-based lock
@@ -666,6 +624,7 @@ function App() {
           ?? getAvatarOptionById(storedAvatarId)?.id
           ?? '';
         const hydratedCharacter = avatarId ? { ...character, avatarId } : character;
+        queryClient.setQueryData(gmKeys.character(convId), hydratedCharacter);
         setCharacterState(hydratedCharacter);
         if (avatarId) {
           writeStoredConversationAvatar(convId, avatarId);
@@ -698,7 +657,7 @@ function App() {
     } finally {
       setIsLoadingCharacter(false);
     }
-  }, [characterState, findCharacterByConversation]);
+  }, [characterState, findCharacterByConversation, queryClient]);
 
   const createCharacter = useCallback(async (convId: string, characterData: CharacterCreationInput) => {
     if (characterCreationLock.current) {
@@ -783,7 +742,11 @@ function App() {
       
       if (created.data) {
         const createdAvatarId = getAvatarOptionById(avatarId)?.id ?? '';
-        setCharacterState(createdAvatarId ? { ...(created.data as CharacterRecord), avatarId: createdAvatarId } : (created.data as CharacterRecord));
+        const createdCharacter = createdAvatarId
+          ? { ...(created.data as CharacterRecord), avatarId: createdAvatarId }
+          : (created.data as CharacterRecord);
+        queryClient.setQueryData(gmKeys.character(convId), createdCharacter);
+        setCharacterState(createdCharacter);
         if (createdAvatarId) {
           writeStoredConversationAvatar(convId, createdAvatarId);
         }
@@ -819,7 +782,7 @@ function App() {
     } finally {
       characterCreationLock.current = false;
     }
-  }, []);
+  }, [queryClient]);
 
   const updateInventory = useCallback(async (newInventory: InventoryItem[]) => {
     if (!characterState?.id) {
@@ -829,6 +792,8 @@ function App() {
     // Optimistic update
     const previousInventory = characterState.inventory;
     setCharacterState(prev => prev ? { ...prev, inventory: JSON.stringify(newInventory) } : prev);
+    queryClient.setQueryData(gmKeys.character(conversationId ?? characterState.conversationId ?? ''), (prev: CharacterRecord | null | undefined) =>
+      prev ? { ...prev, inventory: JSON.stringify(newInventory) } : prev);
     
     try {
       await dataClient.models.GameMasterCharacter.update({
@@ -838,9 +803,11 @@ function App() {
     } catch (error) {
       // Rollback on error
       setCharacterState(prev => prev ? { ...prev, inventory: previousInventory } : prev);
+      queryClient.setQueryData(gmKeys.character(conversationId ?? characterState.conversationId ?? ''), (prev: CharacterRecord | null | undefined) =>
+        prev ? { ...prev, inventory: previousInventory } : prev);
       throw error;
     }
-  }, [characterState]);
+  }, [characterState, conversationId, queryClient]);
 
   const fetchAdventureBundle = useCallback(async (convId: string, modeOverride?: string, knownCharacter?: CharacterRecord) => {
     // Test mode has no AppSync; the demo fixture is authoritative.
@@ -884,12 +851,7 @@ function App() {
       const adventureId = adventure.id as string;
       
       try {
-        const stepsRes = await dataClient.models.GameMasterQuestStep.list({
-          filter: { adventureId: { eq: adventureId } },
-          limit: 200,
-        });
-        const steps = ((stepsRes.data ?? []).filter(Boolean) as QuestStepRecord[])
-          .sort((a, b) => ((a?.createdAt ?? '') < (b?.createdAt ?? '') ? -1 : 1));
+        const steps = await queryClient.fetchQuery(questStepsQuery(adventureId));
         setQuestSteps(steps);
       } catch (error) {
         console.error('Error loading Game Master data:', error);
@@ -898,7 +860,7 @@ function App() {
       adventureFetchLock.current = null;
       setIsLoadingAdventure(false);
     }
-  }, [effectivePersonality, ensureAdventureState, fetchCharacter]);
+  }, [effectivePersonality, ensureAdventureState, fetchCharacter, queryClient]);
 
   const recordQuestStep = useCallback(async (brainResponse: {
     id?: string;
@@ -925,17 +887,21 @@ function App() {
       const questStep = (created.data as QuestStepRecord | null) ?? null;
       if (questStep) {
         setQuestSteps(prev => [...prev, questStep]);
+        queryClient.setQueryData(gmKeys.questSteps(adventure.id!), (prev: QuestStepRecord[] | undefined) =>
+          prev ? [...prev, questStep] : [questStep]);
         await dataClient.models.GameMasterAdventure.update({
           id: adventure.id!,
           lastStepId: questStep.id,
           updatedAt: new Date().toISOString(),
         });
+        queryClient.setQueryData(gmKeys.adventure(conversationId), (prev: AdventureRecord | null | undefined) =>
+          prev ? { ...prev, lastStepId: questStep.id } : prev);
         setAdventureState((prev: AdventureRecord | null) => (prev ? { ...prev, lastStepId: questStep.id } : prev));
       }
     } catch (error) {
       console.error('Error recording quest step:', error);
     }
-  }, [conversationId, effectivePersonality, ensureAdventureState]);
+  }, [conversationId, effectivePersonality, ensureAdventureState, queryClient]);
 
   const recordPlayerChoice = useCallback(async (messageId: string, content: string) => {
     if (effectivePersonality !== 'game_master' || !conversationId) return;
@@ -1246,6 +1212,8 @@ function App() {
                     const loc = parsed.current_location || parsed.area_transition || parsed.location;
                     if (loc && typeof loc === 'string' && loc.trim()) {
                       commitLocation(loc.trim());
+                      queryClient.setQueryData(gmKeys.adventure(conversationId), (prev: AdventureRecord | null | undefined) =>
+                        prev ? { ...prev, currentLocation: loc.trim(), lastLocation: loc.trim() } : prev);
                       setAdventureState(prev => prev ? { ...prev, currentLocation: loc.trim(), lastLocation: loc.trim() } : prev);
                     }
                   }
@@ -1315,7 +1283,7 @@ function App() {
       console.error('Error setting up raw subscription:', error);
       return () => {}; // Empty cleanup function
     }
-  }, [conversationId, effectivePersonality, recordQuestStep]);
+  }, [conversationId, effectivePersonality, recordQuestStep, queryClient]);
 
   // Task 11.1 — PlayerState AppSync subscription
   // Subscribes to PlayerState records for the active conversation and keeps local
@@ -1394,7 +1362,7 @@ function App() {
         // if a later publish only contains stub/legacy placeholder rows.
         const rowLoc = latest.currentLocation || latest.lastLocation;
         commitLocation(rowLoc);
-        setAdventureState(prev => {
+        const mergeLatest = (prev: AdventureRecord | null | undefined): AdventureRecord => {
           // Never let a placeholder row downgrade a location we already know.
           const incomingPlaceholder =
             !rowLoc ||
@@ -1405,7 +1373,9 @@ function App() {
             return { ...latest, currentLocation: prev.currentLocation, lastLocation: prev.lastLocation || latest.lastLocation };
           }
           return latest;
-        });
+        };
+        setAdventureState(prev => mergeLatest(prev));
+        queryClient.setQueryData(gmKeys.adventure(conversationId), (prev: AdventureRecord | null | undefined) => mergeLatest(prev));
       },
       error: (err) => {
         console.error('GameMasterAdventure subscription error:', err);
@@ -1413,7 +1383,7 @@ function App() {
     });
 
     return () => sub.unsubscribe();
-  }, [conversationId, effectivePersonality]);
+  }, [conversationId, effectivePersonality, queryClient]);
 
 
   // Task 11.2 — optimistic XP and HP update applied immediately on message submit.
@@ -1815,9 +1785,7 @@ function App() {
     // Load conversation data and messages
     try {
       // Load the conversation to get personality mode
-      const { data: conversationData } = await dataClient.models.Conversation.get({
-        id: selectedConversationId
-      });
+      const conversationData = await queryClient.fetchQuery(conversationQuery(selectedConversationId));
       
       if (conversationData) {
         const storedExperience = conversationData.experience || conversationData.personalityMode || 'brain';
@@ -1906,6 +1874,42 @@ function App() {
       setIsSelectingConversation(false);
     }
   };
+
+  // URL → workspace: a changed route param (deep link, refresh, back/forward)
+  // selects that conversation. URL ← workspace: every other conversation change
+  // replaces the current entry, so links stay shareable without polluting history.
+  const lastRouteConversationRef = useRef(routeConversationId);
+  const lastSyncedRouteRef = useRef<{ conversationId: string | null; mode: PersonalityModeId } | null>(
+    routeConversationId === undefined
+      ? null
+      : { conversationId: routeConversationId, mode: routeMode ?? 'game_master' },
+  );
+  const syncingFromRouteRef = useRef(false);
+
+  useEffect(() => {
+    if (routeConversationId === undefined) return;
+    if (routeConversationId === lastRouteConversationRef.current) return;
+    lastRouteConversationRef.current = routeConversationId;
+    if (!routeConversationId || routeConversationId === conversationId) return;
+    syncingFromRouteRef.current = true;
+    void handleSelectConversation(routeConversationId);
+    // handleSelectConversation is intentionally not a dependency: it is
+    // recreated on render and would re-run this effect on every state change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeConversationId, conversationId]);
+
+  useEffect(() => {
+    if (!onRouteChange) return;
+    if (syncingFromRouteRef.current) {
+      syncingFromRouteRef.current = false;
+      lastSyncedRouteRef.current = { conversationId, mode: effectivePersonality };
+      return;
+    }
+    const last = lastSyncedRouteRef.current;
+    if (last && last.conversationId === conversationId && last.mode === effectivePersonality) return;
+    lastSyncedRouteRef.current = { conversationId, mode: effectivePersonality };
+    onRouteChange({ conversationId, mode: effectivePersonality });
+  }, [conversationId, effectivePersonality, onRouteChange]);
 
   const handleNewConversation = async () => {
     adventureFetchLock.current = null;
