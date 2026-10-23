@@ -8,7 +8,11 @@ Keep repository instructions minimal.
 - Shared cosmic styling and typography live in `src/cosmic-theme.css`; `retro-*` classes retain their layout roles. Brand utility colors live in `tailwind.config.js`.
 - The workspace uses a violet/cyan nebula SVG with slow CSS drift and moving light in `SiteBackground`; respect reduced-motion preferences. The MP4 is exclusive to login. Match its soft luminous atmosphere, without orbital rings, diagram grids, or painted bands.
 - Authentication is required: the login modal has no dismiss button or Escape-to-close behavior.
+- Successful sign-in always opens the current user's Brain chat, never their last adventure.
 - Desktop and mobile account actions share `AccountMenu`; account deletion lives under Account settings and requires typing `DELETE` in the final dialog.
+- Game Master context rails and mobile game-info panels stay closed until the
+  current conversation's character is saved and creation is complete. Character
+  creation belongs in its own dialog, never inside the right sidebar.
 
 ## Window Context-Scoped Design Philosophy
 

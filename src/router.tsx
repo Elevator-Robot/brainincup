@@ -59,19 +59,19 @@ const indexRoute = createRoute({
   path: '/',
   loader: async () => {
     if (isTestModeEnabled() && import.meta.env.DEV) {
-      const demo = await import('./dev/gmDemoConversation');
+      const demo = await import('./dev/brainDemoConversation');
       throw redirect({
-        to: '/quest/$conversationId',
-        params: { conversationId: demo.DEMO_CONVERSATION_ID },
+        to: '/brain/$conversationId',
+        params: { conversationId: demo.BRAIN_DEMO_CONVERSATION_ID },
         search: true,
         replace: true,
       });
     }
-    const lastConversationId = localStorage.getItem('lastActiveConversationId') ?? 'new';
-    const mode = localStorage.getItem('lastPersonalityMode') === 'brain' ? 'brain' : 'game_master';
     throw redirect({
-      to: mode === 'brain' ? '/brain/$conversationId' : '/quest/$conversationId',
-      params: { conversationId: lastConversationId },
+      to: '/brain/$conversationId',
+      // App resolves the signed-in user's singular Brain conversation. Never
+      // reuse an adventure ID (or another account's cached ID) as a Brain ID.
+      params: { conversationId: 'new' },
       search: true,
       replace: true,
     });
