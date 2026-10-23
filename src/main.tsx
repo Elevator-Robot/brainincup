@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
+// Capture a cold OAuth return before Amplify consumes/cleans its callback URL.
+import { consumeBrainLogin, rememberBrainLogin } from './utils/loginLanding';
 import { getCurrentUser } from 'aws-amplify/auth';
 // Complete redirect sign-in before the auth gate waits for getCurrentUser().
 // CustomAuth is lazy-loaded, so its signInWithRedirect import arrives too late.
@@ -38,38 +40,76 @@ function AuthWrapper() {
   const [isLoading, setIsLoading] = useState(true);
   const [authDeparting, setAuthDeparting] = useState(false);
   const authenticatedRef = useRef(false);
+  const loginRequiredRef = useRef(false);
+  const authCheckRef = useRef<Promise<void> | null>(null);
+  const authVersionRef = useRef(0);
   const departureTimer = useRef<number>();
-  const checkAuthState = useCallback(async () => {
-    try {
-      if (!isTestModeEnabled()) await getCurrentUser();
-      if (!authenticatedRef.current) {
-        const fromLogin = Boolean(document.querySelector('[data-brain-login]'));
-        if (beginBrainHandoff() && fromLogin) {
-          setAuthDeparting(true);
-          departureTimer.current = window.setTimeout(() => setAuthDeparting(false), 300);
+  const checkAuthState = useCallback(() => {
+    // StrictMode, Hub and Authenticator may all check at once. They must share
+    // the entire gate, including navigation, not race to consume login intent.
+    if (authCheckRef.current) return authCheckRef.current;
+    const version = authVersionRef.current;
+    const request = (async () => {
+      try {
+        if (!isTestModeEnabled()) await getCurrentUser();
+        if (version !== authVersionRef.current) return;
+        if (!authenticatedRef.current || loginRequiredRef.current) {
+          if (!isTestModeEnabled()) {
+            const pendingLogin = consumeBrainLogin();
+            if (loginRequiredRef.current || pendingLogin) {
+              const { router } = await import('./router');
+              await router.navigate({ to: '/brain/$conversationId', params: { conversationId: 'new' }, search: true, replace: true });
+            }
+          }
+          if (version !== authVersionRef.current) return;
+          loginRequiredRef.current = false;
+          const fromLogin = Boolean(document.querySelector('[data-brain-login]'));
+          if (beginBrainHandoff() && fromLogin) {
+            setAuthDeparting(true);
+            departureTimer.current = window.setTimeout(() => setAuthDeparting(false), 300);
+          }
         }
+        authenticatedRef.current = true;
+        setIsAuthenticated(true);
+      } catch {
+        if (version !== authVersionRef.current) return;
+        authenticatedRef.current = false;
+        loginRequiredRef.current = true;
+        rememberBrainLogin();
+        cancelBrainHandoff();
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
-      authenticatedRef.current = true;
-      setIsAuthenticated(true);
-    } catch {
-      authenticatedRef.current = false;
-      cancelBrainHandoff();
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
-    }
+    })();
+    authCheckRef.current = request;
+    void request.then(() => { if (authCheckRef.current === request) authCheckRef.current = null; });
+    return request;
   }, []);
+
+  const completeSignIn = useCallback(async () => {
+    loginRequiredRef.current = true;
+    await checkAuthState();
+    // A sign-in event may arrive while an earlier signed-out check is finishing.
+    if (loginRequiredRef.current) await checkAuthState();
+  }, [checkAuthState]);
 
   useEffect(() => {
     void checkAuthState();
     const unsubscribe = Hub.listen('auth', ({ payload }) => {
-      if (payload.event === 'signedIn' || payload.event === 'signInWithRedirect') void checkAuthState();
+      if (payload.event === 'signedIn' || payload.event === 'signInWithRedirect') {
+        void completeSignIn();
+      }
       if (payload.event === 'signedOut') {
+        authVersionRef.current += 1;
         authenticatedRef.current = false;
+        loginRequiredRef.current = true;
+        rememberBrainLogin();
         window.clearTimeout(departureTimer.current);
         setAuthDeparting(false);
         cancelBrainHandoff();
         setIsAuthenticated(false);
+        setIsLoading(false);
       }
     });
     const params = new URLSearchParams(window.location.search);
@@ -77,7 +117,7 @@ function AuthWrapper() {
       ? window.setTimeout(checkAuthState, 1000)
       : undefined;
     return () => { unsubscribe(); window.clearTimeout(retry); window.clearTimeout(departureTimer.current); cancelBrainHandoff(); };
-  }, [checkAuthState]);
+  }, [checkAuthState, completeSignIn]);
 
   return <>
     <SiteBackground />
@@ -86,7 +126,7 @@ function AuthWrapper() {
         {isAuthenticated && <React.Suspense fallback={<WorkspaceRecovery />}><WorkspaceShell /></React.Suspense>}
         {(!isAuthenticated || authDeparting) && <React.Suspense fallback={<WorkspaceRecovery />}>
           <div className={authDeparting ? 'cosmic-auth-departing' : undefined} aria-hidden={authDeparting || undefined}>
-            <CustomAuth onAuthSuccess={checkAuthState} />
+            <CustomAuth onAuthSuccess={completeSignIn} />
           </div>
         </React.Suspense>}
       </>}

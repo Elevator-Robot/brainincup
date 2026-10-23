@@ -21,7 +21,7 @@ describe('BrainPresence', () => {
     expect(screen.getByRole('region').style.getPropertyValue('--brain-energy')).toBe('0.8');
   });
 
-  it('is entirely passive, with no controls, focus stops, or pointer/click reactions', () => {
+  it('has no controls, focus stops, drag handles, or click actions', () => {
     const { container } = render(<BrainPresence mood="listening" />);
     const stage = screen.getByRole('img', { name: 'Brain, listening' });
     const before = container.innerHTML;
@@ -35,6 +35,44 @@ describe('BrainPresence', () => {
     expect(container.querySelector('[data-dragging], .cosmic-brain-touch')).toBeNull();
     expect(screen.getByRole('region').textContent).toBe('');
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('gently follows an unpressed mouse within its box and resets without clearing other styles', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('pointer: fine'), addEventListener() {}, removeEventListener() {},
+    }));
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 0;
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++nextFrame, callback); return nextFrame; });
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+    render(<BrainPresence />);
+    const presence = screen.getByRole('region');
+    vi.spyOn(presence, 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 200, 300, 300));
+    presence.style.setProperty('--brain-wake', '0.6');
+    const move = (buttons: number, pointerType = 'mouse') => {
+      const event = new Event('pointermove', { bubbles: true });
+      Object.assign(event, { pointerType, buttons, clientX: 400, clientY: 200 });
+      fireEvent(presence, event);
+      const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(callback => callback(16));
+    };
+    move(0);
+    expect(presence.style.getPropertyValue('--brain-gaze-x')).toBe('4.00px');
+    expect(presence.style.getPropertyValue('--brain-gaze-y')).toBe('-3.00px');
+    expect(presence.style.getPropertyValue('--brain-gaze-rx')).toBe('2.00deg');
+    expect(presence.style.getPropertyValue('--brain-gaze-ry')).toBe('3.00deg');
+    fireEvent.pointerOut(presence);
+    expect(presence.style.getPropertyValue('--brain-gaze-x')).toBe('');
+    expect(presence.style.getPropertyValue('--brain-energy')).toBe('0.35');
+    expect(presence.style.getPropertyValue('--brain-wake')).toBe('0.6');
+    const destination = presence.querySelector('[data-brain-destination]')!;
+    destination.setAttribute('data-brain-arriving', 'settling');
+    move(0);
+    expect(presence.style.getPropertyValue('--brain-gaze-x')).toBe('');
+    destination.removeAttribute('data-brain-arriving');
+    move(1);
+    move(0, 'touch');
+    expect(presence.style.getPropertyValue('--brain-gaze-x')).toBe('');
+    expect(presence.querySelector('button, [data-dragging]')).toBeNull();
   });
 
   it('updates conversation activity without remounting the landing image', () => {

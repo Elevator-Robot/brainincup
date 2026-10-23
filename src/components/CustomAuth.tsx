@@ -6,6 +6,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePageVisible } from '../hooks/usePageVisible';
 import SiteFooter from './SiteFooter';
 import { BRAIN_ARTWORK, rememberBrainDeparture } from '../utils/brainHandoff';
+import { rememberBrainLogin } from '../utils/loginLanding';
 import '@aws-amplify/ui-react/styles.css';
 import './auth.css';
 
@@ -244,6 +245,11 @@ function AuthFlow({ onAuthSuccess }: { onAuthSuccess: () => void }) {
 }
 
 export default function CustomAuth({ onAuthSuccess }: { onAuthSuccess: () => void }) {
+  useEffect(() => {
+    rememberBrainLogin();
+    window.addEventListener('pagehide', rememberBrainLogin);
+    return () => window.removeEventListener('pagehide', rememberBrainLogin);
+  }, []);
   return <main className="bic-auth-landing">
     <AuthModal><AuthFlow onAuthSuccess={onAuthSuccess} /></AuthModal>
   </main>;

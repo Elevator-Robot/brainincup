@@ -25,12 +25,7 @@ export default function GameMasterPreview() {
   const profession = getAllClasses().find(option => option.name === character?.characterClass);
   const hp = character && profession ? calculateDerivedStats(character, profession.id, 1).maxHP : 0;
 
-  const context = !character ? <CharacterCreation inline embedded onComplete={value => {
-    setCharacter(value);
-    setMobileContextOpen(false);
-    setMessages([{ role: 'assistant', populateOnMount: true, content:
-      'The last tram leaves you beneath **Starfall Observatory**. Violet clouds drift against the wind. A single window is lit.\n\nBeside the door, a woman cups a silver lantern in her hands. “You arrived just in time,” she says. Somewhere above you, a bell rings once.' }]);
-  }} /> : <ContextWindowPanel
+  const context = character && <ContextWindowPanel
     currentLocation="Starfall Observatory"
     character={{ name: character.name, level: 1, currentHP: hp, maxHP: hp, avatarSrc: avatar?.srcMedium, avatarSrcWebp: avatar?.srcMedium,
       stats: { strength: character.strength, dexterity: character.dexterity, constitution: character.constitution, intelligence: character.intelligence, wisdom: character.wisdom, charisma: character.charisma } }}
@@ -45,14 +40,14 @@ export default function GameMasterPreview() {
   return <>
     <SiteBackground />
     <div className="retro-rpg-ui cosmic-workspace retro-rpg-ui--gm relative h-dvh overflow-hidden">
-      <div className="retro-shell h-full max-lg:!grid-cols-[minmax(0,1fr)]">
+      <div className="retro-shell h-full max-lg:!grid-cols-[minmax(0,1fr)]" data-context-open={Boolean(character)}>
         {desktop && <aside className="retro-shell-left items-center gap-6 py-5">
           <a href="/?testmode=true" aria-label="Back to workspace" className="cosmic-rail-control rounded-xl"><BrainIcon className="h-9 w-9" /></a>
           <span className="text-[10px] uppercase tracking-widest text-brand-text-muted [writing-mode:vertical-rl]">Local preview</span>
         </aside>}
         <main className="retro-shell-center min-w-0 overflow-hidden px-2 py-4 sm:px-4 max-lg:!col-start-1">
           <header className="cosmic-workspace-header"><h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1></header>
-          {!desktop && <aside className="gm-preview-mobile-context">
+          {!desktop && character && <aside className="gm-preview-mobile-context" aria-label="Game context">
             <button type="button" aria-expanded={mobileContextOpen} onClick={() => setMobileContextOpen(value => !value)}>
               {character?.name || 'Character'} <span aria-hidden="true">{mobileContextOpen ? '−' : '+'}</span>
             </button>
@@ -81,10 +76,18 @@ export default function GameMasterPreview() {
             <p className="mt-2 text-center text-[11px] text-brand-text-muted">Local demo · <a href="/?testmode=true&preview=gm" className="text-brand-accent-secondary underline">Reset character</a></p>
           </div>
         </main>
-        {desktop && <aside className="retro-shell-right"><div className="retro-right-container flex h-full min-h-0 flex-col">
+        {desktop && character && <aside className="retro-shell-right" aria-label="Game context"><div className="retro-right-container flex h-full min-h-0 flex-col">
           <div className="gm-preview-desktop-context">{context}</div>
         </div></aside>}
       </div>
     </div>
+    {!character && <CharacterCreation onComplete={async value => {
+      // A short local save makes the locked, in-flight state easy to inspect.
+      await new Promise(resolve => window.setTimeout(resolve, 650));
+      setCharacter(value);
+      setMobileContextOpen(false);
+      setMessages([{ role: 'assistant', populateOnMount: true, content:
+        'The last tram leaves you beneath **Starfall Observatory**. Violet clouds drift against the wind. A single window is lit.\n\nBeside the door, a woman cups a silver lantern in her hands. “You arrived just in time,” she says. Somewhere above you, a bell rings once.' }]);
+    }} onCancel={() => { window.location.href = '/?testmode=true'; }} />}
   </>;
 }

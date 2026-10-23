@@ -1,419 +1,247 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { calculateFinalStats, getAllRaces, getAllClasses } from '../game';
-import {
-  getAvatarOptionsForRace,
-} from '../constants/gameMasterAvatars';
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { calculateDerivedStats, calculateFinalStats, getAllClasses, getAllRaces, type Stats } from '../game';
+import { getAvatarOptionsForRace } from '../constants/gameMasterAvatars';
+import CreationGlyph from './creation/CreationGlyph';
+import CreationPortrait from './creation/CreationPortrait';
 
+export interface CharacterCreationInput extends Stats {
+  name: string;
+  race: string;
+  characterClass: string;
+  avatarId: string;
+}
 interface CharacterCreationProps {
-  onComplete: (character: {
-    name: string;
-    race: string;
-    characterClass: string;
-    avatarId: string;
-    strength: number;
-    dexterity: number;
-    constitution: number;
-    intelligence: number;
-    wisdom: number;
-    charisma: number;
-  }) => void | Promise<void>;
+  onComplete: (character: CharacterCreationInput) => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
   inline?: boolean;
   embedded?: boolean;
 }
 
-// Get races and classes from game framework
-const raceOptions = getAllRaces().map((raceOption) => ({
-  id: raceOption.id,
-  name: raceOption.name,
-  description: raceOption.description,
-}));
-const classOptions = getAllClasses().map((classOption) => ({
-  id: classOption.id,
-  name: classOption.name,
-  description: classOption.description,
-}));
-const DEFAULT_RACE_NAME = raceOptions.find((raceOption) => raceOption.id === 'terran')?.name ?? raceOptions[0]?.name ?? 'Terran';
-const DEFAULT_CLASS_NAME = classOptions.find((classOption) => classOption.id === 'wanderer')?.name ?? classOptions[0]?.name ?? 'Wanderer';
+const races = getAllRaces();
+const classes = getAllClasses();
+const STEPS = [
+  { label: 'Race', title: 'Where does your story begin?', hint: 'Choose a race.', next: 'Choose your calling', icon: 'person' },
+  { label: 'Calling', title: 'How will you meet the world?', hint: 'Steel, shadows, or magic.', next: 'Bring them to life', icon: 'fighter' },
+  { label: 'Identity', title: 'Every legend needs a name.', hint: 'Your choices are made. Your story is not.', next: 'Begin adventure', icon: 'pack' },
+];
+const CLASS_FLAVOR: Record<string, string> = {
+  fighter: 'Steel & resolve', wizard: 'Arcane mastery', rogue: 'From the shadows', cleric: 'Faith & restoration',
+  ranger: 'The wild calls', paladin: 'An oath unbroken', barbarian: 'Unleashed fury', bard: 'Words become magic',
+  druid: 'Nature answers', monk: 'Body & spirit', sorcerer: 'Magic in the blood', warlock: 'A pact of power', wanderer: 'The road is yours',
+};
 
 export default function CharacterCreation({ onComplete, onCancel, inline = false, embedded = false }: CharacterCreationProps) {
+  const [step, setStep] = useState(0);
+  const [furthest, setFurthest] = useState(0);
+  const [raceId, setRaceId] = useState<string | null>('terran');
+  const [classId, setClassId] = useState<string | null>(null);
+  const [avatarId, setAvatarId] = useState(() => getAvatarOptionsForRace('Terran')[0]?.id ?? '');
   const [name, setName] = useState('');
-  const [race, setRace] = useState(DEFAULT_RACE_NAME);
-  const [characterClass, setCharacterClass] = useState(DEFAULT_CLASS_NAME);
-  const [avatarId, setAvatarId] = useState('');
-  const [openPicker, setOpenPicker] = useState<'race' | 'class' | null>(null);
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const nameInputId = useId();
-  const racePickerId = useId();
-  const classPickerId = useId();
-  const racePickerRef = useRef<HTMLDivElement>(null);
-  const classPickerRef = useRef<HTMLDivElement>(null);
-
-  const availableAvatarOptions = useMemo(() => getAvatarOptionsForRace(race), [race]);
-  const selectedRace = raceOptions.find(option => option.name === race)!;
-  const selectedClass = classOptions.find(option => option.name === characterClass)!;
-  const selectedAvatar = availableAvatarOptions.find(option => option.id === avatarId);
-  const previewStats = useMemo(() => calculateFinalStats(selectedClass.id, selectedRace.id), [selectedClass.id, selectedRace.id]);
-
-  const navigatePicker = (event: React.KeyboardEvent<HTMLDivElement>, picker: 'race' | 'class') => {
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End', 'Escape'].includes(event.key)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.key === 'Escape') {
-      setOpenPicker(null);
-      document.getElementById(picker === 'race' ? racePickerId : classPickerId)?.focus();
-      return;
-    }
-    if (openPicker !== picker) { setOpenPicker(picker); return; }
-    const options = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]')];
-    const index = options.indexOf(document.activeElement as HTMLButtonElement);
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1
-      : event.key === 'ArrowDown' ? (index + 1) % options.length : (index + options.length - 1) % options.length;
-    options[next]?.focus();
-  };
+  const [busy, setBusy] = useState<'creating' | 'cancelling' | null>(null);
+  const locked = useRef(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const id = useId();
+  const selectedRace = races.find(race => race.id === raceId);
+  const selectedClass = classes.find(profession => profession.id === classId);
+  const portraits = useMemo(() => getAvatarOptionsForRace(selectedRace?.name), [selectedRace?.name]);
+  const selectedPortrait = portraits.find(portrait => portrait.id === avatarId);
+  const stats = useMemo(() => classId && raceId ? calculateFinalStats(classId, raceId) : null, [classId, raceId]);
+  const derived = useMemo(() => stats && classId ? calculateDerivedStats(stats, classId, 1) : null, [stats, classId]);
+  const portraitReady = Boolean(selectedRace) && (portraits.length === 0 || Boolean(selectedPortrait));
+  const current = STEPS[step];
 
   useEffect(() => {
-    if (avatarId && availableAvatarOptions.some((avatarOption) => avatarOption.id === avatarId)) {
-      return;
-    }
-    setAvatarId('');
-  }, [availableAvatarOptions, avatarId]);
-
-  useEffect(() => {
-    if (!openPicker) return;
-    const picker = openPicker === 'race' ? racePickerRef.current : classPickerRef.current;
-    const frame = requestAnimationFrame(() => picker?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus());
-
-    const handleOutsideClick = (event: Event) => {
-      const target = event.target as Node;
-      const insideRacePicker = racePickerRef.current?.contains(target);
-      const insideClassPicker = classPickerRef.current?.contains(target);
-      if (!insideRacePicker && !insideClassPicker) {
-        setOpenPicker(null);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpenPicker(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    document.addEventListener('touchstart', handleOutsideClick);
-    document.addEventListener('keydown', handleEscape);
+    if (inline) return;
+    const dialog = dialogRef.current;
+    const previous = document.activeElement as HTMLElement | null;
+    if (!dialog) return;
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
     return () => {
-      cancelAnimationFrame(frame);
-      document.removeEventListener('mousedown', handleOutsideClick);
-      document.removeEventListener('touchstart', handleOutsideClick);
-      document.removeEventListener('keydown', handleEscape);
+      if (typeof dialog.close === 'function') dialog.close();
+      if (previous?.isConnected) previous.focus();
     };
-  }, [openPicker]);
+  }, [inline]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!name.trim()) {
-      setError('Character name is required');
-      return;
-    }
-    
-    if (name.length > 50) {
-      setError('Character name must be 50 characters or less');
-      return;
-    }
+  useEffect(() => {
+    panelRef.current?.scrollTo?.({ top: 0 });
+    bodyRef.current?.scrollTo?.({ top: 0 });
+    const frame = requestAnimationFrame(() => {
+      const finePointer = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: fine)').matches;
+      if (step === 2 && finePointer) nameRef.current?.focus({ preventScroll: true });
+      else headingRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [step]);
 
-    const selectedAvatarId = selectedAvatar?.id ?? '';
-    if (availableAvatarOptions.length > 0 && !selectedAvatarId) {
-      setError('Please select an avatar before starting.');
-      return;
-    }
-    
-    // Calculate stats using game framework
-    const raceId = raceOptions.find((raceOption) => raceOption.name === race)?.id ?? 'terran';
-    const classId = classOptions.find((classOption) => classOption.name === characterClass)?.id ?? characterClass.toLowerCase();
-    
-    const finalStats = calculateFinalStats(classId, raceId);
-
+  const goTo = (next: number) => {
+    if (locked.current || (next > 0 && !portraitReady) || (next > 1 && !selectedClass)) return;
     setError('');
-    setIsSubmitting(true);
+    setFurthest(value => Math.max(value, next));
+    setStep(next);
+  };
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (locked.current) return;
+    if (step < 2) { goTo(step + 1); return; }
+    if (!name.trim()) { setError('Give your character a name.'); nameRef.current?.focus(); return; }
+    if (name.trim().length > 50) { setError('Choose a name of 50 characters or fewer.'); return; }
+    if (!portraitReady || !selectedRace) { setError('Choose a race and portrait before beginning.'); setStep(0); return; }
+    if (!selectedClass || !stats) { setError('Choose your calling before beginning.'); setStep(1); return; }
+    locked.current = true;
+    setBusy('creating');
+    setError('');
     try {
-      await onComplete({
-        name: name.trim(),
-        race,
-        characterClass,
-        avatarId: selectedAvatarId,
-        ...finalStats,
-      });
-    } catch (submitError) {
-      console.error('Character creation failed:', submitError);
-      const detail = submitError instanceof Error ? submitError.message : '';
-      setError(detail ? `Unable to begin adventure right now: ${detail}` : 'Unable to begin adventure right now. Please try again.');
+      await onComplete({ name: name.trim(), race: selectedRace.name, characterClass: selectedClass.name, avatarId: selectedPortrait?.id ?? '', ...stats });
+    } catch (cause) {
+      setError(cause instanceof Error && cause.message ? `Your adventure could not begin: ${cause.message}` : 'Your adventure could not begin. Try again.');
     } finally {
-      setIsSubmitting(false);
+      locked.current = false;
+      setBusy(null);
     }
   };
-
-  const handleCancel = async () => {
-    if (!onCancel || isSubmitting) return;
+  const cancel = async () => {
+    if (!onCancel || locked.current) return;
+    locked.current = true;
+    setBusy('cancelling');
     setError('');
-    setIsSubmitting(true);
-    try {
-      await onCancel();
-    } catch (cancelError) {
-      console.error('Quick start failed:', cancelError);
-      setError('Unable to start quickly right now. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    try { await onCancel(); }
+    catch { setError('Unable to leave character creation. Please try again.'); }
+    finally { locked.current = false; setBusy(null); }
   };
 
-  const card = (
-    <div className={`${embedded ? 'w-full p-0' : 'retro-frame bg-brand-surface-elevated/95 border border-amber-700/35 rounded-2xl shadow-2xl max-w-md w-full p-4'} ${!inline ? 'max-h-[calc(100dvh-2rem)] overflow-y-auto' : ''} gm-menu-content-reveal`}>
-      
-      <form onSubmit={handleSubmit} className="gm-character-form space-y-3">
-        <div className="gm-character-preview">
-          {selectedAvatar
-            ? <img src={selectedAvatar.srcThumbnail} width="64" height="64" alt="Selected portrait" />
-            : <span className="gm-portrait-placeholder" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="3" /><path d="M5 21v-2a7 7 0 0 1 14 0v2" /></svg></span>}
-          <div>{name.trim() && <strong>{name.trim()}</strong>}<span>{race} · {characterClass}</span></div>
-        </div>
-        <div>
-          <label htmlFor={nameInputId} className="block text-sm font-medium text-brand-text-primary mb-1">
-            Name
-          </label>
-          <input
-            id={nameInputId}
-            type="text"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              setError('');
-            }}
-            maxLength={50}
-            aria-label="Character name"
-            autoComplete="off"
-            className="w-full bg-transparent border-0 border-b border-brand-surface-border/70 rounded-none px-1 py-1 text-lg tracking-wide text-brand-text-primary focus:outline-none focus:ring-0 focus:border-brand-accent-primary/80 transition-all disabled:opacity-60"
-            autoFocus={typeof window.matchMedia === 'function' && window.matchMedia('(pointer: fine)').matches}
-            disabled={isSubmitting}
-          />
-        </div>
-
-        <div>
-          <label id={`${racePickerId}-label`} className="mb-1 block text-sm font-medium text-brand-text-primary">
-            Race
-          </label>
-          <div ref={racePickerRef} className="relative" onKeyDown={event => navigatePicker(event, 'race')}>
-            <button
-              id={racePickerId}
-              type="button"
-              aria-haspopup="listbox"
-              aria-expanded={openPicker === 'race'}
-              aria-controls={`${racePickerId}-listbox`}
-              aria-labelledby={`${racePickerId}-label ${racePickerId}`}
-              onClick={() => setOpenPicker((prev) => (prev === 'race' ? null : 'race'))}
-              className="w-full rounded-xl border border-brand-surface-border/70 bg-brand-bg-secondary/70 px-3 py-2 text-left text-brand-text-primary shadow-[inset_0_1px_0_rgba(94,234,212,0.16)] transition-all duration-200 hover:border-brand-surface-border/90 hover:bg-brand-bg-tertiary/55 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45"
-              disabled={isSubmitting}
-            >
-              <span className="flex items-center justify-between gap-3">
-                <span>{race}</span>
-                <svg className={`h-4 w-4 text-brand-text-muted transition-transform duration-200 ${openPicker === 'race' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </span>
-            </button>
-            <div
-              id={`${racePickerId}-listbox`}
-              role="listbox"
-              aria-hidden={openPicker !== 'race'}
-              aria-labelledby={`${racePickerId}-label`}
-              className={`retro-dropdown absolute left-0 right-0 z-40 mt-2 origin-top overflow-hidden rounded-xl border border-brand-surface-border/80 shadow-glass-lg transition-all duration-200 ${openPicker === 'race' ? 'max-h-56 scale-y-100 opacity-100' : 'pointer-events-none max-h-0 scale-y-95 opacity-0'}`}
-            >
-              <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
-              <div className="max-h-52 overflow-y-auto p-1.5">
-                {raceOptions.map((raceOption) => {
-                  const isSelected = raceOption.name === race;
-                  return (
-                    <button
-                      key={raceOption.id}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      tabIndex={-1}
-                      onClick={() => {
-                        setRace(raceOption.name);
-                        setOpenPicker(null);
-                        setError('');
-                        document.getElementById(racePickerId)?.focus();
-                      }}
-                      className={`w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-                        isSelected
-                          ? 'bg-brand-accent-primary/20 text-brand-text-primary'
-                          : 'text-brand-text-secondary hover:bg-brand-surface-hover/55 hover:text-brand-text-primary'
-                      }`}
-                      disabled={isSubmitting}
-                    >
-                      {raceOption.name}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/25 to-transparent" />
-            </div>
-          </div>
-          <p className="gm-choice-description">{selectedRace.description}</p>
-        </div>
-
-        <div>
-          <label id={`${classPickerId}-label`} className="mb-1 block text-sm font-medium text-brand-text-primary">
-            Class
-          </label>
-          <div ref={classPickerRef} className="relative" onKeyDown={event => navigatePicker(event, 'class')}>
-            <button
-              id={classPickerId}
-              type="button"
-              aria-haspopup="listbox"
-              aria-expanded={openPicker === 'class'}
-              aria-controls={`${classPickerId}-listbox`}
-              aria-labelledby={`${classPickerId}-label ${classPickerId}`}
-              onClick={() => setOpenPicker((prev) => (prev === 'class' ? null : 'class'))}
-              className="w-full rounded-xl border border-brand-surface-border/70 bg-brand-bg-secondary/70 px-3 py-2 text-left text-brand-text-primary shadow-[inset_0_1px_0_rgba(94,234,212,0.16)] transition-all duration-200 hover:border-brand-surface-border/90 hover:bg-brand-bg-tertiary/55 focus:outline-none focus:ring-2 focus:ring-brand-accent-primary/45"
-              disabled={isSubmitting}
-            >
-              <span className="flex items-center justify-between gap-3">
-                <span>{characterClass}</span>
-                <svg className={`h-4 w-4 text-brand-text-muted transition-transform duration-200 ${openPicker === 'class' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </span>
-            </button>
-            <div
-              id={`${classPickerId}-listbox`}
-              role="listbox"
-              aria-hidden={openPicker !== 'class'}
-              aria-labelledby={`${classPickerId}-label`}
-              className={`retro-dropdown absolute left-0 right-0 z-40 mt-2 origin-top overflow-hidden rounded-xl border border-brand-surface-border/80 shadow-glass-lg transition-all duration-200 ${openPicker === 'class' ? 'max-h-56 scale-y-100 opacity-100' : 'pointer-events-none max-h-0 scale-y-95 opacity-0'}`}
-            >
-              <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/40 to-transparent" />
-              <div className="max-h-52 overflow-y-auto p-1.5">
-                {classOptions.map((classOption) => {
-                  const isSelected = classOption.name === characterClass;
-                  return (
-                    <button
-                      key={classOption.id}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      tabIndex={-1}
-                      onClick={() => {
-                        setCharacterClass(classOption.name);
-                        setOpenPicker(null);
-                        setError('');
-                        document.getElementById(classPickerId)?.focus();
-                      }}
-                      className={`w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-                        isSelected
-                          ? 'bg-brand-accent-primary/20 text-brand-text-primary'
-                          : 'text-brand-text-secondary hover:bg-brand-surface-hover/55 hover:text-brand-text-primary'
-                      }`}
-                      disabled={isSubmitting}
-                    >
-                      {classOption.name}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="h-1 bg-gradient-to-r from-transparent via-brand-accent-primary/25 to-transparent" />
-            </div>
-          </div>
-          <p className="gm-choice-description">{selectedClass.description}</p>
-        </div>
-
-        <dl className="gm-build-stats" aria-label="Starting attributes">
-          {Object.entries(previewStats).map(([stat, value]) => <div key={stat}>
-            <dt title={stat}>{stat.slice(0, 3).toUpperCase()}</dt><dd>{value}</dd>
-          </div>)}
-        </dl>
-
-        <div>
-          <p className="mb-1 block text-sm font-medium text-brand-text-primary">
-            Portrait
-          </p>
-          {availableAvatarOptions.length > 0 ? (
-            <div className="grid grid-cols-3 gap-2">
-              {availableAvatarOptions.map((avatarOption) => (
-                <button
-                  key={avatarOption.id}
-                  type="button"
-                  onClick={() => {
-                    setAvatarId(avatarOption.id);
-                    setError('');
-                  }}
-                  className="gm-avatar-card"
-                  aria-label={`Select ${avatarOption.label}`}
-                  aria-pressed={avatarOption.id === avatarId}
-                  disabled={isSubmitting}
-                >
-                  <img
-                    src={avatarOption.srcThumbnail}
-                    width="96" height="80"
-                    alt={avatarOption.label}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-20 w-full rounded-md object-cover object-center"
-                  />
-                  {avatarOption.id === avatarId && <span className="gm-avatar-check" aria-hidden="true">✓</span>}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-brand-text-muted italic">No avatars available for this race yet.</p>
-          )}
-          {availableAvatarOptions.length > 0 && !avatarId && (
-            <p className="mt-1 text-xs text-brand-text-muted">Select an avatar to continue.</p>
-          )}
-        </div>
-
-        {error && (
-          <div role="alert" className="rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2">
-            <p className="text-sm text-red-400">{error}</p>
-          </div>
-        )}
-
-        <div className="flex gap-2 pt-1">
-          {onCancel && (
-            <button
-              type="button"
-              onClick={() => { void handleCancel(); }}
-              className="flex-1 rounded-xl border border-brand-surface-border/45 bg-brand-surface-elevated/55 px-3 py-1.5 text-sm font-medium text-brand-text-secondary backdrop-blur-md transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-elevated/70 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            type="submit"
-            className="flex-1 rounded-xl border border-brand-accent-primary/45 bg-brand-accent-primary/18 px-3 py-1.5 text-sm font-semibold text-brand-text-primary backdrop-blur-md transition-all duration-200 hover:border-brand-accent-primary/65 hover:bg-brand-accent-primary/26 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isSubmitting || !name.trim() || (availableAvatarOptions.length > 0 && !selectedAvatar)}
-          >
-            {isSubmitting ? 'Starting…' : 'Begin adventure'}
+  const content = <form className={`forge-shell ${embedded ? 'forge-shell--embedded' : ''}`} onSubmit={submit}
+    aria-busy={Boolean(busy)} data-character-creation data-step={current.label.toLowerCase()}>
+    <header className="forge-top">
+      <div className="forge-brand"><span>A new adventure</span><h1 id={`${id}-title`}>Forge your legend</h1></div>
+      <nav aria-label="Character creation steps"><ol className="forge-steps">
+        {STEPS.map((item, index) => <li key={item.label} data-current={step === index} data-complete={index < step}>
+          <button type="button" aria-label={`Step ${index + 1}: ${item.label}`} aria-current={step === index ? 'step' : undefined}
+            disabled={Boolean(busy) || index > furthest || (index > 0 && !portraitReady) || (index > 1 && !selectedClass)} onClick={() => goTo(index)}>
+            <span className="forge-step-symbol"><CreationGlyph kind={index < step ? 'check' : item.icon} /></span>
+            <span>{item.label}</span>
           </button>
+        </li>)}
+      </ol></nav>
+      {onCancel && <button type="button" className="forge-close" aria-label="Cancel character creation" disabled={Boolean(busy)}
+        onClick={() => { void cancel(); }}><CreationGlyph kind="close" /></button>}
+    </header>
+
+    <div ref={bodyRef} className="forge-body">
+      <section className="forge-hero" aria-label="Character preview">
+        <CreationPortrait portrait={selectedPortrait} />
+        <div className="forge-hero-atmosphere" aria-hidden="true" />
+        <div className="forge-hero-name">
+          <div className="forge-reveal-slot" data-visible={Boolean(selectedClass)}><div className="forge-reveal-clip">
+            {selectedClass && <span key={selectedClass.id} className="forge-calling-sign forge-portrait-reveal" title={`${selectedClass.name} calling`}><CreationGlyph kind={selectedClass.id} /></span>}
+          </div></div>
+          {(selectedRace || selectedClass) && <p key={`${raceId}:${classId}`} className="forge-portrait-reveal">{selectedRace?.name}{selectedRace && selectedClass && <span>·</span>}{selectedClass?.name}</p>}
+          <div className="forge-reveal-slot forge-name-reveal" data-visible={Boolean(name.trim())}><div className="forge-reveal-clip">
+            {name.trim() && <h2 className="forge-portrait-reveal">{name.trim()}</h2>}
+          </div></div>
+          <div className="forge-reveal-slot" data-visible={Boolean(derived && selectedRace)}><div className="forge-reveal-clip">
+            {derived && selectedRace && <div key={`${raceId}:${classId}`} className="forge-vitals forge-portrait-reveal">
+              <span><CreationGlyph kind="heart" /><strong>{derived.maxHP}</strong><abbr title="Hit points">HP</abbr></span>
+              <span><CreationGlyph kind="shield" /><strong>{derived.armorClass}</strong><abbr title="Armor class">AC</abbr></span>
+              <span><CreationGlyph kind="speed" /><strong>{selectedRace.speed}</strong><abbr title="Movement in feet">FT</abbr></span>
+            </div>}
+          </div></div>
         </div>
-      </form>
-    </div>
-  );
+      </section>
 
-  if (inline) {
-    if (embedded) {
-      return card;
-    }
-    return <div className="flex justify-center">{card}</div>;
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      {card}
+      <div ref={panelRef} className="forge-panel">
+        <div className="forge-panel-heading"><span className="forge-eyebrow">Chapter 0{step + 1} <span>/</span> {current.label}</span>
+          <h2 ref={headingRef} tabIndex={-1}>{current.title}</h2><p>{current.hint}</p></div>
+        <fieldset disabled={Boolean(busy)} className="forge-choices" key={step}>
+          <legend className="sr-only">{current.label}</legend>
+          {step === 0 && <>
+            <div className="forge-race-picker">
+              {races.map(race => {
+                const art = getAvatarOptionsForRace(race.name)[0] ?? getAvatarOptionsForRace('Orc')[0];
+                return <button key={race.id} type="button" className="forge-race-choice" aria-label={`Select ${race.name} race`}
+                  aria-pressed={race.id === raceId} onClick={() => {
+                    if (raceId !== race.id) {
+                      setRaceId(race.id);
+                      setAvatarId(getAvatarOptionsForRace(race.name)[0]?.id ?? '');
+                    }
+                    setError('');
+                  }}>
+                  <img src={art.srcMedium} width="133" height="200" alt="" loading="lazy" />
+                  <span className="forge-choice-check"><CreationGlyph kind="check" /></span>
+                  <span>{race.name}</span>
+                </button>;
+              })}
+            </div>
+            {selectedRace ? <section className="forge-race-options" aria-label={`${selectedRace.name} portraits`}>
+              <div className="forge-race-options-heading"><h3>{selectedRace.name} portraits</h3><span>{portraits.length || 'Coming soon'}</span></div>
+              {portraits.length ? <div className="forge-portraits">{portraits.map(portrait => <button key={portrait.id} type="button"
+                className="forge-portrait-option" aria-label={`Select ${portrait.label}`} aria-pressed={portrait.id === avatarId}
+                onClick={() => { setAvatarId(portrait.id); setError(''); }}>
+                <img src={portrait.srcMedium} width="133" height="200" alt={portrait.label} loading="lazy" />
+                <span className="forge-choice-check"><CreationGlyph kind="check" /></span>
+              </button>)}</div> : <div className="forge-no-portraits"><CreationGlyph kind="person" /><p>A face not yet painted.</p>
+                <span>No portraits for this race yet. Your adventure can still begin.</span></div>}
+              <div className="forge-selection-detail"><p>{selectedRace.description}</p>
+                <ul className="forge-traits">{selectedRace.traits.map(trait => <li key={trait}><CreationGlyph kind="spark" />{trait}</li>)}</ul>
+              </div>
+            </section> : <div className="forge-race-empty"><CreationGlyph kind="person" /><p>Choose a race to reveal their portraits.</p></div>}
+          </>}
+          {step === 1 && <>
+            <div className="forge-callings">{classes.map(profession => <button key={profession.id} type="button"
+              className="forge-calling" aria-label={`Select ${profession.name} calling`} aria-pressed={classId === profession.id}
+              onClick={() => { setClassId(profession.id); setError(''); }}>
+              <CreationGlyph kind={profession.id} /><strong>{profession.name}</strong><span>{CLASS_FLAVOR[profession.id]}</span>
+            </button>)}</div>
+            {selectedClass && <div className="forge-selection-detail"><h3>{selectedClass.name}</h3><p>{selectedClass.description}</p>
+              <ul className="forge-traits"><li><CreationGlyph kind={selectedClass.primaryStat} />{selectedClass.primaryStat}</li>
+                <li><CreationGlyph kind="heart" />d{selectedClass.hitDieSize} hit die</li></ul>
+            </div>}
+          </>}
+          {step === 2 && selectedClass && stats && <div className="forge-identity">
+            <label htmlFor={`${id}-name`}>What will they call you?</label>
+            <input ref={nameRef} id={`${id}-name`} value={name} maxLength={50} autoComplete="off" aria-label="Character name"
+              placeholder="Your name…" onChange={event => { setName(event.target.value); setError(''); }} />
+            <div className="forge-build-heading"><h3>Your starting attributes</h3></div>
+            <dl className="forge-stats" aria-label="Starting attributes">{Object.entries(stats).map(([stat, value]) => <div key={stat} data-primary={stat === selectedClass.primaryStat}>
+              <dt><CreationGlyph kind={stat} /><abbr title={stat}>{stat.slice(0, 3)}</abbr></dt><dd>{value}</dd>
+              <span className="forge-stat-track" aria-hidden="true"><i style={{ '--stat-fill': `${value / 20 * 100}%` } as CSSProperties} /></span>
+            </div>)}</dl>
+            <h3 className="forge-kit-heading">Your starting kit</h3><ul className="forge-kit">{selectedClass.startingEquipment.map(item => <li key={item}>
+              <CreationGlyph kind={/sword|dagger|axe|bow|rapier/i.test(item) ? 'fighter' : /armor|mail|shield/i.test(item) ? 'shield' : 'pack'} />{item}
+            </li>)}</ul>
+            <p className="forge-identity-note"><CreationGlyph kind="spark" />The rest is waiting to be written.</p>
+          </div>}
+        </fieldset>
+        {error && <p className="forge-error" role="alert">{error}</p>}
+      </div>
     </div>
-  );
+
+    <footer className="forge-footer">
+      <button type="button" className="forge-back" disabled={step === 0 || Boolean(busy)} onClick={() => goTo(step - 1)}><CreationGlyph kind="back" />Back</button>
+      <span className="forge-step-count" aria-hidden="true">0{step + 1} <span>/ 0{STEPS.length}</span></span>
+      {step < 2 ? <button type="button" className="forge-next" disabled={Boolean(busy) || !portraitReady || (step === 1 && !selectedClass)} onClick={() => goTo(step + 1)}>
+        {current.next}<CreationGlyph kind="arrow" /></button>
+        : <button type="submit" className="forge-next forge-begin" disabled={Boolean(busy) || !name.trim() || !portraitReady || !selectedClass}>
+          <CreationGlyph kind={busy === 'creating' ? 'spark' : 'check'} />{busy === 'creating' ? 'Creating your legend…' : current.next}<CreationGlyph kind="arrow" />
+        </button>}
+    </footer>
+  </form>;
+
+  return inline ? <section className="forge-inline" aria-labelledby={`${id}-title`}>{content}</section>
+    : <dialog ref={dialogRef} className="forge-dialog" aria-labelledby={`${id}-title`} aria-modal="true"
+      onCancel={event => event.preventDefault()} onKeyDown={event => {
+        if (event.key !== 'Tab') return;
+        const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), a[href], [tabindex="0"]')]
+          .filter(control => control.getClientRects().length > 0);
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (!first) { event.preventDefault(); headingRef.current?.focus(); }
+        else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }}>{content}</dialog>;
 }

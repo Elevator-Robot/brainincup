@@ -32,25 +32,13 @@ import type { DiceRollRequest } from './utils/diceRolls';
 import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
 import OptionsMenuContent from './components/OptionsMenu';
-import CharacterCreation from './components/CharacterCreation';
+import CharacterCreation, { type CharacterCreationInput } from './components/CharacterCreation';
 import BrainPresence, { type BrainPresenceMood } from './components/BrainPresence';
+import { canShowCharacterContext } from './utils/characterContext';
 
 type AdventureRecord = Schema['GameMasterAdventure']['type'];
 type QuestStepRecord = Schema['GameMasterQuestStep']['type'];
 type CharacterRecord = Schema['GameMasterCharacter']['type'];
-
-type CharacterCreationInput = {
-  name: string;
-  race: string;
-  characterClass: string;
-  avatarId: string;
-  strength: number;
-  dexterity: number;
-  constitution: number;
-  intelligence: number;
-  wisdom: number;
-  charisma: number;
-};
 
 const formatModelErrors = (errors: unknown): string => {
   if (!Array.isArray(errors)) return '';
@@ -444,6 +432,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     return (localStorage.getItem('lastPersonalityMode') as 'brain' | 'game_master') || 'game_master';
   });
   const [brainConversationId, setBrainConversationId] = useState<string | null>(null);
+  const conversationIntentRef = useRef(0);
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [mobileInfoExpanded, setMobileInfoExpanded] = useState(() =>
@@ -497,7 +486,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
   const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
   const [isLoadingAdventure, setIsLoadingAdventure] = useState(false);
-  const [isSelectingConversation, setIsSelectingConversation] = useState(false);
+  const [isSelectingConversation, setIsSelectingConversation] = useState(true);
   const [showCharacterCreation, setShowCharacterCreation] = useState(false);
   const characterCreationLock = useRef(false);
   const adventureFetchLock = useRef<string | null>(null);
@@ -554,6 +543,9 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   // Determine current mode based on active conversation
   // Use stored mode on initial load, then sync with actual conversation state
   const effectivePersonality: PersonalityModeId = useMemo(() => {
+    // A fresh /brain/new landing is Brain while its account-scoped conversation
+    // is loading; it must not briefly become an empty adventure.
+    if (!conversationId) return storedPersonalityMode;
     // If we have a brainConversationId and it matches, we're in brain mode
     if (brainConversationId && conversationId === brainConversationId) {
       return 'brain';
@@ -562,7 +554,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     if (conversationId && !brainConversationId) {
       return storedPersonalityMode;
     }
-    // Default to game_master
+    // Other loaded conversations are adventures.
     return 'game_master';
   }, [conversationId, brainConversationId, storedPersonalityMode]);
   const setPersonalityMode = (mode: PersonalityModeId) => {
@@ -573,23 +565,29 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     }
   };
 
-  const loadDemoConversation = useCallback(async (mode: PersonalityModeId) => {
+  const loadDemoConversation = useCallback(async (mode: PersonalityModeId, requestedId?: string | null) => {
+    const intent = ++conversationIntentRef.current;
     const [gm, brain] = await Promise.all([
       import('./dev/gmDemoConversation'),
       import('./dev/brainDemoConversation'),
     ]);
+    if (intent !== conversationIntentRef.current) return;
     const isBrain = mode === 'brain';
+    const customAdventure = !isBrain && requestedId !== undefined && requestedId !== gm.DEMO_CONVERSATION_ID;
+    const savedCharacter = customAdventure && requestedId
+      ? queryClient.getQueryData<CharacterRecord>(gmKeys.character(requestedId)) : null;
     setBrainConversationId(brain.BRAIN_DEMO_CONVERSATION_ID);
-    setConversationId(isBrain ? brain.BRAIN_DEMO_CONVERSATION_ID : gm.DEMO_CONVERSATION_ID);
+    setConversationId(isBrain ? brain.BRAIN_DEMO_CONVERSATION_ID : customAdventure ? requestedId ?? null : gm.DEMO_CONVERSATION_ID);
     setStoredPersonalityMode(mode);
-    setMessages(isBrain ? brain.brainDemoMessages : gm.demoMessages);
-    setCharacterState(isBrain ? null : gm.demoCharacter);
-    setAdventureState(isBrain ? null : gm.demoAdventure);
-    setQuestSteps(isBrain ? [] : gm.demoQuestSteps);
-    setQuestContext(isBrain ? null : { conversationId: gm.DEMO_CONVERSATION_ID, quests: gm.demoQuests });
-    setShowCharacterCreation(false);
+    setMessages(isBrain ? brain.brainDemoMessages : customAdventure ? loadCachedMessages(requestedId ?? '') ?? [] : gm.demoMessages);
+    setCharacterState(isBrain ? null : customAdventure ? savedCharacter ?? null : gm.demoCharacter);
+    setAdventureState(isBrain || customAdventure ? null : gm.demoAdventure);
+    setQuestSteps(isBrain || customAdventure ? [] : gm.demoQuestSteps);
+    setQuestContext(isBrain || customAdventure ? null : { conversationId: gm.DEMO_CONVERSATION_ID, quests: gm.demoQuests });
+    setShowCharacterCreation(customAdventure && !savedCharacter);
     setIsWaitingForResponse(false);
-  }, []);
+    setIsSelectingConversation(false);
+  }, [queryClient]);
 
   // Local preview replies must not arrive in a different conversation or after unmount.
   const demoReplyTimers = useRef<number[]>([]);
@@ -755,18 +753,20 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
         statusEffects: JSON.stringify([]),
         version: 1,
       };
-      const createdWithAvatar = await dataClient.models.GameMasterCharacter.create({
-        ...baseCharacterPayload,
-        ...(avatarId ? { avatarId } : {}),
-      });
+      const createdWithAvatar = isTestModeEnabled()
+        ? { data: { ...baseCharacterPayload, id: `demo-character-${crypto.randomUUID()}`, avatarId } as CharacterRecord, errors: undefined }
+        : await dataClient.models.GameMasterCharacter.create({
+          ...baseCharacterPayload,
+          ...(avatarId ? { avatarId } : {}),
+        });
       let created = createdWithAvatar;
 
-      if (!createdWithAvatar.data) {
+      if (!createdWithAvatar.data?.id) {
         console.warn('Primary character create failed; retrying without avatarId.', createdWithAvatar.errors);
         created = await dataClient.models.GameMasterCharacter.create(baseCharacterPayload);
       }
       
-      if (created.data) {
+      if (created.data?.id) {
         const createdAvatarId = getAvatarOptionById(avatarId)?.id ?? '';
         const createdCharacter = createdAvatarId
           ? { ...(created.data as CharacterRecord), avatarId: createdAvatarId }
@@ -777,7 +777,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
           writeStoredConversationAvatar(convId, createdAvatarId);
         }
         const conversationTitle = (characterData.name || '').trim();
-        if (conversationTitle) {
+        if (conversationTitle && !isTestModeEnabled()) {
           try {
             await dataClient.models.Conversation.update({
               id: convId,
@@ -788,10 +788,9 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             console.error('Character created, but failed to update conversation title:', titleError);
           }
         }
-        setShowCharacterCreation(false);
         // Small delay to ensure database write propagates
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      } else if (created.errors) {
+        if (!isTestModeEnabled()) await new Promise(resolve => setTimeout(resolve, 2000));
+      } else {
         const primaryErrorText = formatModelErrors(createdWithAvatar.errors);
         const fallbackErrorText = formatModelErrors(created.errors);
         const combinedErrorText = [primaryErrorText, fallbackErrorText].filter(Boolean).join(' | ');
@@ -1099,7 +1098,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     }
   }, [conversationId, effectivePersonality]);
 
-  // Mode persistence removed - mode is now hardcoded to game_master
+  // The route and rail select the mode; the header stays context-independent.
 
   useEffect(() => {
     writeStoredBoolean(UI_MOBILE_INFO_EXPANDED_KEY, mobileInfoExpanded);
@@ -1131,7 +1130,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
         if (typeof window !== 'undefined') {
           window.sessionStorage.removeItem('mockNewConversation');
         }
-        await loadDemoConversation(routeMode ?? storedPersonalityMode);
+        await loadDemoConversation(routeMode ?? storedPersonalityMode, routeConversationId);
         return;
       }
 
@@ -1790,7 +1789,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     }
 
     if (isTestModeEnabled()) {
-      await loadDemoConversation(selectedConversationId === brainConversationId ? 'brain' : 'game_master');
+      await loadDemoConversation(selectedConversationId === brainConversationId ? 'brain' : 'game_master', selectedConversationId);
       return;
     }
     
@@ -1944,10 +1943,14 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   }, [conversationId, effectivePersonality, onRouteChange]);
 
   const handleNewConversation = async () => {
+    // A deliberate new adventure must win over any pending startup hydration.
+    initialLoadDoneRef.current = true;
+    conversationIntentRef.current += 1;
     adventureFetchLock.current = null;
     previousConversationIdRef.current = conversationId;
     // New conversations are always game_master mode
     const newConversationMode: PersonalityModeId = 'game_master';
+    setStoredPersonalityMode(newConversationMode);
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(getLastConversationStorageKey(newConversationMode));
     }
@@ -2231,6 +2234,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       setPendingCharacterDraft(null);
       setIsNewInteractionPrimed(false);
       await createCharacter(createdConversationId, characterData);
+      setShowCharacterCreation(false);
       // Send opening scene trigger — GM narrates first
       await handleSendMessage(
         `[SYSTEM: Begin the adventure. The player's character is ${characterData.name}, a ${characterData.race} ${characterData.characterClass}. Open with a vivid scene-setting narration that establishes the location, atmosphere, and an immediate hook. Do not wait for the player to speak first.]`,
@@ -2241,6 +2245,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     setPendingCharacterDraft(null);
     setIsNewInteractionPrimed(false);
     await createCharacter(conversationId, characterData);
+    setShowCharacterCreation(false);
     await handleSendMessage(
       `[SYSTEM: Begin the adventure. The player's character is ${characterData.name}, a ${characterData.race} ${characterData.characterClass}. Open with a vivid scene-setting narration that establishes the location, atmosphere, and an immediate hook. Do not wait for the player to speak first.]`,
       conversationId,
@@ -2283,13 +2288,11 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const isGameMasterMode = effectivePersonality === 'game_master';
   const appThemeClass = isGameMasterMode ? 'retro-rpg-ui--gm' : 'retro-rpg-ui--brain';
   const isGameMasterContentLoading = isGameMasterMode && Boolean(conversationId) && (isSelectingConversation || isLoadingCharacter || isLoadingAdventure);
-  const hasGameMasterCharacterReady = Boolean(characterState || pendingCharacterDraft);
+  const hasGameMasterCharacterReady = canShowCharacterContext(characterState, conversationId, showCharacterCreation);
   const showGameMasterCharacterFlow = showCharacterCreation && isGameMasterMode;
   const isGameMasterCharacterRequired = effectivePersonality === 'game_master' && !hasGameMasterCharacterReady;
   const accountEmail = userAttributes?.email?.trim() || 'No email available';
-  const showMobileInlineCharacterCreation = showGameMasterCharacterFlow;
-  const showRightPanelCharacterCreation =
-    showGameMasterCharacterFlow && !characterState;
+  const isContextOpen = !isGameMasterMode || hasGameMasterCharacterReady;
   const hasTypingMessage = messages.some(m => m.isTyping);
   const isInputLocked = isWaitingForResponse || hasTypingMessage || hasPendingRoll || isGameMasterContentLoading || isGameMasterCharacterRequired || isSelectingConversation;
   const gameMasterInputPlaceholder = 'What do you do next?';
@@ -2373,7 +2376,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
 
       {/* Desktop: Main Layout */}
       {isDesktop ? <div className="flex flex-col h-full">
-        <div className="flex-1 min-h-0 grid retro-shell">
+        <div className="flex-1 min-h-0 grid retro-shell" data-context-open={isContextOpen}>
         {/* Left Sidebar - full height */}
         <aside className="retro-shell-left">
           <div className="retro-left-container retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-3">
@@ -2479,7 +2482,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                           <div ref={contentRef} className="cosmic-chat-content mx-auto max-w-4xl space-y-6 flex flex-col">
                           {/* Mode indicator removed */}
 
-                          {conversationId && effectivePersonality === 'game_master' && adventureState && (
+                        {conversationId && isGameMasterMode && hasGameMasterCharacterReady && adventureState && (
                             <div className="lg:hidden cosmic-fade-in">
                               <GameMasterHud
                                 adventure={adventureState}
@@ -2511,20 +2514,10 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
 </div>
       </main>
 
-        <aside className="retro-shell-right">
+          {isContextOpen && <aside className="retro-shell-right" aria-label={isGameMasterMode ? 'Game context' : 'Brain context'}>
           <div className="retro-right-container flex h-full min-h-0 flex-col overflow-hidden">
                 {isGameMasterMode ? (
-                    showRightPanelCharacterCreation ? (
-                  <div className="flex h-full min-h-0 flex-col overflow-y-auto p-4">
-                        <p className="mb-3 text-[10px] uppercase tracking-[0.24em] text-brand-text-muted">Character Setup</p>
-                    <CharacterCreation
-                          inline
-                          embedded
-                          onComplete={handleCharacterCreationComplete}
-                          onCancel={handleCharacterCreationCancel}
-                    />
-                      </div>
-                    ) : characterDisplay ? (
+                characterDisplay ? (
                       <div className="retro-right-stack cosmic-fade-in flex h-full min-h-0 flex-col p-5">
                         {/* Tabs pin; character and timeline content scroll beneath. */}
                         <ContextWindowPanel
@@ -2575,7 +2568,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                 <BrainPresence mood={brainPresenceMood} intensity={brainPresenceIntensity} />
               )}
           </div>
-        </aside>
+          </aside>}
         </div>
       </div> : <main
         className="retro-mobile-main flex flex-col h-full px-2 pb-2 pt-2"
@@ -2600,15 +2593,14 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             </div>
 
             <div>
-              {/* Mode toggle buttons removed - mode is now hardcoded to game_master */}
+              {/* Mode selection belongs to the global menu, not the header. */}
             </div>
           </div>
         </nav>
 
-        {/* Floating Expandable Header Bars - Side by Side - Only for Game Master mode.
-            The row stays mounted in GM mode so the character arriving never resizes
-            the chat area; the cards fill the reserved row instead. */}
-        {isGameMasterMode && (
+        {/* Game information is unavailable until this conversation's character
+            has been saved and the creation flow has finished. */}
+        {isGameMasterMode && hasGameMasterCharacterReady && (
           <div className="retro-mobile-bars cosmic-fade-in lg:hidden sticky top-0 z-40 pt-safe">
             <div className="flex gap-2 mx-4 mt-4 items-start">
               {/* First Bar - Quest Log */}
@@ -2792,17 +2784,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             className="retro-scroll-panel cosmic-chat-scroll flex-1 overflow-y-auto px-3 py-5 pb-3 flex flex-col rounded-3xl"
           >
             <div ref={contentRef} className="cosmic-chat-content w-full max-w-4xl mx-auto space-y-4 flex flex-col">
-              {showMobileInlineCharacterCreation && (
-                <div className="mx-auto w-full max-w-xl pb-2">
-                    <CharacterCreation
-                    inline
-                    onComplete={handleCharacterCreationComplete}
-                    onCancel={handleCharacterCreationCancel}
-                    />
-                </div>
-              )}
-              
-              {!showMobileInlineCharacterCreation && welcome}
+                {welcome}
               <MessageList key={conversationId} messages={messages} isGameMasterMode={isGameMasterMode} variant="mobile"
                 activeDiceRequestId={activeDiceRequestId} diceDisabled={diceBusy} onDiceRoll={handleDiceRoll} />
               
@@ -2822,6 +2804,11 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
         </div>
 
       </main>}
+
+      {showGameMasterCharacterFlow && <CharacterCreation
+        onComplete={handleCharacterCreationComplete}
+        onCancel={handleCharacterCreationCancel}
+      />}
 
       {/* Mobile Menu Drawer */}
       <MobileMenu
