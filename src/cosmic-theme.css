@@ -166,7 +166,6 @@ body::before { display: none; }
 .retro-right-section--character, .retro-right-section--inventory { background: transparent; box-shadow: none; }
 .retro-mode-header { border-color: var(--cosmic-border); }
 .retro-chat-area { background: radial-gradient(ellipse at top, rgb(122 232 244 / 4%), transparent 60%); }
-.retro-mental-state-section { border-top-color: var(--cosmic-border); }
 .retro-interactions-pane, .retro-interactions-pane-collapsed { border-right-color: var(--cosmic-border); }
 .retro-character-avatar { background: rgb(189 165 255 / 8%); }
 .retro-interaction-avatar { background: linear-gradient(135deg, rgb(189 165 255 / 18%), rgb(122 232 244 / 9%)); box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%); }
@@ -452,6 +451,77 @@ body::before { display: none; }
   .cosmic-workspace .retro-right-stack { height: auto; }
 }
 .cosmic-workspace .retro-main { padding-top: .75rem; }
+
+/* The login portrait becomes a purely visual presence in the context rail. */
+.cosmic-brain-presence {
+  --brain-energy: .35; --brain-tempo: 5.2s; --brain-signal-tempo: 4.6s; --brain-wake: 1;
+  position: relative; flex: none; padding: .75rem 1rem; overflow: hidden;
+  background: radial-gradient(ellipse at 65% 25%, rgb(140 236 243 / 5%), transparent 70%);
+}
+/* Timings stay fixed: BrainPresence eases playback rates without phase jumps. */
+.cosmic-brain-stage {
+  position: relative; display: block; contain: paint; isolation: isolate; overflow: hidden;
+  width: 100%; height: clamp(12rem, 32dvh, 17rem); margin: 0; padding: 0;
+  border: 0; border-radius: 1rem; background: none; color: inherit;
+  pointer-events: none; user-select: none;
+}
+.cosmic-brain-float { position: absolute; inset: 0; animation: cosmic-brain-float 7.2s ease-in-out infinite; }
+.cosmic-brain-portrait { position: absolute; left: 50%; top: 50%; width: 218%; aspect-ratio: 1672 / 941; transform: translate(-50%, -50%); }
+.cosmic-brain-image { display: block; width: 100%; max-width: none; height: auto; user-select: none; -webkit-user-drag: none; }
+.cosmic-brain-living { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
+.cosmic-brain-living[data-ready="true"] { opacity: 1; }
+.cosmic-brain-portrait:has(.cosmic-brain-living[data-ready="true"]) .cosmic-brain-image { opacity: 0; }
+.cosmic-brain-portrait:has(.cosmic-brain-living[data-ready="true"]) .cosmic-brain-neural-flow { visibility: hidden; }
+.cosmic-brain-aura { position: absolute; inset: 5% 2%; background: radial-gradient(ellipse, rgb(112 103 230 / 18%), transparent 68%); animation: cosmic-brain-breathe 9.4s ease-in-out infinite; }
+/* Light travels within the original neural tissue, never in orbit around it. */
+.cosmic-brain-neural-flow { position: absolute; inset: 0; pointer-events: none; mask: url('/images/login-brain.png') center / 100% 100% no-repeat; mix-blend-mode: screen; opacity: calc(.18 * var(--brain-wake)); transition: opacity 1600ms ease-out; }
+.cosmic-brain-presence[data-mood="thinking"] .cosmic-brain-neural-flow { opacity: calc(.4 * var(--brain-wake)); }
+.cosmic-brain-presence[data-mood="speaking"] .cosmic-brain-neural-flow { opacity: calc(.85 * var(--brain-wake)); }
+.cosmic-brain-neural-flow i { position: absolute; inset: 0; background: radial-gradient(ellipse at 38% 44%, rgb(153 241 255 / 85%), transparent 13%); animation: cosmic-brain-current var(--brain-tempo) ease-in-out infinite alternate; }
+.cosmic-brain-neural-flow i:nth-child(2) { background: radial-gradient(ellipse at 62% 58%, rgb(202 162 255 / 80%), transparent 14%); animation-duration: calc(var(--brain-tempo) * 1.31); animation-delay: -3.7s; animation-direction: alternate-reverse; }
+.cosmic-brain-neural-flow i:nth-child(3) { background: radial-gradient(ellipse at 52% 72%, rgb(140 236 243 / 70%), transparent 9%); animation-duration: calc(var(--brain-tempo) * .79); animation-delay: -1.9s; }
+.cosmic-brain-synapses { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; mask: url('/images/login-brain.png') center / 100% 100% no-repeat; mix-blend-mode: screen; opacity: calc(.85 * var(--brain-wake)); transition: opacity 1600ms ease-out; }
+.cosmic-brain-synapses path { fill: none; stroke: #b5f6ff; stroke-width: 5; stroke-linecap: round; stroke-dasharray: .045 .955; animation: cosmic-brain-signal var(--brain-signal-tempo) linear infinite; transition: stroke-width 1600ms ease-out, stroke-dasharray 1600ms ease-out; }
+.cosmic-brain-synapses path:nth-child(2) { stroke: #dfbdff; animation-duration: calc(var(--brain-signal-tempo) * 1.27); animation-delay: -2.3s; }
+.cosmic-brain-synapses path:nth-child(3) { animation-duration: calc(var(--brain-signal-tempo) * 1.13); animation-delay: -1.2s; }
+.cosmic-brain-synapses path:nth-child(4) { stroke: #dfbdff; animation-duration: calc(var(--brain-signal-tempo) * .91); animation-delay: -3.1s; }
+.cosmic-brain-synapses path:nth-child(5) { animation-duration: calc(var(--brain-signal-tempo) * .83); animation-delay: -.7s; }
+.cosmic-brain-presence[data-mood="speaking"] .cosmic-brain-synapses { opacity: var(--brain-wake); }
+.cosmic-brain-presence[data-mood="speaking"] .cosmic-brain-synapses path { stroke-width: 7; stroke-dasharray: .085 .915; }
+.cosmic-brain-presence:has([data-brain-arriving="true"]) .cosmic-brain-portrait { visibility: hidden; }
+.cosmic-brain-presence:has([data-brain-arriving="true"]) .cosmic-brain-float { animation: none; }
+/* The shared arrival envelope drives these directly, with no delayed glow tail. */
+.cosmic-brain-presence:has([data-brain-arriving]) :is(.cosmic-brain-synapses, .cosmic-brain-neural-flow) { transition: none; }
+.cosmic-brain-presence[data-paused="true"] * { animation-play-state: paused !important; }
+
+/* A single shared portrait flies above both screens; neither layout is moved. */
+.cosmic-brain-handoff { position: fixed; inset: 0; z-index: 90; pointer-events: none; overflow: hidden; }
+.cosmic-brain-handoff > img { position: absolute; left: 0; top: 0; max-width: none; object-fit: contain; transform-origin: 0 0; will-change: transform; }
+.cosmic-auth-departing { position: fixed; inset: 0; z-index: 60; pointer-events: none; animation: cosmic-auth-depart 300ms ease both; }
+.cosmic-auth-departing [data-brain-login] { visibility: hidden; }
+.cosmic-brain-demo-entry { display: grid; gap: 1.25rem; text-align: center; color: var(--cosmic-text); }
+.cosmic-brain-demo-entry > p { font-size: .9rem; }
+.cosmic-brain-demo-entry > button { min-height: 48px; padding: .75rem 1rem; border: 1px solid var(--cosmic-border); border-radius: .75rem; background: var(--cosmic-primary); font-weight: 600; }
+.cosmic-brain-demo-entry small { font-size: .65rem; color: var(--cosmic-muted); }
+.cosmic-brain-demo-replay { position: fixed; left: 6rem; bottom: .5rem; z-index: 40; color: var(--cosmic-violet); font-size: .6875rem; }
+.cosmic-brain-demo-replay span { color: var(--cosmic-muted); }
+.cosmic-brain-demo-replay:focus-visible { outline: 1px solid var(--cosmic-cyan); outline-offset: 3px; }
+@media (max-width: 1023px) { .cosmic-brain-demo-replay { left: .5rem; } .cosmic-brain-demo-replay span { display: none; } }
+@keyframes cosmic-auth-depart { to { opacity: 0; filter: blur(4px); } }
+@keyframes cosmic-brain-float { 0%, 100% { translate: 0 calc(3px * var(--brain-wake)); rotate: calc(-.6deg * var(--brain-wake)); } 35% { translate: calc(2px * var(--brain-wake)) calc(-4px * var(--brain-wake)); rotate: calc(.7deg * var(--brain-wake)); } 70% { translate: calc(-2px * var(--brain-wake)) calc(-7px * var(--brain-wake)); rotate: calc(-.2deg * var(--brain-wake)); } }
+/* Same liquid-like vertical rhythm at login, with no neural activity or tilt. */
+@keyframes cosmic-login-brain-float { 0%, 100% { translate: 0 3px; } 35% { translate: 0 -4px; } 70% { translate: 0 -7px; } }
+@keyframes cosmic-brain-breathe { 0%, 100% { opacity: calc(.25 * var(--brain-wake)); } 50% { opacity: calc(.55 * var(--brain-wake)); } }
+@keyframes cosmic-brain-current { from { opacity: .15; translate: -2% 1%; scale: .96; } to { opacity: .9; translate: 4% -2%; scale: 1.06; } }
+@keyframes cosmic-brain-signal { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .cosmic-brain-presence *, .cosmic-brain-presence *::before, .cosmic-brain-presence *::after { animation: none !important; transition: none !important; }
+  .cosmic-brain-portrait { transform: translate(-50%, -50%); }
+  .cosmic-brain-synapses { display: none; }
+  .cosmic-brain-handoff { display: none; }
+  .cosmic-auth-departing { animation: none; }
+}
+
 .cosmic-workspace .retro-right-stack { padding: 1rem; }
 .cosmic-context-panel { width: 100%; min-width: 0; }
 .cosmic-context-panel .retro-context-body { scrollbar-gutter: stable both-edges; padding-inline: .25rem; overflow-wrap: anywhere; }
