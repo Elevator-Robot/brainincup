@@ -1,20 +1,9 @@
 # GM interface
 
-The optional Location/Act banner is **hidden by default**. Day has been removed.
-To enable the banner for a local build, set this in `.env.local` and restart Vite:
-
-```dotenv
-VITE_GM_BANNER_HEADERS=true
-```
-
-Set the same build-time variable for a deployed frontend to enable it there.
-Remove it or set it to `false` to hide the banner. The shared setting lives in
-`src/config/gameMasterUi.ts`.
-
-Even when enabled, the banner renders only real fields. No location means no
-Location label; no recognized act means no Act label. Chapter is shown only when
-a positive integer is present. If nothing is available, the entire banner is
-absent—there is no placeholder Act I or Chapter 1.
+There is no adventure banner. Day, Location, and Act are not shown as a strip
+across the workspace; location lives in the Location context tab and Act/Chapter
+are narrative metadata that never needed a permanent header. No build flag
+re-enables it.
 
 ## Local interaction preview
 
@@ -37,7 +26,8 @@ opens the context drawer. Quick actions fill the draft; they never auto-send.
   stay fixed and each new panel starts at the top. Reduced motion disables it.
 - Typewriter text and arrival trails apply only to **new assistant chat replies**,
   not user messages, historical messages, labels, menus, dialogs, or stats.
-- Normal startup and data loading have no dedicated loading screens, skeletons,
-  or fake response bubbles. The interface stays in place while content arrives.
+- Normal startup and data loading show no loading screens, skeletons, placeholder
+  copy, or fake response bubbles. Panels are either absent or already showing real
+  data; content that arrives late fades in place (reduced motion skips the fade).
   A compact recovery notice appears only after a startup error or an unusual
   delay; authentication and send-lock checks remain active.

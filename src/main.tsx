@@ -18,16 +18,16 @@ import { Amplify } from 'aws-amplify';
 import outputs from '../amplify_outputs.json';
 import { Hub } from 'aws-amplify/utils';
 
-const loadWorkspace = () => import('./App');
+const loadWorkspaceShell = () => import('./WorkspaceShell');
 const loadAuth = () => import('./components/CustomAuth');
-const App = React.lazy(loadWorkspace);
+const WorkspaceShell = React.lazy(loadWorkspaceShell);
 const CustomAuth = React.lazy(loadAuth);
 
 (window as unknown as { __AMPLIFY_OUTPUTS__: typeof outputs }).__AMPLIFY_OUTPUTS__ = outputs;
 Amplify.configure(outputs);
 // Fetch both entry chunks while authentication settles, avoiding a second wait
 // after sign-in. This imports UI code; authenticated data effects mount later.
-void loadWorkspace().catch(error => console.warn('Workspace preload failed:', error));
+void loadWorkspaceShell().catch(error => console.warn('Workspace preload failed:', error));
 void loadAuth().catch(error => console.warn('Sign-in preload failed:', error));
 
 // Entry file intentionally hosts auth gate + app mount.
@@ -67,7 +67,11 @@ function AuthWrapper() {
     <SiteBackground />
     <WorkspaceBoundary>
       <React.Suspense fallback={<WorkspaceRecovery />}>
-        {isLoading ? <WorkspaceRecovery /> : isAuthenticated ? <App /> : <CustomAuth onAuthSuccess={checkAuthState} />}
+        {isLoading
+          ? <WorkspaceRecovery />
+          : isAuthenticated
+            ? <WorkspaceShell />
+            : <CustomAuth onAuthSuccess={checkAuthState} />}
       </React.Suspense>
     </WorkspaceBoundary>
     {(isLoading || isAuthenticated) && <SiteFooter />}

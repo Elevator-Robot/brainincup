@@ -1,13 +1,12 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import type React from 'react';
-import { generateClient } from 'aws-amplify/data';
+import { dataClient } from '../api/dataClient';
 import type { Schema } from '../../amplify/data/resource';
+import type React from 'react';
 import { getModeMeta } from '../constants/personalityModes';
 import { getAvatarOptionById } from '../constants/gameMasterAvatars';
 import { isNoConversationsTestMode, isTestModeEnabled } from '../utils/testMode';
 import { pickLatestAdventure, resolveLocationName } from '../utils/gmLocations';
 
-const dataClient = generateClient<Schema>();
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
 
 type ConversationType = Schema['Conversation']['type'] & { personalityMode?: string | null };
