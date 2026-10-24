@@ -9,6 +9,10 @@ const schema = a.schema({
     participants: a.string().array(),
     personalityMode: a.string().default('default'),
     experience: a.string().default('brain'),
+    // Owner-scoped cognitive state; a fresh revision also fences in-flight
+    // turns when the user clears Brain chat. Existing rows initialize lazily.
+    brainState: a.json(),
+    brainStateVersion: a.string(),
     messages: a.hasMany('Message', 'conversationId'),
     brainResponses: a.hasMany('BrainResponse', 'conversationId'),
     gameMasterAdventure: a.hasOne('GameMasterAdventure', 'conversationId'),
