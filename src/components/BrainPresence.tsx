@@ -1,17 +1,25 @@
-import { useCallback, useEffect, useId, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { BRAIN_ARTWORK } from '../utils/brainHandoff';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePageVisible } from '../hooks/usePageVisible';
 import LivingBrain from './LivingBrain';
 
 export type BrainPresenceMood = 'idle' | 'listening' | 'thinking' | 'speaking';
-interface BrainPresenceProps { mood?: BrainPresenceMood; intensity?: number }
+interface BrainPresenceProps {
+  mood?: BrainPresenceMood; intensity?: number;
+  pokeable?: boolean;
+}
 
 const STATUS: Record<BrainPresenceMood, string> = { idle: 'Resting', listening: 'Listening', thinking: 'Thinking', speaking: 'Speaking' };
 
-/** A living portrait with gentle local hover, never dragging or click actions. */
-export default function BrainPresence({ mood = 'idle', intensity = 35 }: BrainPresenceProps) {
+/** A living portrait with an optional playful poke, independent of audio. */
+export default function BrainPresence({ mood = 'idle', intensity = 35, pokeable = false }: BrainPresenceProps) {
   const presenceRef = useRef<HTMLElement>(null);
+  const bodyRef = useRef<HTMLSpanElement>(null);
+  const contactRef = useRef<HTMLSpanElement>(null);
+  const pokeAnimations = useRef<Animation[]>([]);
+  const hintId = useId();
+  const pokePoint = useRef({ x: .5, y: .5 });
   const activity = mood === 'speaking' ? 1 : mood === 'thinking' ? .45 : .05;
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const finePointer = useMediaQuery('(hover: hover) and (pointer: fine)');
@@ -20,6 +28,54 @@ export default function BrainPresence({ mood = 'idle', intensity = 35 }: BrainPr
   const pointer = useRef({ x: 0, y: 0 });
   const energy = Number.isFinite(intensity) ? Math.max(0, Math.min(100, intensity)) / 100 : .35;
   const glowId = `brain-synapse-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
+  const clearPoke = useCallback(() => {
+    pokeAnimations.current.forEach(animation => animation.cancel());
+    pokeAnimations.current = [];
+  }, []);
+  useEffect(() => {
+    if (reducedMotion || !visible) clearPoke();
+    return clearPoke;
+  }, [reducedMotion, visible, clearPoke]);
+
+  const locatePoke = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = Math.max(.12, Math.min(.88, (event.clientX - bounds.left) / bounds.width));
+    const y = Math.max(.12, Math.min(.88, (event.clientY - bounds.top) / bounds.height));
+    pokePoint.current = { x, y };
+    event.currentTarget.style.setProperty('--poke-x', `${x * 100}%`);
+    event.currentTarget.style.setProperty('--poke-y', `${y * 100}%`);
+  };
+
+  const pokeBrain = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    const startTransform = bodyRef.current && !reducedMotion ? getComputedStyle(bodyRef.current).transform : 'none';
+    clearPoke();
+    if (reducedMotion || !visible || presenceRef.current?.querySelector('[data-brain-arriving]')) return;
+    const body = bodyRef.current;
+    const contact = contactRef.current;
+    if (!body || !contact || typeof body.animate !== 'function') return;
+    const { x, y } = event.detail === 0 ? { x: .5, y: .5 } : pokePoint.current;
+    event.currentTarget.style.setProperty('--poke-x', `${x * 100}%`);
+    event.currentTarget.style.setProperty('--poke-y', `${y * 100}%`);
+    const dx = (x - .5) * -11;
+    const dy = (y - .5) * -9 + 3;
+    // A local squish and damped overshoot, separate from idle drift/gaze so
+    // the living portrait never jumps phase or escapes its paint-contained box.
+    pokeAnimations.current = [body.animate([
+      { transform: startTransform || 'none', offset: 0 },
+      { transform: `translate(${dx}px, ${dy}px) scale(.93, 1.055) rotate(${(x - .5) * -4}deg)`, offset: .14 },
+      { transform: `translate(${-dx * .35}px, -2px) scale(1.035, .968)`, offset: .38 },
+      { transform: 'translate(0, 1px) scale(.988, 1.014)', offset: .62 },
+      { transform: 'scale(1.004, .996)', offset: .81 },
+      { transform: 'none', offset: 1 },
+    ], { duration: 760, easing: 'cubic-bezier(.22,.65,.35,1)' }),
+    contact.animate([
+      { opacity: 0, transform: 'translate(-50%, -50%) scale(.5)' },
+      { opacity: .65, transform: 'translate(-50%, -50%) scale(1)', offset: .18 },
+      { opacity: 0, transform: 'translate(-50%, -50%) scale(1.7)' },
+    ], { duration: 650, easing: 'ease-out' })];
+  };
 
   const clearGaze = useCallback(() => {
     cancelAnimationFrame(pointerFrame.current);
@@ -87,11 +143,9 @@ export default function BrainPresence({ mood = 'idle', intensity = 35 }: BrainPr
     return () => cancelAnimationFrame(frame);
   }, [mood, visible, reducedMotion]);
 
-  return <section ref={presenceRef} className="cosmic-brain-presence" data-mood={mood}
-    onPointerMove={followCursor} onPointerLeave={clearGaze} onPointerCancel={clearGaze}
-    data-paused={!visible} data-reduced-motion={reducedMotion} style={{ '--brain-energy': energy } as CSSProperties} aria-label="Brain presence">
-    <div className="cosmic-brain-stage" role="img" aria-label={`Brain, ${STATUS[mood].toLowerCase()}`}>
-      <span className="cosmic-brain-aura" aria-hidden="true" />
+  const artwork = <>
+    <span className="cosmic-brain-aura" aria-hidden="true" />
+    <span ref={bodyRef} className="cosmic-brain-body">
       <span className="cosmic-brain-float">
         <span className="cosmic-brain-portrait">
           <img className="cosmic-brain-image" data-brain-destination src={BRAIN_ARTWORK} width="1672" height="941" alt="" draggable="false" />
@@ -116,6 +170,19 @@ export default function BrainPresence({ mood = 'idle', intensity = 35 }: BrainPr
           </svg>
         </span>
       </span>
-    </div>
+    </span>
+    {pokeable && <span ref={contactRef} className="cosmic-brain-contact" aria-hidden="true" />}
+  </>;
+  const pokeHint = 'Give Brain a gentle poke. Voice controls are in the menu rail.';
+  return <section ref={presenceRef} className="cosmic-brain-presence" data-mood={mood}
+    onPointerMove={followCursor} onPointerLeave={clearGaze} onPointerCancel={clearGaze}
+    data-paused={!visible} data-reduced-motion={reducedMotion} style={{ '--brain-energy': energy } as CSSProperties} aria-label="Brain presence">
+    {pokeable ? <>
+      <button type="button" className="cosmic-brain-stage cosmic-brain-poke" onPointerDown={locatePoke} onClick={pokeBrain}
+        aria-label="Poke Brain" aria-describedby={hintId} title="Give Brain a gentle poke">
+        {artwork}
+      </button>
+      <span id={hintId} className="sr-only">{pokeHint}</span>
+    </> : <div className="cosmic-brain-stage" role="img" aria-label={`Brain, ${STATUS[mood].toLowerCase()}`}>{artwork}</div>}
   </section>;
 }

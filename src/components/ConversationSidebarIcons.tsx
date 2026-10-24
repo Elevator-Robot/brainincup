@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useId } from 'react';
 import { dataClient } from '../api/dataClient';
 import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterAvatars';
 import { normalizePersonalityMode } from '../constants/personalityModes';
@@ -67,6 +67,7 @@ export default function ConversationSidebarIcons({
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const tooltipId = useId();
 
   const loadIcons = useCallback(async () => {
     // Test mode has no AppSync; surface the demo adventure in the rail.
@@ -170,13 +171,26 @@ export default function ConversationSidebarIcons({
     loadIcons();
   }, [loadIcons, refreshKey]);
 
+  useEffect(() => () => { if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current); }, []);
+  const focusTooltip = (id: string, target: HTMLElement) => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    const rect = target.getBoundingClientRect();
+    setTooltipPos({ x: rect.right + 16, y: rect.top + rect.height / 2 });
+    setHoveredId(id);
+  };
+
   return (
-    <div className="flex w-full flex-col items-center flex-1 min-h-0">
+    <nav aria-label="Conversations" className="cosmic-rail-destinations flex w-full flex-col items-center flex-1 min-h-0"
+      onKeyDown={event => { if (event.key === 'Escape') { if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current); setHoveredId(null); } }}>
       {/* Brain avatar - always at top, outside scroll area */}
       <div className="relative shrink-0 py-2">
         <button
           type="button"
           onClick={onSelectBrain}
+          aria-label="Brain"
+          aria-current={activeConversationId === 'brain' ? 'page' : undefined}
+          aria-describedby={hoveredId === 'brain' ? tooltipId : undefined}
+          onFocus={event => focusTooltip('brain', event.currentTarget)} onBlur={() => setHoveredId(null)}
           onMouseEnter={(e) => {
             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
             setTooltipPos({ x: rect.right + 10, y: rect.top + rect.height / 2 });
@@ -192,26 +206,15 @@ export default function ConversationSidebarIcons({
               : 'border-brand-surface-border/70 bg-brand-surface-elevated/40 hover:border-brand-accent-primary/60 hover:bg-brand-accent-primary/15'
           }`}
         >
-          <img
-            src="/favicon.svg"
-            alt="Brain"
-            className="h-8 w-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
-            onError={(e) => {
-              // Fallback to emoji if the image doesn't exist
-              e.currentTarget.style.display = 'none';
-              const parent = e.currentTarget.parentElement;
-              if (parent && !parent.querySelector('.brain-fallback')) {
-                const span = document.createElement('span');
-                span.className = 'brain-fallback text-2xl';
-                span.textContent = '🧠';
-                parent.appendChild(span);
-              }
-            }}
-          />
+          <svg className="cosmic-rail-brain-glyph" viewBox="0 0 28 28" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M14 6c-2-3-6-1-6 2-3-.2-5 3-3 6-2 3 0 6 3 6 0 4 6 4 6 0V6Zm0 0c2-3 6-1 6 2 3-.2 5 3 3 6 2 3 0 6-3 6 0 4-6 4-6 0" />
+            <path d="M9 9c0 2 1 3 3 3m-5 4c2-1 4 0 4 2m8-9c0 2-1 3-3 3m5 4c-2-1-4 0-4 2" />
+          </svg>
         </button>
 
         {hoveredId === 'brain' && (
           <div
+            id={tooltipId} role="tooltip"
             className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-brand-accent-primary/30 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
             style={{ left: tooltipPos.x, top: tooltipPos.y, transform: 'translateY(-50%)' }}
           >
@@ -222,64 +225,70 @@ export default function ConversationSidebarIcons({
       </div>
 
       {/* Separator */}
-      <div className="w-8 h-px bg-brand-surface-border/50 shrink-0" />
+      <div className="cosmic-rail-divider" aria-hidden="true" />
 
       {/* Chat count indicator */}
-      <div className="text-[10px] font-medium text-brand-text-muted/50 tracking-wider shrink-0 pt-2 pb-1">
-        {icons.filter(icon => icon.avatarSrc).length}/{CHAT_LIMIT}
+      <div className="cosmic-rail-capacity" aria-label={`${icons.filter(icon => icon.avatarSrc).length} of ${CHAT_LIMIT} adventure slots used`} title="Your adventure slots">
+        {Array.from({ length: CHAT_LIMIT }, (_, index) => <i key={index} data-filled={index < icons.filter(icon => icon.avatarSrc).length} aria-hidden="true" />)}
       </div>
 
       {/* GM conversation icons - scrollable area */}
       <div className="cosmic-conversation-list flex w-full flex-col items-center gap-2 overflow-y-auto flex-1 min-h-0 py-2">
         {icons.filter(icon => icon.avatarSrc).map((icon) => (
-        <div key={icon.id} className="relative">
-          <button
-            type="button"
-            onClick={() => onSelectConversation(icon.id)}
-            onMouseEnter={(e) => {
-              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-              setTooltipPos({ x: rect.right + 10, y: rect.top + rect.height / 2 });
-              hoverTimeoutRef.current = setTimeout(() => setHoveredId(icon.id), 300);
-            }}
-            onMouseLeave={() => {
-              if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-              setHoveredId(null);
-            }}
-            className={`cosmic-rail-control h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ${
-              activeConversationId === icon.id
-                ? 'border-brand-surface-border/40 bg-brand-surface-dark/80 scale-95'
-                : 'border-transparent bg-brand-surface-secondary/50 hover:bg-brand-surface-border/60'
-            }`}
-          >
-            <picture>
-              <source srcSet={icon.avatarSrcWebp} type="image/webp" />
-              <img
-                src={icon.avatarSrc}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover object-center"
-              />
-            </picture>
-          </button>
-
-          {hoveredId === icon.id && (
-            <div
-              className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-brand-surface-border/40 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
-              style={{ left: tooltipPos.x, top: tooltipPos.y, transform: 'translateY(-50%)' }}
+          <div key={icon.id} className="relative">
+            <button
+              type="button"
+              onClick={() => onSelectConversation(icon.id)}
+              aria-label={icon.title}
+              aria-current={activeConversationId === icon.id ? 'page' : undefined}
+              aria-describedby={hoveredId === icon.id ? tooltipId : undefined}
+              onFocus={event => focusTooltip(icon.id, event.currentTarget)} onBlur={() => setHoveredId(null)}
+              onMouseEnter={(e) => {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setTooltipPos({ x: rect.right + 10, y: rect.top + rect.height / 2 });
+                hoverTimeoutRef.current = setTimeout(() => setHoveredId(icon.id), 300);
+              }}
+              onMouseLeave={() => {
+                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                setHoveredId(null);
+              }}
+              className={`cosmic-rail-control h-10 w-10 rounded-lg overflow-hidden transition-all duration-200 flex items-center justify-center shrink-0 border-2 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 ${
+                activeConversationId === icon.id
+                  ? 'border-brand-surface-border/40 bg-brand-surface-dark/80 scale-95'
+                  : 'border-transparent bg-brand-surface-secondary/50 hover:bg-brand-surface-border/60'
+              }`}
             >
-              <p className="text-sm font-semibold text-brand-text-primary truncate">{icon.title}</p>
-              <p className="text-xs text-brand-text-muted mt-0.5 line-clamp-2">{icon.preview}</p>
-            </div>
-          )}
-        </div>
-      ))}
+              <picture>
+                <source srcSet={icon.avatarSrcWebp} type="image/webp" />
+                <img
+                  src={icon.avatarSrc}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover object-center"
+                />
+              </picture>
+            </button>
+
+            {hoveredId === icon.id && (
+              <div
+                id={tooltipId} role="tooltip"
+                className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-brand-surface-border/40 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
+                style={{ left: tooltipPos.x, top: tooltipPos.y, transform: 'translateY(-50%)' }}
+              >
+                <p className="text-sm font-semibold text-brand-text-primary truncate">{icon.title}</p>
+                <p className="text-xs text-brand-text-muted mt-0.5 line-clamp-2">{icon.preview}</p>
+              </div>
+            )}
+          </div>
+        ))}
 
         {/* New chat plus button - at bottom, only visible when under chat limit */}
         {icons.filter(icon => icon.avatarSrc).length < CHAT_LIMIT && (
           <button
             type="button"
             onClick={onNewConversation}
+            onFocus={event => focusTooltip('new', event.currentTarget)} onBlur={() => setHoveredId(null)}
             disabled={isDisabled}
             onMouseEnter={(e) => {
               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -292,6 +301,7 @@ export default function ConversationSidebarIcons({
             }}
             className="cosmic-rail-control plus-button h-10 w-10 rounded-xl border border-brand-surface-border/50 bg-brand-surface-secondary/60 text-brand-text-primary flex items-center justify-center transition-all duration-200 hover:border-brand-surface-border/70 hover:bg-brand-surface-secondary/75 disabled:cursor-not-allowed disabled:opacity-45"
             aria-label="Start new chat"
+            aria-describedby={hoveredId === 'new' ? tooltipId : undefined}
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="10" y1="4" x2="10" y2="16" />
@@ -302,6 +312,7 @@ export default function ConversationSidebarIcons({
 
         {hoveredId === 'new' && (
           <div
+            id={tooltipId} role="tooltip"
             className="fixed z-50 min-w-[180px] max-w-[220px] rounded-xl border border-brand-accent-primary/30 bg-brand-surface-elevated/95 px-3 py-2 shadow-glass-lg backdrop-blur-xl pointer-events-none"
             style={{ left: tooltipPos.x, top: tooltipPos.y, transform: 'translateY(-50%)' }}
           >
@@ -310,6 +321,6 @@ export default function ConversationSidebarIcons({
           </div>
         )}
       </div>
-    </div>
+    </nav>
   );
 }

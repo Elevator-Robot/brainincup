@@ -912,3 +912,83 @@ body::before { display: none; }
   .cosmic-workspace { animation: none; }
   .retro-rpg-ui *, .retro-rpg-ui *::before, .retro-rpg-ui *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+/* Persistent, quiet-by-default voice controls shared by both chat modes. */
+.cosmic-voice-control { position: relative; flex-shrink: 0; }
+.cosmic-voice-toggle { display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; padding: .5rem .75rem; border: 1px solid var(--cosmic-border); border-radius: 999px; background: var(--cosmic-control); color: var(--cosmic-text); font-size: .75rem; cursor: pointer; }
+.cosmic-voice-toggle[aria-pressed="true"] { border-color: var(--cosmic-cyan); color: var(--cosmic-cyan); }
+.cosmic-voice-toggle:focus-visible, .cosmic-message-listen:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 4px; }
+.cosmic-voice-tooltip { position: absolute; right: 0; top: calc(100% + .5rem); z-index: 80; width: max-content; max-width: min(260px, 80vw); padding: .65rem .8rem; border: 1px solid var(--cosmic-border); border-radius: .75rem; background: var(--cosmic-frame-surface); color: var(--cosmic-text); font-size: .75rem; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .2s; }
+.cosmic-voice-control:hover .cosmic-voice-tooltip, .cosmic-voice-control:focus-within .cosmic-voice-tooltip { opacity: 1; visibility: visible; }
+.cosmic-voice-control[data-tooltip-dismissed="true"] .cosmic-voice-tooltip { opacity: 0; visibility: hidden; }
+.cosmic-voice-error { position: absolute; top: calc(100% + .5rem); right: 0; z-index: 79; width: 240px; padding: .75rem; background: var(--cosmic-frame-surface); border: 1px solid var(--cosmic-rose); border-radius: .75rem; font-size: .75rem; color: var(--cosmic-rose); }
+.cosmic-message-listen { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; margin-top: .25rem; padding: .5rem .75rem; color: var(--cosmic-muted); font-size: .75rem; border-radius: .75rem; }
+.cosmic-message-listen:hover { background: rgb(var(--cosmic-accent-rgb) / 8%); color: var(--cosmic-cyan); }
+/* Poke the living portrait; deformation is independent of idle drift/gaze. */
+.cosmic-brain-body { position: absolute; inset: 0; display: block; transform-origin: var(--poke-x, 50%) var(--poke-y, 50%); }
+.cosmic-brain-stage.cosmic-brain-poke { pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.cosmic-brain-poke > * { pointer-events: none; }
+.cosmic-brain-poke:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: -3px; }
+.cosmic-brain-poke:active .cosmic-brain-body { transform: scale(.97, 1.025); transition: transform 100ms ease-out; }
+.cosmic-brain-contact { position: absolute; left: var(--poke-x, 50%); top: var(--poke-y, 50%); width: 5rem; height: 5rem; transform: translate(-50%, -50%); opacity: 0; border-radius: 50%; background: radial-gradient(circle, rgb(var(--cosmic-accent-rgb) / 24%), rgb(196 173 255 / 10%) 35%, transparent 70%); mix-blend-mode: screen; }
+@media (prefers-reduced-motion: reduce) {
+  .cosmic-brain-poke:active .cosmic-brain-body { transform: none; transition: none; }
+  .cosmic-brain-poke:active { background: rgb(var(--cosmic-accent-rgb) / 6%); }
+}
+.cosmic-voice-dock { display: flex; justify-content: flex-end; width: 100%; max-width: calc(56rem - var(--chat-content-inset, .5rem) * 2); margin-inline: auto; padding-right: .9rem; margin-bottom: -.25rem; }
+.cosmic-voice-control--composer-tab .cosmic-voice-toggle { min-height: 44px; border-bottom: 0; border-radius: .85rem .85rem 0 0; background: var(--cosmic-frame-surface); padding-bottom: .7rem; }
+.cosmic-voice-control--composer-tab :is(.cosmic-voice-tooltip, .cosmic-voice-error) { top: auto; bottom: calc(100% + .5rem); }
+/* Luminous command spine: navigation above, persistent utilities below.
+   Selection is a light edge, not a heavy frame around every destination. */
+.cosmic-command-rail .cosmic-rail-control, .cosmic-voice-control--rail .cosmic-voice-toggle {
+  position: relative; display: grid; place-items: center; width: 44px; height: 44px;
+  min-height: 44px; border: 1px solid transparent; border-radius: 15px;
+  background: transparent; color: var(--cosmic-muted); transform: none;
+  box-shadow: none; transition: background 180ms, color 180ms, border-color 180ms, transform 180ms;
+}
+.cosmic-command-rail .cosmic-rail-control:hover, .cosmic-voice-control--rail .cosmic-voice-toggle:hover {
+  background: var(--cosmic-control); color: var(--cosmic-text); border-color: var(--cosmic-border); transform: translateY(-1px);
+}
+.cosmic-command-rail .cosmic-rail-control:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 4px; }
+.cosmic-command-rail .cosmic-rail-control[aria-current="page"] {
+  background: linear-gradient(140deg, rgb(196 173 255 / 19%), rgb(var(--cosmic-accent-rgb) / 9%));
+  border-color: rgb(196 173 255 / 22%); color: var(--cosmic-cyan); box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%);
+}
+.cosmic-command-rail .cosmic-rail-control[aria-current="page"]::after {
+  content: ''; position: absolute; left: -12px; top: 15px; width: 3px; height: 14px; border-radius: 4px;
+  background: var(--cosmic-cyan); box-shadow: 0 0 10px rgb(var(--cosmic-accent-rgb) / 35%);
+}
+.cosmic-command-rail .cosmic-conversation-list .cosmic-rail-control { border-radius: 16px; padding: 3px; overflow: visible; }
+.cosmic-command-rail .cosmic-conversation-list picture { border-radius: 12px; overflow: hidden; }
+.cosmic-command-rail .cosmic-conversation-list .plus-button { margin-top: .45rem; border: 1px dashed var(--cosmic-border); background: rgb(196 173 255 / 3%); color: var(--cosmic-violet); }
+.cosmic-rail-divider { width: 20px; height: 1px; margin: .55rem auto; background: var(--cosmic-border); }
+.cosmic-rail-capacity { display: flex; gap: 4px; align-items: center; padding: .4rem 0; }
+.cosmic-rail-capacity i { width: 4px; height: 4px; border-radius: 50%; background: rgb(171 181 209 / 20%); }
+.cosmic-rail-capacity i[data-filled="true"] { background: var(--cosmic-violet); }
+.cosmic-rail-utilities { display: flex; flex-direction: column; align-items: center; gap: .7rem; padding-top: .75rem; border-top: 1px solid var(--cosmic-border); }
+.cosmic-voice-control--rail .cosmic-voice-toggle { padding: 0; border-color: var(--cosmic-border); background: var(--cosmic-control); }
+.cosmic-voice-control--rail .cosmic-voice-toggle[aria-pressed="true"] { color: var(--cosmic-cyan); border-color: rgb(var(--cosmic-accent-rgb) / 42%); box-shadow: 0 0 20px rgb(var(--cosmic-accent-rgb) / 7%); }
+.cosmic-voice-wave { position: relative; display: flex; align-items: center; justify-content: center; gap: 3px; height: 22px; }
+.cosmic-voice-wave i { width: 2px; height: 9px; border-radius: 3px; background: currentColor; transform-origin: center; transition: transform 200ms, opacity 200ms; }
+.cosmic-voice-wave i:nth-child(2), .cosmic-voice-wave i:nth-child(4) { height: 15px; }
+.cosmic-voice-wave i:nth-child(3) { height: 21px; }
+.cosmic-voice-wave[data-voice-state="muted"] i { transform: scaleY(.5); opacity: .55; }
+.cosmic-voice-wave[data-voice-state="muted"]::after { content: ''; position: absolute; width: 22px; height: 1px; background: currentColor; transform: rotate(-45deg); opacity: .7; }
+.cosmic-voice-wave[data-voice-state="playing"] i { animation: cosmic-voice-wave 800ms ease-in-out infinite alternate; }
+.cosmic-voice-wave i:nth-child(2) { animation-delay: -330ms; }
+.cosmic-voice-wave i:nth-child(3) { animation-delay: -610ms; }
+.cosmic-voice-wave i:nth-child(4) { animation-delay: -140ms; }
+.cosmic-voice-wave i:nth-child(5) { animation-delay: -450ms; }
+.cosmic-voice-wave[data-voice-state="loading"] { opacity: .55; }
+.cosmic-voice-led { position: absolute; right: 5px; bottom: 5px; width: 4px; height: 4px; border-radius: 50%; background: var(--cosmic-muted); opacity: .4; }
+.cosmic-voice-led[data-enabled="true"] { background: var(--cosmic-cyan); opacity: 1; box-shadow: 0 0 6px var(--cosmic-cyan); }
+.cosmic-voice-control--rail :is(.cosmic-voice-tooltip, .cosmic-voice-error) { top: auto; bottom: 0; right: auto; left: calc(100% + 14px); width: 236px; max-width: none; text-align: left; line-height: 1.5; padding: .9rem 1rem; box-shadow: var(--cosmic-shadow); }
+.cosmic-voice-flyout-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: .3rem; font-size: .85rem; font-weight: 600; color: var(--cosmic-text); }
+.cosmic-voice-flyout-title small { font-size: .55rem; letter-spacing: .12em; color: var(--cosmic-cyan); }
+.cosmic-voice-flyout-copy { display: block; margin-bottom: .7rem; padding-bottom: .65rem; border-bottom: 1px solid var(--cosmic-border); font-size: .65rem; color: var(--cosmic-muted); }
+@keyframes cosmic-voice-wave { from { transform: scaleY(.38); } to { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .cosmic-command-rail .cosmic-rail-control, .cosmic-voice-control--rail .cosmic-voice-toggle { transition: none; }
+  .cosmic-command-rail .cosmic-rail-control:hover, .cosmic-voice-control--rail .cosmic-voice-toggle:hover { transform: none; }
+  .cosmic-voice-wave i { animation: none !important; transition: none; }
+}
+@media (prefers-reduced-motion: reduce) { .cosmic-voice-tooltip { transition: none; } }
