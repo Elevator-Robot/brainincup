@@ -1,14 +1,17 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { createLocalVoiceMiddleware } from './scripts/local-chat-voice';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  test: {
+  // Vitest uses its own Vite version; keep its extension out of Vite 5's
+  // excess-property check while preserving the shared runtime configuration.
+  ...{ test: {
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
-  },
+  } },
   server: {
     host: '0.0.0.0',
     port: 5173,
@@ -16,6 +19,20 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    {
+      name: 'localhost-chat-voice',
+      apply: 'serve',
+      configureServer(server) {
+        // Read server-only variables explicitly. Never define/inject this key
+        // into client code, VITE_* variables, or Amplify outputs.
+        const env = loadEnv(server.config.mode, server.config.envDir, 'ELEVENLABS_');
+        server.middlewares.use('/__local/chat-voice', createLocalVoiceMiddleware({
+          apiKey: process.env.ELEVENLABS_API_KEY || env.ELEVENLABS_API_KEY || '',
+          voiceId: process.env.ELEVENLABS_VOICE_ID || env.ELEVENLABS_VOICE_ID,
+          voiceName: 'Aaron',
+        }));
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {

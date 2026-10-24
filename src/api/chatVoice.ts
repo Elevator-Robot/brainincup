@@ -2,6 +2,19 @@ import { dataClient } from './dataClient';
 
 export async function generateChatSpeech(text: string, signal: AbortSignal): Promise<Blob> {
   signal.throwIfAborted();
+  if (import.meta.env.DEV && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)) {
+    const response = await fetch('/__local/chat-voice', {
+      method: 'POST', signal,
+      headers: { 'Content-Type': 'application/json', 'X-Brain-Voice': 'local' },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({})) as { error?: string };
+      throw new Error(result.error || 'Local voice is unavailable.');
+    }
+    if (!response.headers.get('content-type')?.includes('audio/mpeg')) throw new Error('Local voice returned invalid audio.');
+    return response.blob();
+  }
   // Amplify attaches the authenticated user's token. No ElevenLabs key in JS.
   try {
     if (!dataClient.mutations?.generateChatSpeech) throw new Error('Voice needs backend setup.');

@@ -18,6 +18,24 @@ in local storage, the service-worker cache, or conversation records.
 
 ## Server configuration (not applied by this branch)
 
+### Local testing without AWS
+
+Add `ELEVENLABS_API_KEY=...` to the project's Git-ignored `.env` file. Optionally
+add `ELEVENLABS_VOICE_ID=...` for your exact Aaron voice. Restart `npm run demo`,
+then visit `http://localhost:5173/?testmode=true` and click **Unmute** or **Listen**.
+This generates real speech and consumes ElevenLabs credits, but does not deploy
+or invoke AWS. Keep the key unprefixed: **never** use `VITE_ELEVENLABS_API_KEY`.
+
+Vite's server-only middleware reads the key; it is never sent to the browser.
+The local paid route accepts only loopback connections, local Host headers,
+same-origin requests, JSON POSTs, and the custom request marker. It rejects LAN,
+tunnel, foreign-origin, and preflight requests. It allows one generation at a
+time, up to 30 requests per minute, bounds input, cancels disconnected requests,
+and disables audio caching. It does not exist in production builds or previews.
+Name resolution and synthesis share the same transport as the deployed handler.
+
+### Deployed backend
+
 - Set the Amplify backend secret **`ELEVENLABS_API_KEY`** through your approved
   deployment workflow. Never put it in a `VITE_*` variable, Amplify outputs,
   client code, Git, or a chat message. The key needs text-to-speech access and
