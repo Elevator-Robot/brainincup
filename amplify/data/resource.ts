@@ -1,6 +1,7 @@
 import { defineData, a } from '@aws-amplify/backend';
 import { ClientSchema } from '@aws-amplify/backend';
 import { deleteAccount } from '../functions/delete-account/resource';
+import { chatVoice } from '../functions/chat-voice/resource';
 
 const schema = a.schema({
   Conversation: a.model({
@@ -236,6 +237,13 @@ const schema = a.schema({
   })
     .secondaryIndexes((index) => [index('playerStateId')])
     .authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
+
+  ChatSpeech: a.customType({ audio: a.string().required(), contentType: a.string().required() }),
+  generateChatSpeech: a.mutation()
+    .arguments({ text: a.string().required() })
+    .returns(a.ref('ChatSpeech'))
+    .authorization(allow => [allow.authenticated()])
+    .handler(a.handler.function(chatVoice)),
 
   deleteAccount: a
     .mutation()

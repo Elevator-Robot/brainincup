@@ -912,3 +912,15 @@ body::before { display: none; }
   .cosmic-workspace { animation: none; }
   .retro-rpg-ui *, .retro-rpg-ui *::before, .retro-rpg-ui *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+/* Persistent, quiet-by-default voice controls shared by both chat modes. */
+.cosmic-header-content { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.cosmic-voice-control { position: relative; flex-shrink: 0; }
+.cosmic-voice-toggle { display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; padding: .5rem .75rem; border: 1px solid var(--cosmic-border); border-radius: 999px; background: var(--cosmic-control); color: var(--cosmic-text); font-size: .75rem; cursor: pointer; }
+.cosmic-voice-toggle[aria-pressed="true"] { border-color: var(--cosmic-cyan); color: var(--cosmic-cyan); }
+.cosmic-voice-toggle:focus-visible, .cosmic-message-listen:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 4px; }
+.cosmic-voice-tooltip { position: absolute; right: 0; top: calc(100% + .5rem); z-index: 80; width: max-content; max-width: min(260px, 80vw); padding: .65rem .8rem; border: 1px solid var(--cosmic-border); border-radius: .75rem; background: var(--cosmic-frame-surface); color: var(--cosmic-text); font-size: .75rem; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .2s; }
+.cosmic-voice-control:hover .cosmic-voice-tooltip, .cosmic-voice-control:focus-within .cosmic-voice-tooltip { opacity: 1; visibility: visible; }
+.cosmic-voice-error { position: absolute; top: calc(100% + .5rem); right: 0; z-index: 79; width: 240px; padding: .75rem; background: var(--cosmic-frame-surface); border: 1px solid var(--cosmic-rose); border-radius: .75rem; font-size: .75rem; color: var(--cosmic-rose); }
+.cosmic-message-listen { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; margin-top: .25rem; padding: .5rem .75rem; color: var(--cosmic-muted); font-size: .75rem; border-radius: .75rem; }
+.cosmic-message-listen:hover { background: rgb(var(--cosmic-accent-rgb) / 8%); color: var(--cosmic-cyan); }
+@media (prefers-reduced-motion: reduce) { .cosmic-voice-tooltip { transition: none; } }

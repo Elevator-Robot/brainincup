@@ -32,6 +32,8 @@ import type { DiceRollRequest } from './utils/diceRolls';
 import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
 import OptionsMenuContent from './components/OptionsMenu';
+import ChatVoiceControl from './components/ChatVoiceControl';
+import { useChatVoice } from './hooks/useChatVoice';
 import CharacterCreation, { type CharacterCreationInput } from './components/CharacterCreation';
 import BrainPresence, { type BrainPresenceMood } from './components/BrainPresence';
 import { canShowCharacterContext } from './utils/characterContext';
@@ -426,6 +428,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('lastActiveConversationId');
   });
+  const chatVoice = useChatVoice(conversationId, messages);
   const [storedPersonalityMode, setStoredPersonalityMode] = useState<'brain' | 'game_master'>(() => {
     if (routeMode) return routeMode;
     if (typeof window === 'undefined') return 'game_master';
@@ -1278,6 +1281,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               setMessages(prev => {
                 const newMessages: Message[] = [...prev, { 
                   role: 'assistant' as const, 
+                  messageId: brainResponse.messageId || brainResponse.id,
                   content: brainResponse.response ?? '',
                   isTyping: false,
                   populateOnMount: true,
@@ -2171,6 +2175,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     if (!conversationId || effectivePersonality !== 'brain') return;
     setIsOptionsMenuOpen(false);
     activeStreamRef.current?.abort();
+    chatVoice.stop();
     setBrainClearError(null);
 
     try {
@@ -2508,7 +2513,10 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             className="retro-shell-center retro-main flex flex-col min-w-0 overflow-hidden relative px-4 pb-4 pt-4"
           >
           <header className="cosmic-workspace-header">
+            <div className="cosmic-header-content">
             <h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1>
+            <ChatVoiceControl enabled={chatVoice.enabled} status={chatVoice.status} error={chatVoice.error} onToggle={chatVoice.toggle} />
+            </div>
           </header>
           {/* Screen reader live region for message updates */}
           <div
@@ -2544,6 +2552,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               
               {welcome}
               <MessageList key={conversationId} messages={messages} isGameMasterMode={isGameMasterMode} variant="desktop"
+                onListen={chatVoice.listen}
                 activeDiceRequestId={activeDiceRequestId} diceDisabled={diceBusy} onDiceRoll={handleDiceRoll} />
               
               
@@ -2639,6 +2648,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                 </button>
                 <h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1>
               </div>
+              <ChatVoiceControl enabled={chatVoice.enabled} status={chatVoice.status} error={chatVoice.error} onToggle={chatVoice.toggle} />
             </div>
 
             <div>
@@ -2835,6 +2845,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             <div ref={contentRef} className="cosmic-chat-content w-full max-w-4xl mx-auto space-y-4 flex flex-col">
                 {welcome}
               <MessageList key={conversationId} messages={messages} isGameMasterMode={isGameMasterMode} variant="mobile"
+                onListen={chatVoice.listen}
                 activeDiceRequestId={activeDiceRequestId} diceDisabled={diceBusy} onDiceRoll={handleDiceRoll} />
               
               

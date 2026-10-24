@@ -10,13 +10,20 @@ interface MessageListProps {
   activeDiceRequestId?: string | null;
   diceDisabled?: boolean;
   onDiceRoll?: (requestId: string) => void;
+  onListen?: (content: string) => void;
 }
 
-const MessageItem = memo(function MessageItem({ message, isGameMasterMode, variant, activeDiceRequestId, diceDisabled, onDiceRoll }: Omit<MessageListProps, 'messages'> & { message: Message }) {
+const MessageItem = memo(function MessageItem({ message, isGameMasterMode, variant, activeDiceRequestId, diceDisabled, onDiceRoll, onListen }: Omit<MessageListProps, 'messages'> & { message: Message }) {
   const [expanded, setExpanded] = useState(false);
   const toggle = useCallback(() => setExpanded(value => !value), []);
   if (message.diceRoll) return isGameMasterMode ? <ChatDicePrompt roll={message.diceRoll} active={message.diceRoll.requestId === activeDiceRequestId} disabled={diceDisabled} onRoll={onDiceRoll} /> : null;
-  return <MessageBubble message={message} isGameMasterMode={isGameMasterMode} variant={variant} expanded={expanded} onToggleExpanded={toggle} />;
+  return <div>
+    <MessageBubble message={message} isGameMasterMode={isGameMasterMode} variant={variant} expanded={expanded} onToggleExpanded={toggle} />
+    {onListen && message.role === 'assistant' && message.content.trim() && !message.isTyping && !message.streamError && <button
+      type="button" className="cosmic-message-listen" onClick={() => onListen(message.content)}
+      title="Hear this reply in Aaron’s voice" aria-label="Listen to this reply with Aaron">▷ <span>Listen</span>
+    </button>}
+  </div>;
 });
 
 export default memo(function MessageList({ messages, ...props }: MessageListProps) {

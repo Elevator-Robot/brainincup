@@ -3,6 +3,7 @@ import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { brain } from './functions/brain/resource';
 import { deleteAccount } from './functions/delete-account/resource';
+import { chatVoice } from './functions/chat-voice/resource';
 import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { EventSourceMapping, StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import { FunctionUrlAuthType, HttpMethod, InvokeMode } from 'aws-cdk-lib/aws-lambda';
@@ -102,6 +103,7 @@ const backend = defineBackend({
   data,
   brain,
   deleteAccount,
+  chatVoice,
 });
 
 const stack = backend.stack;
