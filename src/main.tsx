@@ -88,6 +88,7 @@ function AuthWrapper() {
   }, []);
 
   const completeSignIn = useCallback(async () => {
+    if (authenticatedRef.current) return;
     loginRequiredRef.current = true;
     await checkAuthState();
     // A sign-in event may arrive while an earlier signed-out check is finishing.
@@ -98,7 +99,10 @@ function AuthWrapper() {
     void checkAuthState();
     const unsubscribe = Hub.listen('auth', ({ payload }) => {
       if (payload.event === 'signedIn' || payload.event === 'signInWithRedirect') {
-        void completeSignIn();
+        // Brain is the sign-in destination, not an ongoing navigation lock.
+        // A late/duplicate Hub notification must not pull an active GM session
+        // or an unfinished character draft back to Brain.
+        if (!authenticatedRef.current) void completeSignIn();
       }
       if (payload.event === 'signedOut') {
         authVersionRef.current += 1;
