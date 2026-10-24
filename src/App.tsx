@@ -2389,7 +2389,11 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     return Math.min(100, 25 + sensationCount * 14 + thoughtCount * 8 + (isWaitingForResponse ? 12 : 0));
   }, [isWaitingForResponse, latestAssistantMessage]);
   // Brain's rail presence mirrors the live conversation instead of a timer.
-  const brainPresenceMood: BrainPresenceMood = !conversationId
+  const brainPresenceMood: BrainPresenceMood = chatVoice.status === 'playing'
+    ? 'speaking'
+    : chatVoice.status === 'loading'
+      ? 'thinking'
+      : !conversationId
     ? 'idle'
     : isWaitingForResponse
       ? 'thinking'
@@ -2402,6 +2406,11 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     placeholder={hasPendingRoll ? 'Resolve the requested check above…' : conversationId
       ? (isGameMasterMode ? gameMasterInputPlaceholder : 'Message Brain…')
       : (isGameMasterMode ? gameMasterInputPlaceholder : isNewInteractionPrimed ? 'New chat ready. Start typing…' : 'Start a new conversation…')} />;
+  const voiceControl = (placement: 'rail' | 'composer-tab') => <ChatVoiceControl
+    enabled={chatVoice.enabled} status={chatVoice.status} error={chatVoice.error}
+    onToggle={chatVoice.toggle} placement={placement} />;
+  // Desktop voice belongs to the stable global rail; mobile keeps it by input.
+  const composerVoiceTab = <div className="cosmic-voice-dock">{voiceControl('composer-tab')}</div>;
   const jumpToLatest = !isAtBottom && <button type="button" className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages <span aria-hidden="true">↓</span></button>;
   const welcome = messages.length === 0 && !isWaitingForResponse && (
     !userAttributes || isSelectingConversation
@@ -2432,7 +2441,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       {isDesktop ? <div className="flex flex-col h-full">
         <div className="flex-1 min-h-0 grid retro-shell" data-context-open={isContextOpen}>
         {/* Left Sidebar - full height */}
-        <aside className="retro-shell-left">
+        <aside className="retro-shell-left cosmic-command-rail" aria-label="Global navigation">
           <div className="retro-left-container retro-left-panel-icon-only relative flex h-full flex-col overflow-visible px-3">
                 <div className="flex h-full flex-col items-center gap-5 pt-4 pb-[calc(var(--site-footer-height)+1rem)]">
                   <ConversationSidebarIcons
@@ -2449,6 +2458,8 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                     isDisabled={isWaitingForResponse || isSelectingConversation}
                   />
 
+                  <div className="cosmic-rail-utilities">
+                  {voiceControl('rail')}
                   {/* Settings pinned to the foot of the rail, clear of the credit pill */}
                   <div ref={optionsMenuRef} className="relative shrink-0">
                     <button
@@ -2467,10 +2478,11 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                       aria-label="Options"
                       aria-expanded={isOptionsMenuOpen}
                       aria-controls="desktop-options-menu"
+                      title="Account and workspace settings"
                     >
                       <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-                        <circle cx="12" cy="12" r="3" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                        <path strokeLinecap="round" d="M4 7h8m6 0h2M4 17h2m6 0h8" />
+                        <circle cx="15" cy="7" r="3" /><circle cx="9" cy="17" r="3" />
                       </svg>
                     </button>
 
@@ -2505,6 +2517,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                         </div>
                     )}
                   </div>
+                  </div>
                 </div>
               </div>
             </aside>
@@ -2513,10 +2526,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             className="retro-shell-center retro-main flex flex-col min-w-0 overflow-hidden relative px-4 pb-4 pt-4"
           >
           <header className="cosmic-workspace-header">
-            <div className="cosmic-header-content">
             <h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1>
-            <ChatVoiceControl enabled={chatVoice.enabled} status={chatVoice.status} error={chatVoice.error} onToggle={chatVoice.toggle} />
-            </div>
           </header>
           {/* Screen reader live region for message updates */}
           <div
@@ -2573,7 +2583,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       </main>
 
           {isContextOpen && <aside className="retro-shell-right" aria-label={isGameMasterMode ? 'Game context' : 'Brain context'}>
-          <div className="retro-right-container flex h-full min-h-0 flex-col overflow-hidden">
+          <div className={`retro-right-container flex h-full min-h-0 flex-col overflow-hidden${!isGameMasterMode ? ' cosmic-brain-container' : ''}`}>
                 {isGameMasterMode ? (
                 characterDisplay ? (
                       <div className="retro-right-stack cosmic-fade-in flex h-full min-h-0 flex-col p-5">
@@ -2623,7 +2633,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                       </div>
                     ) : null
               ) : (
-                <BrainPresence mood={brainPresenceMood} intensity={brainPresenceIntensity} />
+                <BrainPresence mood={brainPresenceMood} intensity={brainPresenceIntensity} pokeable />
               )}
           </div>
           </aside>}
@@ -2648,7 +2658,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                 </button>
                 <h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1>
               </div>
-              <ChatVoiceControl enabled={chatVoice.enabled} status={chatVoice.status} error={chatVoice.error} onToggle={chatVoice.toggle} />
             </div>
 
             <div>
@@ -2858,6 +2867,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             <div className="retro-input-dock pt-3 pb-3 px-3 pb-safe">
               <div className="relative max-w-4xl mx-auto">
                 {jumpToLatest}
+                {composerVoiceTab}
                 {composer}
               </div>
             </div>

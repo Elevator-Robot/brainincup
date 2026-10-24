@@ -34,6 +34,6 @@ export async function generateChatSpeech(text: string, signal: AbortSignal): Pro
     }
   } catch {
     signal.throwIfAborted();
-    throw new Error('Aaron’s voice is unavailable. Please try again.');
+    throw new Error('Brain’s voice is unavailable. Please try again.');
   }
 }

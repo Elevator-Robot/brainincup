@@ -6,8 +6,7 @@ export const chatVoice = defineFunction({
   timeoutSeconds: 30,
   environment: {
     ELEVENLABS_API_KEY: secret('ELEVENLABS_API_KEY'),
-    ELEVENLABS_VOICE_NAME: 'Aaron',
-    // Optional stable ID avoids discovery if multiple voices share the name.
+    // Brain's provider voice ID is independent of its label in ElevenLabs.
     ELEVENLABS_VOICE_ID: process.env.ELEVENLABS_VOICE_ID ?? '',
   },
 });

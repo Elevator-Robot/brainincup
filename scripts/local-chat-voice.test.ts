@@ -13,13 +13,13 @@ afterEach(async () => {
 });
 
 async function start(apiKey = 'test-key') {
-  server = createServer(createLocalVoiceMiddleware({ apiKey, voiceId: 'aaron-test' }));
+  server = createServer(createLocalVoiceMiddleware({ apiKey, voiceId: 'brain-test' }));
   await new Promise<void>(resolve => server!.listen(0, '127.0.0.1', resolve));
   return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 }
 const options = (origin: string) => ({
   method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', 'X-Brain-Voice': 'local' },
-  body: JSON.stringify({ text: 'Hello from Aaron.' }),
+  body: JSON.stringify({ text: 'Hello from Brain.' }),
 });
 
 it('returns uncached audio for a same-origin loopback request without exposing the key', async () => {

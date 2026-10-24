@@ -55,7 +55,7 @@ export function createLocalVoiceMiddleware(config: VoiceConfig) {
       response.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Content-Length': bytes.length });
       response.end(bytes);
     } catch {
-      if (!controller.signal.aborted && !response.headersSent) fail(502, 'Aaron’s voice is unavailable. Check the key’s voice/TTS permissions and credit balance.');
+      if (!controller.signal.aborted && !response.headersSent) fail(502, 'Brain’s voice is unavailable. Check the voice ID, key’s TTS permissions, and credit balance.');
     } finally {
       response.removeListener('close', abort);
       busy = false;

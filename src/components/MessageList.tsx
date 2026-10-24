@@ -21,7 +21,7 @@ const MessageItem = memo(function MessageItem({ message, isGameMasterMode, varia
     <MessageBubble message={message} isGameMasterMode={isGameMasterMode} variant={variant} expanded={expanded} onToggleExpanded={toggle} />
     {onListen && message.role === 'assistant' && message.content.trim() && !message.isTyping && !message.streamError && <button
       type="button" className="cosmic-message-listen" onClick={() => onListen(message.content)}
-      title="Hear this reply in Aaron’s voice" aria-label="Listen to this reply with Aaron">▷ <span>Listen</span>
+      title="Hear Brain speak this reply" aria-label="Listen to Brain’s reply">▷ <span>Listen</span>
     </button>}
   </div>;
 });

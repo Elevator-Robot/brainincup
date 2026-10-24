@@ -29,7 +29,6 @@ export default defineConfig({
         server.middlewares.use('/__local/chat-voice', createLocalVoiceMiddleware({
           apiKey: process.env.ELEVENLABS_API_KEY || env.ELEVENLABS_API_KEY || '',
           voiceId: process.env.ELEVENLABS_VOICE_ID || env.ELEVENLABS_VOICE_ID,
-          voiceName: 'Aaron',
         }));
       },
     },

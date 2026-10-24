@@ -37,6 +37,50 @@ describe('BrainPresence', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
+  it('makes Brain keyboard-pokeable without coupling the animation to voice', () => {
+    const { rerender } = render(<BrainPresence pokeable />);
+    const brain = screen.getByRole('button', { name: 'Poke Brain' });
+    expect(brain).not.toHaveAttribute('aria-pressed');
+    expect(brain).toHaveAccessibleDescription('Give Brain a gentle poke. Voice controls are in the menu rail.');
+    fireEvent.click(brain);
+    rerender(<BrainPresence pokeable mood="speaking" />);
+    expect(screen.getByRole('button', { name: 'Poke Brain' })).toBe(brain);
+    expect(screen.queryByRole('button', { name: /Mute chat voice/ })).toBeNull();
+  });
+
+  it('squishes at the pointer without restarting the idle animation, and cancels an earlier poke', () => {
+    const { container, unmount } = render(<BrainPresence pokeable />);
+    const body = container.querySelector('.cosmic-brain-body')! as HTMLElement;
+    const contact = container.querySelector('.cosmic-brain-contact')! as HTMLElement;
+    const cancel = vi.fn();
+    const animate = vi.fn<HTMLElement['animate']>(() => ({ cancel } as unknown as Animation));
+    body.animate = animate;
+    contact.animate = animate;
+    const brain = screen.getByRole('button');
+    vi.spyOn(brain, 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 100, 200, 200));
+    const pointerDown = new Event('pointerdown', { bubbles: true });
+    Object.assign(pointerDown, { button: 0, clientX: 240, clientY: 180 });
+    fireEvent(brain, pointerDown);
+    fireEvent.click(brain, { detail: 1 });
+    expect(brain.style.getPropertyValue('--poke-x')).toBe('70%');
+    expect(animate).toHaveBeenCalledTimes(2);
+    expect(animate.mock.calls[0][0]).toEqual(expect.arrayContaining([expect.objectContaining({ offset: .14, transform: expect.stringContaining('scale(.93, 1.055)') })]));
+    fireEvent.click(brain, { detail: 0 });
+    expect(cancel).toHaveBeenCalledTimes(2);
+    expect(brain.style.getPropertyValue('--poke-x')).toBe('50%');
+    unmount();
+    expect(cancel).toHaveBeenCalledTimes(4);
+  });
+
+  it('keeps pokes motion-free when reduced motion is requested', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduced-motion'), addEventListener() {}, removeEventListener() {} }));
+    const { container } = render(<BrainPresence pokeable />);
+    const animate = vi.fn();
+    (container.querySelector('.cosmic-brain-body') as HTMLElement).animate = animate;
+    fireEvent.click(screen.getByRole('button'));
+    expect(animate).not.toHaveBeenCalled();
+  });
+
   it('gently follows an unpressed mouse within its box and resets without clearing other styles', () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: query.includes('pointer: fine'), addEventListener() {}, removeEventListener() {},
