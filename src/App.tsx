@@ -487,7 +487,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
   const [isLoadingAdventure, setIsLoadingAdventure] = useState(false);
   const [isSelectingConversation, setIsSelectingConversation] = useState(true);
-  const [showCharacterCreation, setShowCharacterCreation] = useState(false);
+  const [showCharacterCreation, setShowCharacterCreation] = useState(routeMode === 'game_master' && routeConversationId === null);
   const characterCreationLock = useRef(false);
   const adventureFetchLock = useRef<string | null>(null);
   
@@ -1116,8 +1116,8 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     }
   }, [conversationId, effectivePersonality]);
 
-  // On mount: if we have a stored conversationId (from localStorage init), load its data.
-  // If not, wait for Brain conversation to be ready and load that.
+  // Honor an explicit GM draft on mount. Otherwise load the routed conversation
+  // or wait for the account's Brain conversation to resolve.
   const initialLoadDoneRef = useRef(false);
   const previousConversationIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -1134,6 +1134,15 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
         return;
       }
 
+      // /quest/new is an explicit character-creation draft, not a missing
+      // Brain conversation. Keep it in GM mode across route remounts.
+      if (!conversationId && (routeMode ?? storedPersonalityMode) === 'game_master') {
+        initialLoadDoneRef.current = true;
+        setShowCharacterCreation(true);
+        setIsSelectingConversation(false);
+        return;
+      }
+
       if (conversationId) {
         // We have a stored conversation — load its data
         initialLoadDoneRef.current = true;
@@ -1146,7 +1155,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     }
 
     loadInitialConversation();
-  }, [userAttributes, conversationId, brainConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userAttributes, conversationId, brainConversationId, routeMode, routeConversationId, storedPersonalityMode, loadDemoConversation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!conversationId) return;
@@ -1942,7 +1951,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     onRouteChange({ conversationId, mode: effectivePersonality });
   }, [conversationId, effectivePersonality, onRouteChange]);
 
-  const handleNewConversation = async () => {
+  const handleNewConversation = () => {
     // A deliberate new adventure must win over any pending startup hydration.
     initialLoadDoneRef.current = true;
     conversationIntentRef.current += 1;
@@ -1969,15 +1978,9 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     setIsTrashDragOver(false);
     setIsNewInteractionPrimed(false);
 
-    setIsSelectingConversation(true);
-    try {
-      const createdConversationId = await createConversationWithMode(newConversationMode);
-      if (!createdConversationId) {
-        return;
-      }
-    } finally {
-      setIsSelectingConversation(false);
-    }
+    // The final creation action persists the conversation and character.
+    // Navigating away from Brain must not leave an API request running in an
+    // unmounted route or create an empty chat before the user finishes setup.
   };
 
   const createConversationWithMode = useCallback(async (modeId: string): Promise<string | null> => {
@@ -2009,8 +2012,11 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       }
 
       // Get current user for participants
-      const currentUserId = userAttributes?.sub || userAttributes?.email || 'anonymous';
-      
+      const attributes = userAttributes ?? await fetchUserAttributes();
+      const currentUserId = attributes.sub || attributes.email;
+      if (!currentUserId) throw new Error('Unable to resolve the signed-in account');
+      if (!userAttributes) setUserAttributes(attributes);
+
       console.log('Creating new conversation with user:', currentUserId, 'mode:', normalized);
       
       const { data: newConversation } = await dataClient.models.Conversation.create({
@@ -2282,6 +2288,10 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     } else if (brainConversationId) {
       setPersonalityMode('brain');
       handleSelectConversation(brainConversationId);
+    } else {
+      // Cancellation can happen before the Brain lookup finishes. The route
+      // resolves it on the Brain screen rather than stranding an empty draft.
+      setPersonalityMode('brain');
     }
   }, [conversationId, brainConversationId]);
 

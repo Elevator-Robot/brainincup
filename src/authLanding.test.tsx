@@ -4,6 +4,7 @@ import { expect, it, vi } from 'vitest';
 
 const auth = vi.hoisted(() => ({
   getUser: vi.fn(), navigate: vi.fn().mockResolvedValue(undefined),
+  success: undefined as undefined | (() => void | Promise<void>),
   listener: undefined as undefined | ((event: { payload: { event: string } }) => void),
 }));
 vi.mock('aws-amplify', () => ({ Amplify: { configure: vi.fn() } }));
@@ -15,8 +16,10 @@ vi.mock('aws-amplify/utils', () => ({ Hub: { listen: (_channel: string, listener
 } } }));
 vi.mock('./router', () => ({ router: { navigate: auth.navigate } }));
 vi.mock('./WorkspaceShell', () => ({ default: () => <p>Authenticated workspace</p> }));
-vi.mock('./components/CustomAuth', () => ({ default: ({ onAuthSuccess }: { onAuthSuccess: () => void }) =>
-  <button onClick={onAuthSuccess}>Finish sign in</button> }));
+vi.mock('./components/CustomAuth', () => ({ default: ({ onAuthSuccess }: { onAuthSuccess: () => void }) => {
+  auth.success = onAuthSuccess;
+  return <button onClick={onAuthSuccess}>Finish sign in</button>;
+} }));
 vi.mock('./components/SiteBackground', () => ({ default: () => null }));
 vi.mock('./components/SiteFooter', () => ({ default: () => null }));
 vi.mock('./components/TextArrivalEffects', () => ({ default: () => null }));
@@ -52,6 +55,15 @@ it('preserves an authenticated deep link, but sends every fresh sign-in to Brain
     expect(await screen.findByText('Authenticated workspace')).toBeInTheDocument();
     expect(auth.navigate).toHaveBeenCalledTimes(2);
     expect(auth.navigate).toHaveBeenLastCalledWith({ to: '/brain/$conversationId', params: { conversationId: 'new' }, search: true, replace: true });
+
+    // Duplicate or delayed auth notifications are not a new sign-in and must
+    // not override a deliberate move into character creation or a GM session.
+    history.replaceState(null, '', '/quest/new');
+    await act(async () => { auth.listener?.({ payload: { event: 'signedIn' } }); });
+    await act(async () => { auth.listener?.({ payload: { event: 'signInWithRedirect' } }); });
+    await act(async () => { await auth.success?.(); });
+    expect(auth.navigate).toHaveBeenCalledTimes(2);
+    expect(location.pathname).toBe('/quest/new');
   } finally {
     act(() => element.__brainInCupRoot?.unmount());
     element.remove();
