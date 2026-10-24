@@ -18,15 +18,6 @@ export const auth = defineAuth({
         },
         scopes: ['email', 'profile', 'openid']
       },
-      facebook: {
-        clientId: secret('FACEBOOK_CLIENT_ID'),
-        clientSecret: secret('FACEBOOK_CLIENT_SECRET'),
-        attributeMapping: {
-          email: 'email',
-          nickname: 'name'
-        },
-        scopes: ['email', 'public_profile']
-      },
       callbackUrls: [
         'https://brainincup.com/',
         'https://www.brainincup.com/',
