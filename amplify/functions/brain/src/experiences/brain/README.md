@@ -91,7 +91,12 @@ The schema additions, Lambda graph code, and clear-chat frontend must be release
 together. Regenerate Amplify outputs so client model introspection includes the
 new fields, and rebuild the Lambda dependency layer if required. Clear chat verifies
 the returned revision and null state before deleting history; a mixed/old schema
-fails visibly instead of claiming memory was erased. No AWS changes are applied
+fails visibly instead of claiming memory was erased. Reset operations explicitly
+select the state and revision fields; a partial mutation echo requires a verified
+read-back, and serialized AWSJSON null is treated as empty state. History cleanup
+selects only row IDs, avoiding unrelated legacy metadata failures. Stage-specific
+errors distinguish a reset failure from partial history cleanup without logging
+chat contents. Sending and duplicate clears are blocked during cleanup. No AWS changes are applied
 by implementing or running these tests.
 Inference continues through the existing regional client configuration in
 `us-east-1`; no cross-region profiles or new inference dependencies are added.
