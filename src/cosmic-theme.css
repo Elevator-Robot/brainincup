@@ -476,6 +476,7 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 .cosmic-workspace .retro-input-dock { padding-inline: calc(var(--chat-gutter) + var(--chat-content-inset)); padding-bottom: calc(var(--site-footer-height) + .75rem); }
 .cosmic-composer { width: 100%; max-width: calc(56rem - var(--chat-content-inset, .5rem) - var(--chat-content-inset, .5rem)); margin-inline: auto; }
 .cosmic-wordmark { font: 500 1.25rem/1.3 var(--rpg-font-display); letter-spacing: -.025em; color: #f6edff; }
+.cosmic-wordmark, .cosmic-wordmark * { -webkit-user-select: none; user-select: none; }
 .cosmic-wordmark strong { font-weight: 700; color: var(--cosmic-violet); }
 /* The wordmark shares the chat column's geometry so its left edge sits exactly
    on the composer's left edge. */

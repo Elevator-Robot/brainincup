@@ -14,3 +14,10 @@ it('disables selection only on native buttons, not the message disclosure role',
   expect(rule?.[1]).toContain('user-select: none');
   expect(rule?.[0]).not.toContain('[role=');
 });
+
+it('keeps the header wordmark and its emphasized text non-selectable', () => {
+  const css = readFileSync(new URL('../cosmic-theme.css', import.meta.url), 'utf8');
+  const rule = css.match(/^\.cosmic-wordmark, \.cosmic-wordmark \* \{([^}]+)\}/m);
+  expect(rule?.[1]).toContain('-webkit-user-select: none');
+  expect(rule?.[1]).toContain('user-select: none');
+});
