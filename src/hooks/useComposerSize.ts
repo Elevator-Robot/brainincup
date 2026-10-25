@@ -28,6 +28,7 @@ export function useComposerSize(value: string, textarea: RefObject<HTMLTextAreaE
       const available = container.clientWidth || minimum;
       const width = Math.min(available, Math.max(minimum, mirror.getBoundingClientRect().width + chrome));
       surface.style.setProperty('--composer-width', `${width}px`);
+      container.style.setProperty('--composer-width', `${width}px`);
     };
     const fitHeight = () => {
       input.style.height = 'auto';

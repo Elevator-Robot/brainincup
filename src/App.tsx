@@ -33,6 +33,7 @@ import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
 import OptionsMenuContent from './components/OptionsMenu';
 import ChatVoiceControl from './components/ChatVoiceControl';
+import ChatActivity from './components/ChatActivity';
 import { clearBrainChat, ClearBrainChatError } from './api/clearBrainChat';
 import { useChatVoice } from './hooks/useChatVoice';
 import CharacterCreation, { type CharacterCreationInput } from './components/CharacterCreation';
@@ -1779,7 +1780,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
 
     const userMessage = content.trim();
     setIsNewInteractionPrimed(false);
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setMessages(prev => [...prev, { role: 'user', content: userMessage, populateOnMount: true }]);
     scrollToLatest();
 
     // Task 11.2 — optimistic XP update: apply a small baseline XP gain immediately
@@ -2400,7 +2401,8 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   );
 
   return (
-    <div className={`retro-rpg-ui cosmic-workspace ${appThemeClass} h-dvh overflow-hidden relative`}>
+    <div className={`retro-rpg-ui cosmic-workspace ${appThemeClass} h-dvh overflow-hidden relative`}
+      data-chat-state={isWaitingForResponse ? 'thinking' : hasTypingMessage ? 'responding' : 'ready'}>
 
       {/* Workspace operation error toast. */}
       {(playerStateError || brainClearError) && (
@@ -2514,7 +2516,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             aria-atomic="true"
             className="sr-only"
           >
-            {isWaitingForResponse && 'AI is thinking...'}
             {messages.length > 0 && `Chat has ${messages.length} messages`}
           </div>
 
@@ -2544,6 +2545,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               <MessageList key={conversationId} messages={messages} isGameMasterMode={isGameMasterMode} variant="desktop"
                 onListen={chatVoice.listen}
                 activeDiceRequestId={activeDiceRequestId} diceDisabled={diceBusy} onDiceRoll={handleDiceRoll} />
+              <ChatActivity active={isWaitingForResponse} />
               
               
                   
@@ -2819,7 +2821,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
           aria-atomic="true"
           className="sr-only"
         >
-          {isWaitingForResponse && 'AI is thinking...'}
           {messages.length > 0 && `Chat has ${messages.length} messages`}
         </div>
 
@@ -2836,6 +2837,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               <MessageList key={conversationId} messages={messages} isGameMasterMode={isGameMasterMode} variant="mobile"
                 onListen={chatVoice.listen}
                 activeDiceRequestId={activeDiceRequestId} diceDisabled={diceBusy} onDiceRoll={handleDiceRoll} />
+              <ChatActivity active={isWaitingForResponse} />
               
               
               <div aria-hidden="true" />

@@ -117,7 +117,8 @@ export const MessageBubble = memo(function MessageBubble({
   );
 
   return (
-    <div className={`retro-message-row flex ${isDesktop ? 'gap-4' : 'gap-3'} ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
+    <div className={`retro-message-row flex ${isDesktop ? 'gap-4' : 'gap-3'} ${role === 'user' ? 'justify-end' : 'justify-start'}`}
+      data-message-role={role} data-message-arriving={message.populateOnMount || undefined} data-message-streaming={message.isTyping || undefined}>
       <div
         ref={containerRef}
         className={`flex min-w-0 flex-col gap-2 ${role === 'assistant' ? 'w-full' : isDesktop ? 'max-w-[85%] sm:max-w-[75%]' : 'max-w-[85%]'}`}
@@ -130,13 +131,14 @@ export const MessageBubble = memo(function MessageBubble({
           } ${populating ? 'animate-text-populate' : ''}`}
         >
           <div className={isDesktop ? 'break-words' : 'break-words text-sm'}>
-            <span className={`mb-1 block uppercase text-brand-text-muted ${
+            <span className={`cosmic-message-sender mb-1 uppercase text-brand-text-muted ${
               isDesktop ? 'text-[11px] tracking-[0.22em]' : 'text-[10px] tracking-[0.2em]'
             } ${role === 'user' ? 'text-brand-accent-secondary' : ''}`}>
+              <span className="cosmic-sender-light" aria-hidden="true" />
               {role === 'user' ? 'You' : 'Brain'}
             </span>
             <div
-              className={hasInsights ? 'cosmic-insight-trigger' : undefined}
+              className={`cosmic-chat-prose${hasInsights ? ' cosmic-insight-trigger' : ''}`}
               role={hasInsights ? 'button' : undefined}
               tabIndex={hasInsights ? 0 : undefined}
               aria-expanded={hasInsights ? expanded : undefined}

@@ -49,7 +49,8 @@ describe('thoughts unfold from the message', () => {
 
   it('does not imply hidden thoughts when no details exist', () => {
     render(<MessageList messages={[{ role: 'assistant', content: 'Just a message.' }]} isGameMasterMode={false} variant="desktop" />);
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Just a message.' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy reply' })).toBeInTheDocument();
     expect(document.querySelector('.cosmic-insight-trigger')).toBeNull();
   });
 });

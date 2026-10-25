@@ -2,6 +2,9 @@
 
 Keep repository instructions minimal.
 
+- During UI work, keep a local demo running and open it for the user; always
+  provide a demo link with visual changes.
+
 - Keep AWS workloads and model inference in `us-east-1`. Do not use cross-region
   inference profiles (`us.`, `global.`, etc.) or expand regional SCP permissions.
 

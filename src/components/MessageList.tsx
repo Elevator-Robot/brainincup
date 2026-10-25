@@ -2,6 +2,7 @@ import { memo, useCallback, useState } from 'react';
 import { MessageBubble, type Message } from './MessageBubble';
 import ChatDicePrompt from './ChatDicePrompt';
 import { isDiceResultPayload } from '../utils/diceRolls';
+import MessageActions from './MessageActions';
 
 interface MessageListProps {
   messages: Message[];
@@ -19,10 +20,7 @@ const MessageItem = memo(function MessageItem({ message, isGameMasterMode, varia
   if (message.diceRoll) return isGameMasterMode ? <ChatDicePrompt roll={message.diceRoll} active={message.diceRoll.requestId === activeDiceRequestId} disabled={diceDisabled} onRoll={onDiceRoll} /> : null;
   return <div>
     <MessageBubble message={message} isGameMasterMode={isGameMasterMode} variant={variant} expanded={expanded} onToggleExpanded={toggle} />
-    {onListen && message.role === 'assistant' && message.content.trim() && !message.isTyping && !message.streamError && <button
-      type="button" className="cosmic-message-listen" onClick={() => onListen(message.content)}
-      title="Hear Brain speak this reply" aria-label="Listen to Brain’s reply">▷ <span>Listen</span>
-    </button>}
+    {message.role === 'assistant' && message.content.trim() && !message.isTyping && !message.streamError && <MessageActions content={message.content} onListen={onListen} />}
   </div>;
 });
 

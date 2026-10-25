@@ -79,6 +79,19 @@ describe('slash palette', () => {
 });
 
 describe('action wheel', () => {
+  it('opens from the discoverable Actions button without overwriting or sending the draft', () => {
+    const { draft, input } = renderComposer('I pause to listen.');
+    const button = screen.getByRole('button', { name: 'Browse chat actions' });
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('dialog', { name: 'Adventure actions' })).toBeInTheDocument();
+    expect(draft.current).toBe('I pause to listen.');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(input).toHaveFocus();
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(defaults.onSend).not.toHaveBeenCalled();
+  });
+
   it('opens on right-click and appends the chosen action to the draft', () => {
     const { draft, input } = renderComposer('I keep my lantern raised.');
     fireEvent.contextMenu(input.closest('[data-composer-shell]') as HTMLElement, { clientX: 120, clientY: 90 });

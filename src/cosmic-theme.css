@@ -9,7 +9,7 @@
   --cosmic-border: rgb(187 184 244 / 20%);
   --cosmic-glass: linear-gradient(145deg, rgb(40 32 74 / 78%), rgb(13 23 43 / 86%));
   --cosmic-frame-surface: #0e1325;
-  --cosmic-reading-tint: rgb(10 16 33 / 72%);
+  --cosmic-reading-tint: rgb(10 16 33 / 59%);
   --cosmic-control: linear-gradient(135deg, rgb(110 77 165 / 24%), rgb(48 86 115 / 22%));
   --cosmic-primary: linear-gradient(135deg, #8254c7, #5458ad 60%, #387a99);
   --cosmic-shadow: inset 0 1px 0 rgb(237 224 255 / 8%), 0 8px 24px rgb(2 5 18 / 16%);
@@ -110,6 +110,19 @@ body::before { display: none; }
   animation: nebula-drift 44s ease-in-out infinite;
   will-change: transform;
 }
+.site-background-depth { position: absolute; inset: -2%; transform: translate3d(calc(var(--ambient-x, 0px) * -.55), calc(var(--ambient-y, 0px) * -.55), 0); }
+.site-background-bloom { position: absolute; inset: -5%; background: radial-gradient(ellipse at 24% 24%, rgb(167 102 243 / 20%), transparent 42%), radial-gradient(ellipse at 77% 66%, rgb(var(--cosmic-accent-rgb) / 19%), transparent 44%); transform: translate3d(var(--ambient-x, 0px), var(--ambient-y, 0px), 0); opacity: .5; transition: opacity 1200ms ease; }
+.site-background-dust { position: absolute; inset: 0; transform: translate3d(calc(var(--ambient-x, 0px) * .3), calc(var(--ambient-y, 0px) * .3), 0); }
+.site-background-dust i { position: absolute; width: var(--dust-size); height: var(--dust-size); border-radius: 50%; background: var(--cosmic-violet); box-shadow: 0 0 8px rgb(196 173 255 / 30%); opacity: .2; animation: cosmic-dust-breathe 9s ease-in-out var(--dust-delay) infinite alternate; }
+body:has(.cosmic-composer:focus-within) .site-background-bloom,
+body:has(.cosmic-workspace[data-chat-state="thinking"]) .site-background-bloom,
+body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom { opacity: .95; }
+@keyframes cosmic-dust-breathe { from { opacity: .12; } to { opacity: .55; } }
+.site-background[data-paused] * { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .site-background-depth, .site-background-bloom, .site-background-dust { transform: none; transition: none; }
+  .site-background-dust i { animation: none; opacity: .25; }
+}
 .site-background::before {
   content: ''; position: absolute; inset: -12%; z-index: 1; pointer-events: none;
   background: radial-gradient(ellipse at 18% 30%, rgb(170 102 243 / 30%), transparent 48%),
@@ -131,7 +144,7 @@ body::before { display: none; }
   content: ''; position: absolute; inset: 0; z-index: 2;
   /* Shade the complete backdrop, not individual panes, so exposed gaps match. */
   background: linear-gradient(var(--cosmic-reading-tint), var(--cosmic-reading-tint)),
-    radial-gradient(ellipse at 48% 47%, rgb(6 10 25 / 30%), transparent 70%),
+    radial-gradient(ellipse at 48% 47%, rgb(6 10 25 / 24%), transparent 70%),
     linear-gradient(180deg, rgb(8 12 28 / 8%), transparent 25%, transparent 75%, rgb(8 12 28 / 18%));
 }
 .retro-rpg-ui, .retro-app { background: transparent; color: var(--cosmic-text); }
@@ -183,13 +196,44 @@ body::before { display: none; }
   border-radius: 0;
 }
 .retro-message-user {
-  background: rgb(160 132 225 / 12%);
-  border-radius: .375rem;
+  background: linear-gradient(140deg, rgb(160 132 225 / 17%), rgb(99 119 180 / 9%));
+  border-radius: 1.2rem 1.2rem .4rem 1.2rem;
+  box-shadow: inset 0 1px 0 rgb(224 214 255 / 8%), 0 8px 24px rgb(2 5 18 / 7%);
 }
 .retro-message-assistant { padding: .25rem 0; }
 .retro-message:hover { box-shadow: none; }
 .retro-message pre { background: #080e20; border: 1px solid var(--cosmic-border); border-radius: .75rem; }
 .retro-message a { color: var(--cosmic-cyan); text-decoration: underline; text-underline-offset: 3px; }
+.retro-message-row { position: relative; isolation: isolate; }
+.retro-message-row[data-message-role="assistant"]::before { content: ''; position: absolute; inset: -.75rem -1rem; z-index: -1; pointer-events: none; border-radius: 1.2rem; background: radial-gradient(ellipse at 0 20%, rgb(var(--cosmic-accent-rgb) / 4%), transparent 70%); opacity: 0; transition: opacity 400ms ease; }
+.retro-message-row[data-message-role="assistant"]:is(:hover, :focus-within)::before { opacity: 1; }
+.retro-message-row[data-message-arriving] { animation: cosmic-message-settle 420ms var(--cosmic-ease) both; }
+.cosmic-message-sender { display: flex; align-items: center; gap: .55rem; margin-bottom: .55rem; }
+.cosmic-chat-prose { line-height: 1.8; }
+.cosmic-chat-prose p { margin-bottom: .65rem !important; }
+.cosmic-chat-prose p:last-child { margin-bottom: 0 !important; }
+.cosmic-chat-prose :is(h1, h2, h3) { margin-top: 1rem; margin-bottom: .45rem; }
+.cosmic-sender-light { width: 4px; height: 4px; flex: none; border-radius: 50%; background: var(--cosmic-violet); opacity: .55; }
+[data-message-role="assistant"] .cosmic-sender-light { background: var(--cosmic-cyan); box-shadow: 0 0 8px rgb(var(--cosmic-accent-rgb) / 25%); }
+[data-message-streaming] .cosmic-sender-light { animation: cosmic-signal-breathe 1800ms ease-in-out infinite; }
+.cosmic-message-actions { display: flex; align-items: center; gap: .25rem; margin-top: .25rem; }
+.cosmic-message-actions button { display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; padding: .45rem .7rem; border-radius: .7rem; color: var(--cosmic-muted); font-size: .7rem; opacity: .65; transition: opacity 180ms ease, color 180ms ease, background 180ms ease; }
+.cosmic-message-actions button:is(:hover, :focus-visible), .cosmic-message-actions button[data-copied="true"] { opacity: 1; color: var(--cosmic-cyan); background: rgb(var(--cosmic-accent-rgb) / 6%); }
+.cosmic-copy-error { color: var(--cosmic-muted); font-size: .7rem; }
+.cosmic-chat-activity { display: flex; align-items: center; gap: .75rem; min-height: 44px; padding: .25rem 0; color: var(--cosmic-muted); font-size: .75rem; animation: cosmic-fade-in 240ms ease both; }
+.cosmic-activity-dots { display: flex; align-items: center; gap: 4px; width: 25px; height: 18px; }
+.cosmic-activity-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--cosmic-cyan); animation: cosmic-thinking-current 1400ms ease-in-out infinite; }
+.cosmic-activity-dots i:nth-child(2) { animation-delay: 160ms; }
+.cosmic-activity-dots i:nth-child(3) { animation-delay: 320ms; }
+.cosmic-chat-activity[data-paused] i { animation-play-state: paused; }
+@keyframes cosmic-message-settle { from { opacity: .5; transform: translate3d(0, 7px, 0); } to { opacity: 1; transform: none; } }
+@keyframes cosmic-signal-breathe { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+@keyframes cosmic-thinking-current { 0%, 70%, 100% { opacity: .35; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-3px); } }
+@media (hover: none) { .cosmic-message-actions button { opacity: .85; } }
+@media (prefers-reduced-motion: reduce) {
+  .retro-message-row[data-message-arriving], [data-message-streaming] .cosmic-sender-light, .cosmic-activity-dots i, .cosmic-chat-activity { animation: none; }
+  .retro-message-row::before, .cosmic-message-actions button { transition: none; }
+}
 
 /* Reusable glass controls and purple primary actions. */
 .retro-icon-button, .retro-input-action, .retro-side-action, .retro-sidebar-action,
@@ -573,6 +617,14 @@ body::before { display: none; }
 .retro-rpg-ui .cosmic-composer .retro-input-textarea:is(:focus, :focus-visible) { outline: none !important; border: 0 !important; box-shadow: none !important; -webkit-box-shadow: none !important; --tw-ring-shadow: 0 0 #0000; --tw-ring-offset-shadow: 0 0 #0000; background: transparent !important; }
 .cosmic-composer-hint { min-height: 1rem; margin-top: .5rem; color: var(--cosmic-muted); font-size: .6875rem; text-align: left; }
 .cosmic-composer-hint kbd { font: inherit; color: #d5c9ec; }
+.cosmic-composer-meta { display: flex; align-items: center; justify-content: space-between; width: min(100%, var(--composer-width, 20rem)); max-width: 100%; min-height: 44px; gap: .5rem; }
+.cosmic-composer-meta .cosmic-composer-hint { margin: 0; font-size: .625rem; }
+.cosmic-composer-actions { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: .35rem; min-height: 44px; padding: .3rem .5rem; color: var(--cosmic-muted); font-size: .6875rem; border-radius: .65rem; transition: background 180ms, color 180ms; }
+.cosmic-composer-actions:is(:hover, :focus-visible):not(:disabled) { color: var(--cosmic-cyan); background: rgb(var(--cosmic-accent-rgb) / 6%); }
+.cosmic-composer-actions:disabled { opacity: .4; }
+.cosmic-composer[data-composer-state="ready"] .retro-send-button { background: linear-gradient(140deg, rgb(196 173 255 / 22%), rgb(var(--cosmic-accent-rgb) / 12%)); border-color: rgb(196 173 255 / 35%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%), 0 5px 20px -9px rgb(140 236 243 / 30%); }
+.cosmic-composer .retro-send-button:active:not(:disabled) { transform: scale(.93); }
+@media (prefers-reduced-motion: reduce) { .cosmic-composer-actions { transition: none; } .cosmic-composer .retro-send-button:active:not(:disabled) { transform: none; } }
 
 /* A dedicated pre-adventure surface: creation never occupies the context rail
    or replaces the chat window. The native dialog keeps the workspace inert. */
