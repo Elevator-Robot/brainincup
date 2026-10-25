@@ -167,6 +167,9 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
   outline: 2px solid var(--cosmic-violet); outline-offset: 3px;
 }
 .retro-rpg-ui ::selection { background: rgb(139 92 246 / 45%); color: #fff; }
+/* Native controls are actions, not selectable prose. Do not target ARIA
+   buttons: message text uses that role and must remain selectable. */
+button, button * { -webkit-user-select: none; user-select: none; }
 /* Placeholder hints are decoration, never selectable draft/message content. */
 input::placeholder, textarea::placeholder { -webkit-user-select: none; user-select: none; pointer-events: none; }
 [data-ui-placeholder], [data-ui-placeholder] * { -webkit-user-select: none; user-select: none; pointer-events: none; }
