@@ -15,7 +15,9 @@ Supply a `ChatComposerConfiguration` from an experience adapter:
 - Accessible input label.
 - A completion function, which may return an empty string.
 
-Keep placeholders, welcome content, and conversation lifecycle in the controller.
+Keep input placeholders and conversation lifecycle in the controller. Empty
+transcripts deliberately show no welcome heading or conversation-starter cards;
+actual introductory narration belongs in a real message, not a separate surface.
 Pass prepared messages and an optional `renderExtension` to `ChatTranscript`.
 An extension returns `undefined` for ordinary messages, a React element for a
 domain-specific control, or `null` to hide that control. Never copy the transcript

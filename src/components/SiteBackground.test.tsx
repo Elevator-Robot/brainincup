@@ -31,7 +31,8 @@ it('preserves the shared nebula and keeps decorative depth out of the accessibil
   expect(container.firstChild).toHaveAttribute('aria-hidden', 'true');
   expect(container.querySelector('img')).toHaveAttribute('src', '/images/workspace-nebula.svg');
   expect(container.querySelectorAll('.site-background-dust i')).toHaveLength(12);
-  expect(container.querySelector('video, canvas')).toBeNull();
+  expect(container.querySelector('video')).toBeNull();
+  expect(container.querySelector('.cosmic-nebula-canvas')).toHaveAttribute('aria-hidden', 'true');
 });
 it('eases within a small bounded range, then stops requesting frames', () => {
   const { container } = render(<SiteBackground />);

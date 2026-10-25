@@ -116,6 +116,15 @@ body::before { display: none; }
 .site-background-bloom { position: absolute; inset: -5%; background: radial-gradient(ellipse at 24% 24%, rgb(167 102 243 / 20%), transparent 42%), radial-gradient(ellipse at 77% 66%, rgb(var(--cosmic-accent-rgb) / 19%), transparent 44%); transform: translate3d(var(--ambient-x, 0px), var(--ambient-y, 0px), 0); opacity: .5; transition: opacity 1200ms ease; }
 .site-background-dust { position: absolute; inset: 0; transform: translate3d(calc(var(--ambient-x, 0px) * .3), calc(var(--ambient-y, 0px) * .3), 0); }
 .site-background-dust i { position: absolute; width: var(--dust-size); height: var(--dust-size); border-radius: 50%; background: var(--cosmic-violet); box-shadow: 0 0 8px rgb(196 173 255 / 30%); opacity: .2; animation: cosmic-dust-breathe 9s ease-in-out var(--dust-delay) infinite alternate; }
+.cosmic-nebula-canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; transition: opacity 1400ms ease; }
+.cosmic-nebula-canvas[data-ready="true"] { opacity: 1; }
+.site-background:has(.cosmic-nebula-canvas[data-ready="true"]) { --cosmic-reading-tint: rgb(7 12 27 / 26%); }
+.site-background:has(.cosmic-nebula-canvas[data-ready="true"]) :is(.site-background-depth, .site-background-dust) { opacity: 0; }
+.site-background:has(.cosmic-nebula-canvas[data-ready="true"]) :is(.site-background-nebula, .site-background-dust i) { animation-play-state: paused; will-change: auto; }
+.site-background:has(.cosmic-nebula-canvas[data-ready="true"])::before { opacity: .12; animation: none; }
+.site-background:has(.cosmic-nebula-canvas[data-ready="true"]) .site-background-bloom { opacity: .12; }
+.site-background-depth, .site-background-dust { transition: opacity 1400ms ease; }
+.site-background:has(.cosmic-nebula-canvas[data-context-lost]) .site-background-depth { opacity: 1; transition: none; }
 body:has(.cosmic-composer:focus-within) .site-background-bloom,
 body:has(.cosmic-workspace[data-chat-state="thinking"]) .site-background-bloom,
 body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom { opacity: .95; }
@@ -124,6 +133,7 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
 @media (prefers-reduced-motion: reduce) {
   .site-background-depth, .site-background-bloom, .site-background-dust { transform: none; transition: none; }
   .site-background-dust i { animation: none; opacity: .25; }
+  .cosmic-nebula-canvas, .site-background-depth, .site-background-dust { transition: none; }
 }
 .site-background::before {
   content: ''; position: absolute; inset: -12%; z-index: 1; pointer-events: none;
@@ -585,13 +595,6 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 }
 .cosmic-chat-scroll { min-width: 0; min-height: 0; overscroll-behavior: none; scrollbar-gutter: stable; overflow-anchor: none; }
 .cosmic-chat-content { padding: 1.75rem var(--chat-content-inset, .5rem); }
-.cosmic-welcome { display: flex; flex-direction: column; justify-content: center; width: min(100%, 28rem); min-height: min(52dvh, 30rem); margin-inline: auto; padding: 2rem 1rem; }
-.cosmic-welcome h2 { margin: 0 0 1rem; color: #f3ecff; font-size: 1.5rem; font-weight: 500; line-height: 1.3; letter-spacing: -.025em; }
-.cosmic-welcome > p { color: var(--cosmic-muted); font-size: .875rem; line-height: 1.7; }
-.cosmic-prompt-list { display: flex; flex-direction: column; margin-top: .5rem; }
-.cosmic-prompt-list button { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 48px; padding: .75rem 0; border: 0; border-bottom: 1px solid var(--cosmic-border); border-radius: 0; background: transparent; color: #dcd5ee; text-align: left; font-size: .875rem; transition: color 180ms ease; }
-.cosmic-prompt-list button:hover { color: var(--cosmic-cyan); }
-.cosmic-prompt-list button span { color: var(--cosmic-cyan); }
 .retro-message-row > div { min-width: 0; }
 .retro-message { overflow-wrap: anywhere; }
 .retro-message table { display: block; max-width: 100%; overflow-x: auto; }

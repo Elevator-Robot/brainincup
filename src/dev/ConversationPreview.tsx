@@ -6,7 +6,6 @@ import ChatTranscript from '../components/ChatTranscript';
 import { BRAIN_CHAT, GAME_MASTER_CHAT } from '../chat/experienceAdapters';
 import { gameMasterMessageExtension, visibleGameMasterMessages } from '../chat/gameMasterMessages';
 import ChatComposer, { type ChatComposerHandle } from '../components/ChatComposer';
-import ChatWelcome from '../components/ChatWelcome';
 import { useChatDiceRolls } from '../hooks/useChatDiceRolls';
 import type { DiceRollRequest } from '../utils/diceRolls';
 import { useChatScroll } from '../hooks/useChatScroll';
@@ -81,7 +80,6 @@ export default function ConversationPreview() {
         <main className="retro-shell-center min-w-0 overflow-hidden px-2 py-4 sm:px-4 max-lg:!col-start-1">
           <header className="cosmic-workspace-header"><h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1></header>
           <ChatTranscript messages={empty ? [] : thoughts ? conversation : visibleGameMasterMessages(conversation)} scrollRef={scrollRef} contentRef={contentRef}
-            beforeMessages={empty ? <ChatWelcome isGameMasterMode onPrompt={prompt => { composer.current?.clear(); composer.current?.append(prompt); composer.current?.focus(); }} /> : undefined}
             renderExtension={gameMasterMessageExtension({ activeRequestId: activeRequestId, onRoll: roll })} />
           <div className="retro-input-dock relative px-2 pt-4 sm:px-6">
             {!isAtBottom && <button className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages ↓</button>}

@@ -24,7 +24,6 @@ import { streamAgentMessage, type AguiEvent } from './utils/aguiStream';
 import type { Message } from './components/MessageBubble';
 import ChatTranscript from './components/ChatTranscript';
 import ChatComposer, { type ChatComposerHandle } from './components/ChatComposer';
-import ChatWelcome from './components/ChatWelcome';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useChatScroll } from './hooks/useChatScroll';
 import { useChatDiceRolls } from './hooks/useChatDiceRolls';
@@ -438,7 +437,8 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     setBrainConversationId(brain.BRAIN_DEMO_CONVERSATION_ID);
     setConversationId(isBrain ? brain.BRAIN_DEMO_CONVERSATION_ID : customAdventure ? requestedId ?? null : gm.DEMO_CONVERSATION_ID);
     setStoredPersonalityMode(mode);
-    setMessages(isBrain ? brain.brainDemoMessages : customAdventure ? loadCachedMessages(requestedId ?? '') ?? [] : gm.demoMessages);
+    const emptyDemo = new URLSearchParams(window.location.search).get('empty') === 'true';
+    setMessages(emptyDemo ? [] : isBrain ? brain.brainDemoMessages : customAdventure ? loadCachedMessages(requestedId ?? '') ?? [] : gm.demoMessages);
     setCharacterState(isBrain ? null : customAdventure ? savedCharacter ?? null : gm.demoCharacter);
     setAdventureState(isBrain || customAdventure ? null : gm.demoAdventure);
     setQuestContext(isBrain || customAdventure ? null : { conversationId: gm.DEMO_CONVERSATION_ID, quests: gm.demoQuests });
@@ -2220,19 +2220,13 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   // Desktop voice belongs to the stable global rail; mobile keeps it by input.
   const composerVoiceTab = <div className="cosmic-voice-dock">{voiceControl('composer-tab')}</div>;
   const jumpToLatest = !isAtBottom && <button type="button" className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages <span aria-hidden="true">↓</span></button>;
-  const welcome = messages.length === 0 && !isWaitingForResponse && (
-    !userAttributes || isSelectingConversation
-      ? null
-      : <ChatWelcome isGameMasterMode={isGameMasterMode} isSettingUp={showGameMasterCharacterFlow || isGameMasterCharacterRequired}
-        onPrompt={prompt => { composerRef.current?.clear(); composerRef.current?.append(prompt); composerRef.current?.focus(); }} />
-  );
   const transcriptMessages = useMemo(() => isGameMasterMode ? visibleGameMasterMessages(messages) : messages, [isGameMasterMode, messages]);
   const renderChatExtension = useMemo(() => isGameMasterMode
     ? gameMasterMessageExtension({ activeRequestId: activeDiceRequestId, disabled: diceBusy, onRoll: handleDiceRoll })
     : undefined, [isGameMasterMode, activeDiceRequestId, diceBusy, handleDiceRoll]);
   const transcript = <ChatTranscript conversationId={conversationId}
     messages={transcriptMessages}
-    waiting={isWaitingForResponse} beforeMessages={welcome} scrollRef={scrollRef} contentRef={contentRef}
+    waiting={isWaitingForResponse} scrollRef={scrollRef} contentRef={contentRef}
     onListen={chatVoice.listen} renderExtension={renderChatExtension} />;
 
   return (
