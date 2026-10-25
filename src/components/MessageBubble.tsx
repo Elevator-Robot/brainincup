@@ -37,8 +37,6 @@ export interface Message {
 
 interface MessageBubbleProps {
   message: Message;
-  isGameMasterMode: boolean;
-  variant: 'desktop' | 'mobile';
   expanded: boolean;
   onToggleExpanded: () => void;
   containerRef?: (el: HTMLDivElement | null) => void;
@@ -84,9 +82,8 @@ const MarkdownContent = memo(function MarkdownContent({ content }: { content: st
 
 /** One shared, memoized chat bubble for desktop and mobile. */
 export const MessageBubble = memo(function MessageBubble({
-  message, isGameMasterMode, variant, expanded, onToggleExpanded, containerRef,
+  message, expanded, onToggleExpanded, containerRef,
 }: MessageBubbleProps) {
-  const isDesktop = variant === 'desktop';
   const { role } = message;
   const visibleContent = useTypewriterText(
     message.content,
@@ -104,24 +101,24 @@ export const MessageBubble = memo(function MessageBubble({
     return () => window.clearTimeout(timer);
   }, [populating]);
 
-  const detailCardClass = `rounded-lg bg-brand-surface-elevated/30 border border-brand-surface-border/50 ${isDesktop ? 'p-3' : 'p-2.5'}`;
-  const detailTitleClass = `font-medium flex items-center text-brand-text-primary ${isDesktop ? 'text-sm mb-2 gap-2' : 'text-xs mb-1.5 gap-1.5'}`;
-  const detailIconClass = isDesktop ? 'w-4 h-4' : 'w-3.5 h-3.5';
-  const detailTextClass = `text-brand-text-muted leading-relaxed ${isDesktop ? 'text-sm' : 'text-xs'}`;
-  const detailListClass = `${isDesktop ? 'text-sm space-y-1.5 ml-6' : 'text-xs space-y-1 ml-5'} text-brand-text-muted`;
+  const detailCardClass = 'rounded-lg bg-brand-surface-elevated/30 border border-brand-surface-border/50 p-2.5 lg:p-3';
+  const detailTitleClass = 'font-medium flex items-center text-brand-text-primary text-xs lg:text-sm mb-1.5 lg:mb-2 gap-1.5 lg:gap-2';
+  const detailIconClass = 'w-3.5 h-3.5 lg:w-4 lg:h-4';
+  const detailTextClass = 'text-brand-text-muted leading-relaxed text-xs lg:text-sm';
+  const detailListClass = 'text-xs lg:text-sm space-y-1 lg:space-y-1.5 ml-5 lg:ml-6 text-brand-text-muted';
   const insightsId = useId();
   const hintId = useId();
-  const hasInsights = !isGameMasterMode && role === 'assistant' && Boolean(
+  const hasInsights = role === 'assistant' && Boolean(
     [message.reasoning, message.memories, message.selfReflection].some(value => value?.trim())
     || message.sensations?.some(value => value.trim()) || message.thoughts?.some(value => value.trim()),
   );
 
   return (
-    <div className={`retro-message-row flex ${isDesktop ? 'gap-4' : 'gap-3'} ${role === 'user' ? 'justify-end' : 'justify-start'}`}
+    <div className={`retro-message-row flex gap-3 lg:gap-4 ${role === 'user' ? 'justify-end' : 'justify-start'}`}
       data-message-role={role} data-message-arriving={message.populateOnMount || undefined} data-message-streaming={message.isTyping || undefined}>
       <div
         ref={containerRef}
-        className={`flex min-w-0 flex-col gap-2 ${role === 'assistant' ? 'w-full' : isDesktop ? 'max-w-[85%] sm:max-w-[75%]' : 'max-w-[85%]'}`}
+        className={`flex min-w-0 flex-col gap-2 ${role === 'assistant' ? 'w-full' : 'max-w-[85%] lg:max-w-[75%]'}`}
       >
         <div
           className={`retro-message message-bubble rounded-2xl px-4 py-3 ${
@@ -130,10 +127,8 @@ export const MessageBubble = memo(function MessageBubble({
               : 'retro-message-assistant text-brand-text-primary'
           } ${populating ? 'animate-text-populate' : ''}`}
         >
-          <div className={isDesktop ? 'break-words' : 'break-words text-sm'}>
-            <span className={`cosmic-message-sender mb-1 uppercase text-brand-text-muted ${
-              isDesktop ? 'text-[11px] tracking-[0.22em]' : 'text-[10px] tracking-[0.2em]'
-            } ${role === 'user' ? 'text-brand-accent-secondary' : ''}`}>
+          <div className="break-words text-sm lg:text-[.9375rem]">
+            <span className={`cosmic-message-sender mb-1 uppercase text-brand-text-muted text-[10px] lg:text-[11px] tracking-[0.2em] lg:tracking-[0.22em] ${role === 'user' ? 'text-brand-accent-secondary' : ''}`}>
               <span className="cosmic-sender-light" aria-hidden="true" />
               {role === 'user' ? 'You' : 'Brain'}
               {hasInsights && <button type="button" className="cosmic-message-affordance" data-expanded={expanded}
@@ -209,7 +204,7 @@ export const MessageBubble = memo(function MessageBubble({
             </div>
           )}
 
-          {/* Show additional details when expanded (Brain only) */}
+          {/* Identical disclosure behavior whenever a message carries details. */}
           {hasInsights && (
             <div id={insightsId} className="cosmic-message-insights" data-expanded={expanded}
               ref={node => { if (node) node.inert = !expanded; }}

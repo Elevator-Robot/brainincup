@@ -1,13 +1,14 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ChatComposer from '../ChatComposer';
+import { GAME_MASTER_CHAT } from '../../chat/experienceAdapters';
 
 const defaults = {
   onSend: vi.fn().mockResolvedValue(true),
   isLocked: false,
   isWaiting: false,
   isPrimed: false,
-  isGameMasterMode: true,
+  configuration: GAME_MASTER_CHAT,
   placeholder: 'Your next action',
 };
 
@@ -84,7 +85,7 @@ describe('action wheel', () => {
     const button = screen.getByRole('button', { name: 'Browse chat actions' });
     fireEvent.click(button);
     expect(button).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('dialog', { name: 'Adventure actions' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Chat actions' })).toBeInTheDocument();
     expect(draft.current).toBe('I pause to listen.');
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(input).toHaveFocus();
@@ -95,11 +96,11 @@ describe('action wheel', () => {
   it('opens on right-click and appends the chosen action to the draft', () => {
     const { draft, input } = renderComposer('I keep my lantern raised.');
     fireEvent.contextMenu(input.closest('[data-composer-shell]') as HTMLElement, { clientX: 120, clientY: 90 });
-    expect(screen.getByRole('dialog', { name: 'Adventure actions' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Chat actions' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect(draft.current).toBe('I keep my lantern raised.\nI search the area for anything useful or out of place.');
     expect(input).toHaveFocus();
-    expect(screen.queryByRole('dialog', { name: 'Adventure actions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Chat actions' })).not.toBeInTheDocument();
     expect(defaults.onSend).not.toHaveBeenCalled();
   });
 
@@ -107,6 +108,6 @@ describe('action wheel', () => {
     const draft = { current: '' };
     render(<ChatComposer {...defaults} isLocked draft={draft} />);
     fireEvent.contextMenu(screen.getByRole('textbox').closest('[data-composer-shell]') as HTMLElement);
-    expect(screen.queryByRole('dialog', { name: 'Adventure actions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Chat actions' })).not.toBeInTheDocument();
   });
 });

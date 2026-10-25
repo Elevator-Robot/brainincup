@@ -8,7 +8,9 @@ that gesture does not change audio. Reduced-motion users get static feedback.
 On mobile the voice control sits above the composer. Its hover/focus tooltip
 suggests hearing Brain. Unmute reads the latest completed
 reply and enables narration of new replies. Each assistant reply also has a
-Listen button, which enables voice and reads that reply. User messages, internal
+Listen button, which reads only that reply without changing automatic voice's
+mute preference. While listening once, the global voice control stops playback;
+after completion it returns to its existing muted/unmuted state. User messages, internal
 thoughts, tool output, and unrevealed dice narration are not spoken.
 
 Muted mode makes no synthesis requests. Muting, clearing chat, changing

@@ -25,6 +25,10 @@ export const demoMessages: Message[] = [
     role: 'assistant',
     content:
       'The last tram leaves you on the ridge below **Starfall Observatory**. Violet cloud drifts sideways against the wind, and somewhere above, a bell rings once.\n\nA woman waits beside the door with a silver lantern cupped in both hands. “You came,” she says. “I am Mira. Three nights ago, seven stars went out. Tonight they started calling back.”',
+    sensations: ['Rain on stone. A solitary bell above the ridge.', 'The silver lantern gives the dark a place to gather.'],
+    thoughts: ['Mira seems to have been waiting for someone, though whether she expected you is less certain.'],
+    memories: 'Mira says seven stars disappeared three nights ago.',
+    selfReflection: 'An invitation can sound remarkably like a warning.',
     populateOnMount: true,
   },
   { role: 'user', content: '“Calling back how?” I keep my hands where she can see them.' },
@@ -56,6 +60,10 @@ export const demoMessages: Message[] = [
     role: 'assistant',
     content:
       'The stair turns tighter than the tower should allow. With every step the air grows colder, and the lantern’s darkness grows heavier — until it is a small round weight you have to carry with both hands.\n\nAt the top, the dome opens onto a room full of sky. Six stars hang **too low**, close enough to see their edges. The seventh is a hole shaped like a person.\n\nA chair sits beneath the telescope. Someone is in it, writing. They have not noticed you yet.',
+    sensations: ['Cold air settles on your hands; the lantern pulls against them.', 'Six low stars illuminate an occupied chair.'],
+    thoughts: ['The quiet seems less like abandonment than a conversation not yet begun.'],
+    memories: 'Mira warned you not to answer the voice first. The chalkboard read: seven gone, six returned.',
+    selfReflection: 'For now, the room leaves the next word to you.',
   },
 ];
 
@@ -63,8 +71,8 @@ const inventory = JSON.stringify([
   { id: 'inv-shortsword', name: 'Shortsword', type: 'weapon', quantity: 1, equipped: true },
   { id: 'inv-dagger', name: 'Dagger', type: 'weapon', quantity: 2 },
   { id: 'inv-leather', name: 'Leather Armor', type: 'armor', quantity: 1, equipped: true },
-  { id: 'inv-tools', name: "Thieves' Tools", type: 'consumable', quantity: 1 },
-  { id: 'inv-lantern', name: "Mira's Lantern", type: 'quest', quantity: 1, description: 'No flame. Something inside is listening.' },
+  { id: 'inv-tools', name: 'Thieves\' Tools', type: 'consumable', quantity: 1 },
+  { id: 'inv-lantern', name: 'Mira\'s Lantern', type: 'quest', quantity: 1, description: 'No flame. Something inside is listening.' },
 ]);
 
 export const demoCharacter = {
@@ -186,4 +194,20 @@ export const buildGmDemoReply = (content: string): string => {
   const reply = replies[replyIndex % replies.length];
   replyIndex += 1;
   return reply;
+};
+
+/** Authored, player-visible annotations for the local narrator demo. */
+export const buildGmDemoMessage = (content: string): Message => {
+  const reply = buildGmDemoReply(content);
+  return {
+    role: 'assistant', content: reply,
+    sensations: [reply.split('\n\n')[0].replace(/\*\*/g, '').slice(0, 280)],
+    thoughts: [/inventory|pack/i.test(content)
+      ? 'The lantern makes familiar equipment feel a little less familiar.'
+      : /quest|objective/i.test(content)
+        ? 'The unfinished constellation has become a reason to act, not an answer.'
+        : 'The room offers an invitation and a warning in the same breath.'],
+    memories: 'Mira’s warning: do not answer first.',
+    selfReflection: 'The next move belongs to you.',
+  };
 };

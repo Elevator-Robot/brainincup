@@ -60,7 +60,7 @@ class GameMasterExperience(BaseExperience):
             return ExperienceResponse(
                 response=result.get("final_message") or "The world waits for you.",
                 raw=result,
-                metadata={"intent": result.get("intent", "narration")},
+                metadata=result.get("response_metadata") or {"intent": result.get("intent", "narration")},
             )
         except Exception as exc:
             logger.error("Game Master turn failed: %s", exc, exc_info=True)

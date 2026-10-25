@@ -190,6 +190,9 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
 @media (prefers-reduced-motion: reduce) { .cosmic-fade-in { animation: none; } }
 
 /* Assistant text belongs to the reading surface, not another nested card. */
+.cosmic-chat-surface { --cosmic-accent-rgb: 140 236 243; --rpg-accent: var(--cosmic-cyan); --rpg-accent-strong: #59c8e5; --rpg-accent-soft: rgb(122 232 244 / 12%); --rpg-accent-border: rgb(164 194 239 / 26%); color: var(--cosmic-text); }
+.cosmic-transcript-scroll { padding-block: 1rem; }
+.cosmic-transcript-content { display: flex; flex-direction: column; gap: 1.5rem; width: 100%; }
 .retro-message, .retro-message-assistant, .retro-waiting-bubble {
   background: transparent; border: 0; box-shadow: none;
   color: var(--cosmic-text); line-height: 1.75; font-size: .9375rem;
@@ -823,11 +826,11 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
 }
 
 /* GM controls use the same quiet glass and starlight accents as the workspace. */
-.gm-quick-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: .4rem; padding-top: .6rem; }
-.gm-quick-actions button { min-height: 34px; border: 1px solid var(--cosmic-border); border-radius: 999px; padding: .35rem .85rem; background: rgb(196 173 255 / 4%); color: var(--cosmic-muted); font-size: .75rem; transition: border-color 160ms ease, color 160ms ease, background 160ms ease; }
-.gm-quick-actions button:hover:not(:disabled) { color: var(--cosmic-text); border-color: rgb(140 236 243 / 45%); background: rgb(140 236 243 / 7%); }
-.gm-quick-actions button:disabled { opacity: .35; cursor: not-allowed; }
-.gm-quick-actions button:focus-visible, .retro-context-tab:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 3px; }
+.cosmic-quick-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: .4rem; padding-top: .6rem; }
+.cosmic-quick-actions button { min-height: 34px; border: 1px solid var(--cosmic-border); border-radius: 999px; padding: .35rem .85rem; background: rgb(196 173 255 / 4%); color: var(--cosmic-muted); font-size: .75rem; transition: border-color 160ms ease, color 160ms ease, background 160ms ease; }
+.cosmic-quick-actions button:hover:not(:disabled) { color: var(--cosmic-text); border-color: rgb(140 236 243 / 45%); background: rgb(140 236 243 / 7%); }
+.cosmic-quick-actions button:disabled { opacity: .35; cursor: not-allowed; }
+.cosmic-quick-actions button:focus-visible, .retro-context-tab:focus-visible { outline: 2px solid var(--cosmic-cyan); outline-offset: 3px; }
 .gm-preview-mobile-context { margin: 0 .5rem .5rem; border: 1px solid var(--cosmic-border); border-radius: 12px; background: rgb(18 22 43 / 75%); }
 .gm-preview-mobile-context > button { display: flex; justify-content: space-between; width: 100%; padding: .75rem 1rem; min-height: 44px; color: var(--cosmic-text); font-size: .8rem; }
 .gm-preview-mobile-body { max-height: 52dvh; overflow-y: auto; overscroll-behavior: contain; padding: 0 1rem 1rem; }
@@ -838,8 +841,8 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
 .gm-menu-content-reveal, .cosmic-context-panel .retro-character-sheet { animation: gm-menu-unfold 340ms var(--cosmic-ease); }
 /* Reveal the surface downward without changing layout or clipping later hovers. */
 @keyframes gm-menu-unfold { from { clip-path: inset(0 0 100% 0); opacity: .35; } to { clip-path: inset(0); opacity: 1; } }
-@media (max-width: 639px) { .cosmic-workspace { --chat-gutter: .75rem; } .gm-quick-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); } .gm-quick-actions button { min-height: 44px; padding-inline: .25rem; font-size: .7rem; } }
-@media (prefers-reduced-motion: reduce) { .gm-quick-actions button { transition: none; } .gm-context-reveal, .cosmic-workspace .retro-right-container, .gm-menu-content-reveal, .cosmic-context-panel .retro-character-sheet { animation: none; } }
+@media (max-width: 639px) { .cosmic-workspace { --chat-gutter: .75rem; } .cosmic-quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.25rem, 1fr)); } .cosmic-quick-actions button { min-height: 44px; padding-inline: .25rem; font-size: .7rem; } }
+@media (prefers-reduced-motion: reduce) { .cosmic-quick-actions button { transition: none; } .gm-context-reveal, .cosmic-workspace .retro-right-container, .gm-menu-content-reveal, .cosmic-context-panel .retro-character-sheet { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .retro-rpg-ui .cosmic-composer .retro-input-shell { transition: none; } }
 .retro-send-button { transition: transform 180ms var(--cosmic-ease), background-color 180ms ease; }
 .retro-send-button:active:not(:disabled) { transform: scale(.95); }
@@ -1025,6 +1028,7 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
 .cosmic-rail-utilities { display: flex; flex-direction: column; align-items: center; gap: .7rem; padding-top: .75rem; border-top: 1px solid var(--cosmic-border); }
 .cosmic-voice-control--rail .cosmic-voice-toggle { padding: 0; border-color: var(--cosmic-border); background: var(--cosmic-control); }
 .cosmic-voice-control--rail .cosmic-voice-toggle[aria-pressed="true"] { color: var(--cosmic-cyan); border-color: rgb(var(--cosmic-accent-rgb) / 42%); box-shadow: 0 0 20px rgb(var(--cosmic-accent-rgb) / 7%); }
+.cosmic-voice-toggle[data-listening-once="true"] { color: var(--cosmic-cyan); }
 .cosmic-voice-wave { position: relative; display: flex; align-items: center; justify-content: center; gap: 3px; height: 22px; }
 .cosmic-voice-wave i { width: 2px; height: 9px; border-radius: 3px; background: currentColor; transform-origin: center; transition: transform 200ms, opacity 200ms; }
 .cosmic-voice-wave i:nth-child(2), .cosmic-voice-wave i:nth-child(4) { height: 15px; }

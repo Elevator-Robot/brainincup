@@ -22,7 +22,7 @@ import { isTestModeEnabled } from './utils/testMode';
 import { GM_PLACEHOLDER_LOCATION, pickLatestAdventure, resolveLocationName } from './utils/gmLocations';
 import { streamAgentMessage, type AguiEvent } from './utils/aguiStream';
 import type { Message } from './components/MessageBubble';
-import MessageList from './components/MessageList';
+import ChatTranscript from './components/ChatTranscript';
 import ChatComposer, { type ChatComposerHandle } from './components/ChatComposer';
 import ChatWelcome from './components/ChatWelcome';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -33,7 +33,8 @@ import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
 import OptionsMenuContent from './components/OptionsMenu';
 import ChatVoiceControl from './components/ChatVoiceControl';
-import ChatActivity from './components/ChatActivity';
+import { BRAIN_CHAT, GAME_MASTER_CHAT } from './chat/experienceAdapters';
+import { gameMasterMessageExtension, visibleGameMasterMessages } from './chat/gameMasterMessages';
 import { clearBrainChat, ClearBrainChatError } from './api/clearBrainChat';
 import { useChatVoice } from './hooks/useChatVoice';
 import CharacterCreation, { type CharacterCreationInput } from './components/CharacterCreation';
@@ -186,13 +187,6 @@ const saveCachedMessages = (conversationId: string, messages: Message[]) => {
   }
 };
 
-interface HudQuestStep {
-  id: string;
-  summary: string;
-  dangerLevel: string;
-  createdAt?: string | null;
-}
-
 const summarizeText = (text: string, max = 220) => {
   if (!text) return '';
   return text.length > max ? `${text.slice(0, max).trim()}…` : text.trim();
@@ -264,150 +258,6 @@ const generateDefaultConversationTitle = (mode: PersonalityModeId) => {
   const base = mode === 'game_master' ? 'Quest' : 'Brain';
   return base;
 };
-
-const mapQuestStepsToHud = (steps: QuestStepRecord[]): HudQuestStep[] =>
-  steps
-    .filter((step): step is QuestStepRecord & { id: string } => Boolean(step && step.id))
-    .map((step) => ({
-      id: step.id!,
-      summary: step.summary || summarizeText(step.narration || ''),
-      dangerLevel: step.dangerLevel || inferDangerLevel(step.narration || step.summary || ''),
-      createdAt: step.createdAt,
-    }));
-
-const deriveHudQuestStepsFromMessages = (messages: Message[]): HudQuestStep[] =>
-  messages
-    .map((message, index) => ({ message, index }))
-    .filter(({ message }) => message.role === 'assistant' && !message.isTyping && Boolean(message.content?.trim() || message.fullContent?.trim()))
-    .map(({ message, index }) => {
-      const content = message.fullContent || message.content;
-      return {
-        id: `derived-step-${index}`,
-        summary: summarizeText(content),
-        dangerLevel: inferDangerLevel(content),
-        createdAt: null,
-      };
-    });
-
-interface GameMasterHudProps {
-  adventure: AdventureRecord;
-  questSteps: HudQuestStep[];
-  character: CharacterRecord | null;
-  onUpdateInventory?: (newInventory: InventoryItem[]) => Promise<void>;
-}
-
-function GameMasterHud({ adventure, questSteps, character, onUpdateInventory }: GameMasterHudProps) {
-  const latestStep = questSteps.slice(-1)[0];
-
-  // Nothing renders until the character is real; the panel fades in with live data.
-  if (!character) return null;
-  
-  // Use character data from database
-  const characterName = character.name;
-  const stats = {
-    strength: character.strength,
-    dexterity: character.dexterity,
-    constitution: character.constitution,
-    intelligence: character.intelligence,
-    wisdom: character.wisdom,
-    charisma: character.charisma,
-  };
-  
-  const inventory = parseInventoryItems(character.inventory);
-  
-  return (
-    <div className="animate-slide-up w-full space-y-6">
-      {/* Quest Log Section */}
-      <div className="w-full p-5 rounded-lg">
-        <div className="flex flex-col gap-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-1">Quest Log</p>
-            <h3 className="text-lg font-semibold text-brand-text-primary">{adventure.title}</h3>
-            <p className="text-xs text-brand-text-secondary">
-              {adventure.genre} • Tone: {adventure.tone} • Difficulty: {adventure.difficulty}
-            </p>
-          </div>
-          {latestStep && (
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-1">Current Beat</p>
-              <p className="text-sm text-brand-text-primary line-clamp-3">
-                {latestStep.summary}
-              </p>
-              <p className="text-[11px] text-brand-text-secondary mt-1">Danger: {latestStep.dangerLevel}</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Divider with Glow */}
-      <div className="w-full px-5">
-        <div className="relative">
-          <div className="h-px bg-gradient-to-r from-transparent via-brand-accent-primary to-transparent opacity-70"></div>
-          <div className="absolute inset-0 h-px bg-gradient-to-r from-transparent via-brand-accent-primary to-transparent blur-sm opacity-50"></div>
-        </div>
-      </div>
-
-      {/* Character Section */}
-      <div className="w-full p-5 rounded-lg">
-        <div className="flex flex-col gap-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-1">Character</p>
-            <h3 className="text-lg font-semibold text-brand-text-primary">{characterName}</h3>
-          </div>
-          
-          {/* Stats */}
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-2">Stats</p>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center">
-                <div className="text-xs text-brand-text-secondary">STR</div>
-                <div className="text-sm font-semibold text-brand-text-primary">{stats.strength}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs text-brand-text-secondary">DEX</div>
-                <div className="text-sm font-semibold text-brand-text-primary">{stats.dexterity}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs text-brand-text-secondary">INT</div>
-                <div className="text-sm font-semibold text-brand-text-primary">{stats.intelligence}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs text-brand-text-secondary">WIS</div>
-                <div className="text-sm font-semibold text-brand-text-primary">{stats.wisdom}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs text-brand-text-secondary">CON</div>
-                <div className="text-sm font-semibold text-brand-text-primary">{stats.constitution}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs text-brand-text-secondary">CHA</div>
-                <div className="text-sm font-semibold text-brand-text-primary">{stats.charisma}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Inventory */}
-          {onUpdateInventory ? (
-            <InventoryManager 
-              inventory={inventory}
-              onUpdateInventory={onUpdateInventory}
-              isUpdating={false}
-            />
-          ) : (
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-brand-text-muted mb-2">Inventory</p>
-              <div className="space-y-1">
-                {inventory.map((item) => (
-                  <div key={item.id} className="text-xs text-brand-text-secondary">• {item.name}</div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 interface AppRouteProps {
   /** Conversation encoded in the URL. `null` means a fresh, unsaved interaction. */
@@ -490,7 +340,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
-  const [questSteps, setQuestSteps] = useState<QuestStepRecord[]>([]);
   const [questContext, setQuestContext] = useState<{ conversationId: string; quests: Quest[] } | null>(null);
   const activeQuests = questContext?.conversationId === conversationId ? questContext.quests : [];
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
@@ -592,7 +441,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     setMessages(isBrain ? brain.brainDemoMessages : customAdventure ? loadCachedMessages(requestedId ?? '') ?? [] : gm.demoMessages);
     setCharacterState(isBrain ? null : customAdventure ? savedCharacter ?? null : gm.demoCharacter);
     setAdventureState(isBrain || customAdventure ? null : gm.demoAdventure);
-    setQuestSteps(isBrain || customAdventure ? [] : gm.demoQuestSteps);
     setQuestContext(isBrain || customAdventure ? null : { conversationId: gm.DEMO_CONVERSATION_ID, quests: gm.demoQuests });
     setShowCharacterCreation(customAdventure && !savedCharacter);
     setIsWaitingForResponse(false);
@@ -859,7 +707,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       const activeMode = normalizePersonalityMode(modeOverride ?? effectivePersonality);
       if (activeMode !== 'game_master') {
         setAdventureState(null);
-        setQuestSteps([]);
         setCharacterState(null);
         setShowCharacterCreation(false);
         adventureFetchLock.current = null;
@@ -876,7 +723,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       if (!character || !adventure || !adventure.id) {
         if (!character) {
           setAdventureState(null);
-          setQuestSteps([]);
         }
         adventureFetchLock.current = null;
         setIsLoadingAdventure(false);
@@ -886,8 +732,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       const adventureId = adventure.id as string;
       
       try {
-        const steps = await queryClient.fetchQuery(questStepsQuery(adventureId));
-        setQuestSteps(steps);
+        await queryClient.fetchQuery(questStepsQuery(adventureId));
       } catch (error) {
         console.error('Error loading Game Master data:', error);
       }
@@ -921,7 +766,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       });
       const questStep = (created.data as QuestStepRecord | null) ?? null;
       if (questStep) {
-        setQuestSteps(prev => [...prev, questStep]);
         queryClient.setQueryData(gmKeys.questSteps(adventure.id!), (prev: QuestStepRecord[] | undefined) =>
           prev ? [...prev, questStep] : [questStep]);
         await dataClient.models.GameMasterAdventure.update({
@@ -963,7 +807,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   useEffect(() => {
     if (!conversationId) {
       setAdventureState(null);
-      setQuestSteps([]);
       setCharacterState(null);
       if (effectivePersonality !== 'game_master') {
         setShowCharacterCreation(false);
@@ -1452,14 +1295,15 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       if (!targetConversationId) return;
       setIsWaitingForResponse(true);
       const isBrain = effectivePersonality === 'brain';
-      const reply = isBrain
-        ? (await import('./dev/brainDemoConversation')).buildBrainDemoReply(content)
-        : (await import('./dev/gmDemoConversation')).buildGmDemoReply(content);
+      const demoMessage: Message = isBrain
+        ? { role: 'assistant', content: (await import('./dev/brainDemoConversation')).buildBrainDemoReply(content) }
+        : (await import('./dev/gmDemoConversation')).buildGmDemoMessage(content);
+      const reply = demoMessage.content;
       const messageId = crypto.randomUUID();
       demoReplyTimers.current.push(window.setTimeout(() => {
         setMessages(prev => [
           ...prev,
-          { role: 'assistant', content: reply, populateOnMount: true, isTyping: isBrain, messageId },
+          { ...demoMessage, populateOnMount: true, isTyping: isBrain, messageId },
         ]);
         setIsWaitingForResponse(false);
         if (isBrain) {
@@ -1815,7 +1659,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       setMessages([]);
       setIsWaitingForResponse(false);
       setAdventureState(null);
-      setQuestSteps([]);
       setCharacterState(null);
       setShowCharacterCreation(false);
       return;
@@ -1832,7 +1675,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     setConversationId(selectedConversationId);
     setIsWaitingForResponse(false);
     setAdventureState(null);
-    setQuestSteps([]);
     // Keep the previous character sheet visible while the new character loads
     // to avoid flashing the pulsing skeleton on every conversation switch.
     // fetchCharacter swaps it in place, or clears it if none exists.
@@ -1872,7 +1714,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
           await fetchAdventureBundle(selectedConversationId, normalizedMode, character);
         } else {
           setAdventureState(null);
-          setQuestSteps([]);
           setCharacterState(null);
           setShowCharacterCreation(false);
         }
@@ -1994,7 +1835,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     composerRef.current?.clear();
     setIsWaitingForResponse(false);
     setAdventureState(null);
-    setQuestSteps([]);
     setCharacterState(null);
     setPendingCharacterDraft(null);
     setShowCharacterCreation(true);
@@ -2028,7 +1868,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
         setConversationId(mockConversationId);
         setPersonalityMode(normalized);
         setAdventureState(null);
-        setQuestSteps([]);
         setCharacterState(null);
         setShowCharacterCreation(normalized === 'game_master');
         setConversationListRefreshKey((prev) => prev + 1);
@@ -2061,7 +1900,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
         setConversationId(createdId);
         setPersonalityMode(normalized);
         setAdventureState(null);
-        setQuestSteps([]);
         setCharacterState(null);
         setShowCharacterCreation(normalized === 'game_master');
         setConversationListRefreshKey((prev) => prev + 1);
@@ -2101,7 +1939,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       setMessages([]);
       setIsWaitingForResponse(false);
       setAdventureState(null);
-      setQuestSteps([]);
       setCharacterState(null);
       setShowCharacterCreation(false);
 
@@ -2133,7 +1970,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
         setMessages([]);
         setIsWaitingForResponse(false);
         setAdventureState(null);
-        setQuestSteps([]);
         setCharacterState(null);
         setShowCharacterCreation(false);
       }
@@ -2300,7 +2136,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     composerRef.current?.clear();
     setIsWaitingForResponse(false);
     setAdventureState(null);
-    setQuestSteps([]);
     setCharacterState(null);
     setPendingCharacterDraft(null);
     setShowCharacterCreation(false);
@@ -2332,14 +2167,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const isInputLocked = isClearingBrainChat || isWaitingForResponse || hasTypingMessage || hasPendingRoll || isGameMasterContentLoading || isGameMasterCharacterRequired || isSelectingConversation;
   const gameMasterInputPlaceholder = 'What do you do next?';
 
-  const normalizedQuestSteps = useMemo(() => mapQuestStepsToHud(questSteps), [questSteps]);
-
-  const derivedQuestSteps = useMemo(() => {
-    if (normalizedQuestSteps.length > 0 || effectivePersonality !== 'game_master') return [];
-    return deriveHudQuestStepsFromMessages(messages);
-  }, [normalizedQuestSteps, messages, effectivePersonality]);
-
-  const hudQuestSteps = normalizedQuestSteps.length > 0 ? normalizedQuestSteps : derivedQuestSteps;
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
   const currentLocation = useMemo(() => {
     // Authoritative, placeholder-proof: set only from STATE_SNAPSHOT / real rows.
@@ -2382,14 +2209,14 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
         ? 'speaking'
         : 'listening';
   const composer = <ChatComposer ref={composerRef} draft={draft} onSend={handleSubmit}
-    isGameMasterMode={isGameMasterMode}
+    configuration={isGameMasterMode ? GAME_MASTER_CHAT : BRAIN_CHAT}
     isLocked={isInputLocked || isSelectingConversation} isWaiting={isWaitingForResponse} isPrimed={isNewInteractionPrimed}
     placeholder={hasPendingRoll ? 'Resolve the requested check above…' : conversationId
       ? (isGameMasterMode ? gameMasterInputPlaceholder : 'Message Brain…')
       : (isGameMasterMode ? gameMasterInputPlaceholder : isNewInteractionPrimed ? 'New chat ready. Start typing…' : 'Start a new conversation…')} />;
   const voiceControl = (placement: 'rail' | 'composer-tab') => <ChatVoiceControl
     enabled={chatVoice.enabled} status={chatVoice.status} error={chatVoice.error}
-    onToggle={chatVoice.toggle} placement={placement} />;
+    onToggle={chatVoice.toggle} onStop={chatVoice.stop} placement={placement} />;
   // Desktop voice belongs to the stable global rail; mobile keeps it by input.
   const composerVoiceTab = <div className="cosmic-voice-dock">{voiceControl('composer-tab')}</div>;
   const jumpToLatest = !isAtBottom && <button type="button" className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages <span aria-hidden="true">↓</span></button>;
@@ -2399,6 +2226,14 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       : <ChatWelcome isGameMasterMode={isGameMasterMode} isSettingUp={showGameMasterCharacterFlow || isGameMasterCharacterRequired}
         onPrompt={prompt => { composerRef.current?.clear(); composerRef.current?.append(prompt); composerRef.current?.focus(); }} />
   );
+  const transcriptMessages = useMemo(() => isGameMasterMode ? visibleGameMasterMessages(messages) : messages, [isGameMasterMode, messages]);
+  const renderChatExtension = useMemo(() => isGameMasterMode
+    ? gameMasterMessageExtension({ activeRequestId: activeDiceRequestId, disabled: diceBusy, onRoll: handleDiceRoll })
+    : undefined, [isGameMasterMode, activeDiceRequestId, diceBusy, handleDiceRoll]);
+  const transcript = <ChatTranscript conversationId={conversationId}
+    messages={transcriptMessages}
+    waiting={isWaitingForResponse} beforeMessages={welcome} scrollRef={scrollRef} contentRef={contentRef}
+    onListen={chatVoice.listen} renderExtension={renderChatExtension} />;
 
   return (
     <div className={`retro-rpg-ui cosmic-workspace ${appThemeClass} h-dvh overflow-hidden relative`}
@@ -2522,37 +2357,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
           <div className="retro-center-container flex-1 min-h-0">
               <section className="retro-chat-pane min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
                 <div className="retro-chat-isolated-window flex-1 min-h-0 overflow-hidden flex flex-col">
-                        <div className="cosmic-chat-viewport">
-                        <div
-                          ref={scrollRef}
-                          className="cosmic-chat-scroll flex-1 overflow-y-auto pr-2"
-                        >
-                          <div ref={contentRef} className="cosmic-chat-content mx-auto max-w-4xl space-y-6 flex flex-col">
-                          {/* Mode indicator removed */}
-
-                        {conversationId && isGameMasterMode && hasGameMasterCharacterReady && adventureState && (
-                            <div className="lg:hidden cosmic-fade-in">
-                              <GameMasterHud
-                                adventure={adventureState}
-                                questSteps={hudQuestSteps}
-                                character={characterState}
-                                onUpdateInventory={updateInventory}
-                              />
-                            </div>
-                          )}
-              
-              {welcome}
-              <MessageList key={conversationId} messages={messages} isGameMasterMode={isGameMasterMode} variant="desktop"
-                onListen={chatVoice.listen}
-                activeDiceRequestId={activeDiceRequestId} diceDisabled={diceBusy} onDiceRoll={handleDiceRoll} />
-              <ChatActivity active={isWaitingForResponse} />
-              
-              
-                  
-                          <div aria-hidden="true" />
-                        </div>
-                      </div>
-                      </div>
+                  {transcript}
                     </div>
                       <BottomInput className="px-0 pt-3 shrink-0">
                         <div className="relative mx-auto max-w-4xl">
@@ -2827,23 +2632,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
         {/* Enhanced Chat Area with glass morphism design */}
         <div className="retro-chat-area flex-1 flex flex-col min-h-0 mt-2">
           {/* Messages with improved styling and animations */}
-          <div className="cosmic-chat-viewport">
-          <div
-            ref={scrollRef}
-            className="retro-scroll-panel cosmic-chat-scroll flex-1 overflow-y-auto px-3 py-5 pb-3 flex flex-col rounded-3xl"
-          >
-            <div ref={contentRef} className="cosmic-chat-content w-full max-w-4xl mx-auto space-y-4 flex flex-col">
-                {welcome}
-              <MessageList key={conversationId} messages={messages} isGameMasterMode={isGameMasterMode} variant="mobile"
-                onListen={chatVoice.listen}
-                activeDiceRequestId={activeDiceRequestId} diceDisabled={diceBusy} onDiceRoll={handleDiceRoll} />
-              <ChatActivity active={isWaitingForResponse} />
-              
-              
-              <div aria-hidden="true" />
-            </div>
-          </div>
-          </div>
+          {transcript}
 
           {/* Mobile Input Area */}
             <div className="retro-input-dock pt-3 pb-3 px-3 pb-safe">

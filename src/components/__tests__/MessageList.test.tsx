@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import MessageList from '../MessageList';
 import type { Message } from '../MessageBubble';
 import { DICE_ROLL_DURATION_MS } from '../../utils/diceRolls';
+import { gameMasterMessageExtension, visibleGameMasterMessages } from '../../chat/gameMasterMessages';
 
 beforeEach(() => {
   vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
@@ -15,7 +16,7 @@ describe('dice result reveal', () => {
     const onDiceRoll = vi.fn();
     render(<MessageList messages={[{ role: 'assistant', content: '', diceRoll: {
       requestId: 'damage', sides: 8, statName: 'ability', purpose: 'Longsword damage', phase: 'pending',
-    } }]} isGameMasterMode variant="desktop" activeDiceRequestId="damage" onDiceRoll={onDiceRoll} />);
+    } }]} renderExtension={gameMasterMessageExtension({ activeRequestId: 'damage', onRoll: onDiceRoll })} />);
     expect(screen.getByRole('heading', { name: 'Longsword damage' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Roll d20' })).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
@@ -32,12 +33,12 @@ describe('dice result reveal', () => {
       } },
       { role: 'assistant', content: 'You made it across the ledge.' },
     ];
-    const { rerender } = render(<MessageList messages={messages} isGameMasterMode variant="desktop" />);
+    const { rerender } = render(<MessageList messages={visibleGameMasterMessages(messages)} renderExtension={gameMasterMessageExtension({})} />);
     expect(screen.getByText('Make a Dexterity check.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rolling…' })).toBeDisabled();
     expect(screen.queryByText('You made it across the ledge.')).not.toBeInTheDocument();
     const completed = messages.map(message => message.diceRoll ? { ...message, diceRoll: { ...message.diceRoll, phase: 'submitted' as const } } : message);
-    rerender(<MessageList messages={completed} isGameMasterMode variant="desktop" />);
+    rerender(<MessageList messages={visibleGameMasterMessages(completed)} renderExtension={gameMasterMessageExtension({})} />);
     expect(screen.getByText('You made it across the ledge.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Roll recorded' })).toBeDisabled();
   });

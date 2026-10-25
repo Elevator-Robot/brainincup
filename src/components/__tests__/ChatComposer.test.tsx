@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import ChatComposer from '../ChatComposer';
+import { BRAIN_CHAT } from '../../chat/experienceAdapters';
 
-const defaults = { isLocked: false, isWaiting: false, isPrimed: false, placeholder: 'Message Brain' };
+const defaults = { configuration: BRAIN_CHAT, isLocked: false, isWaiting: false, isPrimed: false, placeholder: 'Message Brain' };
 
 describe('ChatComposer', () => {
   it('keeps drafts while locked and does not submit IME or Shift+Enter', async () => {

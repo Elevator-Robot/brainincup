@@ -15,7 +15,7 @@ from experiences.agui import custom_event, state_snapshot
 
 from experiences.game_master.orchestrator import content, systems
 from experiences.game_master.orchestrator.intent import describe_mode, parse_dice_result
-from experiences.game_master.orchestrator.llm import generate_narration
+from experiences.game_master.orchestrator.llm import generate_narration, narration_update
 from experiences.game_master.orchestrator.pacing import apply_pacing, pacing_snapshot
 from experiences.game_master.orchestrator.state import OrchestratorState
 
@@ -226,7 +226,7 @@ def opening_narrative_node(state: OrchestratorState) -> dict:
     if store is not None:
         _persist_campaign(store, campaign, player)
 
-    return {"campaign": campaign, "final_message": text, "opened": True}
+    return {"campaign": campaign, **narration_update(text), "opened": True}
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +251,7 @@ def dialogue_node(state: OrchestratorState) -> dict:
     prompt = _facts_prompt(state, facts) + f"\nThe NPC responds: {npc.get('greeting', '')}"
     text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), prompt,
                               model_id=state.get("model_id"), region=state.get("region"))
-    return {"final_message": text}
+    return narration_update(text)
 
 
 # ---------------------------------------------------------------------------
@@ -336,7 +336,7 @@ def check_node(state: OrchestratorState) -> dict:
     ]
     text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), _facts_prompt(state, facts),
                               model_id=state.get("model_id"), region=state.get("region"))
-    return {"final_message": text}
+    return narration_update(text)
 
 
 def dice_node(state: OrchestratorState) -> dict:
@@ -366,7 +366,7 @@ def dice_node(state: OrchestratorState) -> dict:
         ]
         text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), _facts_prompt(state, facts),
                                   model_id=state.get("model_id"), region=state.get("region"))
-        return {"final_message": text}
+        return narration_update(text)
 
     try:
         result = systems.resolve_stat_check(pending, dice_value)
@@ -399,7 +399,7 @@ def dice_node(state: OrchestratorState) -> dict:
         facts.append(f"The player gains {result['xpAwarded']} XP.")
     text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), _facts_prompt(state, facts),
                               model_id=state.get("model_id"), region=state.get("region"))
-    return {"player": player, "final_message": text}
+    return {"player": player, **narration_update(text)}
 
 
 def exploration_node(state: OrchestratorState) -> dict:
@@ -469,7 +469,7 @@ def exploration_node(state: OrchestratorState) -> dict:
 
     text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), _facts_prompt(state, facts),
                               model_id=state.get("model_id"), region=state.get("region"))
-    return {"campaign": campaign, "final_message": text}
+    return {"campaign": campaign, **narration_update(text)}
 
 
 def combat_node(state: OrchestratorState) -> dict:
@@ -491,7 +491,7 @@ def combat_node(state: OrchestratorState) -> dict:
             text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT),
                                       _facts_prompt(state, facts),
                                       model_id=state.get("model_id"), region=state.get("region"))
-            return {"final_message": text}
+            return narration_update(text)
     else:
         facts = []
 
@@ -518,7 +518,7 @@ def combat_node(state: OrchestratorState) -> dict:
 
     text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), _facts_prompt(state, facts),
                               model_id=state.get("model_id"), region=state.get("region"))
-    return {"campaign": campaign, "player": player, "final_message": text}
+    return {"campaign": campaign, "player": player, **narration_update(text)}
 
 
 def inventory_node(state: OrchestratorState) -> dict:
@@ -539,7 +539,7 @@ def inventory_node(state: OrchestratorState) -> dict:
 
     text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), _facts_prompt(state, facts),
                               model_id=state.get("model_id"), region=state.get("region"))
-    return {"player": player, "final_message": text}
+    return {"player": player, **narration_update(text)}
 
 
 def quest_node(state: OrchestratorState) -> dict:
@@ -579,7 +579,7 @@ def quest_node(state: OrchestratorState) -> dict:
 
     text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), _facts_prompt(state, facts),
                               model_id=state.get("model_id"), region=state.get("region"))
-    return {"campaign": campaign, "player": player, "final_message": text}
+    return {"campaign": campaign, "player": player, **narration_update(text)}
 
 
 def character_node(state: OrchestratorState) -> dict:
@@ -587,7 +587,7 @@ def character_node(state: OrchestratorState) -> dict:
     facts = [_format_sheet(player)]
     text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), _facts_prompt(state, facts),
                               model_id=state.get("model_id"), region=state.get("region"))
-    return {"final_message": text}
+    return narration_update(text)
 
 
 def narration_node(state: OrchestratorState) -> dict:
@@ -599,7 +599,7 @@ def narration_node(state: OrchestratorState) -> dict:
     ))
     text = generate_narration(state.get("system_prompt", ORCHESTRATOR_SYSTEM_PROMPT), prompt,
                               model_id=state.get("model_id"), region=state.get("region"))
-    return {"final_message": text}
+    return narration_update(text)
 
 
 def finalize_node(state: OrchestratorState) -> dict:
@@ -631,6 +631,7 @@ def finalize_node(state: OrchestratorState) -> dict:
     _record_memory_turn(state, text)
 
     response_metadata = {
+        **(state.get("narrator_notes") or {}),
         "intent": state.get("intent", "narration"),
         "target": state.get("target_npc_id"),
         "opened": state.get("opened", False),

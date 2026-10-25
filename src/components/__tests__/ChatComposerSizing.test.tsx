@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import ChatComposer from '../ChatComposer';
+import { BRAIN_CHAT } from '../../chat/experienceAdapters';
 
 let available = 640;
 beforeEach(() => {
@@ -17,7 +18,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 function setup() {
   const draft = { current: '' };
-  const { container } = render(<ChatComposer draft={draft} onSend={vi.fn()} isLocked={false} isWaiting={false} isPrimed={false} placeholder="Message Brain" />);
+  const { container } = render(<ChatComposer draft={draft} configuration={BRAIN_CHAT} onSend={vi.fn()} isLocked={false} isWaiting={false} isPrimed={false} placeholder="Message Brain" />);
   const input = screen.getByRole('textbox');
   const width = () => Number.parseFloat((container.querySelector('.retro-input-shell') as HTMLElement).style.getPropertyValue('--composer-width'));
   return { draft, input, width };

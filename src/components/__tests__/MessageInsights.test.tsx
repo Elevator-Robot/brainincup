@@ -12,8 +12,8 @@ const message: Message = {
 };
 
 describe('thoughts unfold from the message', () => {
-  it.each(['desktop', 'mobile'] as const)('toggles by clicking the text on %s', variant => {
-    render(<MessageList messages={[message]} isGameMasterMode={false} variant={variant} />);
+  it('toggles by clicking the text in the shared message renderer', () => {
+    render(<MessageList messages={[message]} />);
     expect(screen.queryByText('Explore thoughts')).not.toBeInTheDocument();
     expect(document.querySelector('.cosmic-insight-cue')).toBeNull();
     const trigger = screen.getByRole('button', { name: /The stars remember/ });
@@ -33,7 +33,7 @@ describe('thoughts unfold from the message', () => {
   });
 
   it('supports Enter and Space without a separate visible link', () => {
-    render(<MessageList messages={[message]} isGameMasterMode={false} variant="desktop" />);
+    render(<MessageList messages={[message]} />);
     const trigger = screen.getByRole('button', { name: /The stars remember/ });
     fireEvent.keyDown(trigger, { key: 'Enter' });
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
@@ -42,7 +42,7 @@ describe('thoughts unfold from the message', () => {
   });
 
   it('also responds to its visible disclosure icon', () => {
-    render(<MessageList messages={[message]} isGameMasterMode={false} variant="desktop" />);
+    render(<MessageList messages={[message]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Show message thoughts' }));
     expect(screen.getByRole('region', { name: 'Message thoughts' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Hide message thoughts' }));
@@ -50,7 +50,7 @@ describe('thoughts unfold from the message', () => {
   });
 
   it('does not toggle while selecting text or activating a Markdown link', () => {
-    render(<MessageList messages={[message]} isGameMasterMode={false} variant="desktop" />);
+    render(<MessageList messages={[message]} />);
     const trigger = screen.getByRole('button', { name: /The stars remember/ });
     fireEvent.click(screen.getByRole('link', { name: 'Read the map' }));
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
@@ -60,7 +60,7 @@ describe('thoughts unfold from the message', () => {
   });
 
   it('does not imply hidden thoughts when no details exist', () => {
-    render(<MessageList messages={[{ role: 'assistant', content: 'Just a message.' }]} isGameMasterMode={false} variant="desktop" />);
+    render(<MessageList messages={[{ role: 'assistant', content: 'Just a message.' }]} />);
     expect(screen.queryByRole('button', { name: 'Just a message.' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy reply' })).toBeInTheDocument();
     expect(document.querySelector('.cosmic-insight-trigger')).toBeNull();

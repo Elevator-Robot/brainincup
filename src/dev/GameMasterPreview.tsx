@@ -4,7 +4,8 @@ import BrainIcon from '../components/BrainIcon';
 import CharacterCreation from '../components/CharacterCreation';
 import ContextWindowPanel from '../components/ContextWindowPanel';
 import ChatComposer from '../components/ChatComposer';
-import MessageList from '../components/MessageList';
+import ChatTranscript from '../components/ChatTranscript';
+import { GAME_MASTER_CHAT } from '../chat/experienceAdapters';
 import type { Message } from '../components/MessageBubble';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useChatScroll } from '../hooks/useChatScroll';
@@ -53,16 +54,10 @@ export default function GameMasterPreview() {
             </button>
             {mobileContextOpen && <div className="gm-preview-mobile-body">{context}</div>}
           </aside>}
-          <div className="cosmic-chat-viewport">
-            <div ref={scrollRef} className="cosmic-chat-scroll min-h-0 flex-1 overflow-y-auto px-2" aria-label="GM preview conversation">
-              <div ref={contentRef} className="cosmic-chat-content mx-auto flex max-w-4xl flex-col gap-6">
-                <MessageList messages={messages} isGameMasterMode variant={desktop ? 'desktop' : 'mobile'} />
-              </div>
-            </div>
-          </div>
+          <ChatTranscript messages={messages} scrollRef={scrollRef} contentRef={contentRef} />
           <div className="retro-input-dock relative px-2 pt-4 sm:px-6">
             {!isAtBottom && <button className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages ↓</button>}
-            <ChatComposer draft={draft} isGameMasterMode isLocked={!character} isWaiting={false} isPrimed={false}
+            <ChatComposer draft={draft} configuration={GAME_MASTER_CHAT} isLocked={!character} isWaiting={false} isPrimed={false}
               placeholder="What do you do next?" onSend={async content => {
                 const input = content.toLowerCase();
                 const reply = input.includes('inventory') ? `In your pack: ${profession?.startingEquipment.join(', ')}.`

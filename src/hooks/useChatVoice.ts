@@ -40,8 +40,8 @@ export function useChatVoice(conversationId: string | null | undefined, messages
     setStatus('idle');
   }, []);
 
-  const enqueue = useCallback((content: string) => {
-    if (!enabledRef.current) return;
+  const enqueue = useCallback((content: string, explicitListen = false) => {
+    if (!enabledRef.current && !explicitListen) return;
     const text = spokenText(content);
     if (!text) return;
     const signal = controller.current.signal;
@@ -99,12 +99,11 @@ export function useChatVoice(conversationId: string | null | undefined, messages
     const audio = audioRef.current ?? (audioRef.current = new Audio());
     audio.src = SILENCE;
     void audio.play().catch(() => { /* A real play rejection is surfaced below. */ });
-    enabledRef.current = true;
-    setEnabled(true);
     setError(null);
     // Mark the current page handled: explicit playback never replays a backlog.
     visibleMessages(messagesRef.current).forEach((message, index) => { if (readable(message)) seen.current.add(messageKey(message, index)); });
-    enqueue(content);
+    // Listen is a one-reply override, not a change to automatic narration.
+    enqueue(content, true);
   }, [enqueue, stop]);
 
   const toggle = useCallback(() => {
@@ -116,6 +115,8 @@ export function useChatVoice(conversationId: string | null | undefined, messages
       return;
     }
     // Unmute is an explicit request to hear the latest completed reply.
+    enabledRef.current = true;
+    setEnabled(true);
     const latest = [...visibleMessages(messagesRef.current)].reverse().find(readable);
     listen(latest?.content ?? '');
   }, [listen, stop]);

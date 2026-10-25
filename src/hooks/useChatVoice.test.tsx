@@ -71,12 +71,41 @@ it('ignores a late generation after mute and makes no subsequent chunk requests'
   let resolve!: (value: Blob) => void;
   generate.mockImplementationOnce(() => new Promise<Blob>(done => { resolve = done; }));
   const { result } = renderHook(() => useChatVoice('brain', []));
+  act(() => result.current.toggle());
   act(() => result.current.listen('A'.repeat(1800)));
   await waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
   act(() => result.current.toggle());
   await act(async () => { resolve(new Blob(['audio'])); });
   expect(URL.createObjectURL).not.toHaveBeenCalled();
   expect(generate).toHaveBeenCalledTimes(1);
+});
+
+it('Listen reads every chunk while muted without enabling narration of subsequent replies', async () => {
+  const { result, rerender } = renderHook(({ messages }) => useChatVoice('brain', messages), { initialProps: { messages: [] as Message[] } });
+  act(() => result.current.listen('A'.repeat(1800)));
+  await waitFor(() => expect(result.current.status).toBe('playing'));
+  expect(result.current.enabled).toBe(false);
+  rerender({ messages: [reply('A new silent reply.', { messageId: 'new' })] });
+  expect(generate).toHaveBeenCalledTimes(1);
+  act(() => { FakeAudio.instances[0].dispatchEvent(new Event('ended')); });
+  await waitFor(() => expect(generate).toHaveBeenCalledTimes(2));
+  expect(result.current.enabled).toBe(false);
+  await waitFor(() => expect(result.current.status).toBe('playing'));
+  act(() => { FakeAudio.instances[0].dispatchEvent(new Event('ended')); });
+  await waitFor(() => expect(result.current.status).toBe('idle'));
+  expect(result.current.enabled).toBe(false);
+  rerender({ messages: [reply('A new silent reply.', { messageId: 'new' }), reply('Another silent reply.', { messageId: 'newer' })] });
+  expect(generate).toHaveBeenCalledTimes(2);
+});
+
+it('Listen also preserves an explicitly unmuted preference after playback', async () => {
+  const { result } = renderHook(() => useChatVoice('brain', []));
+  act(() => result.current.toggle());
+  act(() => result.current.listen('A chosen reply.'));
+  await waitFor(() => expect(result.current.status).toBe('playing'));
+  act(() => { FakeAudio.instances[0].dispatchEvent(new Event('ended')); });
+  await waitFor(() => expect(result.current.status).toBe('idle'));
+  expect(result.current.enabled).toBe(true);
 });
 
 it('surfaces provider failures, returns to muted, and does not interrupt text chat', async () => {
