@@ -32,6 +32,20 @@ describe('predictive composer', () => {
     expect(defaults.onSend).not.toHaveBeenCalled();
   });
 
+  it('keeps native placeholders out of the value and predictive hints inert until accepted', () => {
+    const { container, input } = renderComposer();
+    expect(input).toHaveAttribute('placeholder', 'Your next action');
+    expect(input).toHaveValue('');
+    fireEvent.change(input, { target: { value: 'I look' } });
+    const hint = container.querySelector('[data-ui-placeholder]') as HTMLElement;
+    expect(hint).toHaveAttribute('aria-hidden', 'true');
+    expect(hint.inert).toBe(true);
+    expect(hint).toHaveTextContent('around carefully.');
+    expect(input).toHaveValue('I look');
+    fireEvent.keyDown(input, { key: 'Tab' });
+    expect(input).toHaveValue('I look around carefully.');
+  });
+
   it('hides the ghost once the caret leaves the end of the draft', () => {
     const { input } = renderComposer('I look');
     fireEvent.select(input, { target: { selectionStart: 2, selectionEnd: 2 } });
@@ -80,16 +94,15 @@ describe('slash palette', () => {
 });
 
 describe('action wheel', () => {
-  it('opens from the discoverable Actions button without overwriting or sending the draft', () => {
-    const { draft, input } = renderComposer('I pause to listen.');
-    const button = screen.getByRole('button', { name: 'Browse chat actions' });
-    fireEvent.click(button);
-    expect(button).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('dialog', { name: 'Chat actions' })).toBeInTheDocument();
-    expect(draft.current).toBe('I pause to listen.');
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(input).toHaveFocus();
-    expect(button).toHaveAttribute('aria-expanded', 'false');
+  it('removes the star/Actions launcher without removing keyboard suggestions', () => {
+    const { container, draft, input } = renderComposer();
+    expect(screen.queryByRole('button', { name: 'Browse chat actions' })).toBeNull();
+    expect(container.querySelector('.cosmic-composer-actions')).toBeNull();
+    fireEvent.change(input, { target: { value: '/' } });
+    expect(screen.getAllByRole('option')).toHaveLength(6);
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(draft.current).toBe('/');
     expect(defaults.onSend).not.toHaveBeenCalled();
   });
 

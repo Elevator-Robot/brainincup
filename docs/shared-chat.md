@@ -22,6 +22,14 @@ domain-specific control, or `null` to hide that control. Never copy the transcri
 or branch shared message styling on a mode name. Tests cover an arbitrary future
 configuration and guard the common renderer against mode-identity checks.
 
+The input uses a stable full-column width, shared surface/radius tokens, and
+quiet focus lighting. Only textarea height grows with the draft. There is no
+star/Actions launcher below the input; slash suggestions and the context menu
+remain available without adding persistent controls to the writing surface.
+Native placeholders stay in the placeholder attribute, never the draft value.
+Predictive ghost text is inert, aria-hidden, and non-selectable; accepting it
+with Tab is the only way a suggestion becomes real editable/selectable text.
+
 The GM adapter owns dice-result payload filtering, the roll-animation reveal
 barrier, and dice prompts. Those controls do not replace ordinary message UI.
 Character/quest/location context stays outside the conversation. The unreachable

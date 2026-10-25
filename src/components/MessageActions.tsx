@@ -18,7 +18,7 @@ export default function MessageActions({ content, onListen }: { content: string;
       timer.current = setTimeout(() => setCopied(false), 1800);
     } catch { if (mounted.current) setError(true); }
   };
-  return <div className="cosmic-message-actions">
+  return <div className="cosmic-message-actions" role="group" aria-label="Reply controls">
     {onListen && <button type="button" onClick={() => onListen(content)} title="Hear Brain speak this reply" aria-label="Listen to Brain’s reply">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4Z" strokeLinejoin="round" /><path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" strokeLinecap="round" /></svg>
       <span>Listen</span>

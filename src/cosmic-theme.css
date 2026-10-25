@@ -15,6 +15,8 @@
   --cosmic-shadow: inset 0 1px 0 rgb(237 224 255 / 8%), 0 8px 24px rgb(2 5 18 / 16%);
   --cosmic-ease: cubic-bezier(.22, 1, .36, 1);
   --cosmic-accent-rgb: 140 236 243;
+  --chat-radius: 18px;
+  --chat-input-surface: linear-gradient(180deg, rgb(21 26 47 / 88%), rgb(13 20 37 / 86%));
   --dice-number-font: Cinzel, Georgia, serif;
   --site-footer-height: calc(2rem + env(safe-area-inset-bottom, 0px));
   --rpg-font-display: Oxanium, "Trebuchet MS", sans-serif;
@@ -165,6 +167,9 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
   outline: 2px solid var(--cosmic-violet); outline-offset: 3px;
 }
 .retro-rpg-ui ::selection { background: rgb(139 92 246 / 45%); color: #fff; }
+/* Placeholder hints are decoration, never selectable draft/message content. */
+input::placeholder, textarea::placeholder { -webkit-user-select: none; user-select: none; pointer-events: none; }
+[data-ui-placeholder], [data-ui-placeholder] * { -webkit-user-select: none; user-select: none; pointer-events: none; }
 
 /* Window surfaces: quiet reading areas with the nebula visible around them. */
 .retro-shell-left { z-index: 30; background: var(--cosmic-frame-surface); border-bottom: 0; }
@@ -200,18 +205,20 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
 }
 .retro-message-user {
   background: linear-gradient(140deg, rgb(160 132 225 / 17%), rgb(99 119 180 / 9%));
-  border-radius: 1.2rem 1.2rem .4rem 1.2rem;
-  box-shadow: inset 0 1px 0 rgb(224 214 255 / 8%), 0 8px 24px rgb(2 5 18 / 7%);
+  border-radius: var(--chat-radius) var(--chat-radius) .5rem var(--chat-radius);
+  box-shadow: inset 0 1px 0 rgb(224 214 255 / 7%);
 }
 .retro-message-assistant { padding: .25rem 0; }
-.retro-message:hover { box-shadow: none; }
+.retro-message-assistant:hover { box-shadow: none; }
 .retro-message pre { background: #080e20; border: 1px solid var(--cosmic-border); border-radius: .75rem; }
 .retro-message a { color: var(--cosmic-cyan); text-decoration: underline; text-underline-offset: 3px; }
 .retro-message-row { position: relative; isolation: isolate; }
 .retro-message-row[data-message-role="assistant"]::before { content: ''; position: absolute; inset: -.75rem -1rem; z-index: -1; pointer-events: none; border-radius: 1.2rem; background: radial-gradient(ellipse at 0 20%, rgb(var(--cosmic-accent-rgb) / 4%), transparent 70%); opacity: 0; transition: opacity 400ms ease; }
 .retro-message-row[data-message-role="assistant"]:is(:hover, :focus-within)::before { opacity: 1; }
 .retro-message-row[data-message-arriving] { animation: cosmic-message-settle 420ms var(--cosmic-ease) both; }
-.cosmic-message-sender { display: flex; align-items: center; gap: .55rem; margin-bottom: .55rem; }
+.cosmic-message-sender { display: flex; align-items: center; gap: .5rem; margin-bottom: .45rem; }
+.cosmic-chat-surface .cosmic-message-sender { letter-spacing: .12em; }
+.retro-message-assistant .cosmic-chat-prose { padding-left: 1rem; }
 .cosmic-chat-prose { line-height: 1.8; }
 .cosmic-chat-prose p { margin-bottom: .65rem !important; }
 .cosmic-chat-prose p:last-child { margin-bottom: 0 !important; }
@@ -219,8 +226,8 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
 .cosmic-sender-light { width: 4px; height: 4px; flex: none; border-radius: 50%; background: var(--cosmic-violet); opacity: .55; }
 [data-message-role="assistant"] .cosmic-sender-light { background: var(--cosmic-cyan); box-shadow: 0 0 8px rgb(var(--cosmic-accent-rgb) / 25%); }
 [data-message-streaming] .cosmic-sender-light { animation: cosmic-signal-breathe 1800ms ease-in-out infinite; }
-.cosmic-message-actions { display: flex; align-items: center; gap: .25rem; margin-top: .25rem; }
-.cosmic-message-actions button { display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; padding: .45rem .7rem; border-radius: .7rem; color: var(--cosmic-muted); font-size: .7rem; opacity: .65; transition: opacity 180ms ease, color 180ms ease, background 180ms ease; }
+.cosmic-message-actions { display: flex; align-items: center; gap: .15rem; margin-top: .1rem; padding-left: .25rem; }
+.cosmic-message-actions button { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; padding: .45rem .65rem; border-radius: .6rem; color: var(--cosmic-muted); font-size: .7rem; opacity: .75; transition: opacity 180ms ease, color 180ms ease, background 180ms ease; }
 .cosmic-message-actions button:is(:hover, :focus-visible), .cosmic-message-actions button[data-copied="true"] { opacity: 1; color: var(--cosmic-cyan); background: rgb(var(--cosmic-accent-rgb) / 6%); }
 .cosmic-copy-error { color: var(--cosmic-muted); font-size: .7rem; }
 .cosmic-chat-activity { display: flex; align-items: center; gap: .75rem; min-height: 44px; padding: .25rem 0; color: var(--cosmic-muted); font-size: .75rem; animation: cosmic-fade-in 240ms ease both; }
@@ -248,41 +255,33 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
 :is(.retro-icon-button, .retro-input-action, .retro-side-action, .retro-sidebar-action, .retro-profile-trigger, .retro-divider-handle, .retro-roll-panel-button):hover:not(:disabled) {
   background: rgb(108 92 167 / 28%); border-color: rgb(189 165 255 / 48%);
 }
-/* The composer idles as a barely-there glass plate. On focus the surface drifts
-   and a comet of cyan/violet light orbits the rim; the caret stays dim so the
-   words lead. */
+/* One quiet writing surface, aligned with the reading column. Focus is a
+   gentle light change, not another animated object competing with the text. */
 .cosmic-composer .retro-input-shell {
   position: relative;
-  border-radius: 24px !important;
-  border-color: rgb(181 192 236 / 13%) !important;
-  background: linear-gradient(180deg, rgb(23 22 50 / 56%), rgb(11 15 32 / 46%)) !important;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(115%);
-  backdrop-filter: blur(16px) saturate(115%);
+  border-radius: var(--chat-radius) !important;
+  border-color: rgb(181 192 236 / 19%) !important;
+  background: var(--chat-input-surface) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%), 0 12px 32px -24px rgb(2 5 18 / 55%) !important;
   transition: border-color 260ms ease, box-shadow 260ms ease;
 }
 .cosmic-composer .retro-input-shell:hover { border-color: rgb(196 173 255 / 26%) !important; }
 .cosmic-composer .retro-input-shell:focus-within,
 .cosmic-composer .retro-input-shell-primed {
   border-color: rgb(140 236 243 / 30%) !important;
-  box-shadow: 0 0 0 1px rgb(140 236 243 / 6%), 0 18px 44px -24px rgb(140 236 243 / 34%) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%), 0 0 0 3px rgb(140 236 243 / 3%), 0 14px 30px -24px rgb(140 236 243 / 24%) !important;
 }
 .cosmic-composer .retro-input-shell:focus-within {
-  background:
-    radial-gradient(90% 160% at 8% 50%, rgb(140 236 243 / 9%), transparent 62%),
-    linear-gradient(112deg, rgb(21 25 49 / 70%), rgb(29 24 55 / 62%), rgb(13 29 41 / 66%)) !important;
-  background-size: 200% 200% !important;
-  animation: cosmic-composer-drift 10s ease-in-out infinite;
+  background: linear-gradient(180deg, rgb(24 31 52 / 94%), rgb(15 24 41 / 92%)) !important;
 }
-@property --composer-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 .cosmic-composer .retro-input-shell::before {
   content: '';
   position: absolute;
   inset: -1px;
   z-index: 2;
-  padding: 1.4px;
+  padding: 1px;
   border-radius: inherit;
-  background: conic-gradient(from var(--composer-angle), transparent 0deg 54deg, rgb(140 236 243 / 0%) 76deg, rgb(140 236 243 / 80%) 108deg, rgb(196 173 255 / 98%) 145deg, rgb(140 236 243 / 0%) 192deg, transparent 214deg 360deg);
+  background: linear-gradient(115deg, rgb(140 236 243 / 35%), rgb(196 173 255 / 14%) 45%, transparent 75%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -292,10 +291,8 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
   transition: opacity 360ms ease;
 }
 .cosmic-composer .retro-input-shell:focus-within::before,
-.cosmic-composer .retro-input-shell-primed::before { opacity: 1; animation: cosmic-composer-orbit 4.8s linear infinite; }
+.cosmic-composer .retro-input-shell-primed::before { opacity: 1; }
 @supports not (mask-composite: exclude) { .cosmic-composer .retro-input-shell::before { display: none; } }
-@keyframes cosmic-composer-drift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-@keyframes cosmic-composer-orbit { to { --composer-angle: 360deg; } }
 .cosmic-composer .retro-input-textarea {
   border-radius: 16px;
   color: rgb(231 235 250 / 92%) !important;
@@ -307,7 +304,7 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
 .cosmic-composer .retro-input-textarea::selection { background: rgb(140 236 243 / 20%); color: #f4fbff; }
 .cosmic-composer .retro-send-button {
   border: 1px solid transparent;
-  border-radius: 50%;
+  border-radius: 12px;
   background: transparent;
   color: rgb(196 173 255 / 52%);
   box-shadow: none;
@@ -418,9 +415,7 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
   .cosmic-wheel-item { opacity: 1; }
   .site-footer-spark { transition: none; }
 }
-.retro-rpg-ui .cosmic-composer .retro-input-shell { width: min(100%, var(--composer-width, 20rem)); max-width: 100%; margin-left: 0; margin-right: auto; transition: width 360ms cubic-bezier(.2, 1.25, .35, 1), border-color 260ms ease, box-shadow 260ms ease; }
-.cosmic-composer-measure-wrap { position: fixed; top: 0; left: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
-.cosmic-composer-measure { display: block; width: max-content; white-space: pre; }
+.retro-rpg-ui .cosmic-composer .retro-input-shell { width: 100%; max-width: 100%; margin-inline: 0; transition: border-color 260ms ease, box-shadow 260ms ease; }
 .retro-keycap { background: rgb(30 37 66 / 80%) !important; border-color: var(--cosmic-border) !important; color: #d6def3; }
 .retro-status-pill { border-color: var(--cosmic-border); background: rgb(189 165 255 / 12%); color: #e3dcff; }
 .retro-context-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; padding: 0; margin-bottom: 1rem; border-radius: 0; border-bottom: 1px solid var(--cosmic-border); background: transparent; box-shadow: none; }
@@ -627,14 +622,11 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
 .retro-rpg-ui .cosmic-composer .retro-input-textarea:is(:focus, :focus-visible) { outline: none !important; border: 0 !important; box-shadow: none !important; -webkit-box-shadow: none !important; --tw-ring-shadow: 0 0 #0000; --tw-ring-offset-shadow: 0 0 #0000; background: transparent !important; }
 .cosmic-composer-hint { min-height: 1rem; margin-top: .5rem; color: var(--cosmic-muted); font-size: .6875rem; text-align: left; }
 .cosmic-composer-hint kbd { font: inherit; color: #d5c9ec; }
-.cosmic-composer-meta { display: flex; align-items: center; justify-content: space-between; width: min(100%, var(--composer-width, 20rem)); max-width: 100%; min-height: 44px; gap: .5rem; }
-.cosmic-composer-meta .cosmic-composer-hint { margin: 0; font-size: .625rem; }
-.cosmic-composer-actions { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: .35rem; min-height: 44px; padding: .3rem .5rem; color: var(--cosmic-muted); font-size: .6875rem; border-radius: .65rem; transition: background 180ms, color 180ms; }
-.cosmic-composer-actions:is(:hover, :focus-visible):not(:disabled) { color: var(--cosmic-cyan); background: rgb(var(--cosmic-accent-rgb) / 6%); }
-.cosmic-composer-actions:disabled { opacity: .4; }
+.cosmic-composer-meta { width: 100%; max-width: 100%; padding: .5rem .25rem 0; }
+.cosmic-composer-meta .cosmic-composer-hint { margin: 0; font-size: .625rem; line-height: 1.6; }
 .cosmic-composer[data-composer-state="ready"] .retro-send-button { background: linear-gradient(140deg, rgb(196 173 255 / 22%), rgb(var(--cosmic-accent-rgb) / 12%)); border-color: rgb(196 173 255 / 35%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%), 0 5px 20px -9px rgb(140 236 243 / 30%); }
 .cosmic-composer .retro-send-button:active:not(:disabled) { transform: scale(.93); }
-@media (prefers-reduced-motion: reduce) { .cosmic-composer-actions { transition: none; } .cosmic-composer .retro-send-button:active:not(:disabled) { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cosmic-composer .retro-send-button:active:not(:disabled) { transform: none; } }
 
 /* A dedicated pre-adventure surface: creation never occupies the context rail
    or replaces the chat window. The native dialog keeps the workspace inert. */
@@ -965,6 +957,7 @@ body:has(.cosmic-workspace[data-chat-state="responding"]) .site-background-bloom
   .cosmic-workspace .retro-scroll-panel { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
   .cosmic-workspace .retro-input-dock { padding-inline: .75rem; padding-bottom: calc(var(--site-footer-height) + .75rem); }
   .cosmic-composer-hint { display: none; }
+  .cosmic-composer-meta { display: none; }
   .cosmic-roll-prompt { align-self: center; }
   .cosmic-roll-die { height: 14rem; }
   .cosmic-roll-die-number { font-size: 1.8rem; }

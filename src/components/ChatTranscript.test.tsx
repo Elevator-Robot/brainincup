@@ -42,7 +42,8 @@ it.each([BRAIN_CHAT, GAME_MASTER_CHAT, FUTURE_CHAT])('accepts composer content c
   const { container } = render(<ChatComposer configuration={configuration} draft={{ current: 'Keep this draft.' }} onSend={onSend}
     placeholder="Write a message" isLocked={false} isWaiting={false} isPrimed={false} />);
   expect(container.querySelector('.cosmic-composer.cosmic-chat-surface')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Browse chat actions' }));
+  expect(screen.queryByRole('button', { name: 'Browse chat actions' })).toBeNull();
+  fireEvent.contextMenu(screen.getByRole('textbox').closest('[data-composer-shell]') as HTMLElement, { clientX: 200, clientY: 100 });
   expect(screen.getByRole('dialog', { name: 'Chat actions' })).toBeInTheDocument();
   expect(screen.getByRole('textbox')).toHaveValue('Keep this draft.');
   expect(onSend).not.toHaveBeenCalled();

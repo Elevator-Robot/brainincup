@@ -81,7 +81,7 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
   };
 
   const openWheel = (event: ReactMouseEvent) => {
-    if (isLocked) return;
+    if (isLocked || actions.length === 0) return;
     event.preventDefault();
     setWheel({ x: event.clientX, y: event.clientY });
   };
@@ -104,11 +104,11 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
   return (
     <form ref={sizing.form} onSubmit={event => { event.preventDefault(); void submit(); }} className="cosmic-composer cosmic-chat-surface"
       data-composer-state={isWaiting ? 'thinking' : isSubmitting ? 'sending' : value.trim() ? 'ready' : 'idle'}>
-      <span className="cosmic-composer-measure-wrap" aria-hidden="true"><span ref={sizing.measure} className="cosmic-composer-measure">{`${value}${showGhost ? ghost : ''}`}</span></span>
       <div ref={sizing.shell} className={`retro-input-shell flex items-end gap-2 rounded-lg border p-2 ${isPrimed ? 'retro-input-shell-primed' : ''}`}
         onContextMenu={openWheel} data-composer-shell>
         <div className="cosmic-composer-field">
-          <div className="cosmic-ghost" aria-hidden="true">
+          <div className="cosmic-ghost" aria-hidden="true" data-ui-placeholder
+            ref={node => { if (node) node.inert = true; }}>
             <span>{value}</span>{showGhost ? <span className="cosmic-ghost-tail">{ghost}</span> : null}
           </div>
           <textarea ref={textarea} value={value}
@@ -154,13 +154,8 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
         <p className="cosmic-composer-hint">
           {slashOpen
             ? <span><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> stage · <kbd>Esc</kbd> dismiss</span>
-            : <span><kbd>Enter</kbd> to send · <kbd>Shift + Enter</kbd> for a new line{showGhost ? <> · <kbd>Tab</kbd> to accept</> : null}</span>}
+            : <span><kbd>Enter</kbd> to send · <kbd>Shift + Enter</kbd> for a new line{showGhost ? <> · <kbd>Tab</kbd> to accept</> : null}{actions.length > 0 ? <> · <kbd>/</kbd> for suggestions</> : null}</span>}
         </p>
-        <button type="button" className="cosmic-composer-actions" aria-label="Browse chat actions" aria-haspopup="dialog" aria-expanded={Boolean(wheel)}
-          disabled={isLocked || isSubmitting || actions.length === 0} onClick={event => {
-            const box = event.currentTarget.getBoundingClientRect();
-            setWheel({ x: box.left + box.width / 2, y: box.top - 160 });
-          }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z" strokeLinejoin="round" /></svg> Actions</button>
       </div>
       {wheel && <ActionWheel x={wheel.x} y={wheel.y} actions={actions}
         onSelect={action => { setWheel(null); stageAction(action, true); }}
