@@ -56,7 +56,7 @@ it('aborts inference, resets durable Brain state before deleting chat, and ignor
     api.reset.mockResolvedValueOnce({ data: { id: 'account-brain', brainState: null, brainStateVersion: 'unverified-old-revision' } });
     fireEvent.click(screen.getByRole('button', { name: 'Options' }));
     fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to completely clear');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to verify that Brain’s memory was reset');
     expect(api.deleteMessage).not.toHaveBeenCalled();
     expect(api.deleteResponse).not.toHaveBeenCalled();
     expect(screen.getByText('An earlier reply.')).toBeInTheDocument();
@@ -64,11 +64,23 @@ it('aborts inference, resets durable Brain state before deleting chat, and ignor
     fireEvent.change(input, { target: { value: 'Start another response.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
     await waitFor(() => expect(api.stream).toHaveBeenCalledTimes(1));
+    let finishReset: (() => void) | undefined;
+    api.reset.mockImplementationOnce(payload => new Promise(resolve => {
+      finishReset = () => resolve({ data: payload });
+    }));
     fireEvent.click(screen.getByRole('button', { name: 'Options' }));
     fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
+    await waitFor(() => expect(api.reset).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    expect(screen.getByRole('button', { name: 'Clear chat' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    await act(async () => { finishReset?.(); });
     await waitFor(() => expect(screen.queryByText('An earlier reply.')).toBeNull());
     expect(active?.signal?.aborted).toBe(true);
-    expect(api.reset).toHaveBeenCalledWith({ id: 'account-brain', brainState: null, brainStateVersion: expect.any(String) });
+    expect(api.reset).toHaveBeenCalledWith({ id: 'account-brain', brainState: null, brainStateVersion: expect.any(String) }, {
+      selectionSet: ['id', 'brainState', 'brainStateVersion'], authMode: 'userPool',
+    });
     expect(api.reset.mock.invocationCallOrder[0]).toBeLessThan(api.deleteResponse.mock.invocationCallOrder[0]);
     expect(api.reset.mock.invocationCallOrder[0]).toBeLessThan(api.deleteMessage.mock.invocationCallOrder[0]);
     expect(api.updateMessage).not.toHaveBeenCalled();

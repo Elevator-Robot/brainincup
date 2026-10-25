@@ -33,6 +33,7 @@ import DeleteAccountModal from './components/DeleteAccountModal';
 import MobileMenu from './components/MobileMenu';
 import OptionsMenuContent from './components/OptionsMenu';
 import ChatVoiceControl from './components/ChatVoiceControl';
+import { clearBrainChat, ClearBrainChatError } from './api/clearBrainChat';
 import { useChatVoice } from './hooks/useChatVoice';
 import CharacterCreation, { type CharacterCreationInput } from './components/CharacterCreation';
 import BrainPresence, { type BrainPresenceMood } from './components/BrainPresence';
@@ -429,6 +430,8 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     return localStorage.getItem('lastActiveConversationId');
   });
   const chatVoice = useChatVoice(conversationId, messages);
+  const visibleConversationRef = useRef(conversationId);
+  visibleConversationRef.current = conversationId;
   const [storedPersonalityMode, setStoredPersonalityMode] = useState<'brain' | 'game_master'>(() => {
     if (routeMode) return routeMode;
     if (typeof window === 'undefined') return 'game_master';
@@ -465,6 +468,8 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   // Error toast state for optimistic rollback notifications
   const [playerStateError, setPlayerStateError] = useState<string | null>(null);
   const [brainClearError, setBrainClearError] = useState<string | null>(null);
+  const [isClearingBrainChat, setIsClearingBrainChat] = useState(false);
+  const clearingBrainChatRef = useRef(false);
   
   // Game Master data state
   const [adventureState, setAdventureState] = useState<AdventureRecord | null>(null);
@@ -1230,6 +1235,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             
             // Check if this response is for our conversation
             if (brainResponse.conversationId === conversationId) {
+              if (clearingBrainChatRef.current) return;
               if (effectivePersonality === 'game_master') {
                 recordQuestStep(brainResponse);
 
@@ -1749,7 +1755,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
 
   const handleSubmit = async (content: string): Promise<boolean> => {
     if (
-      !content.trim() || isInputLocked
+      !content.trim() || isInputLocked || clearingBrainChatRef.current
     ) return false;
 
     let activeConversationId = conversationId;
@@ -2172,65 +2178,39 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   }, [deleteConversationById, draggingConversationId, brainConversationId]);
 
   const handleClearBrainChat = async () => {
-    if (!conversationId || effectivePersonality !== 'brain') return;
+    if (!conversationId || effectivePersonality !== 'brain' || clearingBrainChatRef.current) return;
+    clearingBrainChatRef.current = true;
+    setIsClearingBrainChat(true);
     setIsOptionsMenuOpen(false);
     activeStreamRef.current?.abort();
     chatVoice.stop();
+    setMessages(previous => previous.map(message => message.isTyping
+      ? { ...message, isTyping: false, streamError: 'Reply interrupted while clearing chat.' }
+      : message));
+    setIsWaitingForResponse(false);
     setBrainClearError(null);
 
     try {
       if (!isTestModeEnabled()) {
-        const revision = crypto.randomUUID();
-        const reset = await dataClient.models.Conversation.update({
-          id: conversationId,
-          brainState: null,
-          brainStateVersion: revision,
-        });
-        if (reset.errors?.length || reset.data?.brainStateVersion !== revision || reset.data.brainState !== null) {
-          throw new Error(formatModelErrors(reset.errors) || 'Unable to verify that Brain memory was cleared');
-        }
-        let responseCursor: string | null | undefined;
-        const responseCursors = new Set<string>();
-        do {
-          const page = await dataClient.models.BrainResponse.list({ filter: { conversationId: { eq: conversationId } }, nextToken: responseCursor });
-          if (page.errors?.length) throw new Error(formatModelErrors(page.errors));
-          for (const response of page.data ?? []) {
-            if (response.id) {
-              const deleted = await dataClient.models.BrainResponse.delete({ id: response.id });
-              if (deleted.errors?.length) throw new Error(formatModelErrors(deleted.errors));
-            }
-          }
-          responseCursor = page.nextToken;
-          if (responseCursor && responseCursors.has(responseCursor)) throw new Error('Response cleanup did not advance');
-          if (responseCursor) responseCursors.add(responseCursor);
-        } while (responseCursor);
-
-        let messageCursor: string | null | undefined;
-        const messageCursors = new Set<string>();
-        do {
-          const page = await dataClient.models.Message.list({ filter: { conversationId: { eq: conversationId } }, nextToken: messageCursor });
-          if (page.errors?.length) throw new Error(formatModelErrors(page.errors));
-          for (const message of page.data ?? []) {
-            if (message.id) {
-              const deleted = await dataClient.models.Message.delete({ id: message.id });
-              if (deleted.errors?.length) throw new Error(formatModelErrors(deleted.errors));
-            }
-          }
-          messageCursor = page.nextToken;
-          if (messageCursor && messageCursors.has(messageCursor)) throw new Error('Message cleanup did not advance');
-          if (messageCursor) messageCursors.add(messageCursor);
-        } while (messageCursor);
+        await clearBrainChat(conversationId);
       }
 
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(getMessagesCacheKey(conversationId));
       }
-      setMessages([]);
-      setIsWaitingForResponse(false);
+      if (visibleConversationRef.current === conversationId) {
+        setMessages([]);
+        setIsWaitingForResponse(false);
+      }
       setConversationListRefreshKey((prev) => prev + 1);
     } catch (error) {
-      console.error('Error clearing chat:', error);
-      setBrainClearError('Unable to completely clear Brain chat and memory. Please try again.');
+      console.error('Error clearing Brain chat', error instanceof ClearBrainChatError
+        ? { stage: error.stage, reason: error.reason }
+        : { stage: 'local-cleanup', reason: 'unexpected-error' });
+      setBrainClearError(error instanceof ClearBrainChatError ? error.message : 'Unable to clear local chat history. Please try again.');
+    } finally {
+      clearingBrainChatRef.current = false;
+      setIsClearingBrainChat(false);
     }
   };
 
@@ -2348,7 +2328,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const accountEmail = userAttributes?.email?.trim() || 'No email available';
   const isContextOpen = !isGameMasterMode || hasGameMasterCharacterReady;
   const hasTypingMessage = messages.some(m => m.isTyping);
-  const isInputLocked = isWaitingForResponse || hasTypingMessage || hasPendingRoll || isGameMasterContentLoading || isGameMasterCharacterRequired || isSelectingConversation;
+  const isInputLocked = isClearingBrainChat || isWaitingForResponse || hasTypingMessage || hasPendingRoll || isGameMasterContentLoading || isGameMasterCharacterRequired || isSelectingConversation;
   const gameMasterInputPlaceholder = 'What do you do next?';
 
   const normalizedQuestSteps = useMemo(() => mapQuestStepsToHud(questSteps), [questSteps]);
@@ -2507,7 +2487,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                             conversationAction={
                               <button type="button" className="cosmic-menu-row"
                                 onClick={() => { if (isGameMasterMode) void handleSidebarDeleteAction(); else void handleClearBrainChat(); }}
-                                disabled={!conversationId || (!isGameMasterMode && messages.length === 0)}>
+                                disabled={isClearingBrainChat || !conversationId || (!isGameMasterMode && messages.length === 0)}>
                                 <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
