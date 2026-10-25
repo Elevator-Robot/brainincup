@@ -26,6 +26,10 @@ describe('thoughts unfold from the message', () => {
     expect(screen.getByText(/The compass and the stars/)).toBeInTheDocument();
     fireEvent.click(trigger);
     expect(screen.queryByRole('region', { name: 'Message thoughts' })).not.toBeInTheDocument();
+    const collapsed = document.getElementById(panel.id)!;
+    expect(collapsed).toHaveAttribute('data-expanded', 'false');
+    expect(collapsed).toHaveAttribute('aria-hidden', 'true');
+    expect(collapsed.inert).toBe(true);
   });
 
   it('supports Enter and Space without a separate visible link', () => {
@@ -35,6 +39,14 @@ describe('thoughts unfold from the message', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
     fireEvent.keyDown(trigger, { key: ' ' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('also responds to its visible disclosure icon', () => {
+    render(<MessageList messages={[message]} isGameMasterMode={false} variant="desktop" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Show message thoughts' }));
+    expect(screen.getByRole('region', { name: 'Message thoughts' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Hide message thoughts' }));
+    expect(screen.queryByRole('region', { name: 'Message thoughts' })).not.toBeInTheDocument();
   });
 
   it('does not toggle while selecting text or activating a Markdown link', () => {

@@ -48,14 +48,18 @@ describe('BrainPresence', () => {
     expect(screen.queryByRole('button', { name: /Mute chat voice/ })).toBeNull();
   });
 
-  it('squishes at the pointer without restarting the idle animation, and cancels an earlier poke', () => {
+  it('adds momentum to repeated pokes without restarting or teleporting the body', () => {
+    let frameId = 0;
+    let now = 0;
+    const frames = new Map<number, FrameRequestCallback>();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++frameId, callback); return frameId; });
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+    const advance = () => {
+      now += 16;
+      const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(callback => callback(now));
+    };
     const { container, unmount } = render(<BrainPresence pokeable />);
     const body = container.querySelector('.cosmic-brain-body')! as HTMLElement;
-    const contact = container.querySelector('.cosmic-brain-contact')! as HTMLElement;
-    const cancel = vi.fn();
-    const animate = vi.fn<HTMLElement['animate']>(() => ({ cancel } as unknown as Animation));
-    body.animate = animate;
-    contact.animate = animate;
     const brain = screen.getByRole('button');
     vi.spyOn(brain, 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 100, 200, 200));
     const pointerDown = new Event('pointerdown', { bubbles: true });
@@ -63,13 +67,26 @@ describe('BrainPresence', () => {
     fireEvent(brain, pointerDown);
     fireEvent.click(brain, { detail: 1 });
     expect(brain.style.getPropertyValue('--poke-x')).toBe('70%');
-    expect(animate).toHaveBeenCalledTimes(2);
-    expect(animate.mock.calls[0][0]).toEqual(expect.arrayContaining([expect.objectContaining({ offset: .14, transform: expect.stringContaining('scale(.93, 1.055)') })]));
+    expect(body).toHaveAttribute('data-physics', 'active');
+    expect(frames.size).toBe(1);
+    advance();
+    const firstPosition = body.style.transform;
+    expect(firstPosition).toContain('translate3d');
     fireEvent.click(brain, { detail: 0 });
-    expect(cancel).toHaveBeenCalledTimes(2);
+    expect(body.style.transform).toBe(firstPosition);
+    expect(frames.size).toBe(1);
     expect(brain.style.getPropertyValue('--poke-x')).toBe('50%');
+    advance();
+    expect(body.style.transform).not.toBe(firstPosition);
+    let steps = 0;
+    while (frames.size && steps++ < 1000) advance();
+    expect(steps).toBeLessThan(1000);
+    expect(body.style.transform).toBe('');
+    expect(body).not.toHaveAttribute('data-physics');
+    fireEvent.click(brain);
+    expect(frames.size).toBe(1);
     unmount();
-    expect(cancel).toHaveBeenCalledTimes(4);
+    expect(frames.size).toBe(0);
   });
 
   it('keeps pokes motion-free when reduced motion is requested', () => {

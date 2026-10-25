@@ -136,16 +136,26 @@ export const MessageBubble = memo(function MessageBubble({
             } ${role === 'user' ? 'text-brand-accent-secondary' : ''}`}>
               <span className="cosmic-sender-light" aria-hidden="true" />
               {role === 'user' ? 'You' : 'Brain'}
+              {hasInsights && <button type="button" className="cosmic-message-affordance" data-expanded={expanded}
+                aria-label={expanded ? 'Hide message thoughts' : 'Show message thoughts'} aria-expanded={expanded}
+                aria-controls={insightsId} onClick={onToggleExpanded} title={expanded ? 'Hide thoughts' : 'Reveal thoughts'}>
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m6 4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>}
             </span>
             <div
               className={`cosmic-chat-prose${hasInsights ? ' cosmic-insight-trigger' : ''}`}
               role={hasInsights ? 'button' : undefined}
               tabIndex={hasInsights ? 0 : undefined}
               aria-expanded={hasInsights ? expanded : undefined}
-              aria-controls={hasInsights && expanded ? insightsId : undefined}
+              aria-controls={hasInsights ? insightsId : undefined}
               aria-describedby={hasInsights ? hintId : undefined}
               aria-busy={visibleContent !== message.content}
               data-chat-arrival={role === 'assistant' && (message.populateOnMount || message.isTyping) ? '' : undefined}
+              onPointerDown={hasInsights ? event => {
+                const box = event.currentTarget.getBoundingClientRect();
+                event.currentTarget.style.setProperty('--message-contact-x', `${event.clientX - box.left}px`);
+                event.currentTarget.style.setProperty('--message-contact-y', `${event.clientY - box.top}px`);
+              } : undefined}
               onClick={hasInsights ? event => {
                 if (event.target instanceof Element && event.target.closest('a, button, input, textarea, select')) return;
                 const selection = window.getSelection();
@@ -200,8 +210,10 @@ export const MessageBubble = memo(function MessageBubble({
           )}
 
           {/* Show additional details when expanded (Brain only) */}
-          {hasInsights && expanded && (
-            <div id={insightsId} className="cosmic-message-insights" role="region" aria-label="Message thoughts">
+          {hasInsights && (
+            <div id={insightsId} className="cosmic-message-insights" data-expanded={expanded}
+              ref={node => { if (node) node.inert = !expanded; }}
+              role={expanded ? 'region' : undefined} aria-hidden={!expanded} aria-label={expanded ? 'Message thoughts' : undefined}>
               <div className="cosmic-message-insights-clip">
                 <div className="cosmic-message-insights-content">
                   {/* Reasoning (AG-UI REASONING_MESSAGE stream) */}
