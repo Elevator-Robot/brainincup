@@ -50,10 +50,11 @@ export function createLocalVoiceMiddleware(config: VoiceConfig) {
         fail(400, 'Speech requires 1–1000 characters.'); return;
       }
       recent.push(Date.now());
-      const bytes = await synthesize(body.text, controller.signal);
+      const packet = await synthesize(body.text, controller.signal);
       if (controller.signal.aborted) return;
-      response.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Content-Length': bytes.length });
-      response.end(bytes);
+      const encoded = JSON.stringify(packet);
+      response.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(encoded) });
+      response.end(encoded);
     } catch {
       if (!controller.signal.aborted && !response.headersSent) fail(502, 'Brain’s voice is unavailable. Check the voice ID, key’s TTS permissions, and credit balance.');
     } finally {

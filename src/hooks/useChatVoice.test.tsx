@@ -2,6 +2,7 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useChatVoice } from './useChatVoice';
 import type { Message } from '../components/MessageBubble';
+import type { GeneratedSpeech } from '../api/chatVoice';
 
 const generate = vi.hoisted(() => vi.fn());
 vi.mock('../api/chatVoice', () => ({ generateChatSpeech: generate }));
@@ -19,7 +20,7 @@ const reply = (content: string, overrides: Partial<Message> = {}): Message => ({
 
 beforeEach(() => {
   FakeAudio.instances = [];
-  generate.mockReset().mockResolvedValue(new Blob(['audio'], { type: 'audio/mpeg' }));
+  generate.mockReset().mockResolvedValue({ blob: new Blob(['audio'], { type: 'audio/mpeg' }), alignment: null });
   vi.stubGlobal('Audio', FakeAudio);
   vi.stubGlobal('URL', Object.assign(class {}, { createObjectURL: vi.fn(() => 'blob:voice'), revokeObjectURL: vi.fn() }));
 });
@@ -68,14 +69,14 @@ it('does not autoplay hydrated history and stops when changing conversations', a
 });
 
 it('ignores a late generation after mute and makes no subsequent chunk requests', async () => {
-  let resolve!: (value: Blob) => void;
-  generate.mockImplementationOnce(() => new Promise<Blob>(done => { resolve = done; }));
+  let resolve!: (value: GeneratedSpeech) => void;
+  generate.mockImplementationOnce(() => new Promise<GeneratedSpeech>(done => { resolve = done; }));
   const { result } = renderHook(() => useChatVoice('brain', []));
   act(() => result.current.toggle());
   act(() => result.current.listen('A'.repeat(1800)));
   await waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
   act(() => result.current.toggle());
-  await act(async () => { resolve(new Blob(['audio'])); });
+  await act(async () => { resolve({ blob: new Blob(['audio']), alignment: null }); });
   expect(URL.createObjectURL).not.toHaveBeenCalled();
   expect(generate).toHaveBeenCalledTimes(1);
 });
@@ -106,6 +107,31 @@ it('Listen also preserves an explicitly unmuted preference after playback', asyn
   act(() => { FakeAudio.instances[0].dispatchEvent(new Event('ended')); });
   await waitFor(() => expect(result.current.status).toBe('idle'));
   expect(result.current.enabled).toBe(true);
+});
+
+it('binds timing to the exact chosen message and clears it when stopped', async () => {
+  const selected = reply('Hi', { messageId: 'selected' });
+  const alignment = { characters: ['H', 'i'], startTimes: [0, .1], endTimes: [.1, .2] };
+  generate.mockResolvedValueOnce({ blob: new Blob(['audio']), alignment });
+  const { result } = renderHook(() => useChatVoice('brain', [selected]));
+  act(() => result.current.listen(selected.content, selected));
+  await waitFor(() => expect(result.current.status).toBe('playing'));
+  expect(result.current.playback).toMatchObject({ message: selected, text: 'Hi', offset: 0, alignment });
+  expect(result.current.enabled).toBe(false);
+  act(() => result.current.stop());
+  expect(result.current.playback).toBeNull();
+});
+
+it('mirrors actual pause and buffering events without changing the automatic mute preference', async () => {
+  const { result } = renderHook(() => useChatVoice('brain', []));
+  act(() => result.current.listen('A chosen reply.'));
+  await waitFor(() => expect(result.current.status).toBe('playing'));
+  act(() => { FakeAudio.instances[0].dispatchEvent(new Event('pause')); });
+  expect(result.current.status).toBe('paused'); expect(result.current.enabled).toBe(false);
+  act(() => { FakeAudio.instances[0].dispatchEvent(new Event('waiting')); });
+  expect(result.current.status).toBe('loading');
+  act(() => { FakeAudio.instances[0].dispatchEvent(new Event('playing')); });
+  expect(result.current.status).toBe('playing'); expect(result.current.enabled).toBe(false);
 });
 
 it('surfaces provider failures, returns to muted, and does not interrupt text chat', async () => {

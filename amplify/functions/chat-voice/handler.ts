@@ -10,6 +10,5 @@ export const handler: Schema['generateChatSpeech']['functionHandler'] = async ev
     apiKey: process.env.ELEVENLABS_API_KEY ?? '',
     voiceId: process.env.ELEVENLABS_VOICE_ID,
   });
-  const bytes = await service(event.arguments.text);
-  return { audio: Buffer.from(bytes).toString('base64'), contentType: 'audio/mpeg' };
+  return service(event.arguments.text);
 };

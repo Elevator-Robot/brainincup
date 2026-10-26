@@ -13,7 +13,8 @@ mute preference. While listening once, the global voice control stops playback;
 after completion it returns to its existing muted/unmuted state. User messages, internal
 thoughts, tool output, and unrevealed dice narration are not spoken.
 
-Muted mode makes no synthesis requests. Muting, clearing chat, changing
+Muted mode makes no automatic synthesis requests; explicit Listen reads only the
+chosen reply. Muting, clearing chat, changing
 conversations, or leaving the workspace stops playback and discards queued audio.
 Already submitted provider requests may still consume credits; muting prevents
 their late audio from playing and stops subsequent chunks. Failures mute voice
@@ -21,6 +22,34 @@ with a visible error without interfering with text chat. No browser speech-synth
 fallback substitutes a different voice. Long replies are narrated in sequential
 chunks, with markdown removed. Audio is kept only for current playback, not saved
 in local storage, the service-worker cache, or conversation records.
+
+## Text/audio synchronization
+
+The server uses ElevenLabs' `/with-timestamps` endpoint, returning the audio and
+validated original-text character alignment. `shared/chatSpeech.ts` defines the
+same contract for the authenticated mutation, local proxy, and browser. Alignment
+must match the exact synthesized chunk with finite, ordered timestamps; missing
+or mismatched/normalized-only timing falls back to audio-only playback, never
+estimated typewriter synchronization.
+
+The shared message renderer keeps the full reply readable during voice playback
+and highlights the sentence containing the current spoken character. It reads
+`HTMLAudioElement.currentTime`, not wall-clock animation time. Chunk offsets,
+pauses, buffering, seeks, playback-rate changes, visibility changes, cancellation,
+and end-of-audio are handled explicitly. Muted replies retain normal text reveal;
+Listen-once synchronization never changes the automatic mute preference.
+
+Native CSS Highlights paint a DOM Range across Markdown nodes without rewriting
+text, changing the user's Selection, moving focus, or forcing scrolling. Older
+browsers use a coarser paragraph cue. Content without an exact prose match (for
+example an omitted code block or image description) is not falsely highlighted.
+Annotations, tool metadata, buttons, and private narrator trailers are excluded.
+All timing state is ephemeral and is cleared on stop/navigation/chat clear.
+
+Release the added optional `ChatSpeech.alignment` schema, function, regenerated
+outputs, and frontend together. Existing audio-only responses can still play,
+but cannot provide accurate synchronization. No new key permissions or model
+inference calls are required. Timing is included in the existing TTS request.
 
 ## Server configuration (not applied by this branch)
 
@@ -75,6 +104,8 @@ can require tapping Listen again; blocked playback surfaces an actionable error.
 
 `npm test`, `npm run build`, and `npx tsc --noEmit -p amplify/tsconfig.json`
 exercise mocked synthesis and type-check the integration without paid API calls.
+The build checks the application and Vite/server tooling independently, with
+both consuming the shared speech contract directly from source.
 With configured credentials in an authorized deployed environment, verify:
 
 1. Fresh Brain and GM sessions remain silent, including on mobile.

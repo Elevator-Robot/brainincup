@@ -233,6 +233,9 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 .cosmic-chat-surface .cosmic-message-sender { letter-spacing: .12em; }
 .retro-message-assistant .cosmic-chat-prose { padding-left: 1rem; }
 .cosmic-chat-prose { line-height: 1.8; }
+::highlight(brain-speech) { background-color: rgb(140 236 243 / 16%); color: #f4f3ff; }
+.cosmic-speech-current { background-color: rgb(140 236 243 / 8%); border-radius: .25rem; }
+.cosmic-chat-prose[data-speech-active="true"]::before { opacity: .85; }
 .cosmic-chat-prose p { margin-bottom: .65rem !important; }
 .cosmic-chat-prose p:last-child { margin-bottom: 0 !important; }
 .cosmic-chat-prose :is(h1, h2, h3) { margin-top: 1rem; margin-bottom: .45rem; }

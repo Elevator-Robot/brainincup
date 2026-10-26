@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import type { ChatDiceRoll } from '../utils/diceRolls';
 import { useTypewriterText } from '../hooks/useTypewriterText';
+import { useSpeechHighlight } from '../hooks/useSpeechHighlight';
+import type { SpeechPlayback } from '../chat/speech';
 
 export interface ToolCallRecord {
   toolCallId: string;
@@ -40,6 +42,7 @@ interface MessageBubbleProps {
   expanded: boolean;
   onToggleExpanded: () => void;
   containerRef?: (el: HTMLDivElement | null) => void;
+  speech?: SpeechPlayback;
 }
 
 // Stable renderers preserve DOM nodes (and text selection) as streaming grows.
@@ -82,13 +85,15 @@ const MarkdownContent = memo(function MarkdownContent({ content }: { content: st
 
 /** One shared, memoized chat bubble for desktop and mobile. */
 export const MessageBubble = memo(function MessageBubble({
-  message, expanded, onToggleExpanded, containerRef,
+  message, expanded, onToggleExpanded, containerRef, speech,
 }: MessageBubbleProps) {
   const { role } = message;
   const visibleContent = useTypewriterText(
     message.content,
-    role === 'assistant' && Boolean(message.populateOnMount || message.isTyping),
+    role === 'assistant' && Boolean(message.populateOnMount || message.isTyping) && !speech,
   );
+  const proseRef = useRef<HTMLDivElement>(null);
+  useSpeechHighlight(proseRef, speech, visibleContent);
   const [populating, setPopulating] = useState(() => Boolean(message.populateOnMount && message.content));
   const previousContent = useRef(message.content);
   useEffect(() => {
@@ -138,6 +143,7 @@ export const MessageBubble = memo(function MessageBubble({
               </button>}
             </span>
             <div
+              ref={proseRef}
               className={`cosmic-chat-prose${hasInsights ? ' cosmic-insight-trigger' : ''}`}
               role={hasInsights ? 'button' : undefined}
               tabIndex={hasInsights ? 0 : undefined}

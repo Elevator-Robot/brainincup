@@ -29,7 +29,7 @@ it('uses identical message markup, disclosure, copy, and listen across all exper
     expect(screen.getByRole('region', { name: 'Message thoughts' })).toHaveTextContent('The silence might be deliberate.');
     expect(screen.getByRole('region', { name: 'Message thoughts' })).toHaveTextContent('You passed this gate before.');
     fireEvent.click(screen.getByRole('button', { name: 'Listen to Brain’s reply' }));
-    expect(listen).toHaveBeenCalledExactlyOnceWith(messages[1].content);
+    expect(listen).toHaveBeenCalledExactlyOnceWith(messages[1].content, messages[1]);
     expect(screen.getByRole('button', { name: 'Copy reply' })).toBeInTheDocument();
     unmount();
   }

@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 
 export default function ChatVoiceControl({ enabled, status, error, onToggle, onStop, placement = 'default' }: {
-  enabled: boolean; status: 'idle' | 'loading' | 'playing'; error: string | null; onToggle: () => void;
+  enabled: boolean; status: 'idle' | 'loading' | 'playing' | 'paused'; error: string | null; onToggle: () => void;
   onStop: () => void;
   placement?: 'default' | 'rail' | 'composer-tab';
 }) {
@@ -25,14 +25,14 @@ export default function ChatVoiceControl({ enabled, status, error, onToggle, onS
           {enabled ? <path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14" strokeLinecap="round" /> : <path d="m16 9 5 6m0-6-5 6" strokeLinecap="round" />}
         </>}
       </svg>}
-      <span className={placement === 'rail' ? 'sr-only' : undefined}>{listeningOnce ? 'Stop' : !enabled ? 'Unmute' : status === 'loading' ? 'Preparing…' : status === 'playing' ? 'Speaking' : 'Voice on'}</span>
+      <span className={placement === 'rail' ? 'sr-only' : undefined}>{listeningOnce ? 'Stop' : !enabled ? 'Unmute' : status === 'loading' ? 'Preparing…' : status === 'playing' ? 'Speaking' : status === 'paused' ? 'Paused' : 'Voice on'}</span>
       {placement === 'rail' && <span className="cosmic-voice-led" data-enabled={enabled} aria-hidden="true" />}
     </button>
     <span id={tipId} role="tooltip" className="cosmic-voice-tooltip">
-      {placement === 'rail' && <><strong className="cosmic-voice-flyout-title">Brain’s voice <small>{listeningOnce ? 'LISTEN ONCE' : !enabled ? 'MUTED' : status === 'playing' ? 'SPEAKING' : status === 'loading' ? 'PREPARING' : 'VOICE ON'}</small></strong><span className="cosmic-voice-flyout-copy">One voice · every conversation</span></>}
+      {placement === 'rail' && <><strong className="cosmic-voice-flyout-title">Brain’s voice <small>{listeningOnce ? 'LISTEN ONCE' : !enabled ? 'MUTED' : status === 'playing' ? 'SPEAKING' : status === 'loading' ? 'PREPARING' : status === 'paused' ? 'PAUSED' : 'VOICE ON'}</small></strong><span className="cosmic-voice-flyout-copy">One voice · every conversation</span></>}
       {tooltip}
     </span>
-    <span role="status" className="sr-only">{error || (status === 'loading' ? 'Preparing Brain’s voice' : '')}</span>
+    <span role="status" className="sr-only">{error || (status === 'loading' ? 'Preparing Brain’s voice' : status === 'paused' ? 'Brain’s voice is paused' : '')}</span>
     {error && <span className="cosmic-voice-error" role="alert">{error}</span>}
   </div>;
 }

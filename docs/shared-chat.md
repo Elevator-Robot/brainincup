@@ -44,6 +44,10 @@ Every assistant message uses the same disclosure when annotations exist:
 `sensations`, `thoughts`, `memories`, and `selfReflection`. Empty messages do not
 promise hidden details. Click, disclosure button, keyboard, selection protection,
 Copy, Listen, reveal transitions, and reduced motion work identically across modes.
+Voice timing is passed as ephemeral `SpeechPlayback` to the same transcript and
+message renderer. The active spoken sentence follows the audio media clock;
+there is no experience-specific timing implementation. Full text remains readable
+and manual listening preserves the global mute preference.
 
 GM narration is original, measured second-person storytelling: sensory detail,
 understated interpretation, and player agency rather than prescribed emotion.

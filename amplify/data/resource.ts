@@ -238,7 +238,12 @@ const schema = a.schema({
     .secondaryIndexes((index) => [index('playerStateId')])
     .authorization(allow => [allow.owner(), allow.groups(['Admins'])]),
 
-  ChatSpeech: a.customType({ audio: a.string().required(), contentType: a.string().required() }),
+  ChatSpeechAlignment: a.customType({
+    characters: a.string().array().required(),
+    startTimes: a.float().array().required(),
+    endTimes: a.float().array().required(),
+  }),
+  ChatSpeech: a.customType({ audio: a.string().required(), contentType: a.string().required(), alignment: a.ref('ChatSpeechAlignment') }),
   generateChatSpeech: a.mutation()
     .arguments({ text: a.string().required() })
     .returns(a.ref('ChatSpeech'))

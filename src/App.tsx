@@ -2227,7 +2227,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const transcript = <ChatTranscript conversationId={conversationId}
     messages={transcriptMessages}
     waiting={isWaitingForResponse} scrollRef={scrollRef} contentRef={contentRef}
-    onListen={chatVoice.listen} renderExtension={renderChatExtension} />;
+    onListen={chatVoice.listen} playback={chatVoice.playback} renderExtension={renderChatExtension} />;
 
   return (
     <div className={`retro-rpg-ui cosmic-workspace ${appThemeClass} h-dvh overflow-hidden relative`}
