@@ -5,13 +5,13 @@ import MessageList from '../MessageList';
 afterEach(cleanup);
 
 it.each([
-  ['Brain', 'desktop', false], ['Brain', 'mobile', false],
-  ['GM', 'desktop', true], ['GM', 'mobile', true],
-] as const)('labels both senders in %s mode on %s', (_mode, variant, isGameMasterMode) => {
-  render(<MessageList messages={[
+  ['Brain', 'desktop'], ['Brain', 'mobile'],
+  ['GM', 'desktop'], ['GM', 'mobile'], ['Future', 'mobile'],
+] as const)('labels both senders in %s mode on %s', (mode, viewport) => {
+  render(<div data-mode={mode} data-viewport={viewport}><MessageList messages={[
     { role: 'user', content: 'Hello there.' },
     { role: 'assistant', content: 'Good to see you.' },
-  ]} variant={variant} isGameMasterMode={isGameMasterMode} />);
+  ]} /></div>);
   const user = screen.getByText('Hello there.').closest('.message-bubble') as HTMLElement;
   const assistant = screen.getByText('Good to see you.').closest('.message-bubble') as HTMLElement;
   expect(within(user).getByText('You')).toHaveClass('uppercase');
@@ -19,6 +19,6 @@ it.each([
 });
 
 it('labels a Brain message before its streamed text arrives', () => {
-  render(<MessageList messages={[{ role: 'assistant', content: '', isTyping: true }]} variant="desktop" isGameMasterMode={false} />);
+  render(<MessageList messages={[{ role: 'assistant', content: '', isTyping: true }]} />);
   expect(screen.getByText('Brain')).toBeInTheDocument();
 });

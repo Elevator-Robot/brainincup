@@ -38,3 +38,4 @@ class OrchestratorState(TypedDict, total=False):
     opened: bool
     final_message: str
     response_metadata: dict[str, Any]
+    narrator_notes: dict[str, Any]

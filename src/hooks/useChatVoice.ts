@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Message } from '../components/MessageBubble';
 import { generateChatSpeech } from '../api/chatVoice';
 import { speechChunks, spokenText } from '../utils/chatSpeech';
+import type { SpeechPlayback } from '../chat/speech';
 
-type VoiceStatus = 'idle' | 'loading' | 'playing';
+type VoiceStatus = 'idle' | 'loading' | 'playing' | 'paused';
 const messageKey = (message: Message, index: number) => message.messageId ?? `${index}:${message.content}`;
 const readable = (message: Message) => message.role === 'assistant' && !message.isTyping && !message.streamError && !message.diceRoll && Boolean(message.content.trim());
 const visibleMessages = (messages: Message[]) => {
@@ -20,6 +21,7 @@ export function useChatVoice(conversationId: string | null | undefined, messages
   const [enabled, setEnabled] = useState(false);
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [playback, setPlayback] = useState<SpeechPlayback | null>(null);
   const enabledRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const controller = useRef(new AbortController());
@@ -38,10 +40,11 @@ export function useChatVoice(conversationId: string | null | undefined, messages
     if (currentUrl.current) URL.revokeObjectURL(currentUrl.current);
     currentUrl.current = undefined;
     setStatus('idle');
+    setPlayback(null);
   }, []);
 
-  const enqueue = useCallback((content: string) => {
-    if (!enabledRef.current) return;
+  const enqueue = useCallback((content: string, explicitListen = false, message?: Message) => {
+    if (!enabledRef.current && !explicitListen) return;
     const text = spokenText(content);
     if (!text) return;
     const signal = controller.current.signal;
@@ -49,29 +52,44 @@ export function useChatVoice(conversationId: string | null | undefined, messages
       if (signal.aborted) return;
       setError(null);
       try {
+        const audio = audioRef.current ?? (audioRef.current = new Audio());
+        let offset = 0;
         for (const chunk of speechChunks(text)) {
           signal.throwIfAborted();
           setStatus('loading');
-          const blob = await generateChatSpeech(chunk, signal);
+          const start = text.indexOf(chunk, offset);
+          setPlayback({ message, audio, text, offset: start, alignment: null, signal });
+          const clip = await generateChatSpeech(chunk, signal);
           signal.throwIfAborted();
-          const audio = audioRef.current ?? (audioRef.current = new Audio());
-          const url = URL.createObjectURL(blob);
+          setPlayback({ message, audio, text, offset: start, alignment: clip.alignment, signal });
+          const url = URL.createObjectURL(clip.blob);
           currentUrl.current = url;
           try {
             await new Promise<void>((resolve, reject) => {
               const cleanup = () => {
                 audio.removeEventListener('ended', ended);
                 audio.removeEventListener('error', failed);
+                audio.removeEventListener('playing', playing);
+                audio.removeEventListener('pause', paused);
+                audio.removeEventListener('waiting', waiting);
+                audio.removeEventListener('stalled', waiting);
                 signal.removeEventListener('abort', aborted);
               };
               const ended = () => { cleanup(); resolve(); };
               const failed = () => { cleanup(); reject(new Error('Audio playback failed.')); };
               const aborted = () => { cleanup(); reject(new DOMException('Stopped', 'AbortError')); };
+              const playing = () => { if (!signal.aborted) setStatus('playing'); };
+              const paused = () => { if (!signal.aborted) setStatus('paused'); };
+              const waiting = () => { if (!signal.aborted) setStatus('loading'); };
               audio.addEventListener('ended', ended);
               audio.addEventListener('error', failed);
+              audio.addEventListener('playing', playing);
+              audio.addEventListener('pause', paused);
+              audio.addEventListener('waiting', waiting);
+              audio.addEventListener('stalled', waiting);
               signal.addEventListener('abort', aborted, { once: true });
               audio.src = url;
-              audio.play().then(() => { if (!signal.aborted) setStatus('playing'); }).catch(() => {
+              audio.play().then(playing).catch(() => {
                 cleanup(); reject(new Error('Tap a reply’s Listen button to allow audio playback.'));
               });
             });
@@ -79,6 +97,7 @@ export function useChatVoice(conversationId: string | null | undefined, messages
             URL.revokeObjectURL(url);
             if (currentUrl.current === url) currentUrl.current = undefined;
           }
+          offset = start + chunk.length;
         }
       } catch (cause) {
         if (!signal.aborted) {
@@ -89,22 +108,22 @@ export function useChatVoice(conversationId: string | null | undefined, messages
           stop();
         }
       } finally {
-        if (!signal.aborted) setStatus('idle');
+        if (!signal.aborted) { setStatus('idle'); setPlayback(null); }
       }
     });
   }, [stop]);
 
-  const listen = useCallback((content: string) => {
+  const listen = useCallback((content: string, message?: Message) => {
     stop();
     const audio = audioRef.current ?? (audioRef.current = new Audio());
     audio.src = SILENCE;
     void audio.play().catch(() => { /* A real play rejection is surfaced below. */ });
-    enabledRef.current = true;
-    setEnabled(true);
     setError(null);
     // Mark the current page handled: explicit playback never replays a backlog.
     visibleMessages(messagesRef.current).forEach((message, index) => { if (readable(message)) seen.current.add(messageKey(message, index)); });
-    enqueue(content);
+    // Listen is a one-reply override, not a change to automatic narration.
+    const target = message ?? [...messagesRef.current].reverse().find(item => item.role === 'assistant' && item.content === content);
+    enqueue(content, true, target);
   }, [enqueue, stop]);
 
   const toggle = useCallback(() => {
@@ -116,8 +135,10 @@ export function useChatVoice(conversationId: string | null | undefined, messages
       return;
     }
     // Unmute is an explicit request to hear the latest completed reply.
+    enabledRef.current = true;
+    setEnabled(true);
     const latest = [...visibleMessages(messagesRef.current)].reverse().find(readable);
-    listen(latest?.content ?? '');
+    listen(latest?.content ?? '', latest);
   }, [listen, stop]);
 
   useEffect(() => {
@@ -136,9 +157,9 @@ export function useChatVoice(conversationId: string | null | undefined, messages
       if (seen.current.has(key)) return;
       seen.current.add(key);
       // Hydrated history is never automatically narrated.
-      if (message.populateOnMount && enabledRef.current) enqueue(message.content);
+      if (message.populateOnMount && enabledRef.current) enqueue(message.content, false, message);
     });
   }, [messages, enqueue]);
 
-  return { enabled, status, error, toggle, listen, stop };
+  return { enabled, status, error, playback, toggle, listen, stop };
 }

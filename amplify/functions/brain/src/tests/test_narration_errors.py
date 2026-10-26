@@ -28,7 +28,9 @@ class NarrationFailureTest(unittest.TestCase):
     def test_failed_model_call_matches_brain_error_and_stream(self):
         self.client.invoke_model_with_response_stream.side_effect = RuntimeError("model unavailable")
         with self.assertLogs(self.narration.logger, level="ERROR"):
-            text = self.narration.generate_narration("system", "input")
+            result = self.narration.generate_narration("system", "input")
+        text = result.text
+        self.assertEqual(result.notes, {})
         self.assertEqual(text, self.language_agent._fallback_response()["response"])
         self.assertEqual(text, TECHNICAL_DIFFICULTIES_MESSAGE)
         self.assertEqual(self.events[1]["delta"], text)
@@ -43,7 +45,8 @@ class NarrationFailureTest(unittest.TestCase):
 
         self.client.invoke_model_with_response_stream.return_value = {"body": broken_stream()}
         with self.assertLogs(self.narration.logger, level="ERROR"):
-            text = self.narration.generate_narration("system", "input")
+            result = self.narration.generate_narration("system", "input")
+        text = result.text
         streamed = "".join(event.get("delta", "") for event in self.events)
         self.assertEqual(text, streamed)
         self.assertEqual(text, "The door opens.\n" + TECHNICAL_DIFFICULTIES_MESSAGE)

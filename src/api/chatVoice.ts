@@ -1,6 +1,16 @@
 import { dataClient } from './dataClient';
+import { validSpeechAlignment, type SpeechAlignment } from '../../shared/chatSpeech';
 
-export async function generateChatSpeech(text: string, signal: AbortSignal): Promise<Blob> {
+export interface GeneratedSpeech { blob: Blob; alignment: SpeechAlignment | null }
+function decodeSpeech(value: unknown, text: string): GeneratedSpeech {
+  const packet = value as { audio?: unknown; contentType?: unknown; alignment?: unknown } | null;
+  if (!packet || typeof packet.audio !== 'string' || packet.contentType !== 'audio/mpeg') throw new Error('Invalid voice response.');
+  const bytes = Uint8Array.from(atob(packet.audio), character => character.charCodeAt(0));
+  if (!bytes.length) throw new Error('Empty voice response.');
+  return { blob: new Blob([bytes], { type: 'audio/mpeg' }), alignment: validSpeechAlignment(packet.alignment, text) };
+}
+
+export async function generateChatSpeech(text: string, signal: AbortSignal): Promise<GeneratedSpeech> {
   signal.throwIfAborted();
   if (import.meta.env.DEV && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)) {
     const response = await fetch('/__local/chat-voice', {
@@ -12,8 +22,10 @@ export async function generateChatSpeech(text: string, signal: AbortSignal): Pro
       const result = await response.json().catch(() => ({})) as { error?: string };
       throw new Error(result.error || 'Local voice is unavailable.');
     }
-    if (!response.headers.get('content-type')?.includes('audio/mpeg')) throw new Error('Local voice returned invalid audio.');
-    return response.blob();
+    // An older local server can still play audio, but must never fake timing.
+    if (response.headers.get('content-type')?.includes('audio/mpeg')) return { blob: await response.blob(), alignment: null };
+    if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Local voice returned invalid audio.');
+    return decodeSpeech(await response.json(), text);
   }
   // Amplify attaches the authenticated user's token. No ElevenLabs key in JS.
   try {
@@ -27,8 +39,7 @@ export async function generateChatSpeech(text: string, signal: AbortSignal): Pro
       if (result.errors?.length || !result.data?.audio || result.data.contentType !== 'audio/mpeg') {
         throw new Error('Voice is unavailable.');
       }
-      const bytes = Uint8Array.from(atob(result.data.audio), character => character.charCodeAt(0));
-      return new Blob([bytes], { type: 'audio/mpeg' });
+      return decodeSpeech(result.data, text);
     } finally {
       signal.removeEventListener('abort', cancel);
     }

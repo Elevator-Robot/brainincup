@@ -7,5 +7,5 @@
     "allowSyntheticDefaultImports": true,
     "strict": true
   },
-  "include": ["vite.config.ts", "scripts/local-chat-voice.ts", "amplify/functions/chat-voice/service.ts"]
+  "include": ["vite.config.ts", "scripts/local-chat-voice.ts", "amplify/functions/chat-voice/service.ts", "shared/chatSpeech.ts"]
 }

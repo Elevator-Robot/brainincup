@@ -1,8 +1,8 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type MutableRefObject } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type MutableRefObject } from 'react';
 import ActionWheel from './ActionWheel';
 import { useComposerSize } from '../hooks/useComposerSize';
-import { actionsForMode, appendPrompt, filterActions, quickActionsForMode, type ChatAction } from '../utils/chatActions';
-import { predictCompletion } from '../utils/composerPredictions';
+import { appendPrompt, filterActions, type ChatAction } from '../utils/chatActions';
+import type { ChatComposerConfiguration } from '../chat/presentation';
 
 export interface ChatComposerHandle {
   clear: () => void;
@@ -17,14 +17,14 @@ interface ChatComposerProps {
   isWaiting: boolean;
   isPrimed: boolean;
   placeholder: string;
-  isGameMasterMode?: boolean;
+  configuration: ChatComposerConfiguration;
 }
 
 const SLASH_PATTERN = /^\/([a-z-]*)$/i;
 
 /** Keep keystrokes local so typing never rerenders the conversation or context. */
 const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function ChatComposer({
-  draft, onSend, isLocked, isWaiting, isPrimed, placeholder, isGameMasterMode = false,
+  draft, onSend, isLocked, isWaiting, isPrimed, placeholder, configuration,
 }, ref) {
   const [value, setValue] = useState(draft.current);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,15 +36,14 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
   const submitting = useRef(false);
   const textarea = useRef<HTMLTextAreaElement>(null);
 
-  const actions = useMemo(() => actionsForMode(isGameMasterMode), [isGameMasterMode]);
-  const quickActions = useMemo(() => quickActionsForMode(isGameMasterMode), [isGameMasterMode]);
+  const { actions, quickActions, suggestCompletion, inputLabel } = configuration;
 
   const slashQuery = SLASH_PATTERN.exec(value)?.[1] ?? null;
   const slashMatches = slashQuery === null ? [] : filterActions(actions, slashQuery);
   const slashOpen = !isLocked && slashQuery !== null && !slashDismissed && slashMatches.length > 0;
   const activeSlash = Math.min(slashIndex, Math.max(slashMatches.length - 1, 0));
 
-  const ghost = caretAtEnd && !isLocked ? predictCompletion(value, isGameMasterMode) : '';
+  const ghost = caretAtEnd && !isLocked ? suggestCompletion(value) : '';
   const showGhost = Boolean(ghost) && !slashOpen;
   const sizing = useComposerSize(`${value}${showGhost ? ghost : ''}`, textarea);
 
@@ -82,7 +81,7 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
   };
 
   const openWheel = (event: ReactMouseEvent) => {
-    if (isLocked) return;
+    if (isLocked || actions.length === 0) return;
     event.preventDefault();
     setWheel({ x: event.clientX, y: event.clientY });
   };
@@ -103,12 +102,13 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
   };
 
   return (
-    <form ref={sizing.form} onSubmit={event => { event.preventDefault(); void submit(); }} className="cosmic-composer">
-      <span className="cosmic-composer-measure-wrap" aria-hidden="true"><span ref={sizing.measure} className="cosmic-composer-measure">{`${value}${showGhost ? ghost : ''}`}</span></span>
+    <form ref={sizing.form} onSubmit={event => { event.preventDefault(); void submit(); }} className="cosmic-composer cosmic-chat-surface"
+      data-composer-state={isWaiting ? 'thinking' : isSubmitting ? 'sending' : value.trim() ? 'ready' : 'idle'}>
       <div ref={sizing.shell} className={`retro-input-shell flex items-end gap-2 rounded-lg border p-2 ${isPrimed ? 'retro-input-shell-primed' : ''}`}
         onContextMenu={openWheel} data-composer-shell>
         <div className="cosmic-composer-field">
-          <div className="cosmic-ghost" aria-hidden="true">
+          <div className="cosmic-ghost" aria-hidden="true" data-ui-placeholder
+            ref={node => { if (node) node.inert = true; }}>
             <span>{value}</span>{showGhost ? <span className="cosmic-ghost-tail">{ghost}</span> : null}
           </div>
           <textarea ref={textarea} value={value}
@@ -118,7 +118,7 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
             }}
             onSelect={event => setCaretAtEnd(event.currentTarget.selectionStart === value.length && event.currentTarget.selectionEnd === value.length)}
             onKeyDown={onKeyDown}
-            aria-label={isGameMasterMode ? 'Your next action' : 'Message Brain'} placeholder={placeholder} rows={1} readOnly={isSubmitting}
+            aria-label={inputLabel} placeholder={placeholder} rows={1} readOnly={isSubmitting}
             className="retro-input-textarea min-w-0 flex-1 resize-none border-0 bg-transparent px-3 py-2.5 leading-relaxed focus:outline-none" />
         </div>
         <button type="submit" aria-label="Send message" disabled={!value.trim() || isLocked || isSubmitting}
@@ -143,18 +143,20 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
           </div>
         )}
       </div>
-      {quickActions.length > 0 && <div className="gm-quick-actions" role="group" aria-label="Adventure actions">
+      {quickActions.length > 0 && <div className="cosmic-quick-actions" role="group" aria-label="Chat suggestions">
         {quickActions.map(action => <button key={action.id} type="button" disabled={isLocked || isSubmitting}
           onClick={() => stageAction(action, true)}>
           {action.label}
         </button>)}
       </div>}
       {error && <p className="mt-2 text-xs text-brand-status-error" role="alert">{error}</p>}
-      <p className="cosmic-composer-hint">
-        {slashOpen
-          ? <span><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> stage · <kbd>Esc</kbd> dismiss</span>
-          : <span><kbd>Enter</kbd> to send · <kbd>Shift + Enter</kbd> for a new line{showGhost ? <> · <kbd>Tab</kbd> to accept</> : null}{isGameMasterMode ? <span className="cosmic-hint-desktop"> · right-click for actions</span> : null}</span>}
-      </p>
+      <div className="cosmic-composer-meta">
+        <p className="cosmic-composer-hint">
+          {slashOpen
+            ? <span><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> stage · <kbd>Esc</kbd> dismiss</span>
+            : <span><kbd>Enter</kbd> to send · <kbd>Shift + Enter</kbd> for a new line{showGhost ? <> · <kbd>Tab</kbd> to accept</> : null}{actions.length > 0 ? <> · <kbd>/</kbd> for suggestions</> : null}</span>}
+        </p>
+      </div>
       {wheel && <ActionWheel x={wheel.x} y={wheel.y} actions={actions}
         onSelect={action => { setWheel(null); stageAction(action, true); }}
         onClose={() => { setWheel(null); textarea.current?.focus(); }} />}

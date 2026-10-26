@@ -1,49 +1,45 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import ChatComposer from '../ChatComposer';
+import { BRAIN_CHAT } from '../../chat/experienceAdapters';
 
-let available = 640;
+let contentHeight = 44;
 beforeEach(() => {
-  available = 640;
-  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function(this: HTMLElement) {
-    return this.tagName === 'FORM' ? available : 200;
-  });
-  vi.spyOn(HTMLSpanElement.prototype, 'getBoundingClientRect').mockImplementation(function(this: HTMLSpanElement) {
-    const width = Math.max(...(this.textContent || '').split('\n').map(line => line.length * 8));
-    return { width, height: 20, top: 0, left: 0, right: width, bottom: 20, x: 0, y: 0, toJSON() {} };
-  });
+  contentHeight = 44;
+  vi.spyOn(HTMLTextAreaElement.prototype, 'scrollHeight', 'get').mockImplementation(() => contentHeight);
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 function setup() {
   const draft = { current: '' };
-  const { container } = render(<ChatComposer draft={draft} onSend={vi.fn()} isLocked={false} isWaiting={false} isPrimed={false} placeholder="Message Brain" />);
-  const input = screen.getByRole('textbox');
-  const width = () => Number.parseFloat((container.querySelector('.retro-input-shell') as HTMLElement).style.getPropertyValue('--composer-width'));
-  return { draft, input, width };
+  const { container } = render(<ChatComposer draft={draft} configuration={BRAIN_CHAT} onSend={vi.fn()} isLocked={false} isWaiting={false} isPrimed={false} placeholder="Message Brain" />);
+  return { draft, input: screen.getByRole('textbox'), shell: container.querySelector('.retro-input-shell') as HTMLElement, container };
 }
 
-it('grows for the draft, caps at available width, and returns to its compact size', () => {
-  const { input, width } = setup();
-  const initial = width();
-  fireEvent.change(input, { target: { value: 'W'.repeat(60) } });
-  expect(width()).toBeGreaterThan(initial);
-  fireEvent.change(input, { target: { value: 'W'.repeat(400) } });
-  expect(width()).toBe(available);
+it('keeps width under CSS control and grows only vertically for a long draft', () => {
+  const { input, shell, container } = setup();
+  expect(input.style.height).toBe('44px');
+  contentHeight = 120;
+  fireEvent.change(input, { target: { value: 'A longer thought.\n'.repeat(5) } });
+  expect(input.style.height).toBe('120px');
+  expect(shell.style.width).toBe('');
+  expect(shell.style.getPropertyValue('--composer-width')).toBe('');
+  expect(container.querySelector('.cosmic-composer-measure')).toBeNull();
+  contentHeight = 300;
+  fireEvent.change(input, { target: { value: 'A longer thought.\n'.repeat(20) } });
+  expect(input.style.height).toBe('144px');
+  contentHeight = 44;
   fireEvent.change(input, { target: { value: '' } });
-  expect(width()).toBe(initial);
+  expect(input.style.height).toBe('44px');
 });
 
-it('sizes multiline text by its widest line and preserves the draft on viewport resize', () => {
-  const { input, width, draft } = setup();
-  const line = 'W'.repeat(60);
-  fireEvent.change(input, { target: { value: line } });
-  const singleLineWidth = width();
-  fireEvent.change(input, { target: { value: `${line}\n${line}` } });
-  expect(width()).toBe(singleLineWidth);
-  available = 280;
+it('rewraps on viewport resize without changing or losing the draft', () => {
+  const { input, draft } = setup();
+  const text = 'A thought that wraps differently on a smaller screen.';
+  fireEvent.change(input, { target: { value: text } });
+  contentHeight = 88;
   fireEvent.resize(window);
-  expect(width()).toBe(280);
-  expect(input).toHaveValue(`${line}\n${line}`);
-  expect(draft.current).toBe(`${line}\n${line}`);
+  expect(input.style.height).toBe('88px');
+  expect(input).toHaveValue(text);
+  expect(draft.current).toBe(text);
 });

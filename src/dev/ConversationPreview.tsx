@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import SiteBackground from '../components/SiteBackground';
 import BrainIcon from '../components/BrainIcon';
 import type { Message } from '../components/MessageBubble';
-import MessageList from '../components/MessageList';
+import ChatTranscript from '../components/ChatTranscript';
+import { BRAIN_CHAT, GAME_MASTER_CHAT } from '../chat/experienceAdapters';
+import { gameMasterMessageExtension, visibleGameMasterMessages } from '../chat/gameMasterMessages';
 import ChatComposer, { type ChatComposerHandle } from '../components/ChatComposer';
-import ChatWelcome from '../components/ChatWelcome';
 import { useChatDiceRolls } from '../hooks/useChatDiceRolls';
 import type { DiceRollRequest } from '../utils/diceRolls';
 import { useChatScroll } from '../hooks/useChatScroll';
@@ -78,17 +79,11 @@ export default function ConversationPreview() {
         </aside>}
         <main className="retro-shell-center min-w-0 overflow-hidden px-2 py-4 sm:px-4 max-lg:!col-start-1">
           <header className="cosmic-workspace-header"><h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1></header>
-          <div className="cosmic-chat-viewport">
-            <div ref={scrollRef} className="cosmic-chat-scroll min-h-0 flex-1 overflow-y-auto px-2" aria-label="Sample conversation">
-              <div ref={contentRef} className="cosmic-chat-content mx-auto flex max-w-4xl flex-col gap-6">
-                {empty ? <ChatWelcome isGameMasterMode onPrompt={prompt => { composer.current?.clear(); composer.current?.append(prompt); composer.current?.focus(); }} />
-                  : <MessageList messages={conversation} isGameMasterMode={!thoughts} variant={isDesktop ? 'desktop' : 'mobile'} activeDiceRequestId={activeRequestId} onDiceRoll={roll} />}
-              </div>
-            </div>
-          </div>
+          <ChatTranscript messages={empty ? [] : thoughts ? conversation : visibleGameMasterMessages(conversation)} scrollRef={scrollRef} contentRef={contentRef}
+            renderExtension={gameMasterMessageExtension({ activeRequestId: activeRequestId, onRoll: roll })} />
           <div className="retro-input-dock relative px-2 pt-4 sm:px-6">
             {!isAtBottom && <button className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages ↓</button>}
-            <ChatComposer ref={composer} draft={draft} isLocked={!empty && hasPendingRoll} isWaiting={false} isPrimed={false} placeholder={!empty && hasPendingRoll ? 'Resolve the requested check above…' : 'What do you do next?'}
+            <ChatComposer ref={composer} draft={draft} configuration={thoughts ? BRAIN_CHAT : GAME_MASTER_CHAT} isLocked={!empty && hasPendingRoll} isWaiting={false} isPrimed={false} placeholder={!empty && hasPendingRoll ? 'Resolve the requested check above…' : 'What do you do next?'}
               onSend={async content => { setConversation(previous => [...previous, { role: 'user', content }]); scrollToLatest(); return true; }} />
             <p className="mt-2 text-center text-[11px] text-brand-text-muted">Local visual preview · <a className="text-brand-accent-secondary underline underline-offset-2" href="/?testmode=true&preview=conversation&typewriter=true">Replay text reveal</a> · <a className="text-brand-accent-secondary underline underline-offset-2" href="/?testmode=true&preview=dice">Dice set</a></p>
           </div>

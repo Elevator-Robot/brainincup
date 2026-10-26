@@ -3,6 +3,7 @@ import { BRAIN_ARTWORK } from '../utils/brainHandoff';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePageVisible } from '../hooks/usePageVisible';
 import LivingBrain from './LivingBrain';
+import { useBrainPhysics } from '../hooks/useBrainPhysics';
 
 export type BrainPresenceMood = 'idle' | 'listening' | 'thinking' | 'speaking';
 interface BrainPresenceProps {
@@ -17,7 +18,6 @@ export default function BrainPresence({ mood = 'idle', intensity = 35, pokeable 
   const presenceRef = useRef<HTMLElement>(null);
   const bodyRef = useRef<HTMLSpanElement>(null);
   const contactRef = useRef<HTMLSpanElement>(null);
-  const pokeAnimations = useRef<Animation[]>([]);
   const hintId = useId();
   const pokePoint = useRef({ x: .5, y: .5 });
   const activity = mood === 'speaking' ? 1 : mood === 'thinking' ? .45 : .05;
@@ -29,14 +29,7 @@ export default function BrainPresence({ mood = 'idle', intensity = 35, pokeable 
   const energy = Number.isFinite(intensity) ? Math.max(0, Math.min(100, intensity)) / 100 : .35;
   const glowId = `brain-synapse-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
-  const clearPoke = useCallback(() => {
-    pokeAnimations.current.forEach(animation => animation.cancel());
-    pokeAnimations.current = [];
-  }, []);
-  useEffect(() => {
-    if (reducedMotion || !visible) clearPoke();
-    return clearPoke;
-  }, [reducedMotion, visible, clearPoke]);
+  const impulse = useBrainPhysics(bodyRef, contactRef, pokeable && !reducedMotion && visible);
 
   const locatePoke = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;
@@ -49,32 +42,11 @@ export default function BrainPresence({ mood = 'idle', intensity = 35, pokeable 
   };
 
   const pokeBrain = (event: ReactMouseEvent<HTMLButtonElement>) => {
-    const startTransform = bodyRef.current && !reducedMotion ? getComputedStyle(bodyRef.current).transform : 'none';
-    clearPoke();
     if (reducedMotion || !visible || presenceRef.current?.querySelector('[data-brain-arriving]')) return;
-    const body = bodyRef.current;
-    const contact = contactRef.current;
-    if (!body || !contact || typeof body.animate !== 'function') return;
     const { x, y } = event.detail === 0 ? { x: .5, y: .5 } : pokePoint.current;
     event.currentTarget.style.setProperty('--poke-x', `${x * 100}%`);
     event.currentTarget.style.setProperty('--poke-y', `${y * 100}%`);
-    const dx = (x - .5) * -11;
-    const dy = (y - .5) * -9 + 3;
-    // A local squish and damped overshoot, separate from idle drift/gaze so
-    // the living portrait never jumps phase or escapes its paint-contained box.
-    pokeAnimations.current = [body.animate([
-      { transform: startTransform || 'none', offset: 0 },
-      { transform: `translate(${dx}px, ${dy}px) scale(.93, 1.055) rotate(${(x - .5) * -4}deg)`, offset: .14 },
-      { transform: `translate(${-dx * .35}px, -2px) scale(1.035, .968)`, offset: .38 },
-      { transform: 'translate(0, 1px) scale(.988, 1.014)', offset: .62 },
-      { transform: 'scale(1.004, .996)', offset: .81 },
-      { transform: 'none', offset: 1 },
-    ], { duration: 760, easing: 'cubic-bezier(.22,.65,.35,1)' }),
-    contact.animate([
-      { opacity: 0, transform: 'translate(-50%, -50%) scale(.5)' },
-      { opacity: .65, transform: 'translate(-50%, -50%) scale(1)', offset: .18 },
-      { opacity: 0, transform: 'translate(-50%, -50%) scale(1.7)' },
-    ], { duration: 650, easing: 'ease-out' })];
+    impulse(x, y);
   };
 
   const clearGaze = useCallback(() => {

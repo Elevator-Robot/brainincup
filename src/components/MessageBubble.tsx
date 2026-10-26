@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import type { ChatDiceRoll } from '../utils/diceRolls';
 import { useTypewriterText } from '../hooks/useTypewriterText';
+import { useSpeechHighlight } from '../hooks/useSpeechHighlight';
+import type { SpeechPlayback } from '../chat/speech';
 
 export interface ToolCallRecord {
   toolCallId: string;
@@ -37,11 +39,10 @@ export interface Message {
 
 interface MessageBubbleProps {
   message: Message;
-  isGameMasterMode: boolean;
-  variant: 'desktop' | 'mobile';
   expanded: boolean;
   onToggleExpanded: () => void;
   containerRef?: (el: HTMLDivElement | null) => void;
+  speech?: SpeechPlayback;
 }
 
 // Stable renderers preserve DOM nodes (and text selection) as streaming grows.
@@ -84,14 +85,15 @@ const MarkdownContent = memo(function MarkdownContent({ content }: { content: st
 
 /** One shared, memoized chat bubble for desktop and mobile. */
 export const MessageBubble = memo(function MessageBubble({
-  message, isGameMasterMode, variant, expanded, onToggleExpanded, containerRef,
+  message, expanded, onToggleExpanded, containerRef, speech,
 }: MessageBubbleProps) {
-  const isDesktop = variant === 'desktop';
   const { role } = message;
   const visibleContent = useTypewriterText(
     message.content,
-    role === 'assistant' && Boolean(message.populateOnMount || message.isTyping),
+    role === 'assistant' && Boolean(message.populateOnMount || message.isTyping) && !speech,
   );
+  const proseRef = useRef<HTMLDivElement>(null);
+  useSpeechHighlight(proseRef, speech, visibleContent);
   const [populating, setPopulating] = useState(() => Boolean(message.populateOnMount && message.content));
   const previousContent = useRef(message.content);
   useEffect(() => {
@@ -104,23 +106,24 @@ export const MessageBubble = memo(function MessageBubble({
     return () => window.clearTimeout(timer);
   }, [populating]);
 
-  const detailCardClass = `rounded-lg bg-brand-surface-elevated/30 border border-brand-surface-border/50 ${isDesktop ? 'p-3' : 'p-2.5'}`;
-  const detailTitleClass = `font-medium flex items-center text-brand-text-primary ${isDesktop ? 'text-sm mb-2 gap-2' : 'text-xs mb-1.5 gap-1.5'}`;
-  const detailIconClass = isDesktop ? 'w-4 h-4' : 'w-3.5 h-3.5';
-  const detailTextClass = `text-brand-text-muted leading-relaxed ${isDesktop ? 'text-sm' : 'text-xs'}`;
-  const detailListClass = `${isDesktop ? 'text-sm space-y-1.5 ml-6' : 'text-xs space-y-1 ml-5'} text-brand-text-muted`;
+  const detailCardClass = 'rounded-lg bg-brand-surface-elevated/30 border border-brand-surface-border/50 p-2.5 lg:p-3';
+  const detailTitleClass = 'font-medium flex items-center text-brand-text-primary text-xs lg:text-sm mb-1.5 lg:mb-2 gap-1.5 lg:gap-2';
+  const detailIconClass = 'w-3.5 h-3.5 lg:w-4 lg:h-4';
+  const detailTextClass = 'text-brand-text-muted leading-relaxed text-xs lg:text-sm';
+  const detailListClass = 'text-xs lg:text-sm space-y-1 lg:space-y-1.5 ml-5 lg:ml-6 text-brand-text-muted';
   const insightsId = useId();
   const hintId = useId();
-  const hasInsights = !isGameMasterMode && role === 'assistant' && Boolean(
+  const hasInsights = role === 'assistant' && Boolean(
     [message.reasoning, message.memories, message.selfReflection].some(value => value?.trim())
     || message.sensations?.some(value => value.trim()) || message.thoughts?.some(value => value.trim()),
   );
 
   return (
-    <div className={`retro-message-row flex ${isDesktop ? 'gap-4' : 'gap-3'} ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
+    <div className={`retro-message-row flex gap-3 lg:gap-4 ${role === 'user' ? 'justify-end' : 'justify-start'}`}
+      data-message-role={role} data-message-arriving={message.populateOnMount || undefined} data-message-streaming={message.isTyping || undefined}>
       <div
         ref={containerRef}
-        className={`flex min-w-0 flex-col gap-2 ${role === 'assistant' ? 'w-full' : isDesktop ? 'max-w-[85%] sm:max-w-[75%]' : 'max-w-[85%]'}`}
+        className={`flex min-w-0 flex-col gap-2 ${role === 'assistant' ? 'w-full' : 'max-w-[85%] lg:max-w-[75%]'}`}
       >
         <div
           className={`retro-message message-bubble rounded-2xl px-4 py-3 ${
@@ -129,21 +132,31 @@ export const MessageBubble = memo(function MessageBubble({
               : 'retro-message-assistant text-brand-text-primary'
           } ${populating ? 'animate-text-populate' : ''}`}
         >
-          <div className={isDesktop ? 'break-words' : 'break-words text-sm'}>
-            <span className={`mb-1 block uppercase text-brand-text-muted ${
-              isDesktop ? 'text-[11px] tracking-[0.22em]' : 'text-[10px] tracking-[0.2em]'
-            } ${role === 'user' ? 'text-brand-accent-secondary' : ''}`}>
+          <div className="break-words text-sm lg:text-[.9375rem]">
+            <span className={`cosmic-message-sender mb-1 uppercase text-brand-text-muted text-[10px] lg:text-[11px] tracking-[0.2em] lg:tracking-[0.22em] ${role === 'user' ? 'text-brand-accent-secondary' : ''}`}>
+              <span className="cosmic-sender-light" aria-hidden="true" />
               {role === 'user' ? 'You' : 'Brain'}
+              {hasInsights && <button type="button" className="cosmic-message-affordance" data-expanded={expanded}
+                aria-label={expanded ? 'Hide message thoughts' : 'Show message thoughts'} aria-expanded={expanded}
+                aria-controls={insightsId} onClick={onToggleExpanded} title={expanded ? 'Hide thoughts' : 'Reveal thoughts'}>
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m6 4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>}
             </span>
             <div
-              className={hasInsights ? 'cosmic-insight-trigger' : undefined}
+              ref={proseRef}
+              className={`cosmic-chat-prose${hasInsights ? ' cosmic-insight-trigger' : ''}`}
               role={hasInsights ? 'button' : undefined}
               tabIndex={hasInsights ? 0 : undefined}
               aria-expanded={hasInsights ? expanded : undefined}
-              aria-controls={hasInsights && expanded ? insightsId : undefined}
+              aria-controls={hasInsights ? insightsId : undefined}
               aria-describedby={hasInsights ? hintId : undefined}
               aria-busy={visibleContent !== message.content}
               data-chat-arrival={role === 'assistant' && (message.populateOnMount || message.isTyping) ? '' : undefined}
+              onPointerDown={hasInsights ? event => {
+                const box = event.currentTarget.getBoundingClientRect();
+                event.currentTarget.style.setProperty('--message-contact-x', `${event.clientX - box.left}px`);
+                event.currentTarget.style.setProperty('--message-contact-y', `${event.clientY - box.top}px`);
+              } : undefined}
               onClick={hasInsights ? event => {
                 if (event.target instanceof Element && event.target.closest('a, button, input, textarea, select')) return;
                 const selection = window.getSelection();
@@ -197,9 +210,11 @@ export const MessageBubble = memo(function MessageBubble({
             </div>
           )}
 
-          {/* Show additional details when expanded (Brain only) */}
-          {hasInsights && expanded && (
-            <div id={insightsId} className="cosmic-message-insights" role="region" aria-label="Message thoughts">
+          {/* Identical disclosure behavior whenever a message carries details. */}
+          {hasInsights && (
+            <div id={insightsId} className="cosmic-message-insights" data-expanded={expanded}
+              ref={node => { if (node) node.inert = !expanded; }}
+              role={expanded ? 'region' : undefined} aria-hidden={!expanded} aria-label={expanded ? 'Message thoughts' : undefined}>
               <div className="cosmic-message-insights-clip">
                 <div className="cosmic-message-insights-content">
                   {/* Reasoning (AG-UI REASONING_MESSAGE stream) */}

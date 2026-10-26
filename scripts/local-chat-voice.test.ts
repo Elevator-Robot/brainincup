@@ -23,13 +23,13 @@ const options = (origin: string) => ({
 });
 
 it('returns uncached audio for a same-origin loopback request without exposing the key', async () => {
-  const provider = vi.fn(async () => new Response(new Uint8Array([1, 2, 3]), { headers: { 'Content-Type': 'audio/mpeg' } }));
+  const provider = vi.fn(async () => new Response(JSON.stringify({ audio_base64: 'AQID' }), { headers: { 'Content-Type': 'application/json' } }));
   vi.stubGlobal('fetch', provider);
   const origin = await start();
   const response = await realFetch(origin, options(origin));
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('no-store');
-  expect([...new Uint8Array(await response.arrayBuffer())]).toEqual([1, 2, 3]);
+  expect(await response.json()).toEqual({ audio: 'AQID', contentType: 'audio/mpeg', alignment: null });
   expect(provider).toHaveBeenCalledOnce();
   expect(provider.mock.calls[0]).toBeDefined();
 });

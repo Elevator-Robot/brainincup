@@ -16,6 +16,7 @@ from typing import Any, Generator
 from langgraph.config import get_stream_writer
 from core.errors import TECHNICAL_DIFFICULTIES_MESSAGE
 from core.regional_bedrock import DEFAULT_MODEL_ID, RegionalBedrockClient
+from experiences.game_master.orchestrator.narrator_notes import NarratorStream, NOTES_INSTRUCTIONS
 
 from experiences.agui import (
     text_message_content,
@@ -41,6 +42,7 @@ class Narration:
     def __init__(self, message_id: str):
         self.message_id = message_id
         self.text = ""
+        self.notes: dict = {}
 
 
 def generate_narration(
@@ -52,15 +54,15 @@ def generate_narration(
     max_tokens: int = 1600,
     temperature: float = 0.9,
     message_id: str | None = None,
-) -> str:
-    """Call Bedrock (streaming), emit AG-UI text events, return the text."""
+) -> Narration:
+    """One call: stream public prose, collect bounded authored annotations."""
     mid = message_id or str(uuid.uuid4())
     client = RegionalBedrockClient(region_name=region)
 
     request = {
         "anthropic_version": "bedrock-2023-05-31",
         "max_tokens": max_tokens,
-        "system": system_prompt,
+        "system": system_prompt + "\n\n" + NOTES_INSTRUCTIONS,
         "messages": [{"role": "user", "content": user_text}],
         "temperature": temperature,
     }
@@ -68,6 +70,9 @@ def generate_narration(
     _emit(text_message_start(mid, "assistant"))
 
     parts: list[str] = []
+    parser = NarratorStream()
+    result = Narration(mid)
+    failed = False
     try:
         response = client.invoke_model_with_response_stream(
             modelId=model_id,
@@ -82,14 +87,34 @@ def generate_narration(
                 continue
             text = delta.get("text", "")
             if text:
-                parts.append(text)
-                _emit(text_message_content(mid, text))
+                public = parser.feed(text)
+                if public:
+                    parts.append(public)
+                    _emit(text_message_content(mid, public))
     except Exception as exc:  # noqa: BLE001 - keep the stream alive on failure
         logger.error("Bedrock narration failed: %s", exc, exc_info=True)
+        failed = True
+        pending = parser.finish_public()
+        if pending:
+            parts.append(pending)
+            _emit(text_message_content(mid, pending))
         failure_text = ("\n" if parts else "") + TECHNICAL_DIFFICULTIES_MESSAGE
         _emit(text_message_content(mid, failure_text))
         parts.append(failure_text)
     finally:
+        pending = parser.finish_public()
+        if pending:
+            parts.append(pending)
+            _emit(text_message_content(mid, pending))
         _emit(text_message_end(mid))
 
-    return "".join(parts).strip()
+    result.text = "".join(parts).strip()
+    result.notes = {} if failed else parser.notes()
+    return result
+
+
+def narration_update(narration: Narration | str) -> dict:
+    """Explicit JSON-safe graph output; tolerate plain-text test/legacy clients."""
+    if isinstance(narration, Narration):
+        return {"final_message": narration.text, "narrator_notes": narration.notes}
+    return {"final_message": str(narration), "narrator_notes": {}}

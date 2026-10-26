@@ -18,19 +18,19 @@ const EDGE = BOX / 2 + 8;
 function WheelIcon({ name }: { name: ChatActionIcon }) {
   const common = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
   switch (name) {
-    case 'eye': return <svg {...common}><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="3" /></svg>;
-    case 'speech': return <svg {...common}><path d="M20 12a7.5 7.5 0 0 1-10.6 6.8L4.5 20l1.2-4.6A7.5 7.5 0 1 1 20 12Z" /></svg>;
-    case 'search': return <svg {...common}><circle cx="11" cy="11" r="6" /><path d="m20 20-3.6-3.6" /></svg>;
-    case 'bag': return <svg {...common}><path d="M5 8h14l-1 11H6L5 8Z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg>;
-    case 'scroll': return <svg {...common}><path d="M6 4h10a2 2 0 0 1 2 2v12a2 2 0 0 0 2 2H8a2 2 0 0 1-2-2V4Z" /><path d="M9.5 9h5M9.5 13h5" /></svg>;
-    case 'die': return <svg {...common}><rect x="4.5" y="4.5" width="15" height="15" rx="3.5" /><circle cx="9" cy="9" r="1" fill="currentColor" /><circle cx="15" cy="15" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /></svg>;
-    case 'spark': return <svg {...common}><path d="M12 3.5 13.7 9l5.3 1.7-5.3 1.7L12 17.7 10.3 12.4 5 10.7 10.3 9 12 3.5Z" /><path d="M18.5 4.5 19 6l1.5.5L19 7l-.5 1.5L18 7l-1.5-.5L18 6l.5-1.5Z" /></svg>;
-    case 'list': return <svg {...common}><path d="M8 7h11M8 12h11M8 17h7" /><circle cx="4.5" cy="7" r="1" fill="currentColor" /><circle cx="4.5" cy="12" r="1" fill="currentColor" /><circle cx="4.5" cy="17" r="1" fill="currentColor" /></svg>;
-    case 'map': return <svg {...common}><path d="M9 4 4 6v14l5-2 6 2 5-2V4l-5 2-6-2Z" /><path d="M9 4v14M15 6v14" /></svg>;
-    case 'bulb': return <svg {...common}><path d="M9.5 17h5M10 20h4" /><path d="M12 4a5.5 5.5 0 0 0-3 10.1V17h6v-2.9A5.5 5.5 0 0 0 12 4Z" /></svg>;
-    case 'pen': return <svg {...common}><path d="M5 19l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L9 18l-4 1Z" /></svg>;
-    case 'quote': return <svg {...common}><path d="M9 7c-2.5 1-4 3.2-4 6.2V17h5v-5H7c0-2 .8-3.4 2.6-4.2L9 7ZM18 7c-2.5 1-4 3.2-4 6.2V17h5v-5h-3c0-2 .8-3.4 2.6-4.2L18 7Z" /></svg>;
-    default: return null;
+  case 'eye': return <svg {...common}><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="3" /></svg>;
+  case 'speech': return <svg {...common}><path d="M20 12a7.5 7.5 0 0 1-10.6 6.8L4.5 20l1.2-4.6A7.5 7.5 0 1 1 20 12Z" /></svg>;
+  case 'search': return <svg {...common}><circle cx="11" cy="11" r="6" /><path d="m20 20-3.6-3.6" /></svg>;
+  case 'bag': return <svg {...common}><path d="M5 8h14l-1 11H6L5 8Z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg>;
+  case 'scroll': return <svg {...common}><path d="M6 4h10a2 2 0 0 1 2 2v12a2 2 0 0 0 2 2H8a2 2 0 0 1-2-2V4Z" /><path d="M9.5 9h5M9.5 13h5" /></svg>;
+  case 'die': return <svg {...common}><rect x="4.5" y="4.5" width="15" height="15" rx="3.5" /><circle cx="9" cy="9" r="1" fill="currentColor" /><circle cx="15" cy="15" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /></svg>;
+  case 'spark': return <svg {...common}><path d="M12 3.5 13.7 9l5.3 1.7-5.3 1.7L12 17.7 10.3 12.4 5 10.7 10.3 9 12 3.5Z" /><path d="M18.5 4.5 19 6l1.5.5L19 7l-.5 1.5L18 7l-1.5-.5L18 6l.5-1.5Z" /></svg>;
+  case 'list': return <svg {...common}><path d="M8 7h11M8 12h11M8 17h7" /><circle cx="4.5" cy="7" r="1" fill="currentColor" /><circle cx="4.5" cy="12" r="1" fill="currentColor" /><circle cx="4.5" cy="17" r="1" fill="currentColor" /></svg>;
+  case 'map': return <svg {...common}><path d="M9 4 4 6v14l5-2 6 2 5-2V4l-5 2-6-2Z" /><path d="M9 4v14M15 6v14" /></svg>;
+  case 'bulb': return <svg {...common}><path d="M9.5 17h5M10 20h4" /><path d="M12 4a5.5 5.5 0 0 0-3 10.1V17h6v-2.9A5.5 5.5 0 0 0 12 4Z" /></svg>;
+  case 'pen': return <svg {...common}><path d="M5 19l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L9 18l-4 1Z" /></svg>;
+  case 'quote': return <svg {...common}><path d="M9 7c-2.5 1-4 3.2-4 6.2V17h5v-5H7c0-2 .8-3.4 2.6-4.2L9 7ZM18 7c-2.5 1-4 3.2-4 6.2V17h5v-5h-3c0-2 .8-3.4 2.6-4.2L18 7Z" /></svg>;
+  default: return null;
   }
 }
 
@@ -96,7 +96,7 @@ export default function ActionWheel({ x, y, actions, onSelect, onClose }: Action
         ref={wheel}
         className="cosmic-wheel"
         role="dialog"
-        aria-label="Adventure actions"
+        aria-label="Chat actions"
         tabIndex={-1}
         style={wheelStyle}
         onPointerDown={event => event.stopPropagation()}
