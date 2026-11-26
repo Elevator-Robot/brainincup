@@ -59,3 +59,11 @@ it('lets future modes supply rich extensions without replacing standard chat', (
   expect(screen.getByRole('complementary', { name: 'Research sources' })).toBeInTheDocument();
   expect(screen.getByText('The door opens onto a quiet garden.')).toBeInTheDocument();
 });
+
+it('starts with closed message thoughts when switching conversations', () => {
+  const { rerender } = render(<ChatTranscript conversationId="first" messages={messages} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Show message thoughts' }));
+  expect(screen.getByRole('region', { name: 'Message thoughts' })).toBeInTheDocument();
+  rerender(<ChatTranscript conversationId="second" messages={messages} />);
+  expect(screen.queryByRole('region', { name: 'Message thoughts' })).not.toBeInTheDocument();
+});

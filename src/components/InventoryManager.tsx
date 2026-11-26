@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { CollectionUpdates } from '../hooks/useContextUpdates';
+import CreationGlyph from './creation/CreationGlyph';
 
 export interface InventoryItem {
   id: string;
@@ -10,6 +11,14 @@ export interface InventoryItem {
   description?: string;
   stats?: Record<string, number>;
 }
+
+const ITEM_GLYPHS: Record<InventoryItem['type'], string> = {
+  weapon: 'fighter',
+  armor: 'shield',
+  consumable: 'pack',
+  quest: 'spark',
+  currency: 'coin',
+};
 
 interface InventoryManagerProps {
   inventory: InventoryItem[];
@@ -134,7 +143,11 @@ export default function InventoryManager({
               key={item.id}
               className="cosmic-inventory-item"
               data-update={updates?.items[item.id]}
+              data-equipped={item.equipped || undefined}
             >
+              <span className="cosmic-inventory-glyph" aria-hidden="true">
+                <CreationGlyph kind={ITEM_GLYPHS[item.type]} />
+              </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <h4 className="cosmic-inventory-name">

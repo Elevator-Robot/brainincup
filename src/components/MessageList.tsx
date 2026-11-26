@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { MessageBubble, type Message } from './MessageBubble';
 import MessageActions from './MessageActions';
 import type { RenderMessageExtension } from '../chat/presentation';
@@ -11,9 +11,15 @@ interface MessageListProps {
   playback?: SpeechPlayback | null;
 }
 
-const MessageItem = memo(function MessageItem({ message, renderExtension, onListen, playback }: Omit<MessageListProps, 'messages'> & { message: Message }) {
-  const [expanded, setExpanded] = useState(false);
-  const toggle = useCallback(() => setExpanded(value => !value), []);
+interface MessageItemProps extends Omit<MessageListProps, 'messages'> {
+  message: Message;
+  messageKey: string | number;
+  expanded: boolean;
+  onToggle: (key: string | number) => void;
+}
+
+const MessageItem = memo(function MessageItem({ message, messageKey, expanded, onToggle, renderExtension, onListen, playback }: MessageItemProps) {
+  const toggle = useCallback(() => onToggle(messageKey), [messageKey, onToggle]);
   const listen = useCallback((content: string) => onListen?.(content, message), [onListen, message]);
   const speaking = playback?.message === message || (message.messageId && playback?.message?.messageId === message.messageId);
   const extension = renderExtension?.(message);
@@ -25,7 +31,17 @@ const MessageItem = memo(function MessageItem({ message, renderExtension, onList
 });
 
 export default memo(function MessageList({ messages, ...props }: MessageListProps) {
-  return messages.map((message, index) => message.content?.startsWith('[SYSTEM:') ? null : (
-    <MessageItem key={message.messageId ?? index} message={message} {...props} />
-  ));
+  const [expandedKey, setExpandedKey] = useState<string | number | null>(null);
+  const toggle = useCallback((key: string | number) => setExpandedKey(current => current === key ? null : key), []);
+  useEffect(() => {
+    if (expandedKey !== null && !messages.some((message, index) => (message.messageId ?? index) === expandedKey)) {
+      setExpandedKey(null);
+    }
+  }, [messages, expandedKey]);
+
+  return messages.map((message, index) => {
+    if (message.content?.startsWith('[SYSTEM:')) return null;
+    const key = message.messageId ?? index;
+    return <MessageItem key={key} messageKey={key} message={message} expanded={expandedKey === key} onToggle={toggle} {...props} />;
+  });
 });
