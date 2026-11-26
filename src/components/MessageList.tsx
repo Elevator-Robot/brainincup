@@ -9,6 +9,7 @@ interface MessageListProps {
   renderExtension?: RenderMessageExtension;
   onListen?: (content: string, message?: Message) => void;
   playback?: SpeechPlayback | null;
+  pendingSpeech?: Message[];
 }
 
 interface MessageItemProps extends Omit<MessageListProps, 'messages'> {
@@ -18,15 +19,17 @@ interface MessageItemProps extends Omit<MessageListProps, 'messages'> {
   onToggle: (key: string | number) => void;
 }
 
-const MessageItem = memo(function MessageItem({ message, messageKey, expanded, onToggle, renderExtension, onListen, playback }: MessageItemProps) {
+const MessageItem = memo(function MessageItem({ message, messageKey, expanded, onToggle, renderExtension, onListen, playback, pendingSpeech }: MessageItemProps) {
   const toggle = useCallback(() => onToggle(messageKey), [messageKey, onToggle]);
   const listen = useCallback((content: string) => onListen?.(content, message), [onListen, message]);
   const speaking = playback?.message === message || (message.messageId && playback?.message?.messageId === message.messageId);
+  const waitingForSpeech = !speaking && pendingSpeech?.some(pending => pending === message
+    || (message.messageId && pending.messageId === message.messageId));
   const extension = renderExtension?.(message);
   const appended = extension && typeof extension === 'object' && 'placement' in extension ? extension : undefined;
   if (extension !== undefined && !appended) return <>{extension as React.ReactNode}</>;
   return <div>
-    <MessageBubble message={message} expanded={expanded} onToggleExpanded={toggle} speech={speaking ? playback ?? undefined : undefined} />
+    <MessageBubble message={message} expanded={expanded} onToggleExpanded={toggle} speech={speaking ? playback ?? undefined : undefined} waitingForSpeech={waitingForSpeech} />
     {message.streamError && <p role="alert" className="cosmic-message-error">{message.streamError}</p>}
     {appended?.content}
     {message.role === 'assistant' && message.content.trim() && !message.isTyping && !message.streamError && <MessageActions content={message.content} onListen={onListen ? listen : undefined} />}

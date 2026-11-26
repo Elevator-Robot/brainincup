@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { useMediaQuery } from './useMediaQuery';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-const CHARACTERS_PER_SECOND = 90;
+const CHARACTERS_PER_SECOND = 24;
 const Segmenter = (Intl as typeof Intl & {
   Segmenter?: new (locale: undefined, options: { granularity: 'grapheme' }) => {
     segment(text: string): Iterable<{ segment: string }>;
@@ -17,27 +16,44 @@ function characters(text: string): string[] {
 }
 
 /** Presentation-only pacing: authoritative message data stays complete. */
-export function useTypewriterText(text: string, animate: boolean): string {
-  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
-  const [visible, setVisible] = useState(() => animate && !reducedMotion ? '' : text);
+export function useTypewriterText(text: string, animate: boolean, position?: number, initialCharacters = 0): string {
+  const graphemes = useMemo(() => characters(text), [text]);
+  const controlled = useMemo(() => {
+    if (position === undefined) return undefined;
+    let end = 0, count = 0;
+    for (const character of graphemes) {
+      if (end + character.length > position) break;
+      end += character.length; count++;
+    }
+    return { text: text.slice(0, end), count };
+  }, [graphemes, position, text]);
+  const [visible, setVisible] = useState(() => controlled?.text ?? (animate ? text.slice(0, initialCharacters) : text));
   const shown = useRef(visible);
   const target = useRef({ text: '', characters: [] as string[] });
-  const count = useRef(0);
+  const count = useRef(characters(visible).length);
   const frame = useRef(0);
   const clock = useRef(0);
   const budget = useRef(0);
 
   useEffect(() => {
     const corrected = !text.startsWith(target.current.text);
-    target.current = { text, characters: characters(text) };
-    if (!animate || reducedMotion || corrected) {
+    target.current = { text, characters: graphemes };
+    if (controlled || !animate) {
       cancelAnimationFrame(frame.current);
       frame.current = 0;
       budget.current = 0;
-      shown.current = text;
-      count.current = target.current.characters.length;
-      setVisible(text);
+      shown.current = controlled?.text ?? text;
+      count.current = controlled?.count ?? graphemes.length;
+      setVisible(shown.current);
       return;
+    }
+
+    // Final authoritative text may correct a streamed prefix. Keep the reveal
+    // budget instead of exposing the entire replacement in one frame.
+    if (corrected) {
+      count.current = Math.min(count.current, graphemes.length);
+      shown.current = graphemes.slice(0, count.current).join('');
+      setVisible(shown.current);
     }
 
     // A chunk can finish an already-visible combining character or joined emoji.
@@ -68,11 +84,12 @@ export function useTypewriterText(text: string, animate: boolean): string {
       budget.current = 0;
       frame.current = requestAnimationFrame(tick);
     }
-  }, [text, animate, reducedMotion]);
+  }, [text, animate, controlled, graphemes]);
 
   useEffect(() => () => {
     cancelAnimationFrame(frame.current);
     frame.current = 0;
   }, []);
-  return visible;
+  // A voice/loading transition must hide future text on its very first render.
+  return controlled?.text ?? visible;
 }

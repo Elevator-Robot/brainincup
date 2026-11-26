@@ -2115,7 +2115,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const transcript = <ChatTranscript conversationId={conversationId}
     messages={transcriptMessages}
     waiting={isWaitingForResponse} scrollRef={scrollRef} contentRef={contentRef}
-    onListen={chatVoice.listen} playback={chatVoice.playback} renderExtension={renderChatExtension} />;
+    onListen={chatVoice.listen} playback={chatVoice.playback} pendingSpeech={chatVoice.pendingMessages} renderExtension={renderChatExtension} />;
   const renderGameContext = (initialPanel: ContextPanel = 'character') => <ContextWindowPanel
     initialPanel={initialPanel}
     updates={contextUpdates}

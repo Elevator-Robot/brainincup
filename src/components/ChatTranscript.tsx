@@ -13,16 +13,17 @@ interface ChatTranscriptProps {
   contentRef?: Ref<HTMLDivElement>;
   onListen?: (content: string, message?: Message) => void;
   playback?: SpeechPlayback | null;
+  pendingSpeech?: Message[];
   renderExtension?: RenderMessageExtension;
 }
 
 /** The one transcript surface for every experience and viewport. Layout and
  * themes cannot alter message behavior; adapters provide content/extensions. */
-export default function ChatTranscript({ messages, conversationId, waiting = false, scrollRef, contentRef, onListen, playback, renderExtension }: ChatTranscriptProps) {
+export default function ChatTranscript({ messages, conversationId, waiting = false, scrollRef, contentRef, onListen, playback, pendingSpeech, renderExtension }: ChatTranscriptProps) {
   return <div className="cosmic-chat-viewport cosmic-chat-surface">
     <div ref={scrollRef} className="cosmic-chat-scroll cosmic-transcript-scroll flex-1 min-h-0 overflow-y-auto" aria-label="Conversation">
       <div ref={contentRef} className="cosmic-chat-content cosmic-transcript-content mx-auto max-w-4xl">
-        <MessageList key={conversationId} messages={messages} onListen={onListen} playback={playback} renderExtension={renderExtension} />
+        <MessageList key={conversationId} messages={messages} onListen={onListen} playback={playback} pendingSpeech={pendingSpeech} renderExtension={renderExtension} />
         <ChatActivity active={waiting} />
         <div aria-hidden="true" />
       </div>

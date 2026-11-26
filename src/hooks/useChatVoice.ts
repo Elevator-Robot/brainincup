@@ -22,6 +22,7 @@ export function useChatVoice(conversationId: string | null | undefined, messages
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [playback, setPlayback] = useState<SpeechPlayback | null>(null);
+  const [released, setReleased] = useState<Set<string>>(() => new Set());
   const enabledRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const controller = useRef(new AbortController());
@@ -41,6 +42,7 @@ export function useChatVoice(conversationId: string | null | undefined, messages
     currentUrl.current = undefined;
     setStatus('idle');
     setPlayback(null);
+    setReleased(new Set(messagesRef.current.map(messageKey)));
   }, []);
 
   const enqueue = useCallback((content: string, explicitListen = false, message?: Message) => {
@@ -61,7 +63,7 @@ export function useChatVoice(conversationId: string | null | undefined, messages
           setPlayback({ message, audio, text, offset: start, alignment: null, signal });
           const clip = await generateChatSpeech(chunk, signal);
           signal.throwIfAborted();
-          setPlayback({ message, audio, text, offset: start, alignment: clip.alignment, signal });
+          if (!clip.alignment) throw new Error('Voice timing is unavailable. The reply will continue revealing without audio.');
           const url = URL.createObjectURL(clip.blob);
           currentUrl.current = url;
           try {
@@ -89,6 +91,7 @@ export function useChatVoice(conversationId: string | null | undefined, messages
               audio.addEventListener('stalled', waiting);
               signal.addEventListener('abort', aborted, { once: true });
               audio.src = url;
+              setPlayback({ message, audio, text, offset: start, alignment: clip.alignment, signal });
               audio.play().then(playing).catch(() => {
                 cleanup(); reject(new Error('Tap a reply’s Listen button to allow audio playback.'));
               });
@@ -108,7 +111,13 @@ export function useChatVoice(conversationId: string | null | undefined, messages
           stop();
         }
       } finally {
-        if (!signal.aborted) { setStatus('idle'); setPlayback(null); }
+        if (!signal.aborted) {
+          if (message) {
+            const index = messagesRef.current.findIndex(item => item === message || (message.messageId && item.messageId === message.messageId));
+            setReleased(previous => new Set(previous).add(messageKey(message, index)));
+          }
+          setStatus('idle'); setPlayback(null);
+        }
       }
     });
   }, [stop]);
@@ -161,5 +170,10 @@ export function useChatVoice(conversationId: string | null | undefined, messages
     });
   }, [messages, enqueue]);
 
-  return { enabled, status, error, playback, toggle, listen, stop };
+  // This is derived during render, including the first streaming chunk: queued
+  // speech must not flash its full text while synthesis waits for a prior reply.
+  const pendingMessages = enabled ? visibleMessages(messages).filter((message, index) =>
+    message.role === 'assistant' && !message.diceRoll && !message.streamError
+    && (message.populateOnMount || message.isTyping) && !released.has(messageKey(message, index))) : [];
+  return { enabled, status, error, playback, pendingMessages, toggle, listen, stop };
 }

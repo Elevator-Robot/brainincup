@@ -1,9 +1,13 @@
 import { expect, it } from 'vitest';
 import { speechChunks, spokenText } from './chatSpeech';
 
-it('narrates prose without reading formatting, URLs, or code blocks', () => {
+it('narrates every visible text block without reading Markdown or link destinations', () => {
   expect(spokenText('# Hello **friend**\n[Open the door](https://example.com).\n```js\nsecret()\n```'))
-    .toBe('Hello friend Open the door. Code block omitted.');
+    .toBe('Hello friend Open the door. secret()');
+  expect(spokenText('A &amp; B.\n\n> **Wait.**\n\n- First\n- Second\n\n`a_b`'))
+    .toBe('A & B. Wait. First Second a_b');
+  expect(spokenText('| Key | Value |\n| --- | --- |\n| A | B |\n\n![A star][sky]\n\n[sky]: /sky.png'))
+    .toBe('Key Value A B A star');
 });
 it('chunks long replies without losing words or exceeding the backend limit', () => {
   const text = Array.from({ length: 400 }, (_, index) => `word${index}`).join(' ');

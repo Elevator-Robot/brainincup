@@ -28,6 +28,7 @@ The demo enables development-only fixture authentication. Default URLs:
 | Dice | `http://localhost:5173/?testmode=true&preview=dice` |
 | Brain arrival | `http://localhost:5173/?testmode=true&preview=brain` |
 | Shared conversation | `http://localhost:5173/?testmode=true&preview=conversation` |
+| Character-by-character voice timing | `http://localhost:5173/?testmode=true&preview=conversation&speech=true` (silent media-clock fixture) |
 
 Use the actual URL printed by Vite if the port is occupied. Keep the server
 running and open the relevant page for the user during visual work.

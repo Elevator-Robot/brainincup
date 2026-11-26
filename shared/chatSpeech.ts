@@ -10,8 +10,8 @@ export interface SpeechPacket {
   alignment: SpeechAlignment | null;
 }
 
-/** Never invent timing if a provider returns normalized/mismatched text. Audio
- * can still play without highlighting when alignment is absent or invalid. */
+/** Never invent timing if a provider returns normalized/mismatched text.
+ * Untimed packets let the UI fall back to progressive text without audio. */
 export function validSpeechAlignment(value: unknown, text: string): SpeechAlignment | null {
   if (!value || typeof value !== 'object') return null;
   const candidate = value as Partial<SpeechAlignment>;

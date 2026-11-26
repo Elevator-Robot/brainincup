@@ -51,9 +51,10 @@ Every assistant message uses the same disclosure when annotations exist:
 promise hidden details. Click, disclosure button, keyboard, selection protection,
 Copy, Listen, reveal transitions, and reduced motion work identically across modes.
 Voice timing is passed as ephemeral `SpeechPlayback` to the same transcript and
-message renderer. The active spoken sentence follows the audio media clock;
-there is no experience-specific timing implementation. Full text remains readable
-and manual listening preserves the global mute preference.
+message renderer. Every character of the reply follows the audio media clock;
+queued/preparing replies remain hidden until their narration begins. Markdown
+stays formatted throughout the reveal. Manual listening preserves the global
+mute preference; see [voice](chat-voice.md) for cancellation and fallback behavior.
 
 GM narration is original, measured second-person storytelling: sensory detail,
 understated interpretation, and player agency rather than prescribed emotion.

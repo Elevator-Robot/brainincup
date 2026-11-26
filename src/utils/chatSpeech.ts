@@ -1,21 +1,5 @@
-/** Only public message text goes to TTS, never reasoning/tool metadata. */
-export function spokenText(markdown: string): string {
-  return markdown
-    .replace(/```[\s\S]*?```/g, ' Code block omitted. ')
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/https?:\/\/\S+/g, '')
-    .replace(/<[^>]*>/g, '')
-    .replace(/^\s{0,3}(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+\.\s+)/gm, '')
-    .replace(/[*_~`]/g, '')
-    .replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (match, entity: string) => {
-      const named: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: '\'', nbsp: ' ' };
-      if (entity[0] !== '#') return named[entity.toLowerCase()] || match;
-      const point = entity[1].toLowerCase() === 'x' ? Number.parseInt(entity.slice(2), 16) : Number.parseInt(entity.slice(1), 10);
-      return point > 0 && point <= 0x10ffff ? String.fromCodePoint(point) : match;
-    })
-    .replace(/\s+/g, ' ').trim();
-}
+/** Only public reply text goes to TTS, never reasoning/tool metadata. */
+export { markdownSpeechText as spokenText } from './markdownSpeech';
 
 export function speechChunks(text: string, limit = 900): string[] {
   const chunks: string[] = [];

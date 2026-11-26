@@ -128,7 +128,7 @@ it('hydrates RPG events, waits for commit, reconciles the matching response, and
       gameEvents: JSON.stringify(events), story: JSON.stringify(story),
     } } }));
     expect(screen.getAllByText('Origin recorded')).toHaveLength(1);
-    expect(screen.getAllByText('Your past is recorded. What brings you here?')).toHaveLength(1);
+    expect(await screen.findAllByText('Your past is recorded. What brings you here?', {}, { timeout: 5000 })).toHaveLength(1);
   } finally {
     await act(async () => finish?.());
   }
@@ -157,7 +157,7 @@ it('recovers a truncated stream through AppSync, including the pending check and
     story: JSON.stringify(story),
   } } });
   act(publish);
-  await screen.findByText('A check awaits.');
+  await screen.findByText('A check awaits.', {}, { timeout: 5000 });
   expect(screen.getByRole('meter', { name: 'Health' })).toHaveAttribute('aria-valuenow', '9');
   expect(screen.getByRole('meter', { name: 'Experience' })).toHaveAttribute('aria-valuenow', '20');
   await screen.findByRole('region', { name: 'dexterity check' });
@@ -226,7 +226,7 @@ it.each(['end', 'network error'])('ignores late stream chunks and %s after AppSy
       if (ending === 'network error') disconnect?.();
       else finish?.();
     });
-    expect(screen.getAllByText('Your past is recorded.')).toHaveLength(1);
+    expect(await screen.findAllByText('Your past is recorded.', {}, { timeout: 5000 })).toHaveLength(1);
     expect(api.updateMessage).not.toHaveBeenCalled();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'The next answer.' } });
     expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();

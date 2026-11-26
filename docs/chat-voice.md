@@ -20,7 +20,9 @@ Already submitted provider requests may still consume credits; muting prevents
 their late audio from playing and stops subsequent chunks. Failures mute voice
 with a visible error without interfering with text chat. No browser speech-synthesis
 fallback substitutes a different voice. Long replies are narrated in sequential
-chunks, with markdown removed. Audio is kept only for current playback, not saved
+chunks, with formatting markers and link destinations removed. All visible reply
+text, including headings, lists, tables, and code, uses the same Markdown-to-speech
+projection as the renderer. Audio is kept only for current playback, not saved
 in local storage, the service-worker cache, or conversation records.
 
 ## Text/audio synchronization
@@ -28,27 +30,31 @@ in local storage, the service-worker cache, or conversation records.
 The server uses ElevenLabs' `/with-timestamps` endpoint, returning the audio and
 validated original-text character alignment. `shared/chatSpeech.ts` defines the
 same contract for the authenticated mutation, local proxy, and browser. Alignment
-must match the exact synthesized chunk with finite, ordered timestamps; missing
-or mismatched/normalized-only timing falls back to audio-only playback, never
-estimated typewriter synchronization.
+must match the exact synthesized chunk with finite, ordered timestamps. Missing
+or mismatched/normalized-only timing stops voice with a visible error and lets
+the text continue gradually. It never pretends to synchronize untimed audio.
 
-The shared message renderer keeps the full reply readable during voice playback
-and highlights the sentence containing the current spoken character. It reads
-`HTMLAudioElement.currentTime`, not wall-clock animation time. Chunk offsets,
-pauses, buffering, seeks, playback-rate changes, visibility changes, cancellation,
-and end-of-audio are handled explicitly. Muted replies retain normal text reveal;
-Listen-once synchronization never changes the automatic mute preference.
+The shared renderer reveals the entire reply **character by character** from
+`HTMLAudioElement.currentTime` and provider character timestamps. It holds new
+voiced replies during streaming, synthesis, and queueing; no future paragraphs
+appear before their audio. Chunk offsets, pauses, buffering, seeks, playback-rate
+changes, visibility changes, cancellation, and end-of-audio are handled explicitly.
+Listen-once starts the chosen reply's reveal again without changing automatic mute.
 
-Native CSS Highlights paint a DOM Range across Markdown nodes without rewriting
-text, changing the user's Selection, moving focus, or forcing scrolling. Older
-browsers use a coarser paragraph cue. Content without an exact prose match (for
-example an omitted code block or image description) is not falsely highlighted.
-Annotations, tool metadata, buttons, and private narrator trailers are excluded.
-All timing state is ephemeral and is cleared on stop/navigation/chat clear.
+Markdown is parsed before truncating text leaves, so emphasis, decoded entities,
+links, and lists stay formatted while they arrive. Unrevealed prose is absent
+from the rendered DOM. Complete graphemes preserve joined emoji and accents.
+Stopping or failing voice continues from the visible prefix at the normal
+24-character/second reading pace rather than exposing the remainder instantly.
+New muted replies use that same progressive pace; hydrated history is already
+readable. Reduced-motion preferences still disable decorative motion, but do not
+bypass content timing. Layout changes retain the current reveal position.
+Annotations, tool metadata, buttons, and private narrator trailers are excluded
+from speech. Timing and reveal progress are ephemeral, never saved as game state.
 
 Release the added optional `ChatSpeech.alignment` schema, function, regenerated
-outputs, and frontend together. Existing audio-only responses can still play,
-but cannot provide accurate synchronization. No new key permissions or model
+outputs, and frontend together. Existing audio-only responses cannot provide
+accurate synchronization and now use the progressive text fallback. No new key permissions or model
 inference calls are required. Timing is included in the existing TTS request.
 
 ## Server configuration (not applied by this branch)
@@ -101,6 +107,11 @@ ElevenLabs; their data-processing/retention terms apply. Browser autoplay polici
 can require tapping Listen again; blocked playback surfaces an actionable error.
 
 ## Validation
+
+`/?testmode=true&preview=conversation&speech=true` provides a silent WAV with
+fixture alignment and real browser media controls for play, pause, seek and rate
+review. It exercises the media clock without synthesis, credentials or credits;
+it is not a live ElevenLabs timing measurement.
 
 `npm test`, `npm run build`, and `npx tsc --noEmit -p amplify/tsconfig.json`
 exercise mocked synthesis and type-check the integration without paid API calls.

@@ -22,7 +22,7 @@ export async function generateChatSpeech(text: string, signal: AbortSignal): Pro
       const result = await response.json().catch(() => ({})) as { error?: string };
       throw new Error(result.error || 'Local voice is unavailable.');
     }
-    // An older local server can still play audio, but must never fake timing.
+    // Untimed legacy responses use progressive text fallback in the controller.
     if (response.headers.get('content-type')?.includes('audio/mpeg')) return { blob: await response.blob(), alignment: null };
     if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Local voice returned invalid audio.');
     return decodeSpeech(await response.json(), text);

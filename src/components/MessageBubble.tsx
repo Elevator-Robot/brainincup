@@ -1,10 +1,12 @@
-import { memo, useEffect, useId, useRef, useState } from 'react';
+import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import type { ChatDiceRoll } from '../utils/diceRolls';
 import { useTypewriterText } from '../hooks/useTypewriterText';
-import { useSpeechHighlight } from '../hooks/useSpeechHighlight';
+import { useSpeechReveal } from '../hooks/useSpeechReveal';
+import { spokenText } from '../utils/chatSpeech';
+import { remarkCharacterReveal } from '../utils/markdownSpeech';
 import type { SpeechPlayback } from '../chat/speech';
 import type { RpgEvent, StorySnapshot } from '../chat/rpgEvents';
 
@@ -46,6 +48,7 @@ interface MessageBubbleProps {
   onToggleExpanded: () => void;
   containerRef?: (el: HTMLDivElement | null) => void;
   speech?: SpeechPlayback;
+  waitingForSpeech?: boolean;
 }
 
 // Stable renderers preserve DOM nodes (and text selection) as streaming grows.
@@ -82,21 +85,30 @@ const markdownComponents = {
   hr: () => <hr className="border-brand-surface-border/50 my-0.5" />,
 };
 const remarkPlugins = [remarkGfm, remarkBreaks];
-const MarkdownContent = memo(function MarkdownContent({ content }: { content: string }) {
-  return <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>{content}</ReactMarkdown>;
+// Layout changes can remount the transcript. Retain only this message object's
+// presentation progress; WeakMap entries disappear with their messages.
+const revealedCharacters = new WeakMap<Message, number>();
+const MarkdownContent = memo(function MarkdownContent({ content, limit }: { content: string; limit: number }) {
+  return <ReactMarkdown remarkPlugins={[...remarkPlugins, [remarkCharacterReveal, { limit }]]} components={markdownComponents}>{content}</ReactMarkdown>;
 });
 
 /** One shared, memoized chat bubble for desktop and mobile. */
 export const MessageBubble = memo(function MessageBubble({
-  message, expanded, onToggleExpanded, containerRef, speech,
+  message, expanded, onToggleExpanded, containerRef, speech, waitingForSpeech = false,
 }: MessageBubbleProps) {
   const { role } = message;
+  const plainText = useMemo(() => spokenText(message.content), [message.content]);
+  const speechPosition = useSpeechReveal(speech);
+  const previousReveal = revealedCharacters.get(message);
+  const animate = useRef(false);
+  if (role === 'assistant' && (message.populateOnMount || message.isTyping || speech || waitingForSpeech
+    || (previousReveal !== undefined && previousReveal < plainText.length))) animate.current = true;
   const visibleContent = useTypewriterText(
-    message.content,
-    role === 'assistant' && Boolean(message.populateOnMount || message.isTyping) && !speech,
+    plainText, animate.current,
+    speechPosition ?? (waitingForSpeech ? 0 : undefined),
+    previousReveal,
   );
-  const proseRef = useRef<HTMLDivElement>(null);
-  useSpeechHighlight(proseRef, speech, visibleContent);
+  useEffect(() => { revealedCharacters.set(message, visibleContent.length); }, [message, visibleContent]);
   const [populating, setPopulating] = useState(() => Boolean(message.populateOnMount && message.content));
   const previousContent = useRef(message.content);
   useEffect(() => {
@@ -147,14 +159,13 @@ export const MessageBubble = memo(function MessageBubble({
               </button>}
             </span>
             <div
-              ref={proseRef}
               className={`cosmic-chat-prose${hasInsights ? ' cosmic-insight-trigger' : ''}`}
               role={hasInsights ? 'button' : undefined}
               tabIndex={hasInsights ? 0 : undefined}
               aria-expanded={hasInsights ? expanded : undefined}
               aria-controls={hasInsights ? insightsId : undefined}
               aria-describedby={hasInsights ? hintId : undefined}
-              aria-busy={visibleContent !== message.content}
+              aria-busy={visibleContent !== plainText}
               data-chat-arrival={role === 'assistant' && (message.populateOnMount || message.isTyping) ? '' : undefined}
               onPointerDown={hasInsights ? event => {
                 const box = event.currentTarget.getBoundingClientRect();
@@ -173,7 +184,7 @@ export const MessageBubble = memo(function MessageBubble({
                 onToggleExpanded();
               } : undefined}
             >
-              <MarkdownContent content={visibleContent} />
+              <MarkdownContent content={message.content} limit={visibleContent.length} />
             </div>
             {hasInsights && <span id={hintId} className="sr-only">Activate this message to {expanded ? 'hide' : 'reveal'} its thoughts.</span>}
           </div>

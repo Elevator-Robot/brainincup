@@ -22,7 +22,7 @@ describe('typewriter presentation', () => {
     expect(result.current.length).toBeGreaterThan(0);
     expect(result.current.length).toBeLessThan(text.length);
     expect(text.startsWith(result.current)).toBe(true);
-    act(() => vi.advanceTimersByTime(1000));
+    act(() => vi.advanceTimersByTime(3000));
     expect(result.current).toBe(text);
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -33,22 +33,23 @@ describe('typewriter presentation', () => {
     const prefix = result.current;
     rerender({ text: 'The stars shimmer above the observatory.' });
     expect(result.current).toBe(prefix);
-    act(() => vi.advanceTimersByTime(1000));
+    act(() => vi.advanceTimersByTime(3000));
     expect(result.current).toBe('The stars shimmer above the observatory.');
   });
 
-  it('does not replay history and honors reduced motion', () => {
+  it('does not replay history; reduced motion does not expose an unread reply', () => {
     const history = renderHook(() => useTypewriterText('Already read.', false));
     expect(history.result.current).toBe('Already read.');
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
     const reduced = renderHook(() => useTypewriterText('New response.', true));
+    expect(reduced.result.current).toBe('');
+    act(() => vi.advanceTimersByTime(1000));
     expect(reduced.result.current).toBe('New response.');
-    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('reveals joined emoji as one character and handles a split grapheme across chunks', () => {
     const { result, rerender } = renderHook(({ text }) => useTypewriterText(text, true), { initialProps: { text: '👩' } });
-    act(() => vi.advanceTimersByTime(32));
+    act(() => vi.advanceTimersByTime(64));
     expect(result.current).toBe('👩');
     rerender({ text: '👩‍🚀 explores.' });
     expect(result.current).toBe('👩‍🚀');
@@ -60,8 +61,24 @@ describe('typewriter presentation', () => {
     const { result, rerender } = renderHook(({ text }) => useTypewriterText(text, true), { initialProps: { text: 'An unfinished draft' } });
     act(() => vi.advanceTimersByTime(48));
     rerender({ text: 'Corrected response.' });
+    expect(result.current.length).toBeLessThan('Corrected response.'.length);
+    act(() => vi.advanceTimersByTime(1500));
     expect(result.current).toBe('Corrected response.');
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('continues gradually from the last voice character after cancellation', () => {
+    const text = 'First sentence. A long second sentence.';
+    const { result, rerender } = renderHook(({ position }: { position?: number }) =>
+      useTypewriterText(text, true, position), { initialProps: { position: 6 as number | undefined } });
+    expect(result.current).toBe('First ');
+    act(() => vi.advanceTimersByTime(1000));
+    expect(result.current).toBe('First ');
+    rerender({ position: undefined });
+    expect(result.current).toBe('First ');
+    act(() => vi.advanceTimersByTime(100));
+    expect(result.current.length).toBeGreaterThan(6);
+    expect(result.current.length).toBeLessThan(text.length);
   });
 
   it('runs under StrictMode and cancels animation when unmounted', () => {

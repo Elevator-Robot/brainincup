@@ -242,9 +242,6 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 .retro-message-assistant .cosmic-chat-prose { padding-left: 1rem; }
 .cosmic-chat-prose { font-size: 1rem; line-height: 1.75; user-select: text; -webkit-user-select: text; }
 .cosmic-chat-prose :is(p, li) { line-height: inherit; }
-::highlight(brain-speech) { background-color: rgb(140 236 243 / 16%); color: #f4f3ff; }
-.cosmic-speech-current { background-color: rgb(140 236 243 / 8%); border-radius: .25rem; }
-.cosmic-chat-prose[data-speech-active="true"]::before { opacity: .85; }
 .cosmic-chat-prose p { margin-bottom: .65rem !important; }
 .cosmic-chat-prose p:last-child { margin-bottom: 0 !important; }
 .cosmic-chat-prose :is(h1, h2, h3) { margin-top: 1rem; margin-bottom: .45rem; }
@@ -256,6 +253,10 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 .cosmic-message-actions button:is(:hover, :focus-visible), .cosmic-message-actions button[data-copied="true"] { opacity: 1; color: var(--cosmic-cyan); background: rgb(var(--cosmic-accent-rgb) / 6%); }
 .cosmic-copy-error { color: var(--cosmic-muted); font-size: .7rem; }
 .cosmic-message-error { margin: .5rem 0; color: var(--cosmic-rose); font-size: .8rem; line-height: 1.5; overflow-wrap: anywhere; }
+.cosmic-speech-fixture { display: grid; justify-items: center; gap: .35rem; margin-top: .5rem; }
+.cosmic-speech-fixture audio { width: min(100%, 420px); height: 32px; color-scheme: dark; }
+.cosmic-speech-fixture p, .cosmic-speech-fixture label { color: var(--cosmic-muted); font-size: .65rem; }
+.cosmic-speech-fixture select { color-scheme: dark; background: var(--cosmic-frame-surface); margin-left: .35rem; }
 .cosmic-chat-activity { display: flex; align-items: center; gap: .75rem; min-height: 44px; padding: .25rem 0; color: var(--cosmic-muted); font-size: .75rem; animation: cosmic-fade-in 240ms ease both; }
 .cosmic-activity-dots { display: flex; align-items: center; gap: 4px; width: 25px; height: 18px; }
 .cosmic-activity-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--cosmic-cyan); animation: cosmic-thinking-current 1400ms ease-in-out infinite; }
