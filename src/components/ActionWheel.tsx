@@ -39,6 +39,7 @@ export default function ActionWheel({ x, y, actions, onSelect, onClose }: Action
   const [active, setActive] = useState(-1);
   const wheel = useRef<HTMLDivElement>(null);
   const committed = useRef(false);
+  const flicking = useRef(false);
 
   const commit = useCallback((index: number) => {
     if (committed.current || index < 0 || index >= actions.length) return;
@@ -59,16 +60,25 @@ export default function ActionWheel({ x, y, actions, onSelect, onClose }: Action
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [actions.length, active, commit, onClose]);
 
-  const track = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const segmentAt = (event: ReactPointerEvent<HTMLDivElement>) => {
     const box = wheel.current?.getBoundingClientRect();
-    if (!box) return;
+    if (!box) return -1;
     const dx = event.clientX - (box.left + box.width / 2);
     const dy = event.clientY - (box.top + box.height / 2);
-    if (Math.hypot(dx, dy) < DEADZONE) { setActive(-1); return; }
+    if (Math.hypot(dx, dy) < DEADZONE) return -1;
     const step = (Math.PI * 2) / actions.length;
     const angle = Math.atan2(dy, dx) + Math.PI / 2;
     const normalized = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-    setActive(Math.round(normalized / step) % actions.length);
+    return Math.round(normalized / step) % actions.length;
+  };
+
+  const track = (event: ReactPointerEvent<HTMLDivElement>) => {
+    // Context menus can open on mouse-down. Only a deliberate held movement
+    // arms release-to-select, even when viewport clamping shifts the wheel.
+    if ((event.buttons & 2) !== 0 && Math.hypot(event.clientX - x, event.clientY - y) >= DEADZONE) {
+      flicking.current = true;
+    }
+    setActive(segmentAt(event));
   };
 
   const clamp = (value: number, axis: 'x' | 'y') => {
@@ -84,12 +94,14 @@ export default function ActionWheel({ x, y, actions, onSelect, onClose }: Action
       className="cosmic-wheel-layer"
       role="presentation"
       style={{ '--wheel-x': `${x}px`, '--wheel-y': `${y}px` } as CSSProperties}
+      onContextMenu={event => event.preventDefault()}
       onPointerMove={track}
       onPointerUp={event => {
-        if ((event.target as HTMLElement).closest('.cosmic-wheel-item')) return;
-        if (active >= 0) commit(active);
-        else onClose();
+        const select = event.button === 2 && flicking.current;
+        flicking.current = false;
+        if (select) commit(segmentAt(event));
       }}
+      onPointerCancel={() => { flicking.current = false; }}
       onClick={event => { if (event.target === event.currentTarget) onClose(); }}
     >
       <div

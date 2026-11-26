@@ -141,6 +141,59 @@ describe('explicit action access', () => {
 });
 
 describe('action wheel', () => {
+  const pointer = (target: Element, type: 'pointermove' | 'pointerup', init: MouseEventInit) =>
+    fireEvent(target, new MouseEvent(type, { bubbles: true, ...init }));
+
+  it('keeps the wheel open when the opening right-click is released', () => {
+    const { draft, input } = renderComposer('Keep this draft.');
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Browse chat actions' }), { clientX: 200, clientY: 200 });
+    const wheel = screen.getByRole('dialog', { name: 'Chat actions' });
+    pointer(wheel, 'pointerup', { button: 2, clientX: 200, clientY: 200 });
+    expect(wheel).toBeInTheDocument();
+    expect(draft.current).toBe('Keep this draft.');
+    fireEvent.keyDown(wheel, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Chat actions' })).not.toBeInTheDocument();
+    expect(input).toHaveFocus();
+  });
+
+  it('does not mistake small movement near a clamped wheel for a selection', () => {
+    const { draft } = renderComposer('Keep this draft.');
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Browse chat actions' }), { clientX: 200, clientY: 750 });
+    const wheel = screen.getByRole('dialog', { name: 'Chat actions' });
+    vi.spyOn(wheel, 'getBoundingClientRect').mockReturnValue(new DOMRect(50, 458, 300, 300));
+    pointer(wheel, 'pointermove', { buttons: 2, clientX: 201, clientY: 750 });
+    pointer(wheel, 'pointerup', { button: 2, clientX: 201, clientY: 750 });
+    expect(wheel).toBeInTheDocument();
+    expect(draft.current).toBe('Keep this draft.');
+  });
+
+  it('stages a held right-button flick released directly over an action', () => {
+    const { draft, input } = renderComposer('Keep this draft.');
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Browse chat actions' }), { clientX: 200, clientY: 200 });
+    const wheel = screen.getByRole('dialog', { name: 'Chat actions' });
+    vi.spyOn(wheel, 'getBoundingClientRect').mockReturnValue(new DOMRect(50, 50, 300, 300));
+    const search = screen.getByRole('button', { name: 'Search' });
+    pointer(search, 'pointermove', { buttons: 2, clientX: 290, clientY: 252 });
+    pointer(search, 'pointerup', { button: 2, clientX: 290, clientY: 252 });
+    expect(draft.current).toBe('Keep this draft.\nI search the area for anything useful or out of place.');
+    expect(input).toHaveFocus();
+    expect(screen.queryByRole('dialog', { name: 'Chat actions' })).not.toBeInTheDocument();
+    expect(defaults.onSend).not.toHaveBeenCalled();
+  });
+
+  it('dismisses an outside click without staging the previously hovered action', () => {
+    const { draft, input } = renderComposer('Keep this draft.');
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Browse chat actions' }), { clientX: 200, clientY: 200 });
+    const layer = screen.getByRole('dialog', { name: 'Chat actions' }).parentElement!;
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Search' }));
+    pointer(layer, 'pointerup', { button: 0, clientX: 0, clientY: 0 });
+    fireEvent.click(layer);
+    expect(draft.current).toBe('Keep this draft.');
+    expect(screen.queryByRole('dialog', { name: 'Chat actions' })).not.toBeInTheDocument();
+    expect(input).toHaveFocus();
+    expect(defaults.onSend).not.toHaveBeenCalled();
+  });
+
   it('opens on right-click and appends the chosen action to the draft', () => {
     const { draft, input } = renderComposer('I keep my lantern raised.');
     fireEvent.contextMenu(input.closest('[data-composer-shell]') as HTMLElement, { clientX: 120, clientY: 90 });
