@@ -6,6 +6,7 @@ import type { ChatDiceRoll } from '../utils/diceRolls';
 import { useTypewriterText } from '../hooks/useTypewriterText';
 import { useSpeechHighlight } from '../hooks/useSpeechHighlight';
 import type { SpeechPlayback } from '../chat/speech';
+import type { RpgEvent, StorySnapshot } from '../chat/rpgEvents';
 
 export interface ToolCallRecord {
   toolCallId: string;
@@ -35,6 +36,8 @@ export interface Message {
   // first appearance even when React batches all events into one commit.
   populateOnMount?: boolean;
   diceRoll?: ChatDiceRoll;
+  gameEvents?: RpgEvent[];
+  story?: StorySnapshot;
 }
 
 interface MessageBubbleProps {

@@ -81,6 +81,10 @@ def _save_brain_response(
         return None
 
     meta = metadata or {}
+    if meta.get("story") and conversation_table and not conversation_table.get_item(
+        Key={"id": conversation_id}, ConsistentRead=True,
+    ).get("Item"):
+        return None
     brain_response_id = str(uuid.uuid4())
 
     mutation = """
@@ -95,6 +99,8 @@ def _save_brain_response(
         thoughts
         memories
         selfReflection
+        gameEvents
+        story
       }
     }
     """
@@ -108,6 +114,8 @@ def _save_brain_response(
             "thoughts": meta.get("thoughts", []),
             "memories": meta.get("memories", ""),
             "selfReflection": meta.get("self_reflection", ""),
+            "gameEvents": json.dumps(meta.get("game_events", [])),
+            "story": json.dumps(meta.get("story")) if meta.get("story") else None,
             "owner": owner,
         }
     }
@@ -355,10 +363,29 @@ def process_stream_records(event: dict) -> dict:
 
     for record in event.get("Records", []):
         event_name = record.get("eventName")
+        if event_name == "REMOVE":
+            # Conversation-only mapping (message removals have conversationId).
+            old = record.get("dynamodb", {}).get("OldImage", {})
+            if "conversationId" not in old and old.get("id", {}).get("S"):
+                mode = old.get("personalityMode", {}).get("S") or old.get("experience", {}).get("S")
+                if mode not in ("game_master", "rpg_dm"):
+                    continue
+                from experiences.game_master.orchestrator.memory import MemoryService
+                from experiences.game_master.orchestrator.persistence import OrchestrationStore
+                deleted_conversation = old["id"]["S"]
+                MemoryService.from_env().delete_character(deleted_conversation)
+                OrchestrationStore(dynamodb, dynamodb_client).delete_adventure(deleted_conversation)
+            continue
         if event_name not in ("INSERT", "MODIFY"):
             continue
 
         new_image = record["dynamodb"].get("NewImage", {})
+        old_image = record["dynamodb"].get("OldImage", {})
+        if (event_name == "MODIFY" and new_image.get("gmProcessed", {}).get("BOOL")
+                and not old_image.get("gmProcessed", {}).get("BOOL")):
+            # Internal transactional receipt, not a second user turn. A later
+            # streaming=false fallback can still replay the committed response.
+            continue
         user_input = new_image.get("content", {}).get("S")
         conversation_id = new_image.get("conversationId", {}).get("S")
         message_id = new_image.get("id", {}).get("S")

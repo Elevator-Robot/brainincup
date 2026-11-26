@@ -5,6 +5,8 @@ import CharacterSheetPanel from './context/CharacterSheetPanel';
 import QuestLogPanel from './context/QuestLogPanel';
 import WorldMapPanel from './context/WorldMapPanel';
 import TimelinePanel, { type TimelineEntry } from './context/TimelinePanel';
+import StoryProgress from './context/StoryProgress';
+import type { StorySnapshot } from '../chat/rpgEvents';
 
 interface DiceRollEntry {
   statName: string;
@@ -48,6 +50,7 @@ interface ContextWindowPanelProps {
   gameEvents?: GameEvent[];
   initialPanel?: ContextPanel;
   updates?: ContextUpdates;
+  story?: StorySnapshot;
   /** Notified when the context tab changes (character / timeline / …). */
   onActivePanelChange?: (panel: ContextPanel) => void;
   /**
@@ -73,6 +76,7 @@ function ContextWindowPanel({
   gameEvents = [],
   initialPanel = 'character',
   updates,
+  story,
   onActivePanelChange,
   children,
 }: ContextWindowPanelProps) {
@@ -151,9 +155,11 @@ function ContextWindowPanel({
           )}
 
 
-          {activePanel === 'quests' && (
+          {activePanel === 'character' && story && <StoryProgress story={story} showDetails />}
+          {activePanel === 'quests' && <>
+            {story && <StoryProgress story={story} />}
             <QuestLogPanel quests={activeQuests} updates={updates?.quests} />
-          )}
+          </>}
 
           {activePanel === 'map' && (
             <WorldMapPanel

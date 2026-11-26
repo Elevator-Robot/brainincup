@@ -16,12 +16,18 @@ try the composer shortcuts and Character/Quests/Location/Timeline tabs. The
 preview uses local sample data and never calls the backend. On mobile, Character
 opens the context drawer. Quick actions fill the draft; they never auto-send.
 
+Add `&intro=true` for the interactive character interview and `&ready=true`
+to start with a fixture character. Both desktop and mobile context show the
+stage objective and saved fictional details. **Show event examples** demonstrates
+the typed events beneath shared chat bubbles. No cloud saves occur in this demo.
+
 ## Interaction and motion
 
 - Character setup previews the chosen portrait, name, race/class, and calculated
   starting attributes. Portraits use small WebP thumbnails.
 - Quests and Location are reachable context tabs, with keyboard arrow navigation.
-  Quest summaries use the adventure's persisted ActiveQuest records.
+  Quest summaries use the authoritative story snapshot, with persisted
+  ActiveQuest records as a fallback for older adventures.
 - Tab changes use a brief directional slide, fade, and soft-focus reveal. Tabs
   stay fixed and each new panel starts at the top. Reduced motion disables it.
 - Typewriter text and arrival trails apply only to **new assistant chat replies**,

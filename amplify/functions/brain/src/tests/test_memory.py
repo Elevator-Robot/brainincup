@@ -56,12 +56,13 @@ class NamespaceTest(unittest.TestCase):
 
     def test_actor_falls_back_to_conversation_id(self):
         svc = _service()
-        self.assertEqual(svc.episodic_actor(None, "conv-1"), "conv-1")
-        self.assertEqual(svc.episodic_actor("owner-1", "conv-1"), "owner-1")
+        self.assertEqual(svc.episodic_actor(None, "conv-1"), svc.episodic_actor("owner-1", "conv-1"))
+        self.assertNotEqual(svc.episodic_actor("owner-1", "conv-1"), svc.episodic_actor("owner-1", "conv-2"))
 
     def test_actor_is_sanitized(self):
         svc = _service()
-        self.assertEqual(svc.episodic_actor("owner / with: weird*chars", "conv"), "owner---with--weird-chars")
+        self.assertRegex(svc.episodic_actor("owner / with: weird*chars", "conv"), r"^gm-[a-f0-9]{64}$")
+        self.assertNotEqual(svc.episodic_actor(None, "a/b"), svc.episodic_actor(None, "a-b"))
 
 
 class DisabledServiceTest(unittest.TestCase):

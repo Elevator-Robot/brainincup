@@ -255,6 +255,7 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 .cosmic-message-actions button { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; padding: .45rem .65rem; border-radius: .6rem; color: var(--cosmic-muted); font-size: .75rem; opacity: .9; transition: opacity 180ms ease, color 180ms ease, background 180ms ease; }
 .cosmic-message-actions button:is(:hover, :focus-visible), .cosmic-message-actions button[data-copied="true"] { opacity: 1; color: var(--cosmic-cyan); background: rgb(var(--cosmic-accent-rgb) / 6%); }
 .cosmic-copy-error { color: var(--cosmic-muted); font-size: .7rem; }
+.cosmic-message-error { margin: .5rem 0; color: var(--cosmic-rose); font-size: .8rem; line-height: 1.5; overflow-wrap: anywhere; }
 .cosmic-chat-activity { display: flex; align-items: center; gap: .75rem; min-height: 44px; padding: .25rem 0; color: var(--cosmic-muted); font-size: .75rem; animation: cosmic-fade-in 240ms ease both; }
 .cosmic-activity-dots { display: flex; align-items: center; gap: 4px; width: 25px; height: 18px; }
 .cosmic-activity-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--cosmic-cyan); animation: cosmic-thinking-current 1400ms ease-in-out infinite; }
@@ -1284,4 +1285,24 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
   :is(.cosmic-inventory-item, .cosmic-quest-card)[data-update]::after { animation: none; opacity: .5; }
   .cosmic-quick-actions button:active:not(:disabled), .cosmic-actions-toggle:active:not(:disabled) svg,
   :is(.cosmic-message-actions button, .cosmic-menu-row, .cosmic-context-sheet header button, .cosmic-mobile-context-triggers > button, .cosmic-inventory-toggle):active:not(:disabled) > svg { scale: none; }
+}
+/* Engine-resolved events sit beside the shared message, never inside its prose. */
+.rpg-events { display: grid; gap: .45rem; margin: .55rem 0 .25rem; padding: 0; list-style: none; }
+.rpg-event { display: flex; gap: .7rem; min-width: 0; padding: .65rem .85rem; border: 1px solid rgba(136,166,190,.17); border-left: 2px solid #65bdd0; border-radius: .3rem; background: rgba(8,17,25,.78); }
+.rpg-event[data-event-kind="stage"] { border-left-color: #b69cdb; }
+.rpg-event[data-event-kind="consequence"], .rpg-event[data-event-kind="reward"] { border-left-color: #d9ad68; }
+.rpg-event-glyph { flex: 0 0 1.25rem; color: #88c5d4; font: 1.1rem ui-monospace, monospace; text-align: center; }
+.rpg-event-body { min-width: 0; overflow-wrap: anywhere; }
+.rpg-event-label { display: block; color: #a4b3c4; font: .59rem/1.5 ui-monospace, monospace; letter-spacing: .13em; text-transform: uppercase; }
+.rpg-event strong { display: block; color: #d5dfe8; font-size: .8rem; font-weight: 600; }
+.rpg-event p { margin: .15rem 0 0; color: #afbdca; font-size: .76rem; line-height: 1.6; white-space: pre-wrap; }
+.rpg-story { margin-top: 1rem; padding: .85rem; background: rgba(8,17,25,.7); border: 1px solid rgba(136,166,190,.2); border-radius: .35rem; overflow-wrap: anywhere; }
+.rpg-story h3 { color: #d7c6ec; font-size: .88rem; margin: .3rem 0; }
+.rpg-story p, .rpg-story dd { color: #b7c4d1; font-size: .76rem; line-height: 1.65; margin: 0; white-space: pre-wrap; }
+.rpg-story dl { display: grid; gap: .75rem; margin: 1rem 0; }
+.rpg-story dt { color: #8dcbd5; font: .64rem/1.7 ui-monospace, monospace; }
+.rpg-story .rpg-story-progress, .rpg-story .rpg-story-save { margin-top: .75rem; font: .64rem/1.6 ui-monospace, monospace; color: #b5a7cb; }
+@media (min-width: 640px) {
+  .rpg-events { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rpg-event[data-event-kind="stage"], .rpg-event[data-event-kind="character"], .rpg-event[data-event-kind="consequence"] { grid-column: 1 / -1; }
 }

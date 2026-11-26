@@ -14,7 +14,7 @@
 
 - [Shared chat and narrator annotations](shared-chat.md)
 - [Brain state graph](../amplify/functions/brain/src/experiences/brain/README.md)
-- [GM orchestration, pacing, memory, and dice](ORCHESTRATION.md)
+- [GM story stages, events, character memory, and dice](ORCHESTRATION.md)
 - [GM location flow](LOCATION_FLOW.md)
 - [GM interface](gm-ui.md)
 - [Living background](living-background.md)

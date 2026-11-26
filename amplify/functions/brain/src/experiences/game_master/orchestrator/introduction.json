@@ -1,0 +1,26 @@
+[
+  {
+    "id": "origin",
+    "title": "The road behind you",
+    "prompt": "The market bell sounds as you arrive. Before this road brought you to Alderheart, what life did you leave behind?",
+    "hint": "Describe your character's home, former work, or a defining memory."
+  },
+  {
+    "id": "motive",
+    "title": "A reason to keep walking",
+    "prompt": "Beyond the stalls, the Whispering Tankard glows against the dusk. What does your character hope to find in Alderheart — and why does it matter?",
+    "hint": "A debt, a person, a fresh start, or something of your own."
+  },
+  {
+    "id": "bond",
+    "title": "What you carry",
+    "prompt": "A cart creaks past, bound for the road you just travelled. Who or what would your character risk turning back for?",
+    "hint": "Name a person, promise, place, or cause; you can also keep it unknown."
+  },
+  {
+    "id": "dilemma",
+    "title": "A measure of character",
+    "prompt": "Imagine a hungry stranger steals bread while a guard looks away. Would your character protect the stranger, return the bread, pay the baker, or do something else — and why?",
+    "hint": "This is a hypothetical: your answer defines a value, not an action you have taken."
+  }
+]

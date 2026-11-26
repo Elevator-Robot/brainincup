@@ -13,4 +13,5 @@ export interface ChatComposerConfiguration {
 
 /** Return undefined to use the standard message; null can hide an extension.
  * Domain-specific controls live in adapters, never in the common renderer. */
-export type RenderMessageExtension = (message: Message) => ReactNode | undefined;
+export type MessageAfterExtension = { placement: 'after'; content: ReactNode };
+export type RenderMessageExtension = (message: Message) => ReactNode | MessageAfterExtension | undefined;

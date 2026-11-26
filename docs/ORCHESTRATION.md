@@ -1,384 +1,223 @@
-# Game Master Orchestration, Pacing & Event Systems
+# Game Master: Story Stages, Events, and Memory
 
-## Overview
+Brain plays the Game Master role in **Alderheart: The Missing Lantern**.
+This document describes the source implementation, not a deployed environment.
+Code: `amplify/functions/brain/src/experiences/game_master/orchestrator/`.
 
-In Game Master mode, **Brain plays the GM role** within the shared app experience.
-The backend **Game Master** experience is a LangGraph-driven orchestrator. Every player
-message is routed through a deterministic decision tree that decides *what
-happens* (rules, dice, quests, location, pacing), and the LLM is used **only to
-narrate** the already-decided outcome. This keeps the game consistent,
-testable, and immune to the LLM "making up" stats, gold, or locations.
+## Turn and adventure lifecycle
 
-The orchestrator couples three layers:
-
-1. **Orchestration** — a LangGraph `StateGraph` that routes one turn.
-2. **Pacing** — a pure act/chapter/tension engine that gives the story a
-   managed, cinematically reasonable rhythm with milestones.
-3. **Events** — the AG-UI event protocol (SSE stream) plus two out-of-band
-   channels: AgentCore **episodic memory** and the DynamoDB **PlayerState**
-   row (drives the dice UI).
-
-Code lives under
-`amplify/functions/brain/src/experiences/game_master/orchestrator/`.
-
----
-
-## 1. Orchestration
-
-### Entry point
-
-```mermaid
-graph LR
-    UI[React App] -->|Persist message via AppSync| MSG[(Message table)]
-    UI -->|HTTP streaming request| LFD[web_server.py / LWA]
-    LFD --> EXP[GameMasterExperience.stream_message]
-    EXP --> ORC[build_agent compiled graph]
-    ORC -->|agui SSE events| UI
+```text
+bootstrap → replay ───────────────────────────────────────────┐
+          → introduction subflow ─────────────────────────────┤
+          → intent → deterministic rules → narration ─────────┤
+                                                             ↓
+                     stage transitions → atomic commit → memory sync → publish
 ```
 
-The frontend persists a `Message` through AppSync, then sends the streaming
-request to `web_server.py`, served via Lambda Web Adapter, which calls
-`GameMasterExperience.stream_message(ctx)`. Non-streaming messages use the
-DynamoDB event path and `process_message`; see [the architecture](BACKEND_ARCHITECTURE.md).
-The streaming method seeds the graph with
-`classify_and_prepare(...)` and streams AG-UI events with
-`agent.stream(state, stream_mode="custom")`.
-
-> The legacy free-text GM data plane (`app/`, `Controller`, `mode_handlers`,
-> `narrative_extractor`) has been removed. Live GM traffic is exclusively this
-> orchestrator path.
-
-### The turn pipeline
-
-```mermaid
-graph TD
-    A[bootstrap_node] --> B{started?}
-    B -->|no| C[opening_narrative_node]
-    B -->|yes| D[intent_node]
-    D --> E{intent}
-    E -->|dialogue| F[dialogue_node]
-    E -->|exploration| G[exploration_node]
-    E -->|combat| H[combat_node]
-    E -->|inventory| I[inventory_node]
-    E -->|quest| J[quest_node]
-    E -->|character| K[character_node]
-    E -->|check| L[check_node]
-    E -->|dice| M[dice_node]
-    E -->|narration| N[narration_node]
-    C --> Z[finalize_node]
-    F --> Z
-    G --> Z
-    H --> Z
-    I --> Z
-    J --> Z
-    K --> Z
-    L --> Z
-    M --> Z
-    N --> Z
-    Z -->|END| END
-```
-
-#### `bootstrap_node` — load authoritative state
-
-- Loads the `GameMasterCharacter` row (`store.load_player`) and the
-  `GameMasterAdventure` row (`store.load_campaign`); creates the adventure row
-  on first run (`ensure_campaign`).
-- Pulls relevant **episodic memory** (see §3) into `memory_context`.
-- Emits a `STATE_SNAPSHOT` with character + location (and, at finalize, pacing).
-
-#### Game-mode nodes — deterministic systems, LLM narrates
-
-Each mode node:
-
-1. Runs its deterministic rules (e.g. `systems.player_attack`, the quest step
-   table, `content.resolve_location_transition`).
-2. Builds `facts` — plain strings describing only what the engine decided.
-3. Calls `generate_narration` with `[GAME_FACTS]` so the LLM vividly *describes*
-   but never *overrides* the state.
-4. Persists only where a rule changed persisted state.
-
-The `intent` router (`intent.py`) is a **keyword classifier**, never an LLM.
-It maps to: `dialogue`, `exploration`, `combat`, `inventory`, `quest`,
-`character`, `check`, `dice`, `narration`.
-
-#### `finalize_node` — pacing, snapshot, memory
-
-Runs on every turn. It:
-
-- Computes the pacing delta via `apply_pacing(campaign, game_mode, landmark)`
-  (see §2) and persists it onto the adventure row.
-- Emits a final `STATE_SNAPSHOT` (character + location + pacing).
-- Records the turn into AgentCore episodic memory (`_record_memory_turn`).
-- Emits the `response_complete` CUSTOM event with the final text + metadata
-  (including the pacing snapshot).
-
-### Orchestrator state
-
-`OrchestratorState` (TypedDict) carries identity (`conversation_id`, `owner`),
-wiring (`system_prompt`, `model_id`, `region`, `store`, `memory`), authoritative
-session objects (`player`, `campaign`), routing (`intent`, `game_mode`,
-`target_npc_id`), `facts`, and output (`opened`, `final_message`,
-`response_metadata`).
-
-### Persistence
-
-`OrchestrationStore` (`persistence.py`) wraps four DynamoDB tables:
-
-| Table              | Holds                                                            |
-| ------------------ | ---------------------------------------------------------------- |
-| `GameMasterCharacter` | Player stats, level, XP, HP, inventory, gold                  |
-| `GameMasterAdventure` | Campaign narrative: location, scene, objectives, pacing cols, timeline |
-| `ActiveQuest`        | Quest status registry                                          |
-| `PlayerState`        | UI-facing state incl. `pendingDiceRoll`, `diceRollLog`, version |
-
-Index names are discovered at runtime (`_conversation_index`, `_campaign_index`)
-rather than hard-coded.
-
----
-
-## 2. Pacing
-
-### Purpose
-
-Pacing gives the campaign **a managed, reasonable drift** — the player is not
-stuck in one act forever, nor thrown from eruption to eruption. It mirrors the
-classic five-act structure and keeps a 1–10 tension dial that decides *when*
-the story advances.
-
-Unlike the legacy `NarrativeExtractor` (which regex-scanned LLM prose), the
-orchestrator's pacing in `pacing.py` is derived from **deterministic signals
-only**: the resolved game mode and engine-observed story landmarks. The LLM can
-never "decide" to advance the act or bump tension — the engine does, from
-observable events.
-
-### State
-
-```json
-{
-  "currentAct": "EXPOSITION",
-  "currentChapter": 1,
-  "tensionLevel": 3,
-  "turnsInChapter": 0,
-  "turnsSinceBeat": 0,
-  "timeline": []
-}
-```
-
-### How a turn moves the dial
-
-`apply_pacing(campaign, game_mode, landmark)`:
-
-1. **Tension delta** from the resolved mode:
-
-   | Mode       | Δ tension |
-   | ---------- | --------- |
-   | combat     | +1        |
-   | dialogue   | −1        |
-   | inventory  | −1        |
-   | character  | −1        |
-   | others     | 0         |
-
-   A **landmark** adds a further +1 (a resolved milestone has momentum).
-   Tension clamps to 1–10.
-
-2. **Beat counter**: conflict/exploration/check/dice/quest turns (or any
-   landmark) reset `turnsSinceBeat` — the story is moving. Roleplay turns let
-   it creep up.
-
-3. **Chapter break** when the beat counter ≥ 6 or the chapter is long
-   (`turnsInChapter` ≥ 12), then `turnsInChapter` resets.
-
-4. **Act progression**:
-
-   | From              | → To            | Trigger                |
-   | ----------------- | -------------- | ---------------------- |
-   | EXPOSITION        | RISING_ACTION  | 4+ turns in chapter **or** tension ≥ 5 |
-   | RISING_ACTION     | CLIMAX         | tension ≥ 8            |
-   | CLIMAX            | FALLING_ACTION | tension ≤ 5            |
-   | FALLING_ACTION    | RESOLUTION     | 6+ turns **or** tension ≤ 3 |
-
-5. **Timeline landmarks** kept to the last 20 entries.
-
-### Milestones / landmarks
-
-A `landmark` is an engine-observed story milestone, produced by
-`_story_landmark` in `nodes.py`, never by prose:
-
-- `quest-completed`
-- `quest-progress-<step>` (e.g. `clear_cellar`, `recover_lantern`,
-  `return_lantern`)
-- `dice-resolved` (a stat-check turn resolved)
-- `hazard-<location>` (an enemy-bearing location visited)
-
-The pacing snapshot exposed to the UI:
-
-```json
-{
-  "act": "RISING_ACTION",
-  "chapter": 2,
-  "tension": 6,
-  "landmarks": ["quest-progress-clear_cellar"]
-}
-```
-
----
-
-## 3. Episodic memory (AgentCore)
-
-### Design
-
-The orchestrator delegates memory to **Amazon Bedrock AgentCore** using the
-**episodic memory strategy** — it does not hand-roll its own store. AgentCore
-detects completed episodes, consolidates them, and later generates
-**reflections** (insights across episodes).
-
-`orchestrator/memory.py` defines a small `MemoryService`:
-
-- **Namespaces** — episodes/reflections live at
-  `/strategy/{episodicStrategyId}/actor/{actorId}/`.
-- **Recording** — `record_turn` posts a `USER` and `ASSISTANT`
-  `create_event` per turn, feeding AgentCore's extraction. Metadata carries
-  `conversationId`, `intent`, `personalityMode`.
-- **Retrieval** — `retrieve_episodic_context` runs a semantic
-  `retrieve_memory_records` against the episodes namespace (matching strategy
-  id) and formats a `=== EPISODIC MEMORY ===` block for the narration prompt.
-- **Long-term records** — `save_long_term_record` persists structured records
-  (later used for character/world snapshots).
-
-### Wiring
-
-- `classify_and_prepare` builds the service from env:
-  `AGENTCORE_MEMORY_ID`, `AGENTCORE_MEMORY_EPISODIC_STRATEGY_ID` (+ region).
-- `bootstrap_node` retrieves context into `memory_context`.
-- `_facts_prompt` prepends the block to every narration prompt.
-- `finalize_node` records the completed turn.
-
-### Safety
-
-The service is a **safe no-op** whenever AgentCore is unconfigured, and every
-call is wrapped so a memory failure is logged and swallowed — memory can never
-break gameplay.
-
----
-
-## 4. Event systems
-
-### 4.1 AG-UI SSE stream (back → front)
-
-The Lambda returns AG-UI events as Server-Sent Events over the Function URL
-stream (see `experiences/agui/events.py`). The orchestrator emits:
-
-| Event                           | When                                             |
-| ------------------------------- | ------------------------------------------------ |
-| `RUN_STARTED`                   | `ExperienceResponse.stream_message` begins       |
-| `TEXT_MESSAGE_START/CONTENT/END`| each narration token stream                      |
-| `STATE_SNAPSHOT`                | bootstrap (player/location) and finalize (+pacing) |
-| `CUSTOM` (`response_complete`)  | finalize; carries the full text + metadata       |
-| `RUN_FINISHED` / `RUN_ERROR`    | terminal outcomes                                 |
-
-`llm.generate_narration` streams tokens as `TEXT_MESSAGE_*` events; nodes emit
-snapshots/custom events via `get_stream_writer()`.
-
-### 4.2 Dice event contract
-
-The dice flow is what makes "roll the die to resolve" work end-to-end:
-
-```mermaid
-sequenceDiagram
-    participant P as Player
-    participant F as Frontend (React)
-    participant B as Orchestrator
-    participant DB as PlayerState/DDB
-
-    P->>F: "I try to sneak past the guard"
-    F->>B: Message (AppSync → stream)
-    B->>B: classify_intent → CHECK_MODE
-    B->>F: CUSTOM dice_roll_requested {requestId, statName, dc}
-    B->>DB: write_pending_dice_roll (idempotent)
-    DB-->>F: observeQuery pendingDiceRoll (fallback trigger)
-    F->>F: show an inline check prompt after narration
-    P->>F: press and release the die asset (once per active request)
-    F->>F: animate the centered number, retain the selected result
-    F->>B: Message {type:"DICE_RESULT", requestId, diceValue}
-    B->>DB: validate requestId, resolve_stat_check, XP, diceRollLog<-, clear pending
-    B->>F: CUSTOM dice_resolved {result}
-    B->>F: TEXT_MESSAGE narration of the outcome
-```
-
-Two **redundant sources** create the same inline prompt, deduplicated by request ID:
-
-1. **Inline**: the `dice_roll_requested` CUSTOM event during the SSE stream
-   (`App.tsx` `case 'CUSTOM'`).
-2. **Subscribed**: `write_pending_dice_roll` persists `pendingDiceRoll` to
-   `PlayerState`; the frontend's `observeQuery` watcher adds the prompt
-   as a fallback (e.g. when streaming is bypassed).
-
-Neither source rolls automatically. Only an active, unexpired request enables
-the chat's die asset. Pointer input is raycast against the geometry, not the
-surrounding canvas; drags and scrolling cancel a press. Keyboard activation
-targets the same die. Completed or superseded checks cannot be rerolled;
-failed submissions retry the original selected value. There is no free-roll
-control in the context panel.
-
-The chat renderer also accepts `sides` (`4`, `6`, `8`, `10`, `12`, `20`, or
-`100`), a `purpose` label, and an optional integer `modifier` on a pending
-request. Omitted `sides` means d20, preserving existing ability checks. The
-client reports the selected `sides` alongside `diceValue`; it does not expose
-a player-facing die selector. A d100 is visualized as two pentagonal
-trapezohedra (tens and units), with `00 + 0` representing 100.
-
-The current orchestrator issues d20 stat checks. Additional purposes and their
-adjudication belong in Brain's orchestrator; the generalized client rendering
-contract is ready for those requests. The dice preview table at
-`/?testmode=true&preview=dice` is development-only and never submits game data.
-Clicking a die there rolls only that die, with independent timing and results.
-Dice rest face-down on the floor and reveal their numeral after a brief
-post-click delay. Renderer structure and extension
-points are documented in `src/components/dice/README.md`.
-
-The die result arrives as a normal `Message` whose content is the JSON
-`{"type":"DICE_RESULT","requestId":...,"diceValue":...}`. `intent.py` parses it
-(`parse_dice_result`, incl. the legacy `[DICE_RESULT]` wrapper) and routes it to
-`dice_node`, which validates the requestId against the pending roll, resolves
-the check (`systems.resolve_stat_check`), awards XP on success, logs to
-`diceRollLog`, clears the pending roll, and narrates the outcome.
-
-`systems.request_stat_check` produces the pending-roll payload:
-
-```json
-{
-  "requestId": "uuid",
-  "statName": "dexterity",
-  "statValue": 16,
-  "difficultyClass": 15,
-  "description": "...",
-  "baseXPReward": 10,
-  "expiresAt": "ISO-8601 +5min"
-}
-```
-
-### 4.3 Other channels
-
-- **PlayerState subscription** — drives the dice animation, `diceRollLog`, and
-  level/XP display live via AppSync `observeQuery`.
-- **GameMasterAdventure subscription** — keeps `currentLocation` (and the paced
-  columns) live in the sidebar/banner.
-
----
-
-## 5. Flow summary per turn
-
-1. **Identity** — stream starts; `run_started` emitted.
-2. **Bootstrap** — player + campaign loaded, episodic memory fetched, initial
-   `STATE_SNAPSHOT`.
-3. **Route** — first turn → opening narrative; otherwise `intent_node` chooses
-   exactly one mode.
-4. **Resolve + narrate** — the mode runs deterministic rules, then streams a
-   narration. For `check` it also emits the dice request; for `dice` it resolves
-   the submitted roll.
-5. **Finalize** — pacing advances + persists, final snapshot, episodic memory
-   recorded, `response_complete` custom event.
-6. **Terminate** — `run_finished`.
-
-Every rule lives in pure, testable code (`content`, `systems`, `pacing`); the
-LLM only paints the scene.
+The existing race/class/name/portrait creator saves the character first.
+The first actual adventure response starts with **Alderheart Market Square**,
+then the character's name, level, race/class, the scene, and the first question.
+There is no fabricated welcome message in an empty transcript.
+
+`introduction.json` supplies four Elder Scrolls-inspired, original questions:
+origin, motive, bond, and a hypothetical dilemma. Each answer is stored verbatim
+(apart from surrounding whitespace) with its source message, timestamp, and
+`player_authored_fiction` provenance. Answers are limited to 1,200 characters.
+`help` repeats guidance; `skip` leaves one detail unknown; `skip intro` leaves
+the remaining details unknown and begins play. No traits, stats, alignment,
+inventory, XP, or actual past events are inferred from an answer.
+
+The interview resumes from persisted state. Leaving for Brain does not finish
+it, and returning to this adventure retains its character. New adventures
+start independently. Already-started legacy adventures skip the interview and
+derive their initial stage from existing quest progress.
+
+## Governing stages
+
+`story.py` defines `Stage`, ordered `Transition` predicates, and one-time
+consequences. The current chain is:
+
+| Stage | Goal / exit condition |
+| --- | --- |
+| `introduction` | Finish or skip the interview |
+| `lantern_lead` | Meet Bram at the tavern and explicitly accept the quest |
+| `cellar` | Clear the cellar rats |
+| `recovery` | Search the cleared cellar and recover the lantern |
+| `return` | Return to Bram with the lantern and explicitly hand it over |
+| `aftermath` | The current authored story is complete; town exploration remains |
+
+Transitions inspect engine state, never model prose or elapsed turn counts.
+Clearing the cellar sets `cellar_safe`; completing the quest sets
+`alderheart_lit`. Consequences are recorded once. Directed traversal is bounded,
+and invalid targets/cycles fail instead of silently replacing the story.
+
+To extend the story:
+
+1. Add a stable stage ID, title, objective, and deterministic exit predicate.
+2. Append its transition to the preceding stage; add ordered alternatives for
+   a branch. Persist any new predicate inputs in versioned adventure state.
+3. Resolve new mechanics in a system/node, emit facts and typed events, and let
+   the finalizer commit them together.
+4. Cover resume, unmet goals, replay, and one-time consequences. Update the
+   story schema/migration explicitly when changing stored meanings.
+
+Pacing (`pacing.py`) still computes act/chapter/tension metadata. It cannot
+complete these stages or award quest rewards. This is a small authored
+framework, not an unlimited generated campaign or a full D&D rules engine.
+
+## Gameplay and event vocabulary
+
+The keyword router selects dialogue, exploration, combat, inventory, quest,
+character, check, dice-result, or general narration. Systems resolve state;
+the model describes those locked facts and cannot commit changes itself.
+Character details are quoted fictional context. A dilemma is explicitly
+hypothetical, including when recalled later.
+
+[D&D's free rules](https://www.dndbeyond.com/sources/dnd/br-2024/playing-the-game)
+identify social interaction, exploration, and combat as the pillars of play,
+and ability checks, saving throws, and attacks as the three D20 Test kinds.
+Those categories inform our extensible event vocabulary:
+
+| Category | Event kinds | Current slice |
+| --- | --- | --- |
+| Story / identity | `stage`, `character`, `choice`, `consequence` | Stage changes, exact interview details, persistent consequence flags |
+| Social | `dialogue` | NPC interaction; risky persuasion uses a check |
+| Exploration | `scene`, `discovery` | Connected-location travel and quest-item recovery |
+| Objectives | `quest` | Offer, explicit acceptance, progress, completion |
+| Uncertainty / conflict | `check`, `combat` | Requested/resolved d20 checks; engine-resolved attacks with persistent enemy HP |
+| Resources | `damage`, `healing`, `inventory`, `reward`, `level` | Events from authoritative state changes; one-time quest rewards |
+| Future mechanics | `condition`, `rest` | Reserved vocabulary, not implemented systems |
+
+`choice`/`discovery` are also extension points rather than independent mechanics.
+Initiative, saving throws, death saves, conditions, rest, spell systems, and
+full turn-based enemy combat are not supplied by adding an event label.
+Existing check critical-success/XP rules are app rules, not a claim of exact
+D&D rules compliance.
+
+Each event has `version`, stable `id`, `kind`, `title`, `detail`, and optional
+structured `data`. IDs derive from conversation/message identity and event
+order. Events are never extracted from narration.
+
+## Persistence, retries, and publication
+
+| Record | Responsibility |
+| --- | --- |
+| `GameMasterAdventure.storyState` | Stage, intro answers/skips, flags, encounter HP, memory acknowledgments, bounded replay receipts |
+| `GameMasterAdventure.storyVersion` | Optimistic turn version |
+| `GameMasterCharacter` | Authoritative level, XP, HP, armor, inventory, gold |
+| `PlayerState` | Pending check and bounded dice log |
+| `Message.gmProcessed` | Internal durable marker preventing a committed message from applying rules twice |
+| `BrainResponse.gameEvents` / `.story` | Public event and state snapshots for SSE reconciliation and history |
+
+New adventure IDs are `gm:{conversationId}`. The store strongly reads the
+campaign version before character state; indexes locate legacy rows, followed
+by consistent reads. Creation checks that the conversation still exists.
+One DynamoDB transaction commits campaign, changed player/dice data, and the
+message receipt with conversation-existence and story-version conditions.
+Inference or commit failure publishes no successful completion/event cards.
+
+Recent receipts retain up to 20 replies, additionally bounded by story size.
+A repeated message returns its original reply/events without consuming another
+answer or paying another reward. Reusing that ID with different text is
+rejected. Once a receipt expires, the durable message marker still prevents
+reapplication, but does not reconstruct the expired reply. Internal receipt
+stream updates are ignored; a later transport fallback may replay for delivery.
+
+Gameplay narration can stream before commit; `TEXT_MESSAGE_END` is not commit
+confirmation. `response_complete` unlocks the reply and carries events, notes,
+and the public story snapshot. The snapshot includes character progression,
+location, quest, profile, memory status, and the pending check. `RUN_ERROR`
+surfaces a visible failure; a truncated stream can use the existing AppSync
+fallback. Reconciliation targets the persisted message ID, not the last bubble.
+
+Direct DynamoDB writes do **not** publish AppSync subscriptions. Response
+metadata therefore supplies current context and pending dice on streaming,
+fallback, and history paths. Legacy `ActiveQuest`/`PlayerState` UI projections
+remain fallbacks; the new story snapshot takes precedence.
+
+### Dice
+
+A risky action produces a pending d20 check with request ID, ability, DC,
+description, reward rule, and expiration. It is committed before notification.
+The UI adds one inline prompt after the response completes and never rolls
+automatically. Explicit activation submits `DICE_RESULT`; retries keep the
+selected number. The backend validates request identity, integer range, and
+expiration, then atomically records/clears the check with any awarded XP.
+
+The shared renderer supports d4/d6/d8/d10/d12/d20/d100 requests; the current
+backend issues d20 ability checks. See the
+[dice renderer](../src/components/dice/README.md) for presentation contracts.
+
+## AgentCore character memory
+
+**Semantic memory fits durable character facts.** AWS describes
+[semantic memory](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/semantic-memory-strategy.html)
+as facts/context about entities, while
+[episodic memory](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/episodic-memory-strategy.html)
+captures significant interactions and outcomes. A hypothetical interview answer
+is a character value, not a completed episode or a real-user preference.
+
+Adventure state remains authoritative. After its commit, `sync_character`
+directly ingests exact, attributable facts using
+[`BatchCreateMemoryRecords`](https://docs.aws.amazon.com/bedrock-agentcore/latest/APIReference/API_BatchCreateMemoryRecords.html),
+bypassing extraction. Stable client tokens and timestamps support retries.
+The actor is `gm-<sha256(conversationId)>`, not the account owner. Records and
+retrieval use `/strategy/{strategyId}/actor/{actorId}/`; other adventures and
+Brain's personal state are never searched. The payload labels fiction and
+marks dilemma answers hypothetical.
+
+The UI distinguishes:
+
+- **Saved to adventure:** durable source state; optional semantic memory disabled.
+- **Memory sync pending:** source saved, secondary copy not acknowledged.
+- **AgentCore memory synced:** every answered field acknowledged by the API.
+  This confirms ingestion, not a live retrieval benchmark.
+
+Unsynced answers are retried on the next turn or replay. Acknowledgments are
+bound to the memory/strategy target; changing targets requires resync. There
+is no background retry worker or automatic migration/purge of a previous target.
+
+### Configuration and rollout boundary
+
+Set both `GM_AGENTCORE_MEMORY_ID` and
+`GM_AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID` through deployment environment or
+the existing ignored `.env.agentcore` input. Partial configuration fails
+synthesis; absent configuration keeps the durable interview functional.
+
+The implementation wires Lambda environment and memory-scoped IAM for batch
+create, retrieve, list, and delete. It does **not** provision a memory resource
+or strategy. Use a separate GM memory in **us-east-1**, and use the configured
+actor namespace above (AWS's semantic default uses `actors`, plural).
+Provisioning, strategy verification, release, and live inference require the
+[authorized AWS workflow](AWS_ACCESS.md).
+
+The optional episodic adapter reads `GM_AGENTCORE_MEMORY_EPISODIC_STRATEGY_ID`,
+but this change does not wire/provision it. It excludes the introduction.
+Enabling it later requires actor-scoped episode/reflection configuration and
+short-/long-term deletion handling. Old generic `AGENTCORE_MEMORY_*` settings
+and owner-scoped records are not silently reused for fictional characters.
+
+### Deletion and remaining transport limits
+
+Conversation removal triggers a filtered DynamoDB stream consumer. For GM it
+purges the configured semantic namespace and deletes adventure/character/dice
+rows plus message/response copies via paginated conversation indexes.
+Failures propagate for stream retry. Commit checks fence deleted conversations;
+semantic writes check existence before and after ingestion and purge if deleted.
+Brain clear-chat has no effect on a GM adventure.
+
+This is asynchronous cleanup. Index visibility, crash recovery, concurrent
+AppSync publication, and stream delivery still need deployed validation.
+The existing reply publication is separate from the turn transaction; these
+changes do not establish global exactly-once delivery or fix the public HTTP
+transport's authentication limitation described in
+[architecture](BACKEND_ARCHITECTURE.md).
+
+## Local verification
+
+Use [development](DEVELOPMENT.md) for isolated mocked tests and the interactive
+intro fixture. Python covers intro/resume/skip, complete stage traversal,
+replay/reward bounds, transaction fences, dice, memory retries, and deletion.
+Frontend tests exercise shared extensions, history, response matching, fallback,
+context, and terminal errors. The fixture is UI-only; cloud configuration,
+deployed persistence, and live inference are separate evidence.

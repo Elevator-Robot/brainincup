@@ -23,9 +23,12 @@ const MessageItem = memo(function MessageItem({ message, messageKey, expanded, o
   const listen = useCallback((content: string) => onListen?.(content, message), [onListen, message]);
   const speaking = playback?.message === message || (message.messageId && playback?.message?.messageId === message.messageId);
   const extension = renderExtension?.(message);
-  if (extension !== undefined) return <>{extension}</>;
+  const appended = extension && typeof extension === 'object' && 'placement' in extension ? extension : undefined;
+  if (extension !== undefined && !appended) return <>{extension as React.ReactNode}</>;
   return <div>
     <MessageBubble message={message} expanded={expanded} onToggleExpanded={toggle} speech={speaking ? playback ?? undefined : undefined} />
+    {message.streamError && <p role="alert" className="cosmic-message-error">{message.streamError}</p>}
+    {appended?.content}
     {message.role === 'assistant' && message.content.trim() && !message.isTyping && !message.streamError && <MessageActions content={message.content} onListen={onListen ? listen : undefined} />}
   </div>;
 });

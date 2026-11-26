@@ -8,6 +8,7 @@ from typing import Any, TypedDict
 class OrchestratorState(TypedDict, total=False):
     # identity
     conversation_id: str
+    message_id: str
     player_id: str
     owner: str | None
     user_input: str
@@ -22,6 +23,14 @@ class OrchestratorState(TypedDict, total=False):
     # authoritative session objects (loaded in bootstrap)
     player: dict
     campaign: dict
+    before_player: dict
+    before_campaign: dict
+    replay: dict | None
+    game_events: list[dict]
+    narration_failed: bool
+    narrated: bool
+    dice_pending: dict
+    dice_result: dict
 
     # routing
     intent: str

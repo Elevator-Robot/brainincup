@@ -75,14 +75,19 @@ for budgets, replay, reset, and rollout details.
 
 Source: `experiences/game_master/experience.py` and its `orchestrator/`.
 
-The graph loads authoritative player/campaign state, routes intent, resolves
-rules, narrates locked facts, advances pacing, and persists/emits the result.
+The graph loads authoritative player/campaign state, resumes a fictional
+character interview or routes intent, resolves rules, and narrates locked facts.
+Goal-driven stages advance independently of pacing. The finalizer atomically
+commits campaign/player/dice changes and a replay receipt before publishing
+successful completion.
 The LLM does not decide inventory changes, rewards, travel, dice outcomes, or
 quest progression. Current content is **Alderheart: The Missing Lantern**,
 a finite authored playable slice in `orchestrator/content.py`.
 
 GM streams narration plus a validated, stripped narrator-notes trailer.
-AgentCore episodic memory is optional and distinct from Brain's cognitive state.
+Exact character details live in the adventure and optionally sync to
+adventure-isolated AgentCore semantic memory. The episodic adapter is a separate,
+optional integration; the current backend configuration wires semantic memory.
 Shared identity does not currently provide a universal cross-mode memory store.
 
 See [orchestration](ORCHESTRATION.md), [location flow](LOCATION_FLOW.md), and
@@ -93,8 +98,11 @@ See [orchestration](ORCHESTRATION.md), [location flow](LOCATION_FLOW.md), and
 - `Conversation`, `Message`, `BrainResponse`: identity/history, public replies,
   annotations, and Brain's bounded state.
 - `GameMasterCharacter`, `GameMasterAdventure`: authoritative character and
-  campaign data.
-- `PlayerState`, `ActiveQuest`: UI-facing progression, pending dice, quest status.
+  campaign data, versioned story stages, interview answers, and replay receipts.
+- `BrainResponse.gameEvents` / `.story`: engine events and public context
+  snapshots across SSE, fallback, and history.
+- `PlayerState`: pending dice and roll log; older progression fields and
+  `ActiveQuest` rows remain legacy UI fallbacks.
 - Quest steps/player choices and world/content models support campaign history
   and content; inspect actual read/write paths before assuming a model is active.
 

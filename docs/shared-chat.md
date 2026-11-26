@@ -24,6 +24,12 @@ domain-specific control, or `null` to hide that control. Never copy the transcri
 or branch shared message styling on a mode name. Tests cover an arbitrary future
 configuration and guard the common renderer against mode-identity checks.
 
+An extension can also return `{ placement: 'after', content }` to append
+domain facts beneath the standard bubble. GM uses this for committed RPG event
+cards while retaining shared thoughts, Copy, and Listen interactions. Failed or
+unfinished turns do not show successful event cards; terminal errors use the
+shared alert presentation.
+
 The input uses a stable full-column width, shared surface/radius tokens, and
 quiet focus lighting. Only textarea height grows with the draft. There is no
 star/Actions launcher below the input; slash suggestions and the context menu

@@ -148,7 +148,7 @@ def apply_xp(player: dict, amount: int) -> dict:
     """Add XP and level up via derived stats. Returns an updated player copy."""
     player = dict(player)
     player["xp"] = max(0, int(player.get("xp", 0)) + int(amount or 0))
-    while player["xp"] >= xp_for_next_level(int(player.get("level", 1))):
+    while int(player.get("level", 1)) < len(XP_THRESHOLDS) and player["xp"] >= xp_for_next_level(int(player.get("level", 1))):
         player["level"] = int(player.get("level", 1)) + 1
         stats = CharacterStats(
             strength=int(player.get("stats", {}).get("strength", 10)),
@@ -224,7 +224,10 @@ def add_item(player: dict, item_id: str, quantity: int = 1) -> dict:
             entry["quantity"] = int(entry.get("quantity", 1)) + quantity
             player["inventory"] = inventory
             return player
-    inventory.append({"id": item_id, "name": item_id, "type": "misc", "quantity": quantity})
+    from .content import ITEMS
+    definition = ITEMS.get(item_id, {})
+    inventory.append({"id": item_id, "name": definition.get("name", item_id),
+                      "type": definition.get("type", "misc"), "quantity": quantity})
     player["inventory"] = inventory
     return player
 

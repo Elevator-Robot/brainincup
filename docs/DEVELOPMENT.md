@@ -24,6 +24,7 @@ The demo enables development-only fixture authentication. Default URLs:
 | GM conversation | `http://localhost:5173/quest/test-conversation-2?testmode=true` |
 | GM interaction preview | `http://localhost:5173/?testmode=true&preview=gm` |
 | GM update-feedback fixture | `http://localhost:5173/?testmode=true&preview=gm&ready=true` (use **Simulate game update**) |
+| GM character introduction | `http://localhost:5173/?testmode=true&preview=gm&intro=true` (create a character; add `&ready=true` to skip the creator) |
 | Dice | `http://localhost:5173/?testmode=true&preview=dice` |
 | Brain arrival | `http://localhost:5173/?testmode=true&preview=brain` |
 | Shared conversation | `http://localhost:5173/?testmode=true&preview=conversation` |
@@ -36,6 +37,12 @@ not enable fixture auth.
 Fixtures do not exercise live AI or deployed persistence. Voice is muted by
 default; Listen/unmute can call ElevenLabs and consume credits when configured.
 Use mocked voice for ordinary local checks. See [voice](chat-voice.md).
+
+The intro fixture supports all four answers, `skip`, `skip intro`, character
+details, stage context, and **Show event examples**. It is deliberately UI-only:
+refresh resets it, and subsequent gameplay explains the fixture boundary.
+Production rules and persistence run in Python.
+Add `&ready=true&error=true` to review a terminal failure notice.
 
 ## Select checks by change
 
@@ -91,6 +98,8 @@ env -u AWS_PROFILE -u AWS_DEFAULT_PROFILE -u AWS_SESSION_TOKEN \
   AWS_ACCESS_KEY_ID=testing AWS_SECRET_ACCESS_KEY=testing \
   AWS_DEFAULT_REGION=us-east-1 AWS_REGION=us-east-1 \
   AGENTCORE_RUNTIME_ARN= AGENTCORE_MEMORY_ID= AGENTCORE_MEMORY_EPISODIC_STRATEGY_ID= \
+  GM_AGENTCORE_MEMORY_ID= GM_AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID= \
+  GM_AGENTCORE_MEMORY_EPISODIC_STRATEGY_ID= \
   LANGSMITH_TRACING=false LANGCHAIN_TRACING_V2=false \
   python -m unittest discover -s tests -p 'test_*.py' -v
 ```
@@ -101,6 +110,11 @@ The tests inject/mock cloud and model services. Credential isolation prevents
 ambient authentication; it is not a network sandbox. New tests must also mock
 external calls. Missing tooling should be reported, not installed implicitly
 by a verification-only task.
+
+For the RPG foundation, focus on `tests.test_story`, `tests.test_character_memory`,
+`tests.test_gm_delivery`, and `tests.test_persistence`, plus existing orchestrator
+and narrator tests. Frontend coverage starts with `src/gmStory.test.tsx` and
+`src/chat/rpgEvents.test.tsx`; shared lifecycle changes warrant the full suite.
 
 ## Review behavior, not just compilation
 

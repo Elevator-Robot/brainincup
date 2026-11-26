@@ -39,6 +39,7 @@ import OptionsMenuContent from './components/OptionsMenu';
 import ChatVoiceControl from './components/ChatVoiceControl';
 import { BRAIN_CHAT, GAME_MASTER_CHAT } from './chat/experienceAdapters';
 import { gameMasterMessageExtension, visibleGameMasterMessages } from './chat/gameMasterMessages';
+import { characterSnapshotPatch, rpgResponseFields } from './chat/rpgEvents';
 import { clearBrainChat, ClearBrainChatError } from './api/clearBrainChat';
 import { useChatVoice } from './hooks/useChatVoice';
 import CharacterCreation, { type CharacterCreationInput } from './components/CharacterCreation';
@@ -254,12 +255,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   // PlayerState — authoritative game state synced via AppSync subscription
   type PlayerStateRecord = Schema['PlayerState']['type'];
   const [playerState, setPlayerState] = useState<PlayerStateRecord | null>(null);
-  // Optimistic snapshot: last confirmed state used for rollback
-  const confirmedPlayerStateRef = useRef<PlayerStateRecord | null>(null);
-  const optimisticRollbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Error toast state for optimistic rollback notifications
-  const [playerStateError, setPlayerStateError] = useState<string | null>(null);
   const [brainClearError, setBrainClearError] = useState<string | null>(null);
   const [isClearingBrainChat, setIsClearingBrainChat] = useState(false);
   const clearingBrainChatRef = useRef(false);
@@ -283,8 +278,21 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
   const [questContext, setQuestContext] = useState<{ conversationId: string; quests: Quest[] } | null>(null);
-  const activeQuests = questContext?.conversationId === conversationId ? questContext.quests : [];
+  const currentStory = useMemo(() => [...messages].reverse().find(message => message.story)?.story, [messages]);
+  const activeQuests = useMemo(() => currentStory
+    ? currentStory.quest?.status === 'IN_PROGRESS'
+      ? [{ id: currentStory.quest.id, title: currentStory.quest.title, currentStep: currentStory.quest.objective }] : []
+    : questContext?.conversationId === conversationId ? questContext.quests : [], [currentStory, questContext, conversationId]);
   const [characterState, setCharacterState] = useState<CharacterRecord | null>(null);
+  const loadedCharacterId = characterState?.conversationId === conversationId ? characterState.id : null;
+  useEffect(() => {
+    const patch = currentStory?.character;
+    // Cached messages may hydrate before the saved character row does.
+    if (!conversationId || !loadedCharacterId || !patch) return;
+    setCharacterState(previous => previous?.conversationId === conversationId ? { ...previous, ...patch } : previous);
+    queryClient.setQueryData<CharacterRecord | null>(gmKeys.character(conversationId),
+      previous => previous ? { ...previous, ...patch } : previous);
+  }, [currentStory, conversationId, loadedCharacterId, queryClient]);
   const [isLoadingCharacter, setIsLoadingCharacter] = useState(false);
   const [isLoadingAdventure, setIsLoadingAdventure] = useState(false);
   const [isSelectingConversation, setIsSelectingConversation] = useState(true);
@@ -764,8 +772,8 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const { scrollRef, contentRef, isAtBottom, scrollToLatest } = useChatScroll(conversationId, isDesktop);
   const newInteractionPrimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
-  const streamedMessageIdsRef = useRef<Set<string>>(new Set());
   const activeStreamRef = useRef<AbortController | null>(null);
+  const pendingMessageIdRef = useRef<string | null>(null);
   useEffect(() => () => { activeStreamRef.current?.abort(); }, []);
   const submitDiceResult = useCallback(async (request: DiceRollRequest, diceValue: number) => {
     if (!conversationId) throw new Error('No active adventure');
@@ -785,6 +793,10 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const { requestRoll, syncRequestedRoll, roll: handleDiceRoll, activeRequestId: activeDiceRequestId, hasPendingRoll } = useChatDiceRolls({
     conversationId, messages, setMessages, busy: diceBusy, onSubmit: submitDiceResult,
   });
+  useEffect(() => {
+    if (conversationId) syncRequestedRoll(currentStory ? currentStory.pendingDiceRoll
+      : playerState?.campaignId === conversationId ? playerState.pendingDiceRoll : null, conversationId);
+  }, [currentStory, playerState, conversationId, syncRequestedRoll]);
 
   useEffect(() => {
     if (!isOptionsMenuOpen) return;
@@ -808,14 +820,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     if (newInteractionPrimeTimerRef.current) {
       clearTimeout(newInteractionPrimeTimerRef.current);
       newInteractionPrimeTimerRef.current = null;
-    }
-  }, []);
-
-  // Task 11.3 — cleanup optimistic rollback timer on unmount to prevent memory leaks
-  useEffect(() => () => {
-    if (optimisticRollbackTimerRef.current) {
-      clearTimeout(optimisticRollbackTimerRef.current);
-      optimisticRollbackTimerRef.current = null;
     }
   }, []);
 
@@ -972,6 +976,8 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               thoughts
               memories
               selfReflection
+              gameEvents
+              story
             }
           }
         `
@@ -991,6 +997,8 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             thoughts?: string[];
             memories?: string;
             selfReflection?: string;
+            gameEvents?: unknown;
+            story?: unknown;
           };
         };
         errors?: Array<{ message: string }>;
@@ -1017,70 +1025,35 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               if (clearingBrainChatRef.current) return;
               if (effectivePersonality === 'game_master') {
                 recordQuestStep(brainResponse);
-
-                // Extract location from the GM's JSON response and update adventureState immediately
-                // This is a fast-path that works before the Lambda's AppSync write propagates
-                try {
-                  const raw = brainResponse.response ?? '';
-                  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-                  if (jsonMatch) {
-                    const parsed = JSON.parse(jsonMatch[0]);
-                    const loc = parsed.current_location || parsed.area_transition || parsed.location;
-                    if (loc && typeof loc === 'string' && loc.trim()) {
-                      commitLocation(loc.trim());
-                      queryClient.setQueryData(gmKeys.adventure(conversationId), (prev: AdventureRecord | null | undefined) =>
-                        prev ? { ...prev, currentLocation: loc.trim(), lastLocation: loc.trim() } : prev);
-                      setAdventureState(prev => prev ? { ...prev, currentLocation: loc.trim(), lastLocation: loc.trim() } : prev);
-                    }
-                  }
-                } catch {
-                  // Non-JSON response — ignore
-                }
               }
 
-              // If this message was already streamed live via AG-UI, don't add a
-              // duplicate bubble — just reconcile the authoritative metadata.
-              const wasStreamed = streamedMessageIdsRef.current.has(brainResponse.messageId);
-              if (wasStreamed) {
-                setMessages(prev => {
-                  const next = [...prev];
-                  const idx = next.length - 1;
-                  if (idx >= 0 && next[idx].role === 'assistant') {
-                    next[idx] = {
-                      ...next[idx],
-                      isTyping: false,
-                      fullContent: next[idx].fullContent ?? brainResponse.response ?? '',
-                      sensations: brainResponse.sensations?.filter((s): s is string => s !== null) || next[idx].sensations,
-                      thoughts: brainResponse.thoughts?.filter((t): t is string => t !== null) || next[idx].thoughts,
-                      memories: brainResponse.memories || next[idx].memories,
-                      selfReflection: brainResponse.selfReflection || next[idx].selfReflection,
-                    };
-                  }
-                  return next;
-                });
-                setIsWaitingForResponse(false);
-                return;
-              }
-
-              // A single update; the bubble handles its own arrival animation.
+              // Reconcile by persisted Message ID across SSE, fallback and
+              // duplicate publication, even when a later turn is in flight.
               setMessages(prev => {
-                const newMessages: Message[] = [...prev, { 
+                const idx = prev.findIndex(message => message.role === 'assistant' && message.messageId === brainResponse.messageId);
+                const reply: Message = {
+                  ...(idx >= 0 ? prev[idx] : {}),
                   role: 'assistant' as const, 
                   messageId: brainResponse.messageId || brainResponse.id,
                   content: brainResponse.response ?? '',
                   isTyping: false,
+                  streamError: undefined,
                   populateOnMount: true,
                   fullContent: brainResponse.response ?? '',
                   sensations: brainResponse.sensations?.filter((s): s is string => s !== null) || [],
                   thoughts: brainResponse.thoughts?.filter((t): t is string => t !== null) || [],
                   memories: brainResponse.memories || '',
                   selfReflection: brainResponse.selfReflection || '',
-                }];
-                
-                return newMessages;
+                  ...rpgResponseFields(brainResponse),
+                };
+                if (idx < 0) return [...prev, reply];
+                return prev.map((message, index) => index === idx ? reply : message);
               });
               
-              setIsWaitingForResponse(false);
+              if (!pendingMessageIdRef.current || pendingMessageIdRef.current === brainResponse.messageId) {
+                setIsWaitingForResponse(false);
+                pendingMessageIdRef.current = null;
+              }
             } else {
               console.log('❌ NO MATCH: Response does not match criteria');
             }
@@ -1121,19 +1094,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     }).subscribe({
       next: ({ items }) => {
         const latest = items[0] ?? null;
-        if (latest) {
-          setPlayerState(latest);
-          confirmedPlayerStateRef.current = latest;
-          // Clear any pending rollback timer — authoritative value arrived
-          if (optimisticRollbackTimerRef.current) {
-            clearTimeout(optimisticRollbackTimerRef.current);
-            optimisticRollbackTimerRef.current = null;
-          }
-          setPlayerStateError(null);
-
-          // A request adds a chat prompt, never an automatic roll.
-          syncRequestedRoll(latest.pendingDiceRoll, conversationId);
-        }
+        setPlayerState(latest);
       },
       error: (err) => {
         console.error('PlayerState subscription error:', err);
@@ -1141,7 +1102,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     });
 
     return () => sub.unsubscribe();
-  }, [conversationId, effectivePersonality, syncRequestedRoll]);
+  }, [conversationId, effectivePersonality]);
 
   // Keep both desktop and mobile quest views scoped to the current adventure.
   useEffect(() => {
@@ -1203,28 +1164,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   }, [conversationId, effectivePersonality, queryClient]);
 
 
-  // Task 11.2 — optimistic XP and HP update applied immediately on message submit.
-  // Task 11.3 — if subscription doesn't confirm within 10s, roll back and show error toast.
-  const applyOptimisticPlayerStateUpdate = useCallback(
-    (patch: Partial<PlayerStateRecord>) => {
-      setPlayerState((prev) => {
-        if (!prev) return prev;
-        const optimistic = { ...prev, ...patch };
-        // Schedule rollback if subscription doesn't confirm
-        if (optimisticRollbackTimerRef.current) {
-          clearTimeout(optimisticRollbackTimerRef.current);
-        }
-        optimisticRollbackTimerRef.current = setTimeout(() => {
-          setPlayerState(confirmedPlayerStateRef.current);
-          setPlayerStateError('Could not confirm stat update — reverted to last known state.');
-          optimisticRollbackTimerRef.current = null;
-        }, 10_000);
-        return optimistic;
-      });
-    },
-    [],
-  );
-
   const handleSendMessage = async (content: string, targetConversationId: string): Promise<void> => {
     if (isTestModeEnabled()) {
       if (!targetConversationId) return;
@@ -1253,6 +1192,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
 
     try {
       setIsWaitingForResponse(true);
+      pendingMessageIdRef.current = 'creating-message';
 
       if (!targetConversationId) {
         console.error('No conversation ID available');
@@ -1272,6 +1212,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
         setIsWaitingForResponse(false);
         return;
       }
+      pendingMessageIdRef.current = streamedMessageId;
 
       await recordPlayerChoice(streamedMessageId, content);
 
@@ -1280,10 +1221,10 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       // AG-UI streaming over the Lambda Function URL. The DDB stream handler
       // skips messages flagged streaming=true, so the response arrives here
       // token-by-token instead of via the AppSync subscription.
-      streamedMessageIdsRef.current.add(streamedMessageId);
-
       const controller = new AbortController();
       activeStreamRef.current = controller;
+      let completed = false;
+      let failed = false;
       try {
         await streamAgentMessage({
           conversationId: targetConversationId,
@@ -1292,19 +1233,19 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
           content,
           signal: controller.signal,
           onEvent: (event: AguiEvent) => {
-            if (controller.signal.aborted) return;
-            const messageId = typeof event.messageId === 'string' ? event.messageId : undefined;
+            // AppSync may confirm this turn before SSE finishes delivering it.
+            if (controller.signal.aborted || pendingMessageIdRef.current !== streamedMessageId) return;
             switch (event.type) {
             case 'TEXT_MESSAGE_START':
               setIsWaitingForResponse(false);
-              setMessages(prev => [
+              setMessages(prev => prev.some(message => message.role === 'assistant' && message.messageId === streamedMessageId) ? prev : [
                 ...prev,
                 {
                   role: 'assistant',
                   content: '',
                   isTyping: true,
                   fullContent: '',
-                  messageId,
+                  messageId: streamedMessageId,
                   toolCalls: [],
                   populateOnMount: true,
                 },
@@ -1315,7 +1256,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               const delta = typeof event.delta === 'string' ? event.delta : '';
               setMessages(prev => {
                 const next = [...prev];
-                const idx = next.length - 1;
+                const idx = next.findIndex(message => message.role === 'assistant' && message.messageId === streamedMessageId);
                 if (idx >= 0 && next[idx].role === 'assistant') {
                   next[idx] = {
                     ...next[idx],
@@ -1331,11 +1272,12 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             case 'TEXT_MESSAGE_END':
               setMessages(prev => {
                 const next = [...prev];
-                const idx = next.length - 1;
+                const idx = next.findIndex(message => message.role === 'assistant' && message.messageId === streamedMessageId);
                 if (idx >= 0 && next[idx].role === 'assistant') {
                   next[idx] = {
                     ...next[idx],
-                    isTyping: false,
+                    // Completion confirms the engine commit and metadata.
+                    isTyping: true,
                     fullContent: next[idx].content,
                   };
                 }
@@ -1346,7 +1288,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             case 'REASONING_MESSAGE_START':
               setMessages(prev => {
                 const next = [...prev];
-                const idx = next.length - 1;
+                const idx = next.findIndex(message => message.role === 'assistant' && message.messageId === streamedMessageId);
                 if (idx >= 0 && next[idx].role === 'assistant') {
                   next[idx] = { ...next[idx], reasoning: '' };
                 }
@@ -1358,7 +1300,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               const delta = typeof event.delta === 'string' ? event.delta : '';
               setMessages(prev => {
                 const next = [...prev];
-                const idx = next.length - 1;
+                const idx = next.findIndex(message => message.role === 'assistant' && message.messageId === streamedMessageId);
                 if (idx >= 0 && next[idx].role === 'assistant') {
                   next[idx] = {
                     ...next[idx],
@@ -1374,7 +1316,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               const stepName = typeof event.stepName === 'string' ? event.stepName : '';
               setMessages(prev => {
                 const next = [...prev];
-                const idx = next.length - 1;
+                const idx = next.findIndex(message => message.role === 'assistant' && message.messageId === streamedMessageId);
                 if (idx >= 0 && next[idx].role === 'assistant') {
                   next[idx] = { ...next[idx], activeStep: stepName };
                 }
@@ -1388,7 +1330,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               const name = typeof event.toolCallName === 'string' ? event.toolCallName : 'tool';
               setMessages(prev => {
                 const next = [...prev];
-                const idx = next.length - 1;
+                const idx = next.findIndex(message => message.role === 'assistant' && message.messageId === streamedMessageId);
                 if (idx >= 0 && next[idx].role === 'assistant') {
                   const toolCalls = next[idx].toolCalls ?? [];
                   next[idx] = {
@@ -1406,7 +1348,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               const delta = typeof event.delta === 'string' ? event.delta : '';
               setMessages(prev => {
                 const next = [...prev];
-                const idx = next.length - 1;
+                const idx = next.findIndex(message => message.role === 'assistant' && message.messageId === streamedMessageId);
                 if (idx >= 0 && next[idx].role === 'assistant' && next[idx].toolCalls) {
                   const toolCalls = next[idx].toolCalls.map(tc =>
                     tc.toolCallId === toolCallId ? { ...tc, args: tc.args + delta } : tc,
@@ -1424,7 +1366,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               const result = event.type === 'TOOL_CALL_RESULT' ? JSON.stringify(event.content ?? '') : undefined;
               setMessages(prev => {
                 const next = [...prev];
-                const idx = next.length - 1;
+                const idx = next.findIndex(message => message.role === 'assistant' && message.messageId === streamedMessageId);
                 if (idx >= 0 && next[idx].role === 'assistant' && next[idx].toolCalls) {
                   const toolCalls = next[idx].toolCalls.map(tc =>
                     tc.toolCallId === toolCallId
@@ -1444,6 +1386,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                 break;
               }
               if (event.name === 'response_complete') {
+                completed = true;
                 const value = event.value as Record<string, unknown> | undefined;
                 const responseText = typeof value?.response === 'string' ? value.response : '';
                 const meta = (value?.metadata ?? {}) as Record<string, unknown>;
@@ -1453,7 +1396,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                 const selfReflection = typeof meta.self_reflection === 'string' ? meta.self_reflection : undefined;
                 setMessages(prev => {
                   const next = [...prev];
-                  const idx = next.length - 1;
+                  const idx = next.findIndex(message => message.role === 'assistant' && message.messageId === streamedMessageId);
                   if (idx >= 0 && next[idx].role === 'assistant') {
                     next[idx] = {
                       ...next[idx],
@@ -1464,6 +1407,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
                       thoughts: thoughts ?? next[idx].thoughts,
                       memories: memories ?? next[idx].memories,
                       selfReflection: selfReflection ?? next[idx].selfReflection,
+                      ...rpgResponseFields({ gameEvents: meta.game_events, story: meta.story }),
                     };
                   }
                   return next;
@@ -1475,6 +1419,10 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
               // Authoritative game state from the orchestrator. Prefer this over
               // the observeQuery publish so the badge tracks the persisted location.
               const snapshot = (event as { snapshot?: Record<string, unknown> }).snapshot;
+              const characterPatch = characterSnapshotPatch(snapshot?.character);
+              setCharacterState(previous => previous?.conversationId === targetConversationId ? { ...previous, ...characterPatch } : previous);
+              queryClient.setQueryData<CharacterRecord | null>(gmKeys.character(targetConversationId),
+                previous => previous ? { ...previous, ...characterPatch } : previous);
               const loc = snapshot?.location as { name?: string; id?: string } | undefined;
               const locName = loc?.id ? resolveLocationName(loc.id) : (loc?.name ?? '');
               if (locName) {
@@ -1488,12 +1436,15 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
             }
 
             case 'RUN_ERROR': {
+              failed = true;
               const errMsg = typeof event.message === 'string' ? event.message : 'Stream error';
               setMessages(prev => {
                 const next = [...prev];
-                const idx = next.length - 1;
-                if (idx >= 0 && next[idx].role === 'assistant') {
+                const idx = next.findIndex(message => message.role === 'assistant' && message.messageId === streamedMessageId);
+                if (idx >= 0) {
                   next[idx] = { ...next[idx], streamError: errMsg, isTyping: false };
+                } else {
+                  next.push({ role: 'assistant', messageId: streamedMessageId, content: '', streamError: errMsg });
                 }
                 return next;
               });
@@ -1506,22 +1457,32 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
           },
         });
 
-        setIsWaitingForResponse(false);
+        if (!completed && !failed && pendingMessageIdRef.current === streamedMessageId && !controller.signal.aborted) {
+          throw new Error('Stream ended before the committed response arrived');
+        }
+        if (pendingMessageIdRef.current === streamedMessageId) {
+          setIsWaitingForResponse(false);
+          pendingMessageIdRef.current = null;
+        }
       } catch (error) {
         if (controller.signal.aborted) {
           setIsWaitingForResponse(false);
           return;
         }
+        if (pendingMessageIdRef.current !== streamedMessageId) return;
         // Streaming failed — fall back to the AppSync subscription path so the
         // response is still generated by the DDB stream → Lambda pipeline.
         console.error('AG-UI streaming failed, falling back to subscription:', error);
-        streamedMessageIdsRef.current.delete(streamedMessageId);
-        setMessages(prev => prev.filter(m => m.role !== 'assistant' || !m.isTyping));
+        setMessages(prev => prev.filter(m => m.messageId !== streamedMessageId || !m.isTyping));
         setIsWaitingForResponse(true);
         try {
-          await dataClient.models.Message.update({ id: streamedMessageId, streaming: false });
+          const result = await dataClient.models.Message.update({ id: streamedMessageId, streaming: false });
+          if (result.errors?.length) throw new Error(result.errors[0].message);
         } catch (updateErr) {
           console.error('Failed to unflag message for fallback:', updateErr);
+          setIsWaitingForResponse(false);
+          setMessages(prev => [...prev, { role: 'assistant', messageId: streamedMessageId, content: '',
+            streamError: 'The reply could not be recovered. Reload this adventure before continuing.' }]);
         }
       } finally {
         if (activeStreamRef.current === controller) activeStreamRef.current = null;
@@ -1561,19 +1522,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     setIsNewInteractionPrimed(false);
     setMessages(prev => [...prev, { role: 'user', content: userMessage, populateOnMount: true }]);
     scrollToLatest();
-
-    // Task 11.2 — optimistic XP update: apply a small baseline XP gain immediately
-    // so the Context_Window reflects the change before the DynamoDB write confirms.
-    // The authoritative value from the PlayerState subscription will reconcile this
-    // when it arrives (task 11.1). If it doesn't arrive within 10s, task 11.3 rolls back.
-    if (effectivePersonality === 'game_master' && playerState) {
-      // Snapshot the confirmed state before mutating so task 11.3 can roll back to it.
-      confirmedPlayerStateRef.current = playerState;
-      // Award a small baseline XP for player engagement (5 XP per turn).
-      const BASELINE_XP_PER_TURN = 5;
-      const optimisticXP = (playerState.currentXP ?? 0) + BASELINE_XP_PER_TURN;
-      applyOptimisticPlayerStateUpdate({ currentXP: optimisticXP });
-    }
 
     void handleSendMessage(userMessage, activeConversationId);
     return true;
@@ -1689,11 +1637,13 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
         if (response?.response) {
           timeline.push({ 
             role: 'assistant', 
+            messageId: response.messageId ?? response.id ?? undefined,
             content: response.response,
             sensations: response.sensations?.filter((s): s is string => s !== null) || [],
             thoughts: response.thoughts?.filter((t): t is string => t !== null) || [],
             memories: response.memories || '',
             selfReflection: response.selfReflection || '',
+            ...rpgResponseFields(response),
           });
         } else {
           // This message has no response yet - mark as pending
@@ -2105,8 +2055,9 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
   const contextUpdates = useContextUpdates(conversationId,
     hasGameMasterCharacterReady ? characterDisplay?.inventory : undefined,
-    questContext?.conversationId === conversationId ? activeQuests : undefined);
+    currentStory || questContext?.conversationId === conversationId ? activeQuests : undefined);
   const currentLocation = useMemo(() => {
+    if (currentStory?.location) return resolveLocationName(currentStory.location);
     // Authoritative, placeholder-proof: set only from STATE_SNAPSHOT / real rows.
     if (authoritativeLocation) return authoritativeLocation;
 
@@ -2123,7 +2074,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       if (resolved && resolved !== GM_PLACEHOLDER_LOCATION) return resolved;
     }
     return undefined;
-  }, [authoritativeLocation, adventureState?.currentLocation, adventureState?.lastLocation]);
+  }, [currentStory, authoritativeLocation, adventureState]);
   
   const latestAssistantMessage = useMemo(
     () => [...messages].reverse().find((message) => message.role === 'assistant' && Boolean(message.content || message.fullContent)),
@@ -2168,7 +2119,8 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const renderGameContext = (initialPanel: ContextPanel = 'character') => <ContextWindowPanel
     initialPanel={initialPanel}
     updates={contextUpdates}
-    playerState={playerState ? {
+    story={currentStory}
+    playerState={currentStory?.progression ?? (playerState ? {
       currentLevel: playerState.currentLevel ?? undefined,
       currentXP: playerState.currentXP ?? undefined,
       xpToNextLevel: playerState.xpToNextLevel ?? undefined,
@@ -2176,7 +2128,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       lastKnownLocation: playerState.lastKnownLocation ?? undefined,
       diceRollLog: (playerState.diceRollLog ?? undefined) as unknown as DiceRollEntry[] | undefined,
       pendingDiceRoll: playerState.pendingDiceRoll ?? undefined,
-    } : undefined}
+    } : undefined)}
     character={characterDisplay ? {
       name: characterDisplay.name,
       level: characterDisplay.level,
@@ -2204,12 +2156,12 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       <p role="status" className="sr-only">{[contextUpdates.inventory.notice, contextUpdates.quests.notice].filter(Boolean).join('. ')}</p>
 
       {/* Workspace operation error toast. */}
-      {(playerStateError || brainClearError) && (
+      {brainClearError && (
         <div role="alert" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl bg-brand-surface-elevated border border-brand-surface-border px-4 py-3 shadow-lg text-sm text-brand-text-secondary">
-          <span>{brainClearError || playerStateError}</span>
+          <span>{brainClearError}</span>
           <button
             type="button"
-            onClick={() => { setPlayerStateError(null); setBrainClearError(null); }}
+            onClick={() => setBrainClearError(null)}
             className="ml-2 text-brand-text-muted hover:text-brand-text-primary transition-colors"
             aria-label="Dismiss"
           >

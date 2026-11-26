@@ -1,17 +1,18 @@
 """LangGraph orchestrator for the Game Master.
 
-Flow (per the initial spec):
+Flow:
 
-    bootstrap → (opening_narrative | intent) → <game mode> → finalize
+    bootstrap → (replay | introduction | intent → <game mode>) → finalize
 
-The first turn routes through `opening_narrative` to set the scene; every later
-turn goes through intent classification and then a single gameplay mode.
-Modes share no tool-loop; each resolves deterministic state first, then narrates.
+The opening_narrative node handles the resumable introduction subflow.
+Gameplay nodes resolve deterministic state before narration; the finalizer
+advances goals, commits the turn, and publishes its events.
 """
 
 from __future__ import annotations
 
 import logging
+import uuid
 
 from langgraph.graph import END, StateGraph
 
@@ -51,7 +52,9 @@ logger = logging.getLogger(__name__)
 
 def _route_after_bootstrap(state: OrchestratorState) -> str:
     campaign = state.get("campaign", {})
-    return "opening_narrative" if not campaign.get("started") else "intent"
+    if state.get("replay"):
+        return "finalize"
+    return "opening_narrative" if campaign["story"]["stageId"] == "introduction" else "intent"
 
 
 def _route_after_intent(state: OrchestratorState) -> str:
@@ -79,7 +82,7 @@ def build_agent() -> object:
     builder.add_conditional_edges(
         "bootstrap",
         _route_after_bootstrap,
-        {"opening_narrative": "opening_narrative", "intent": "intent"},
+        {"opening_narrative": "opening_narrative", "intent": "intent", "finalize": "finalize"},
     )
     builder.add_edge("opening_narrative", "finalize")
     builder.add_conditional_edges(
@@ -120,6 +123,7 @@ def classify_and_prepare(
     intent = classify_intent(user_input)
     return {
         "conversation_id": conversation_id,
+        "message_id": message_id or str(uuid.uuid4()),
         "player_id": "",
         "owner": owner,
         "user_input": user_input or "",
@@ -133,4 +137,5 @@ def classify_and_prepare(
         "intent": intent,
         "facts": [],
         "final_message": "",
+        "game_events": [],
     }

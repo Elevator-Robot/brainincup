@@ -13,6 +13,11 @@ and [architecture](BACKEND_ARCHITECTURE.md) for the current implementation.
 
 Brain's direct conversation has bounded cognitive state and recall. GM
 currently uses the authored **Alderheart: The Missing Lantern** campaign.
+New adventures extend the race/class/name creator with four skippable
+fictional-character questions, then follow goal-driven story stages. Each
+adventure owns its answers, consequences, and optional semantic memory; resuming
+continues that stage. Already-started adventures skip the interview. See
+[orchestration](ORCHESTRATION.md) for the persistence/deletion contract.
 Both use the same assistant identity, shared chat components, annotations
 when available, and Brain's optional voice.
 

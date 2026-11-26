@@ -46,6 +46,8 @@ const schema = a.schema({
     thoughts: a.string().array(),
     memories: a.string(),
     selfReflection: a.string(),
+    gameEvents: a.json(),            // Versioned, engine-resolved RPG events
+    story: a.json(),                 // Public stage/profile snapshot for hydration
 
     createdAt: a.datetime(),
     owner: a.string(),
@@ -80,6 +82,9 @@ const schema = a.schema({
     activeObjectives: a.json(),      // Quest objectives
     criticalChoices: a.json(),       // Major decisions
     storyArc: a.json(),              // Act summaries
+    storyState: a.json(),            // Governing stages and introduction subflow
+    storyVersion: a.integer(),       // Optimistic turn fence; absent on legacy rows
+    started: a.boolean(),
     
     questSteps: a.hasMany('GameMasterQuestStep', 'adventureId'),
     character: a.hasOne('GameMasterCharacter', 'adventureId'),

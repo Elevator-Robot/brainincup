@@ -92,6 +92,8 @@ def classify_intent(user_input: str) -> str:
     if parse_dice_result(user_input):
         return DICE_MODE
     text = " " + (user_input or "").lower()
+    if any(command in text for command in ("return the lantern", "give bram", "hand over the lantern", "turn in", "accept the quest", "accept the task")):
+        return QUEST_MODE
 
     if _risky_check_request(text):
         return CHECK_MODE

@@ -38,6 +38,10 @@ class _FakeClient:
         self.last_query_index = IndexName
         return {"Items": self.rows}
 
+    def get_item(self, Key, ConsistentRead, **kwargs):
+        assert ConsistentRead
+        return {"Item": next((row for row in self.rows if row["id"] == Key["id"]), None)}
+
     def update_item(self, **kwargs):
         self.last_update = kwargs
 

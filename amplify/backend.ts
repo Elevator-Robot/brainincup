@@ -5,7 +5,7 @@ import { brain } from './functions/brain/resource';
 import { deleteAccount } from './functions/delete-account/resource';
 import { chatVoice } from './functions/chat-voice/resource';
 import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
-import { EventSourceMapping, StartingPosition } from 'aws-cdk-lib/aws-lambda';
+import { EventSourceMapping, StartingPosition, FilterCriteria, FilterRule } from 'aws-cdk-lib/aws-lambda';
 import { FunctionUrlAuthType, HttpMethod, InvokeMode } from 'aws-cdk-lib/aws-lambda';
 import { StreamViewType } from 'aws-cdk-lib/aws-dynamodb';
 import { Tags, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
@@ -206,6 +206,9 @@ const { cfnResources } = backend.data.resources;
 cfnResources.amplifyDynamoDbTables['Message'].streamSpecification = {
   streamViewType: StreamViewType.NEW_AND_OLD_IMAGES,
 };
+cfnResources.amplifyDynamoDbTables['Conversation'].streamSpecification = {
+  streamViewType: StreamViewType.NEW_AND_OLD_IMAGES,
+};
 
 const conversationTable = backend.data.resources.tables['Conversation'];
 const messageTable = backend.data.resources.tables['Message'];
@@ -247,6 +250,25 @@ brainLambda.addEnvironment('AWS_REGION_NAME', stack.region);
 const bedrockModelId = regionalModelId(getAgentCoreConfig('BEDROCK_MODEL_ID'));
 brainLambda.addEnvironment('BEDROCK_MODEL_ID', bedrockModelId);
 
+// A separately configured, regional GM memory keeps fictional characters out
+// of Brain's personal recall. Strategy provisioning is a deployment prerequisite.
+const gmMemoryId = getAgentCoreConfig('GM_AGENTCORE_MEMORY_ID');
+const gmSemanticStrategy = getAgentCoreConfig('GM_AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID');
+if (Boolean(gmMemoryId) !== Boolean(gmSemanticStrategy)) {
+  throw new Error('Configure GM_AGENTCORE_MEMORY_ID and GM_AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID together');
+}
+if (gmMemoryId && gmSemanticStrategy) {
+  brainLambda.addEnvironment('GM_AGENTCORE_MEMORY_ID', gmMemoryId);
+  brainLambda.addEnvironment('GM_AGENTCORE_MEMORY_SEMANTIC_STRATEGY_ID', gmSemanticStrategy);
+  brainLambda.addToRolePolicy(new PolicyStatement({
+    actions: [
+      'bedrock-agentcore:BatchCreateMemoryRecords', 'bedrock-agentcore:RetrieveMemoryRecords',
+      'bedrock-agentcore:ListMemoryRecords', 'bedrock-agentcore:DeleteMemoryRecord',
+    ],
+    resources: [`arn:aws:bedrock-agentcore:us-east-1:${stack.account}:memory/${gmMemoryId}`],
+  }));
+}
+
 // Note: Previously this code created an AWS::BedrockAgentCore::Runtime with a
 // container image. The Lambda now calls Bedrock directly, eliminating the
 // container hop. The agent-runtime/ directory, Dockerfile, and related
@@ -261,6 +283,14 @@ new EventSourceMapping(stack, 'BrainMessageMapping', {
   target: brainLambda,
   eventSourceArn: messageTable.tableStreamArn,
   startingPosition: StartingPosition.LATEST,
+});
+
+new EventSourceMapping(stack, 'GameMasterMemoryDeletionMapping', {
+  target: brainLambda,
+  eventSourceArn: conversationTable.tableStreamArn,
+  startingPosition: StartingPosition.LATEST,
+  filters: [FilterCriteria.filter({ eventName: FilterRule.isEqual('REMOVE') })],
+  batchSize: 1,
 });
 
 brainLambda.addToRolePolicy(regionalInferencePolicy(stack.account, bedrockModelId));
@@ -287,6 +317,7 @@ brainLambda.addToRolePolicy(new PolicyStatement({
     'dynamodb:GetItem',
     'dynamodb:PutItem',
     'dynamodb:UpdateItem',
+    'dynamodb:ConditionCheckItem',
   ],
   resources: [
     `arn:aws:dynamodb:${stack.region}:${stack.account}:table/${conversationTable.tableName}`,
@@ -316,6 +347,11 @@ brainLambda.addToRolePolicy(new PolicyStatement({
     `arn:aws:appsync:${stack.region}:${stack.account}:apis/${backend.data.resources.cfnResources.cfnGraphqlApi.attrApiId}/types/*`,
   ],
   effect: Effect.ALLOW,
+}));
+brainLambda.addToRolePolicy(new PolicyStatement({
+  actions: ['dynamodb:DeleteItem'],
+  resources: [adventureTable.tableArn, characterTable.tableArn, playerStateTable.tableArn,
+    messageTable.tableArn, responseTable.tableArn],
 }));
 
 // ─── Delete Account Function ─────────────────────────────────────────────────

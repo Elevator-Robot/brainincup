@@ -1,10 +1,9 @@
 """Persistence adapter between the orchestrator and the existing DynamoDB tables.
 
 Authoritative player stats / inventory / HP live on the GameMasterCharacter
-row. Quest + campaign narrative mirrors onto the GameMasterAdventure and
-ActiveQuest rows. The orchestrator reads these once per turn, runs the
-deterministic systems, then writes the diffs back. It never recreates state
-that already exists in the tables.
+row; quest, character details and story stages live on GameMasterAdventure.
+The orchestrator reads these once per turn, runs deterministic systems, then
+commits changes atomically. ActiveQuest is a legacy projection.
 """
 
 from __future__ import annotations
@@ -15,6 +14,8 @@ import os
 from typing import Any, Optional
 
 import boto3
+from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
+from botocore.exceptions import ClientError
 
 from experiences.game_master.orchestrator import content
 
@@ -104,14 +105,19 @@ class OrchestrationStore:
         items = resp.get("Items", [])
         if not items:
             return None
-        return self._player_from_item(items[0])
+        # A GSI locates the row but may lag behind a committed reward/HP change.
+        item = self.client.get_item(
+            TableName=self.character_table.name, Key={"id": items[0]["id"]}, ConsistentRead=True,
+        ).get("Item")
+        return self._player_from_item(item) if item else None
 
     def _player_from_item(self, item: dict) -> dict:
         stats = {f: int(self._num(item.get(f), 10)) for f in STAT_FIELDS}
-        inventory = self._s(item.get("inventory"))
+        inventory = self._json(item.get("inventory"))
         inventory = inventory if isinstance(inventory, list) else []
         player = {
             "id": self._s(item.get("id")),
+            "owner": self._s(item.get("owner")),
             "name": self._s(item.get("name"), "Adventurer"),
             "race": self._s(item.get("race"), "Human"),
             "class": self._s(item.get("characterClass"), "Wanderer"),
@@ -183,6 +189,13 @@ class OrchestrationStore:
     # -- campaign ---------------------------------------------------------
 
     def load_campaign(self, conversation_id: str) -> dict:
+        # New campaigns have a stable key, avoiding GSI lag on the next answer.
+        stable = self.client.get_item(
+            TableName=self.adventure_table.name,
+            Key={"id": {"S": f"gm:{conversation_id}"}}, ConsistentRead=True,
+        ).get("Item")
+        if stable:
+            return self._campaign_from_item(stable, conversation_id)
         resp = self.client.query(
             TableName=self.adventure_table.name,
             IndexName=self._conversation_index(self.adventure_table),
@@ -201,9 +214,18 @@ class OrchestrationStore:
         pool = sorted(known, key=lambda it: self._s(it.get("updatedAt")), reverse=True)
         if not pool:
             return self._fresh_campaign(conversation_id)
-        item = pool[0]
+        # The index locates legacy rows; read their current version consistently.
+        item = self.client.get_item(
+            TableName=self.adventure_table.name, Key={"id": pool[0]["id"]}, ConsistentRead=True,
+        ).get("Item")
+        if not item:
+            raise RuntimeError("Adventure was removed while loading")
+        return self._campaign_from_item(item, conversation_id)
+
+    def _campaign_from_item(self, item: dict, conversation_id: str) -> dict:
         campaign = {
             "id": self._s(item.get("id")),
+            "owner": self._s(item.get("owner")),
             "conversation_id": conversation_id,
             "started": bool(item.get("started", {}).get("BOOL", False)),
             "currentLocation": self._s(item.get("currentLocation"), content.STARTING_LOCATION),
@@ -215,6 +237,8 @@ class OrchestrationStore:
             "currentChapter": self._num(item.get("currentChapter"), 1),
             "tensionLevel": self._num(item.get("tensionLevel"), 3),
             "timeline": self._list(item.get("timeline")) or [],
+            "story": self._json(item.get("storyState")),
+            "storyVersion": self._num(item.get("storyVersion"), 0),
         }
         # Nested pacing view (single source for the pacing engine).
         pacing = dict(campaign.get("pacing") or {})
@@ -247,13 +271,12 @@ class OrchestrationStore:
         """Create the GameMasterAdventure row on first run and return its id."""
         if campaign.get("id"):
             return campaign
-        import uuid
-
-        adventure_id = str(uuid.uuid4())
-        self.adventure_table.put_item(
-            Item={
+        adventure_id = f"gm:{conversation_id}"
+        try:
+            item = {
                 "id": adventure_id,
                 "conversationId": conversation_id,
+                "owner": campaign.get("owner"),
                 "started": False,
                 "currentLocation": campaign.get("currentLocation", content.STARTING_LOCATION),
                 "visitedLocations": campaign.get("visitedLocations") or [],
@@ -263,10 +286,160 @@ class OrchestrationStore:
                 "timeline": campaign.get("timeline") or [],
                 "createdAt": self._now(),
                 "updatedAt": self._now(),
-            },
-        )
+            }
+            serializer = TypeSerializer()
+            self.client.transact_write_items(TransactItems=[{"Put": {
+                "TableName": self.adventure_table.name,
+                "Item": {key: serializer.serialize(value) for key, value in item.items()},
+                "ConditionExpression": "attribute_not_exists(id)",
+            }}, {"ConditionCheck": {
+                "TableName": _env("CONVERSATION_TABLE_NAME"),
+                "Key": {"id": {"S": conversation_id}},
+                "ConditionExpression": "attribute_exists(id)",
+            }}])
+        except ClientError as error:
+            reasons = error.response.get("CancellationReasons", [])
+            if (error.response["Error"]["Code"] != "TransactionCanceledException"
+                    or not reasons or reasons[0].get("Code") != "ConditionalCheckFailed"
+                    or not self.conversation_exists(conversation_id)):
+                raise
+            return self.load_campaign(conversation_id)
         campaign["id"] = adventure_id
         return campaign
+
+    def commit_turn(self, state: dict, campaign: dict, player: dict) -> None:
+        """Atomically commit stage, rules, dice and replay receipt.
+
+        Version conflicts fail the turn. The Conversation existence check fences
+        deletion, including an in-flight final answer.
+        """
+        previous_version = int(state["before_campaign"].get("storyVersion", 0))
+        campaign["storyVersion"] = previous_version + 1
+        pacing = campaign.get("pacing") or {}
+        fields = {
+            "started": bool(campaign.get("started")), "currentLocation": campaign["currentLocation"],
+            "currentScene": campaign.get("currentScene", ""),
+            "activeObjectives": json.dumps(campaign.get("activeObjectives")),
+            "visitedLocations": json.dumps(campaign.get("visitedLocations", [])),
+            "criticalChoices": json.dumps(campaign.get("criticalChoices", [])),
+            "currentAct": pacing.get("currentAct", "EXPOSITION"),
+            "currentChapter": int(pacing.get("currentChapter", 1)),
+            "tensionLevel": int(pacing.get("tensionLevel", 3)),
+            "timeline": json.dumps(pacing.get("timeline", [])),
+            "storyState": json.dumps(campaign["story"]),
+            "storyVersion": campaign["storyVersion"], "updatedAt": self._now(),
+        }
+        update = self._transaction_update(self.adventure_table.name, campaign["id"], fields)
+        update["ConditionExpression"] = "attribute_exists(id) AND (attribute_not_exists(storyVersion) OR storyVersion = :expected)"
+        update["ExpressionAttributeValues"][":expected"] = {"N": str(previous_version)}
+        writes = [{"Update": update}, {"ConditionCheck": {
+            "TableName": _env("CONVERSATION_TABLE_NAME"),
+            "Key": {"id": {"S": state["conversation_id"]}},
+            "ConditionExpression": "attribute_exists(id)",
+        }}]
+        if state.get("message_id"):
+            # The bounded replay cache can expire; this durable internal marker
+            # still prevents an old transport retry from applying rules twice.
+            writes.append({"Update": {
+                "TableName": _env("MESSAGE_TABLE_NAME"),
+                "Key": {"id": {"S": state["message_id"]}},
+                "UpdateExpression": "SET gmProcessed = :yes",
+                "ConditionExpression": "attribute_exists(id) AND conversationId = :cid AND attribute_not_exists(gmProcessed)",
+                "ExpressionAttributeValues": {":yes": {"BOOL": True}, ":cid": {"S": state["conversation_id"]}},
+            }})
+        if player.get("id") and player != state["before_player"]:
+            inventory = [dict(item) for item in player.get("inventory", [])]
+            if player.get("gold", 0):
+                inventory.append({"id": "gold", "name": "Gold", "type": "currency", "quantity": player["gold"]})
+            player_fields = {
+                "level": player["level"], "experience": player["xp"],
+                "currentHP": player["current_hp"], "maxHP": player["max_hp"],
+                "armorClass": player["ac"], "inventory": json.dumps(inventory),
+            }
+            player_update = self._transaction_update(self.character_table.name, player["id"], player_fields)
+            player_update["ConditionExpression"] = "attribute_exists(id)"
+            writes.append({"Update": player_update})
+        pending, result = state.get("dice_pending"), state.get("dice_result")
+        if pending or result:
+            row = self.load_player_state(state["conversation_id"])
+            fields = {"campaignId": state["conversation_id"], "characterId": player.get("id", ""),
+                      "owner": player.get("owner") or state.get("owner", ""),
+                      "version": int((row or {}).get("version", 0)) + 1,
+                      "updatedAt": self._now()}
+            if not row:
+                fields["createdAt"] = self._now()
+            if pending:
+                fields["pendingDiceRoll"] = json.dumps(pending)
+            else:
+                fields["pendingDiceRoll"] = None
+                fields["diceRollLog"] = json.dumps((list((row or {}).get("diceRollLog") or []) + [result])[-20:])
+            update = self._transaction_update(self.player_state_table.name, (row or {}).get("id") or state["conversation_id"], fields)
+            writes.append({"Update": update})
+        self.client.transact_write_items(TransactItems=writes)
+
+    def save_memory_status(self, campaign: dict) -> None:
+        # A concurrent next turn can retry the same idempotent memory write.
+        try:
+            self.adventure_table.update_item(
+                Key={"id": campaign["id"]},
+                UpdateExpression="SET storyState = :story",
+                ConditionExpression="attribute_exists(id) AND storyVersion = :version",
+                ExpressionAttributeValues={":story": json.dumps(campaign["story"]),
+                                           ":version": campaign["storyVersion"]},
+            )
+        except ClientError as error:
+            if error.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                logger.warning("Could not checkpoint character memory sync", exc_info=True)
+
+    def conversation_exists(self, conversation_id: str) -> bool:
+        return bool(self.client.get_item(
+            TableName=_env("CONVERSATION_TABLE_NAME"),
+            Key={"id": {"S": conversation_id}}, ConsistentRead=True,
+        ).get("Item"))
+
+    def delete_adventure(self, conversation_id: str) -> None:
+        """Delete adventure-owned story/profile copies after Conversation removal.
+
+        Errors propagate so the stream retries. Stable keys cover new rows even
+        before their indexes become visible; indexed legacy/history cleanup is
+        paginated and never scans another adventure.
+        """
+        for table, key in ((self.adventure_table, f"gm:{conversation_id}"),
+                           (self.player_state_table, conversation_id)):
+            table.delete_item(Key={"id": key})
+        related = [
+            (self.adventure_table, "conversationId"),
+            (self.character_table, "conversationId"),
+            (self.player_state_table, "campaignId"),
+            (self.resource.Table(_env("MESSAGE_TABLE_NAME")), "conversationId"),
+            (self.resource.Table(_env("RESPONSE_TABLE_NAME")), "conversationId"),
+        ]
+        for table, field in related:
+            index = self._campaign_index(table) if field == "campaignId" else self._conversation_index(table)
+            cursor = None
+            while True:
+                response = self.client.query(
+                    TableName=table.name, IndexName=index,
+                    KeyConditionExpression=f"{field} = :c",
+                    ExpressionAttributeValues={":c": {"S": conversation_id}},
+                    ProjectionExpression="id",
+                    **({"ExclusiveStartKey": cursor} if cursor else {}),
+                )
+                for item in response.get("Items", []):
+                    self.client.delete_item(TableName=table.name, Key={"id": item["id"]})
+                cursor = response.get("LastEvaluatedKey")
+                if not cursor:
+                    break
+
+    @staticmethod
+    def _transaction_update(table: str, key: str, fields: dict) -> dict:
+        serializer = TypeSerializer()
+        return {
+            "TableName": table, "Key": {"id": {"S": key}},
+            "UpdateExpression": "SET " + ", ".join(f"#f{i} = :v{i}" for i in range(len(fields))),
+            "ExpressionAttributeNames": {f"#f{i}": key for i, key in enumerate(fields)},
+            "ExpressionAttributeValues": {f":v{i}": serializer.serialize(value) for i, value in enumerate(fields.values())},
+        }
 
     def save_campaign(self, campaign: dict) -> None:
         if not campaign.get("id"):
@@ -332,7 +505,12 @@ class OrchestrationStore:
         """
         if not self.player_state_table.name:
             return None
-        try:
+        # Read the new stable key first; legacy rows are located through the GSI.
+        item = self.client.get_item(
+            TableName=self.player_state_table.name,
+            Key={"id": {"S": conversation_id}}, ConsistentRead=True,
+        ).get("Item")
+        if not item:
             index = self._campaign_index(self.player_state_table)
             resp = self.client.query(
                 TableName=self.player_state_table.name,
@@ -344,17 +522,18 @@ class OrchestrationStore:
             items = resp.get("Items", [])
             if not items:
                 return None
-            item = items[0]
-            return {
-                "id": self._s(item.get("id")),
-                "campaignId": self._s(item.get("campaignId")),
-                "version": self._num(item.get("version"), 1),
-                "pendingDiceRoll": self._json(item.get("pendingDiceRoll")),
-                "diceRollLog": self._list(item.get("diceRollLog")) or [],
-            }
-        except Exception as exc:  # noqa: BLE001 - PlayerState is best-effort for now
-            logger.warning("load_player_state failed for %s: %s", conversation_id, exc)
+            item = self.client.get_item(
+                TableName=self.player_state_table.name, Key={"id": items[0]["id"]}, ConsistentRead=True,
+            ).get("Item")
+        if not item:
             return None
+        return {
+            "id": self._s(item.get("id")),
+            "campaignId": self._s(item.get("campaignId")),
+            "version": self._num(item.get("version"), 1),
+            "pendingDiceRoll": self._json(item.get("pendingDiceRoll")),
+            "diceRollLog": self._list(item.get("diceRollLog")) or [],
+        }
 
     def write_pending_dice_roll(self, conversation_id: str, request: dict,
                                 character_id: str = "") -> None:
@@ -445,6 +624,8 @@ class OrchestrationStore:
         if value is None:
             return default
         if isinstance(value, dict):
+            if any(key in value for key in ("M", "L", "NULL", "BOOL", "N")):
+                return TypeDeserializer().deserialize(value)
             if "S" in value:
                 try:
                     return json.loads(value["S"])
@@ -460,6 +641,4 @@ class OrchestrationStore:
     def _list(value: Any, default: list | None = None) -> list | None:
         if value is None:
             return default
-        if isinstance(value, dict) and "L" in value:
-            return value["L"]
-        return value
+        return OrchestrationStore._json(value, default)

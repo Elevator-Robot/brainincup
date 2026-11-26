@@ -17,9 +17,13 @@ import type { ContextPanel } from '../hooks/useContextPanel';
 import { demoCharacter, demoMessages } from './gmDemoConversation';
 import { getAvatarOptionById } from '../constants/gameMasterAvatars';
 import { calculateDerivedStats, getAllClasses } from '../game';
+import { gameMasterMessageExtension } from '../chat/gameMasterMessages';
+import { answerStory, openingStory } from './storyDemo';
 
 type PreviewCharacter = Parameters<ComponentProps<typeof CharacterCreation>['onComplete']>[0];
 const ready = new URLSearchParams(window.location.search).get('ready') === 'true';
+const introPreview = new URLSearchParams(window.location.search).get('intro') === 'true';
+const errorPreview = new URLSearchParams(window.location.search).get('error') === 'true';
 const sampleCharacter: PreviewCharacter = {
   name: demoCharacter.name ?? 'Sera Vane', race: demoCharacter.race ?? 'Halfling', characterClass: demoCharacter.characterClass ?? 'Rogue',
   avatarId: demoCharacter.avatarId ?? '', strength: demoCharacter.strength ?? 9, dexterity: demoCharacter.dexterity ?? 16,
@@ -30,12 +34,18 @@ const sampleCharacter: PreviewCharacter = {
 /** Interactive UI-only demo. No accounts, cloud calls, or persisted game state. */
 export default function GameMasterPreview() {
   const [character, setCharacter] = useState<PreviewCharacter | null>(ready ? sampleCharacter : null);
-  const [messages, setMessages] = useState<Message[]>(ready ? demoMessages.map(message => ({ ...message, populateOnMount: false })) : []);
+  const [messages, setMessages] = useState<Message[]>(ready
+    ? [
+      ...(introPreview ? [openingStory(sampleCharacter)] : demoMessages.map(message => ({ ...message, populateOnMount: false }))),
+      ...(errorPreview ? [{ role: 'assistant' as const, content: '', streamError: 'Example failed turn: your last action could not be saved. Please try again.' }] : []),
+    ] : []);
+  const story = [...messages].reverse().find(message => message.story)?.story;
   const [inventory, setInventory] = useState<InventoryItem[]>(ready ? JSON.parse(String(demoCharacter.inventory)) : []);
   const [questStep, setQuestStep] = useState(1);
   const quests = useMemo(() => character ? [{
-    id: 'demo', title: 'The Missing Constellation',
-    currentStep: questStep === 1 ? 'Speak with the observatory keeper.' : 'Bring the starlight shard to the telescope.',
+    id: 'demo', title: introPreview ? 'The Missing Lantern' : 'The Missing Constellation',
+    currentStep: introPreview ? 'A lead: meet Bram at the Whispering Tankard.'
+      : questStep === 1 ? 'Speak with the observatory keeper.' : 'Bring the starlight shard to the telescope.',
     stepProgress: `${questStep} / 4`,
   }] : undefined, [character, questStep]);
   const updates = useContextUpdates('gm-demo', character ? inventory : undefined, quests);
@@ -49,12 +59,12 @@ export default function GameMasterPreview() {
 
   const context = (initialPanel: ContextPanel = 'character') => character && <ContextWindowPanel
     initialPanel={initialPanel} updates={updates}
-    currentLocation="Starfall Observatory"
+    currentLocation={introPreview ? 'Alderheart Market Square' : 'Starfall Observatory'} story={story}
     character={{ name: character.name, level: 1, currentHP: hp, maxHP: hp, avatarSrc: avatar?.srcMedium, avatarSrcWebp: avatar?.srcMedium,
       stats: { strength: character.strength, dexterity: character.dexterity, constitution: character.constitution, intelligence: character.intelligence, wisdom: character.wisdom, charisma: character.charisma } }}
     playerState={{ currentLevel: 1, currentXP: 0, xpToNextLevel: 100 }}
     activeQuests={quests}
-    timelineEntries={messages.map((message, index) => ({ ...message, id: String(index), location: 'Starfall Observatory' }))}>
+    timelineEntries={messages.map((message, index) => ({ ...message, id: String(index), location: introPreview ? 'Alderheart Market Square' : 'Starfall Observatory' }))}>
     <InventoryManager inventory={inventory} onUpdateInventory={async items => setInventory(items)} updates={updates.inventory} />
   </ContextWindowPanel>;
 
@@ -73,29 +83,43 @@ export default function GameMasterPreview() {
             avatarSrc={avatar?.srcMedium} avatarSrcWebp={avatar?.srcMedium}
             questTitle={quests?.[0]?.title} inventoryNotice={updates.inventory.notice} questNotice={updates.quests.notice}
             renderContext={context} />}
-          <ChatTranscript messages={messages} scrollRef={scrollRef} contentRef={contentRef} />
+          <ChatTranscript messages={messages} scrollRef={scrollRef} contentRef={contentRef} renderExtension={gameMasterMessageExtension({})} />
           <div className="retro-input-dock relative px-2 pt-4 sm:px-6">
             {!isAtBottom && <button className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages ↓</button>}
             <ChatComposer draft={draft} configuration={GAME_MASTER_CHAT} isLocked={!character} isWaiting={false} isPrimed={false}
               placeholder="What do you do next?" onSend={async content => {
+                if (introPreview && story && !story.introComplete) {
+                  setMessages(previous => [...previous, { role: 'user', content }, answerStory(story, content)]);
+                  scrollToLatest();
+                  return true;
+                }
                 const input = content.toLowerCase();
                 const reply = input.includes('inventory') ? `In your pack: ${profession?.startingEquipment.join(', ')}.`
-                  : input.includes('quest') ? 'Your next task is to speak with the observatory keeper about the missing constellation.'
-                    : input.includes('conversation') ? '“Mira,” she says, offering you the lantern. “Three nights ago, seven stars disappeared. Tonight, they started calling back.”'
-                      : 'Blue dust glimmers on the stairs. Above you, the telescope turns toward a patch of empty sky. Mira waits by the open door.';
+                  : introPreview ? 'The playable introduction ends here in this local UI fixture. The backend stage engine continues the lantern quest after deployment.'
+                    : input.includes('quest') ? 'Your next task is to speak with the observatory keeper about the missing constellation.'
+                      : input.includes('conversation') ? '“Mira,” she says, offering you the lantern. “Three nights ago, seven stars disappeared. Tonight, they started calling back.”'
+                        : 'Blue dust glimmers on the stairs. Above you, the telescope turns toward a patch of empty sky. Mira waits by the open door.';
                 setMessages(previous => [...previous, { role: 'user', content }, { role: 'assistant', content: reply, populateOnMount: true }]);
                 scrollToLatest();
                 return true;
               }} />
             <div className="cosmic-preview-controls">
-              <span>Local UI fixture</span>
-              <button type="button" disabled={!character} onClick={() => {
+              <span>Local UI fixture · No cloud saves</span>
+              {!introPreview && <button type="button" disabled={!character} onClick={() => {
                 setInventory(items => items.some(item => item.id === 'shard')
                   ? items.map(item => item.id === 'shard' ? { ...item, quantity: (item.quantity ?? 1) + 1 } : item)
                   : [...items, { id: 'shard', name: 'Starlight Shard', type: 'quest', quantity: 1 }]);
                 setQuestStep(step => Math.min(4, step + 1));
-              }}>Simulate game update</button>
-              <a href="/?testmode=true&preview=gm">Reset character</a>
+              }}>Simulate game update</button>}
+              {introPreview && <button type="button" disabled={!character} onClick={() => {
+                setMessages(previous => [...previous, { role: 'assistant', content: 'Example engine events for display review.', gameEvents: [
+                  { version: 1, id: 'fixture-check', kind: 'check', title: 'Wisdom check · Success', detail: '16 + 2 = 18 vs DC 12' },
+                  { version: 1, id: 'fixture-reward', kind: 'reward', title: 'Experience', detail: '20 → 30 (+10)' },
+                  { version: 1, id: 'fixture-consequence', kind: 'consequence', title: 'The world changes', detail: 'The cellar is clear; the lantern can now be recovered.' },
+                ] }]);
+                scrollToLatest();
+              }}>Show event examples</button>}
+              <a href={`/?testmode=true&preview=gm${introPreview ? '&intro=true' : ''}`}>Reset character</a>
             </div>
           </div>
         </main>
@@ -110,7 +134,7 @@ export default function GameMasterPreview() {
       setCharacter(value);
       setInventory((getAllClasses().find(option => option.name === value.characterClass)?.startingEquipment ?? [])
         .map((name, index) => ({ id: `starting-${index}`, name, type: 'consumable' })));
-      setMessages([{ role: 'assistant', populateOnMount: true, content:
+      setMessages(introPreview ? [openingStory(value)] : [{ role: 'assistant', populateOnMount: true, content:
         'The last tram leaves you beneath **Starfall Observatory**. Violet clouds drift against the wind. A single window is lit.\n\nBeside the door, a woman cups a silver lantern in her hands. “You arrived just in time,” she says. Somewhere above you, a bell rings once.' }]);
     }} onCancel={() => { window.location.href = '/?testmode=true'; }} />}
   </>;

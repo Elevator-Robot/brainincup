@@ -61,12 +61,18 @@ may read, retain, and carry back to Brain before implementing a memory bridge.
 Keep user-reported facts, fictional events, and character impressions distinct.
 Respect clear/reset/deletion semantics across any newly introduced storage.
 
+GM character setup includes skippable, in-world questions after the existing
+creator. Answers describe that adventure's fictional character, not the real
+player. Hypothetical choices express values rather than past actions, and do
+not silently change stats or grant rewards.
+
 ## Current foundation and open decisions
 
 Implemented foundations include a singular Brain conversation, multiple GM
 adventures, shared chat/voice, Brain's bounded turn-state graph, and GM's
-rules-driven campaign engine. Brain and GM currently have different prompts
-and state systems; the GM content is a finite authored campaign.
+rules-driven campaign engine, goal-driven story stages, and adventure-owned
+character details. Brain and GM currently have different prompts and state
+systems; the GM content is a finite authored campaign.
 
 The following remain design work, not promises about the current app:
 

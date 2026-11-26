@@ -43,6 +43,7 @@ class Narration:
         self.message_id = message_id
         self.text = ""
         self.notes: dict = {}
+        self.failed = False
 
 
 def generate_narration(
@@ -110,11 +111,13 @@ def generate_narration(
 
     result.text = "".join(parts).strip()
     result.notes = {} if failed else parser.notes()
+    result.failed = failed
     return result
 
 
 def narration_update(narration: Narration | str) -> dict:
     """Explicit JSON-safe graph output; tolerate plain-text test/legacy clients."""
     if isinstance(narration, Narration):
-        return {"final_message": narration.text, "narrator_notes": narration.notes}
+        return {"final_message": narration.text, "narrator_notes": narration.notes,
+                "narration_failed": narration.failed, "narrated": True}
     return {"final_message": str(narration), "narrator_notes": {}}

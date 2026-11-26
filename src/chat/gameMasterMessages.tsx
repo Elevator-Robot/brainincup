@@ -1,5 +1,6 @@
 import type { Message } from '../components/MessageBubble';
 import ChatDicePrompt from '../components/ChatDicePrompt';
+import RpgEventList from '../components/RpgEventList';
 import { isDiceResultPayload } from '../utils/diceRolls';
 import type { RenderMessageExtension } from './presentation';
 
@@ -15,5 +16,7 @@ export function gameMasterMessageExtension({ activeRequestId, disabled, onRoll }
 }): RenderMessageExtension {
   return message => message.diceRoll
     ? <ChatDicePrompt roll={message.diceRoll} active={message.diceRoll.requestId === activeRequestId} disabled={disabled} onRoll={onRoll} />
-    : undefined;
+    : message.role === 'assistant' && !message.isTyping && !message.streamError && message.gameEvents?.length
+      ? { placement: 'after', content: <RpgEventList events={message.gameEvents} /> }
+      : undefined;
 }
