@@ -1,6 +1,11 @@
 # Brain in Cup — Productization Execution Backlog
 
-This backlog translates `docs/productization-analysis.md` into concrete implementation work.
+> Historical backlog and work log, not the current queue. Completion claims
+> describe that past pass, not verification of today's tree or deployment.
+> Use [PRODUCT.md](../PRODUCT.md) for accepted direction.
+
+This backlog translated [the historical analysis](productization-analysis.md)
+into proposed implementation work.
 
 ## Priority model
 

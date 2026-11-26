@@ -1,75 +1,33 @@
-# Brain Lambda Function
+# Brain Lambda
 
-This Lambda function processes user input through 6 AI agents to simulate consciousness.
+This function executes Brain's roles through the experience registry and
+role-specific graphs. Read [the current architecture](../../../docs/BACKEND_ARCHITECTURE.md)
+and [backend guidance](../../AGENTS.md).
 
-## Quick Start
+## Source map
 
-**From project root:**
-```bash
-./scripts/build-lambda-layer.sh
-```
+- `resource.ts`: Python 3.12 Lambda and Lambda Web Adapter configuration.
+- `src/web_server.py`: HTTP/SSE entry point and event passthrough.
+- `src/handler.py`, `src/experiences/handler.py`: dispatch and persistence.
+- `src/experiences/brain/`: Brain's identity and bounded cognitive turn.
+- `src/experiences/game_master/orchestrator/`: deterministic game systems and narration.
+- `src/experiences/agui/`: shared event contracts.
+- `src/core/`: inference transports and regional configuration.
+- `src/tests/`: mocked unit/contract tests.
+- `layer/requirements.txt`: Lambda dependencies.
 
-**From this directory:**
-```bash
-./build-layer.sh
-```
+See [Brain's state graph](src/experiences/brain/README.md) for memory, replay,
+reset behavior, and the existing stream-authentication limitation.
 
-Both commands do the same thing - the root script is a convenient symlink.
+## Local verification and packaging
 
-## Architecture
-- **Runtime**: Python 3.12
-- **Dependencies**: LangChain, AWS Bedrock, Pydantic
-- **Structure**: 
-  - `src/` - Lambda handler and agent code
-  - `layer/` - Python dependencies (must be built for Linux)
+Follow [development](../../../docs/DEVELOPMENT.md) for virtualenv setup and
+mocked tests. The root Poetry project is not the Lambda dependency definition.
 
-## Building Dependencies
+Packaged native dependencies must match Lambda's Linux x86_64/Python 3.12
+runtime. Inspect packaging helpers before use: the retained `build-layer.sh`
+currently computes `FUNCTION_DIR` as though it lived in a root scripts directory.
+The old `scripts/build-lambda-layer.sh` README shortcut is not present.
+Correct packaging paths as a scoped implementation task before relying on it.
 
-The Lambda layer contains Python packages with native binary extensions (like `pydantic_core`) that must be compiled for the Lambda runtime (Linux x86_64/Python 3.12).
-
-### Prerequisites
-- Docker Desktop (recommended) OR
-- Python 3.12 with pip
-
-### Build the Layer
-
-**Option 1: Using Docker (Recommended)**
-```bash
-# Start Docker Desktop first, then:
-./build-layer.sh
-```
-
-**Option 2: Without Docker**
-```bash
-# The script will automatically fall back to pip with platform flags
-./build-layer.sh
-```
-
-### Verify the Build
-After building, check that the binary is for Linux:
-```bash
-file layer/python/pydantic_core/_pydantic_core*.so
-```
-
-Should show: `ELF 64-bit LSB shared object, x86-64` (Linux binary)
-Should NOT show: `Mach-O` (macOS binary) or `darwin` (macOS)
-
-## Deploy
-
-After building the layer:
-```bash
-cd ../../../../  # Back to project root
-npx ampx sandbox --profile brain
-```
-
-## Troubleshooting
-
-### Error: "No module named 'pydantic_core._pydantic_core'"
-**Cause**: The layer was built for macOS instead of Linux.
-**Fix**: Rebuild the layer using Docker (see above).
-
-### Error: "Docker daemon not running"
-**Fix**: Start Docker Desktop, or use Option 2 (pip with platform flags).
-
-### Layer too large (>250MB)
-Consider using AWS-provided Lambda layers for common dependencies, or split into multiple layers.
+Deployment and live checks follow [AWS access](../../../docs/AWS_ACCESS.md).

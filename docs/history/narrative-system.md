@@ -1,5 +1,9 @@
 # Narrative Structure System
 
+> Historical prose-extraction design. The live GM uses deterministic
+> orchestration and pacing; see [ORCHESTRATION.md](../ORCHESTRATION.md).
+> This document is not an implementation plan.
+
 ## Overview
 
 Brain in Cup now features a comprehensive **narrative structure system** that tracks the player's journey through the story, maintains location continuity, manages dramatic tension, and organizes the adventure into acts and chapters. This creates a more coherent, cinematic storytelling experience.

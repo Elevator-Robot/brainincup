@@ -1,5 +1,10 @@
 # Brain in Cup — Productization Analysis & Recommendations
 
+> Historical proposal, not an accepted product roadmap. The owner-defined
+> direction is [one Brain, many roles](../PRODUCT.md), with room for experiments
+> and toys. Onboarding cards, universal cross-mode memory, retention loops, and
+> premium packaging below are not standing requirements.
+
 ## Executive summary
 
 Brain in Cup is a **dual-experience AI companion** with two clear value paths:

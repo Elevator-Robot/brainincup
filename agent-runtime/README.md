@@ -1,68 +1,30 @@
-# AgentCore Runtime for Brain In Cup
+# Optional AgentCore Container Runtime
 
-This directory contains the Amazon Bedrock AgentCore runtime implementation for the Brain In Cup agent.
+This is a retained container transport implementation. Current Brain/GM
+orchestration lives in `amplify/functions/brain/src/experiences/`; see
+[the architecture](../docs/BACKEND_ARCHITECTURE.md).
 
-## Current Status: Direct Code Mode
+## Wiring and status
 
-The Lambda function now calls Bedrock directly, eliminating the need for a separate
-AgentCore container runtime. This directory is **preserved intact** for easy fallback.
+`amplify/functions/brain/src/core/config.py` selects direct Bedrock when no
+AgentCore runtime ARN is configured, with an optional AgentCore client path.
+Inspect current infrastructure and source before changing that selection.
+This document does not establish deployed runtime configuration.
 
-## Structure
-```
-agent-runtime/
-├── app/
-│   ├── __init__.py          # Package marker
-│   ├── main.py              # AgentCore entrypoint handler (FastAPI)
-│   └── requirements.txt     # Runtime dependencies
-├── Dockerfile               # Container image definition
-└── README.md               # This file
-```
+`app/main.py` contains a FastAPI model-invocation endpoint; `Dockerfile` and
+`app/requirements.txt` define the container. This is not a verified drop-in
+fallback for the current role graphs.
 
-## Switching to Container Mode
+The retained implementation includes a legacy cross-region model default.
+Activation would first require bringing model selection and transport contracts
+into alignment with the project's `us-east-1`-only rules. Do not restore the
+removed Controller path or follow older "uncomment the runtime" recipes.
 
-To restore the original AgentCore container deployment:
+## Development
 
-1. **Revert `amplify/functions/brain/app/main.py`:**
-   - Replace `invoke_bedrock()` calls with `invoke_agentcore()` calls
-   - Restore the `invoke_agentcore` function (see `main.py.__init__` for reference)
+Read [scoped guidance](AGENTS.md) and use mocked inference for local checks.
+Starting the real handler is not an offline test: it constructs an AWS client.
+Keep role logic and memory ownership in the existing experience layer.
 
-2. **Uncomment the AgentCore runtime block in `amplify/backend.ts`:**
-   - Search for "AgentCore" — there's a comment block with instructions
-   - This re-creates the `AWS::BedrockAgentCore::Runtime` resource
-
-3. **Build and push the container:**
-   ```bash
-   export AWS_REGION=us-east-1
-   export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-   export REPO=brain-agent
-
-   # Create ECR repository (if not exists)
-   aws ecr create-repository --repository-name $REPO --region $AWS_REGION || true
-
-   # Login to ECR
-   aws ecr get-login-password --region "$AWS_REGION" \
-     | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
-
-   # Build the image
-   docker build -t $REPO:latest ./agent-runtime
-
-   # Tag and push
-   docker tag $REPO:latest "$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO:latest"
-   docker push "$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO:latest"
-   ```
-
-4. **Or use the npm script:**
-   ```bash
-   npm run deploy:container
-   ```
-
-## Testing Locally
-
-Run the handler directly (works in either mode):
-```bash
-cd agent-runtime
-python -m app.main
-```
-
-## References
-- [AWS::BedrockAgentCore::Runtime CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-runtime.html)
+Registry pushes and runtime deployment require the delegated workflow in
+[AWS access](../docs/AWS_ACCESS.md).

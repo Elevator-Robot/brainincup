@@ -11,7 +11,7 @@ re-enables it.
 VITE_ENABLE_TESTMODE_AUTH=true npx vite --host 127.0.0.1
 ```
 
-Open `/?testmode=true&preview=gm`. Create a character in the context panel, then
+Open `/?testmode=true&preview=gm`. Create a character in its dialog, then
 try the composer shortcuts and Character/Quests/Location/Timeline tabs. The
 preview uses local sample data and never calls the backend. On mobile, Character
 opens the context drawer. Quick actions fill the draft; they never auto-send.

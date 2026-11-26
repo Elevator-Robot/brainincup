@@ -1,45 +1,55 @@
-# Brain in Cup Modes
+# Brain's Modes
 
-Brain in Cup currently has two interaction modes: **Brain** and **Game Master**. Each mode is designed for a different kind of experience.
+A mode is a role Brain plays to give the user an experience. Every chat is
+still with Brain. Read [the product charter](PRODUCT.md) for the shared identity
+and [architecture](BACKEND_ARCHITECTURE.md) for the current implementation.
 
-## What this application is
+## Current inventory
 
-Brain in Cup is a web app that combines a modern frontend with an AWS-native AI backend:
+| Mode ID | Role / experience | Session model |
+| --- | --- | --- |
+| `brain` | Brain in his own character: conversation, curiosity, reflection, and the app's home | One persistent Brain conversation per user |
+| `game_master` | Brain performs the Game Master role: narration and player-led RPG actions within engine-resolved rules | Multiple adventures with their own character/campaign state |
 
-- **Frontend**: Vite + React + TypeScript (mobile-first PWA UI)
-- **Backend platform**: AWS Amplify Gen2
-- **Data layer**: AppSync GraphQL + DynamoDB models for conversations/messages/responses
-- **AI orchestration**: Lambda-based multi-agent pipeline (perception, memory, reasoning, emotion, language, self-review)
-- **Model/runtime**: Amazon Bedrock AgentCore runtime for AI response generation
-- **Memory**: AgentCore Memory integration for context and character recall (especially in Game Master mode)
+Brain's direct conversation has bounded cognitive state and recall. GM
+currently uses the authored **Alderheart: The Missing Lantern** campaign.
+Both use the same assistant identity, shared chat components, annotations
+when available, and Brain's optional voice.
 
-In simple terms: users chat in a fast Vite web UI, while AWS services handle identity, storage, and AI processing in the backend.
+The intended journey is Brain-led: arrive with Brain, enter a role, experience
+it, and return to Brain. Current entry uses the shared navigation and GM
+character-creation flow. Conversational discovery/selection and cross-mode
+memory bridges are still design work.
 
-## Brain mode
+## Contract for a new or changed mode
 
-Use **Brain** mode when you want an open-ended, reflective AI conversation.
+Define the relevant parts before implementation:
 
-Typical reasons to use Brain mode:
-- Talk through ideas, questions, or decisions
-- Explore creative prompts and abstract topics
-- Have a more surreal, introspective chat experience
+1. **Experience:** what Brain does for the user in this role.
+2. **Identity:** how the role's tone fits Brain while letting the fiction work.
+3. **Lifecycle:** entry from Brain, setup, interaction, resume, exit, return.
+4. **Capabilities:** actions/tools and deterministic rules, if any.
+5. **State:** per-user versus per-session ownership, persistence, reset/deletion.
+6. **Memory:** what the role may recall, and what may travel back to Brain.
+7. **Presentation:** adapter/extension needs and the right-hand/mobile context.
+8. **Evidence:** a usable local slice and observable behavior to verify.
 
-This mode is best when your goal is dialogue, perspective, and thought exploration rather than structured gameplay.
+Use only the detail the experiment needs. A toy or small interaction can extend
+an existing mode; it does not automatically need a new role, route, or schema.
 
-## Game Master mode
+## Integration seams
 
-Use **Game Master** mode when you want a story-driven role-playing experience.
+- Frontend IDs/aliases: `src/constants/personalityModes.ts`.
+- Shared chat contract/adapters: `src/chat/`.
+- Routing/session lifecycle: `src/router.tsx`, `src/App.tsx`, navigation components.
+- Backend role contract/dispatch:
+  `amplify/functions/brain/src/experiences/base.py`, `registry.py`, `handler.py`.
+- Persistence: `amplify/data/resource.ts` and each experience's store.
 
-Typical reasons to use Game Master mode:
-- Play through an interactive fantasy adventure
-- Create and use a character with persistent details (name, race, class, stats, inventory)
-- Make choices turn-by-turn while the AI narrates scenes, consequences, and quest progress
+The source still contains explicit two-mode branching. Trace normalization,
+dispatch, navigation, hydration, and reset behavior end-to-end when adding
+a role. Preserve stored `default`/`rpg_dm` aliases and compatibility.
 
-This mode is best when your goal is an ongoing campaign-style experience where your character sheet and context matter.
-
-## Choosing between modes
-
-- Choose **Brain** for conversation and ideation.
-- Choose **Game Master** for role-play and progression-based storytelling.
-
-You can switch modes based on what you want to do in the moment.
+Shared presentation remains mode-independent. New capability belongs in an
+adapter, extension, or context surface. See [shared chat](shared-chat.md) and
+the OpenCode [`brain-mode` skill](../.opencode/skills/brain-mode/SKILL.md).

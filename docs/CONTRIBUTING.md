@@ -1,47 +1,52 @@
-# Contributing Guidelines
+# Contributing
 
-Thank you for your interest in contributing to our project. Whether it's a bug report, new feature, correction, or additional
-documentation, we greatly value feedback and contributions from our community.
+Start with [the product charter](PRODUCT.md) and [repository guidance](../AGENTS.md).
+Brain is the central intelligence; modes are roles he performs. Experiments and
+small interactive toys are welcome alongside reliability and implementation work.
 
-Please read through this document before submitting any issues or pull requests to ensure we have all the necessary
-information to effectively respond to your bug report or contribution.
+## Working on a change
 
+1. Inspect the current branch, working tree, and relevant source. Use a focused
+   branch and preserve unrelated work.
+2. For a new concept, describe the experience and the smallest useful slice.
+   Discuss unresolved identity, memory, or lifecycle decisions rather than
+   silently turning a proposal into product policy.
+3. Follow the scoped frontend/backend guidance. Reuse shared chat and experience
+   contracts; keep mode state and user memory boundaries explicit.
+4. Verify the behavior with the relevant checks in [development](DEVELOPMENT.md).
+   Open a running local demo for visual changes and include its URL.
+5. Update current docs for changed contracts and accepted decisions. Preserve
+   historical context under `history/`, clearly marked.
 
-## Reporting Bugs/Feature Requests
+Local implementation does not authorize deployment or live paid-service calls.
+Coding-agent cloud work follows [AWS access](AWS_ACCESS.md).
 
-We welcome you to use the GitHub issue tracker to report bugs or suggest features.
+## Commits and pull requests
 
-When filing an issue, please check existing open, or recently closed, issues to make sure somebody else hasn't already
-reported the issue. Please try to include as much information as you can. Details like these are incredibly useful:
+Use `type(scope): description` for commits and PR titles. Types:
+`feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`, `ci`, `perf`, `revert`.
+Use an area such as `chat`, `brain`, `gm`, `auth`, or `opencode` as the scope.
+Keep descriptions lowercase, imperative, without a trailing period, under
+72 characters.
 
-* A reproducible test case or series of steps
-* The version of our code being used
-* Any modifications you've made relevant to the bug
-* Anything unusual about your environment or deployment
+Use the [PR template](../.github/pull_request_template.md):
 
+- **Summary:** what changed and why; significant tradeoffs.
+- **Changes:** grouped notable changes, including migrations/removals.
+- **Validation:** exact commands and manual/visual checks actually completed.
+- **Risks:** concrete affected behavior and rollback/mitigation.
+- **Notes:** follow-ups and out-of-scope items.
 
-## Contributing via Pull Requests
-Contributions via pull requests are much appreciated. Before sending us a pull request, please ensure that:
+Write `- none` when a section has no items. Call out breaking changes explicitly
+under Risks. Keep unrelated formatting and refactoring out of a focused PR.
 
-1. You are working against the latest source on the *main* branch.
-2. You check existing open, and recently merged, pull requests to make sure someone else hasn't addressed the problem already.
-3. You open an issue to discuss any significant work - we would hate for your time to be wasted.
+## Reporting bugs and ideas
 
-To send us a pull request, please:
-
-1. Fork the repository.
-2. Modify the source; please focus on the specific change you are contributing. If you also reformat all the code, it will be hard for us to focus on your change.
-3. Ensure local tests pass.
-4. Commit to your fork using clear commit messages.
-5. Send us a pull request, answering any default questions in the pull request interface.
-6. Pay attention to any automated CI failures reported in the pull request, and stay involved in the conversation.
-
-GitHub provides additional document on [forking a repository](https://help.github.com/articles/fork-a-repo/) and
-[creating a pull request](https://help.github.com/articles/creating-a-pull-request/).
-
-
-## Finding contributions to work on
-Looking at the existing issues is a great way to find something to contribute on. As our projects, by default, use the default GitHub issue labels (enhancement/bug/duplicate/help wanted/invalid/question/wontfix), looking at any 'help wanted' issues is a great place to start.
+Check existing issues first. For bugs, include reproduction steps, expected and
+actual behavior, revision, browser/device, and whether the issue used fixtures
+or connected services. Redact account data and secrets.
+For ideas, explain what you want to experience with Brain and what a first
+experiment could teach us.
 
 
 ## Code of Conduct

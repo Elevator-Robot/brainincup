@@ -204,7 +204,6 @@ conversation_history.pkl
 
 # Documentation and notes (working files)
 PROMPT.md
-AGENTS.md
 PYDANTIC_FIX.md
 CHAT_FIX_DOCUMENTATION.md
 

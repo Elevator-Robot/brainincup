@@ -2,7 +2,8 @@
 
 ## Overview
 
-The **Game Master** experience is a LangGraph-driven orchestrator. Every player
+In Game Master mode, **Brain plays the GM role** within the shared app experience.
+The backend **Game Master** experience is a LangGraph-driven orchestrator. Every player
 message is routed through a deterministic decision tree that decides *what
 happens* (rules, dice, quests, location, pacing), and the LLM is used **only to
 narrate** the already-decided outcome. This keeps the game consistent,
@@ -28,16 +29,18 @@ Code lives under
 
 ```mermaid
 graph LR
-    UI[React App] -->|Message created via AppSync| MSG[(Message table)]
-    MSG -->|DynamoDB stream| LFD[web_server.py / LWA]
+    UI[React App] -->|Persist message via AppSync| MSG[(Message table)]
+    UI -->|HTTP streaming request| LFD[web_server.py / LWA]
     LFD --> EXP[GameMasterExperience.stream_message]
     EXP --> ORC[build_agent compiled graph]
     ORC -->|agui SSE events| UI
 ```
 
-The frontend writes a `Message` through AppSync, the DynamoDB stream invokes the
-Lambda (`web_server.py`, served via Lambda Web Adapter), which calls
-`GameMasterExperience.stream_message(ctx)`. That method seeds the graph with
+The frontend persists a `Message` through AppSync, then sends the streaming
+request to `web_server.py`, served via Lambda Web Adapter, which calls
+`GameMasterExperience.stream_message(ctx)`. Non-streaming messages use the
+DynamoDB event path and `process_message`; see [the architecture](BACKEND_ARCHITECTURE.md).
+The streaming method seeds the graph with
 `classify_and_prepare(...)` and streams AG-UI events with
 `agent.stream(state, stream_mode="custom")`.
 

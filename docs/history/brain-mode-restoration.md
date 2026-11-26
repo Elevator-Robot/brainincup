@@ -1,5 +1,9 @@
 # Brain Mode Architecture - Unified Experience
 
+> Historical implementation notes. In particular, the old "last active
+> conversation" login rule is superseded: successful sign-in opens Brain.
+> Use [PRODUCT.md](../PRODUCT.md), [MODES.md](../MODES.md), and current source.
+
 ## Overview
 
 The app now has a unified experience model where **Brain** is the constant home screen and **Game Master** conversations are the variable adventures.
