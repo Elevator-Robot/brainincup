@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import type { CollectionUpdates } from '../hooks/useContextUpdates';
+import CreationGlyph from './creation/CreationGlyph';
 
 export interface InventoryItem {
   id: string;
@@ -10,6 +12,14 @@ export interface InventoryItem {
   stats?: Record<string, number>;
 }
 
+const ITEM_GLYPHS: Record<InventoryItem['type'], string> = {
+  weapon: 'fighter',
+  armor: 'shield',
+  consumable: 'pack',
+  quest: 'spark',
+  currency: 'coin',
+};
+
 interface InventoryManagerProps {
   inventory: InventoryItem[];
   onUpdateInventory: (newInventory: InventoryItem[]) => Promise<void>;
@@ -17,6 +27,7 @@ interface InventoryManagerProps {
   showTitle?: boolean;
   allowManualAdd?: boolean;
   maxSlots?: number;
+  updates?: CollectionUpdates;
 }
 
 export default function InventoryManager({
@@ -26,6 +37,7 @@ export default function InventoryManager({
   showTitle = true,
   allowManualAdd = false,
   maxSlots = 20,
+  updates,
 }: InventoryManagerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -90,28 +102,24 @@ export default function InventoryManager({
   const hasOverflow = inventory.length > collapsedVisibleItems;
 
   return (
-    <div className="space-y-2">
+    <div className="cosmic-inventory space-y-2">
       <div className="flex items-center justify-between gap-2 flex-nowrap">
-        {showTitle ? <p className="shrink-0 whitespace-nowrap text-[11px] uppercase tracking-[0.24em] text-brand-text-muted">Inventory</p> : <span />}
+        {showTitle ? <p className="cosmic-context-label">Inventory</p> : <span />}
         <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-          <span className="px-1 text-[10px] font-medium tracking-[0.08em] text-brand-text-muted whitespace-nowrap">
+          <span className="cosmic-inventory-capacity" aria-label={`${usedSlots} of ${totalSlots} inventory slots used`}>
             {usedSlots}/{totalSlots}
           </span>
           <button
             type="button"
             onClick={() => hasOverflow && setIsExpanded((prev) => !prev)}
             disabled={!hasOverflow}
-            className={`retro-left-mode-button p-1.5 text-brand-text-primary transition-colors ${
-              isExpanded ? 'retro-left-mode-button-active' : ''
-            } ${!hasOverflow ? 'opacity-30 cursor-not-allowed' : ''}`}
+            className="cosmic-inventory-toggle"
+            aria-expanded={isExpanded}
             aria-label={isExpanded ? 'Collapse inventory list' : 'Expand inventory list'}
           >
-            <img
-              src="/arrowExpand.svg"
-              alt=""
-              aria-hidden="true"
-              className={`h-4 w-4 object-contain brightness-0 invert transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-            />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+              <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
           {allowManualAdd ? (
             <button
@@ -124,6 +132,7 @@ export default function InventoryManager({
           ) : null}
         </div>
       </div>
+      {updates?.notice && <p className="cosmic-context-notice">{updates.notice}</p>}
 
       <div className="space-y-1.5">
         {visibleItems.length === 0 ? (
@@ -132,25 +141,30 @@ export default function InventoryManager({
           visibleItems.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between gap-2 border-b border-brand-surface-border/20 py-2 last:border-b-0"
+              className="cosmic-inventory-item"
+              data-update={updates?.items[item.id]}
+              data-equipped={item.equipped || undefined}
             >
+              <span className="cosmic-inventory-glyph" aria-hidden="true">
+                <CreationGlyph kind={ITEM_GLYPHS[item.type]} />
+              </span>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-semibold text-brand-text-primary truncate">
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="cosmic-inventory-name">
                     {item.name}
                   </h4>
                   {item.quantity && item.quantity > 1 && (
-                    <span className="text-xs text-brand-text-muted">×{item.quantity}</span>
+                    <span className="cosmic-inventory-quantity">×{item.quantity}</span>
                   )}
-                  <span className="text-[10px] uppercase tracking-wider text-brand-text-muted">
-                    {item.type}
-                  </span>
                 </div>
-                {item.equipped && (
-                  <span className="mt-0.5 inline-block text-[10px] text-brand-accent-primary">
+                <div className="cosmic-inventory-meta">
+                  <span>{item.type}</span>
+                  {item.equipped && <span className="cosmic-equipped">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m5 12 4 4L19 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     Equipped
-                  </span>
-                )}
+                  </span>}
+                  {updates?.items[item.id] && <span className="cosmic-update-label">{updates.items[item.id] === 'added' ? 'Added' : 'Updated'}</span>}
+                </div>
               </div>
               {allowManualAdd ? (
                 <button
@@ -168,7 +182,7 @@ export default function InventoryManager({
       </div>
 
       {!isExpanded && hiddenItemCount > 0 ? (
-        <p className="text-[10px] text-brand-text-muted">Expand to view {hiddenItemCount} more items.</p>
+        <p className="cosmic-inventory-overflow">Expand to view {hiddenItemCount} more items.</p>
       ) : null}
 
       {/* Add Item Modal */}

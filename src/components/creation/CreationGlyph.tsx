@@ -23,6 +23,7 @@ const PATHS: Record<string, string> = {
   back: 'M20 12H4M10 6l-6 6 6 6',
   close: 'm6 6 12 12M18 6 6 18',
   pack: 'M7 8V6a5 5 0 0 1 10 0v2M5 8h14v14H5V8ZM9 13h6v5H9v-5Z',
+  coin: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM12 7v10M9 9h4a2 2 0 0 1 0 4h-2a2 2 0 0 1 0-4M9 15h6',
   strength: 'M7 7h10v10H7V7ZM3 9v6M21 9v6M1 12h6M17 12h6',
   dexterity: 'm13 2-8 12h7l-1 8 8-12h-7l1-8Z',
   constitution: 'M12 2 3 6v6c0 5 9 10 9 10s9-5 9-10V6l-9-4Z',

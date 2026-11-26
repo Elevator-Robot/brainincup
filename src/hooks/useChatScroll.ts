@@ -10,6 +10,8 @@ export function useChatScroll(conversationId: string | null, isDesktop: boolean)
   const pinned = useRef(true);
   const scrollingUp = useRef(false);
   const previousTop = useRef(0);
+  const previousConversation = useRef<string | null | undefined>(undefined);
+  const readingAnchor = useRef<{ index: number; fraction: number; top: number } | null>(null);
   const bounceRef = useRef<ReturnType<typeof createScrollBounce> | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
@@ -30,10 +32,45 @@ export function useChatScroll(conversationId: string | null, isDesktop: boolean)
     const content = contentRef.current;
     if (!scroll || !content) return;
     let frame = 0;
+    let viewportWidth = window.innerWidth;
+    let scrollWidth = scroll.clientWidth;
+    let scrollHeight = scroll.clientHeight;
     let touch: { x: number; y: number } | null = null;
     const bounce = createScrollBounce(scroll);
     bounceRef.current = bounce;
-    scrollToLatest();
+    const layoutChanged = () => window.innerWidth !== viewportWidth
+      || scroll.clientWidth !== scrollWidth || scroll.clientHeight !== scrollHeight;
+    const captureReadingAnchor = () => {
+      // Resize can dispatch a native scroll before React swaps the layout.
+      // Those coordinates describe the transient reflow, not a reader gesture.
+      if (layoutChanged()) return;
+      if (pinned.current) { readingAnchor.current = null; return; }
+      const rows = Array.from(content.querySelectorAll<HTMLElement>('[data-message-role]'));
+      const viewportTop = scroll.getBoundingClientRect().top;
+      const index = rows.findIndex(row => row.getBoundingClientRect().bottom > viewportTop);
+      const bounds = rows[index]?.getBoundingClientRect();
+      readingAnchor.current = {
+        index, top: scroll.scrollTop,
+        fraction: bounds?.height ? (viewportTop - bounds.top) / bounds.height : 0,
+      };
+    };
+    // A width breakpoint remounts the layout, not the conversation. Keep the
+    // reader's visible message through reflow instead of jumping to the end.
+    const restoreReadingAnchor = () => {
+      const anchor = readingAnchor.current;
+      if (!anchor) return;
+      const row = content.querySelectorAll<HTMLElement>('[data-message-role]')[anchor.index];
+      scroll.scrollTop = row
+        ? scroll.scrollTop + row.getBoundingClientRect().top - scroll.getBoundingClientRect().top + row.getBoundingClientRect().height * anchor.fraction
+        : anchor.top;
+      previousTop.current = scroll.scrollTop;
+    };
+    if (previousConversation.current === conversationId && !pinned.current && readingAnchor.current) {
+      restoreReadingAnchor();
+    } else {
+      scrollToLatest();
+    }
+    previousConversation.current = conversationId;
 
     const setPinned = (value: boolean) => {
       if (pinned.current === value) return;
@@ -88,17 +125,21 @@ export function useChatScroll(conversationId: string | null, isDesktop: boolean)
       else if (['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)) scrollingUp.current = false;
     };
     const onScroll = () => {
+      // Native reflow/keyboard clamping is not a reader scrolling away from
+      // the latest message. Let the resize observer settle that geometry first.
+      if (layoutChanged()) return;
       const top = Math.max(0, scroll.scrollTop);
       const movement = top - previousTop.current;
       previousTop.current = top;
       const distance = scroll.scrollHeight - scroll.clientHeight - top;
-      if (scrollingUp.current && movement <= 0) return;
+      if (scrollingUp.current && movement <= 0) { captureReadingAnchor(); return; }
       if (distance <= BOTTOM_TOLERANCE) {
         scrollingUp.current = false;
         setPinned(true);
       } else if (Math.abs(movement) > .1) {
         setPinned(false);
       }
+      captureReadingAnchor();
     };
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
@@ -106,7 +147,13 @@ export function useChatScroll(conversationId: string | null, isDesktop: boolean)
         if (pinned.current) {
           scroll.scrollTop = scroll.scrollHeight;
           previousTop.current = scroll.scrollTop;
+        } else if (viewportWidth !== window.innerWidth || scrollWidth !== scroll.clientWidth) {
+          restoreReadingAnchor();
         }
+        viewportWidth = window.innerWidth;
+        scrollWidth = scroll.clientWidth;
+        scrollHeight = scroll.clientHeight;
+        previousTop.current = scroll.scrollTop;
       });
     });
     observer.observe(content);

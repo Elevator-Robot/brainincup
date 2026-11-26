@@ -68,6 +68,37 @@ describe('chat scroll anchoring', () => {
     expect(disconnect).toHaveBeenCalled();
   });
 
+  it('keeps a reader in history across mobile/desktop layout switches', () => {
+    const { rerender } = render(<Chat />);
+    const scroll = screen.getByTestId('scroll');
+    scroll.scrollTop = 150;
+    fireEvent.scroll(scroll);
+    rerender(<Chat desktop={false} />);
+    expect(scroll.scrollTop).toBe(150);
+    expect(screen.getByRole('button', { name: 'Latest messages' })).toBeInTheDocument();
+    height = 1600;
+    act(() => { resize(); vi.advanceTimersByTime(16); });
+    expect(scroll.scrollTop).toBe(150);
+    rerender(<Chat conversation="another" />);
+    expect(scroll.scrollTop).toBe(1300);
+  });
+
+  it('stays at the latest message when responsive reflow emits a native scroll', () => {
+    vi.stubGlobal('innerWidth', 390);
+    render(<Chat desktop={false} />);
+    const scroll = screen.getByTestId('scroll');
+    vi.stubGlobal('innerWidth', 844);
+    // Text reflows and clamps the old scroll position before the workspace
+    // finishes resizing. This scroll event must not release bottom-following.
+    height = 600;
+    scroll.scrollTop = 300;
+    height = 650;
+    fireEvent.scroll(scroll);
+    act(() => { resize(); vi.advanceTimersByTime(16); });
+    expect(scroll.scrollTop).toBe(350);
+    expect(screen.queryByRole('button', { name: 'Latest messages' })).not.toBeInTheDocument();
+  });
+
   it('releases on a small upward gesture before a pending streaming update can pull it back', () => {
     render(<Chat />);
     const scroll = screen.getByTestId('scroll');

@@ -42,10 +42,14 @@ it.each([BRAIN_CHAT, GAME_MASTER_CHAT, FUTURE_CHAT])('accepts composer content c
   const { container } = render(<ChatComposer configuration={configuration} draft={{ current: 'Keep this draft.' }} onSend={onSend}
     placeholder="Write a message" isLocked={false} isWaiting={false} isPrimed={false} />);
   expect(container.querySelector('.cosmic-composer.cosmic-chat-surface')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Browse chat actions' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Browse chat actions' }));
+  expect(screen.getAllByRole('option')).toHaveLength(configuration.actions.length);
+  fireEvent.click(screen.getAllByRole('option')[0]);
+  const staged = `Keep this draft.\n${configuration.actions[0].prompt}`;
+  expect(screen.getByRole('textbox')).toHaveValue(staged);
   fireEvent.contextMenu(screen.getByRole('textbox').closest('[data-composer-shell]') as HTMLElement, { clientX: 200, clientY: 100 });
   expect(screen.getByRole('dialog', { name: 'Chat actions' })).toBeInTheDocument();
-  expect(screen.getByRole('textbox')).toHaveValue('Keep this draft.');
+  expect(screen.getByRole('textbox')).toHaveValue(staged);
   expect(onSend).not.toHaveBeenCalled();
 });
 
@@ -54,4 +58,12 @@ it('lets future modes supply rich extensions without replacing standard chat', (
     renderExtension={message => message.content === 'extension' ? <aside aria-label="Research sources">Two sources available</aside> : undefined} />);
   expect(screen.getByRole('complementary', { name: 'Research sources' })).toBeInTheDocument();
   expect(screen.getByText('The door opens onto a quiet garden.')).toBeInTheDocument();
+});
+
+it('starts with closed message thoughts when switching conversations', () => {
+  const { rerender } = render(<ChatTranscript conversationId="first" messages={messages} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Show message thoughts' }));
+  expect(screen.getByRole('region', { name: 'Message thoughts' })).toBeInTheDocument();
+  rerender(<ChatTranscript conversationId="second" messages={messages} />);
+  expect(screen.queryByRole('region', { name: 'Message thoughts' })).not.toBeInTheDocument();
 });

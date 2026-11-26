@@ -9,9 +9,12 @@ import ConversationSidebarIcons from './components/ConversationSidebarIcons';
 import InventoryManager, { type InventoryItem } from './components/InventoryManager';
 // import Panel from './components/ui/Panel';
 import { BottomInput } from './components/ui/RPGLayout';
-import ContextWindowPanel, { type Quest } from './components/ContextWindowPanel';
-import QuestLogPanel from './components/context/QuestLogPanel';
+import ContextWindowPanel, { type DiceRollEntry, type Quest } from './components/ContextWindowPanel';
+import MobileGameContext from './components/MobileGameContext';
+import MobileMenuToggle from './components/MobileMenuToggle';
+import type { ContextPanel } from './hooks/useContextPanel';
 import { mapActiveQuests } from './utils/gmQuests';
+import { parseInventoryItems } from './utils/inventory';
 import { normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import {
@@ -25,6 +28,8 @@ import type { Message } from './components/MessageBubble';
 import ChatTranscript from './components/ChatTranscript';
 import ChatComposer, { type ChatComposerHandle } from './components/ChatComposer';
 import { useMediaQuery } from './hooks/useMediaQuery';
+import { useWorkspaceViewport } from './hooks/useWorkspaceViewport';
+import { useContextUpdates } from './hooks/useContextUpdates';
 import { useChatScroll } from './hooks/useChatScroll';
 import { useChatDiceRolls } from './hooks/useChatDiceRolls';
 import type { DiceRollRequest } from './utils/diceRolls';
@@ -67,8 +72,6 @@ const formatModelErrors = (errors: unknown): string => {
 const GM_CONVERSATION_AVATAR_STORAGE_KEY = 'gmConversationAvatarById';
 const LAST_CONVERSATION_STORAGE_KEY_PREFIX = 'lastConversationId';
 const MESSAGES_CACHE_KEY_PREFIX = 'messagesCache';
-const UI_MOBILE_INFO_EXPANDED_KEY = 'uiMobileInfoExpanded';
-const UI_MOBILE_CHARACTER_EXPANDED_KEY = 'uiMobileCharacterExpanded';
 
 const getLastConversationStorageKey = (mode: string): string =>
   `${LAST_CONVERSATION_STORAGE_KEY_PREFIX}:${normalizePersonalityMode(mode)}`;
@@ -120,18 +123,6 @@ const removeStoredConversationAvatar = (conversationId: string) => {
 const getStoredConversationAvatarId = (conversationId?: string | null): string => {
   if (!conversationId) return '';
   return readStoredConversationAvatarMap()[conversationId] ?? '';
-};
-
-const readStoredBoolean = (key: string, fallback = false): boolean => {
-  if (typeof window === 'undefined') return fallback;
-  const value = window.localStorage.getItem(key);
-  if (value === null) return fallback;
-  return value === 'true';
-};
-
-const writeStoredBoolean = (key: string, value: boolean) => {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(key, value ? 'true' : 'false');
 };
 
 const getMessagesCacheKey = (conversationId: string): string =>
@@ -191,52 +182,6 @@ const summarizeText = (text: string, max = 220) => {
   return text.length > max ? `${text.slice(0, max).trim()}…` : text.trim();
 };
 
-const inventoryTypes = new Set<InventoryItem['type']>(['weapon', 'armor', 'consumable', 'quest', 'currency']);
-
-const parseInventoryItems = (rawInventory: unknown): InventoryItem[] => {
-  if (!rawInventory) return [];
-
-  let parsedValue: unknown = rawInventory;
-  if (typeof rawInventory === 'string') {
-    try {
-      parsedValue = JSON.parse(rawInventory);
-    } catch (error) {
-      console.error('Failed to parse inventory:', error);
-      return [];
-    }
-  }
-
-  if (!Array.isArray(parsedValue)) return [];
-
-  return parsedValue.flatMap((item): InventoryItem[] => {
-    if (typeof item === 'string') {
-      return [{
-        id: crypto.randomUUID(),
-        name: item,
-        type: 'consumable',
-        quantity: 1,
-      }];
-    }
-
-    if (!item || typeof item !== 'object') return [];
-
-    const candidate = item as Partial<InventoryItem>;
-    if (!candidate.name || typeof candidate.name !== 'string') return [];
-
-    const type: InventoryItem['type'] = inventoryTypes.has(candidate.type as InventoryItem['type'])
-      ? (candidate.type as InventoryItem['type'])
-      : 'consumable';
-
-    return [{
-      ...candidate,
-      id: typeof candidate.id === 'string' && candidate.id ? candidate.id : crypto.randomUUID(),
-      name: candidate.name,
-      type,
-      quantity: typeof candidate.quantity === 'number' && candidate.quantity > 0 ? candidate.quantity : 1,
-    }];
-  });
-};
-
 const inferDangerLevel = (text: string) => {
   if (!text) return 'Unknown';
   const lowered = text.toLowerCase();
@@ -272,6 +217,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const draft = useRef('');
   const composerRef = useRef<ChatComposerHandle>(null);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const workspaceRef = useWorkspaceViewport();
   // The route owns the conversation when it is present; localStorage is the
   // fallback for direct renders (tests, previews) and legacy links.
   const [conversationId, setConversationId] = useState<string | null>(() => {
@@ -291,14 +237,11 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const conversationIntentRef = useRef(0);
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
-  const [mobileInfoExpanded, setMobileInfoExpanded] = useState(() =>
-    readStoredBoolean(UI_MOBILE_INFO_EXPANDED_KEY, false)
-  );
-  const [mobileCharSheetExpanded, setMobileCharSheetExpanded] = useState(() =>
-    readStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, false)
-  );
   const [isOptionsMenuOpen, setIsOptionsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  useEffect(() => {
+    if (isDesktop) setIsMobileMenuOpen(false);
+  }, [isDesktop]);
   const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
@@ -954,14 +897,6 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   }, [conversationId, effectivePersonality]);
 
   // The route and rail select the mode; the header stays context-independent.
-
-  useEffect(() => {
-    writeStoredBoolean(UI_MOBILE_INFO_EXPANDED_KEY, mobileInfoExpanded);
-  }, [mobileInfoExpanded]);
-
-  useEffect(() => {
-    writeStoredBoolean(UI_MOBILE_CHARACTER_EXPANDED_KEY, mobileCharSheetExpanded);
-  }, [mobileCharSheetExpanded]);
 
   // Save the last active conversation ID and personality mode for restoration on refresh
   useEffect(() => {
@@ -2168,6 +2103,9 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const gameMasterInputPlaceholder = 'What do you do next?';
 
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
+  const contextUpdates = useContextUpdates(conversationId,
+    hasGameMasterCharacterReady ? characterDisplay?.inventory : undefined,
+    questContext?.conversationId === conversationId ? activeQuests : undefined);
   const currentLocation = useMemo(() => {
     // Authoritative, placeholder-proof: set only from STATE_SNAPSHOT / real rows.
     if (authoritativeLocation) return authoritativeLocation;
@@ -2217,8 +2155,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const voiceControl = (placement: 'rail' | 'composer-tab') => <ChatVoiceControl
     enabled={chatVoice.enabled} status={chatVoice.status} error={chatVoice.error}
     onToggle={chatVoice.toggle} onStop={chatVoice.stop} placement={placement} />;
-  // Desktop voice belongs to the stable global rail; mobile keeps it by input.
-  const composerVoiceTab = <div className="cosmic-voice-dock">{voiceControl('composer-tab')}</div>;
+  // Voice stays in persistent chrome: the desktop rail or the mobile header.
   const jumpToLatest = !isAtBottom && <button type="button" className="cosmic-jump-to-latest" onClick={scrollToLatest}>Latest messages <span aria-hidden="true">↓</span></button>;
   const transcriptMessages = useMemo(() => isGameMasterMode ? visibleGameMasterMessages(messages) : messages, [isGameMasterMode, messages]);
   const renderChatExtension = useMemo(() => isGameMasterMode
@@ -2228,10 +2165,43 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     messages={transcriptMessages}
     waiting={isWaitingForResponse} scrollRef={scrollRef} contentRef={contentRef}
     onListen={chatVoice.listen} playback={chatVoice.playback} renderExtension={renderChatExtension} />;
+  const renderGameContext = (initialPanel: ContextPanel = 'character') => <ContextWindowPanel
+    initialPanel={initialPanel}
+    updates={contextUpdates}
+    playerState={playerState ? {
+      currentLevel: playerState.currentLevel ?? undefined,
+      currentXP: playerState.currentXP ?? undefined,
+      xpToNextLevel: playerState.xpToNextLevel ?? undefined,
+      currentAreaId: playerState.currentAreaId ?? undefined,
+      lastKnownLocation: playerState.lastKnownLocation ?? undefined,
+      diceRollLog: (playerState.diceRollLog ?? undefined) as unknown as DiceRollEntry[] | undefined,
+      pendingDiceRoll: playerState.pendingDiceRoll ?? undefined,
+    } : undefined}
+    character={characterDisplay ? {
+      name: characterDisplay.name,
+      level: characterDisplay.level,
+      currentHP: characterDisplay.hp.current,
+      maxHP: characterDisplay.hp.max,
+      stats: characterDisplay.stats,
+      avatarSrc: characterDisplay.avatarSrc,
+      avatarSrcWebp: characterDisplay.avatarSrcWebp,
+    } : undefined}
+    currentLocation={currentLocation}
+    activeQuests={activeQuests}
+    timelineEntries={messages.filter(m => !m.content?.startsWith('[SYSTEM:')).map((m, i) => ({
+      id: String(i), role: m.role, content: m.content ?? m.fullContent,
+      sensations: m.sensations, thoughts: m.thoughts, location: currentLocation ?? undefined,
+    }))}>
+    {characterDisplay && <div className="retro-right-section retro-right-section--inventory">
+      <InventoryManager inventory={characterDisplay.inventory} onUpdateInventory={updateInventory} isUpdating={false}
+        updates={contextUpdates.inventory} />
+    </div>}
+  </ContextWindowPanel>;
 
   return (
-    <div className={`retro-rpg-ui cosmic-workspace ${appThemeClass} h-dvh overflow-hidden relative`}
+    <div ref={workspaceRef} className={`retro-rpg-ui cosmic-workspace ${appThemeClass} h-dvh overflow-hidden relative`}
       data-chat-state={isWaitingForResponse ? 'thinking' : hasTypingMessage ? 'responding' : 'ready'}>
+      <p role="status" className="sr-only">{[contextUpdates.inventory.notice, contextUpdates.quests.notice].filter(Boolean).join('. ')}</p>
 
       {/* Workspace operation error toast. */}
       {(playerStateError || brainClearError) && (
@@ -2364,254 +2334,44 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       </main>
 
           {isContextOpen && <aside className="retro-shell-right" aria-label={isGameMasterMode ? 'Game context' : 'Brain context'}>
-          <div className={`retro-right-container flex h-full min-h-0 flex-col overflow-hidden${!isGameMasterMode ? ' cosmic-brain-container' : ''}`}>
-                {isGameMasterMode ? (
+            <div className={`retro-right-container flex h-full min-h-0 flex-col overflow-hidden${!isGameMasterMode ? ' cosmic-brain-container' : ''}`}>
+              {isGameMasterMode ? (
                 characterDisplay ? (
-                      <div className="retro-right-stack cosmic-fade-in flex h-full min-h-0 flex-col p-5">
-                        {/* Tabs pin; character and timeline content scroll beneath. */}
-                        <ContextWindowPanel
-                          playerState={playerState ? {
-                            currentLevel: playerState.currentLevel ?? undefined,
-                            currentXP: playerState.currentXP ?? undefined,
-                            xpToNextLevel: playerState.xpToNextLevel ?? undefined,
-                            currentAreaId: playerState.currentAreaId ?? undefined,
-                            lastKnownLocation: playerState.lastKnownLocation ?? undefined,
-                            diceRollLog: playerState.diceRollLog as any ?? undefined,
-                            pendingDiceRoll: playerState.pendingDiceRoll ?? undefined,
-                          } : undefined}
-                          character={characterDisplay ? {
-                            name: characterDisplay.name,
-                            level: characterDisplay.level,
-                            currentHP: characterDisplay.hp.current,
-                            maxHP: characterDisplay.hp.max,
-                            stats: characterDisplay.stats,
-                            avatarSrc: characterDisplay.avatarSrc,
-                            avatarSrcWebp: characterDisplay.avatarSrcWebp,
-                          } : undefined}
-                          currentLocation={currentLocation}
-                      activeQuests={activeQuests}
-                          timelineEntries={messages
-                            .filter(m => !m.content?.startsWith('[SYSTEM:'))
-                            .map((m, i) => ({
-                            id: String(i),
-                            role: m.role,
-                            content: m.content ?? m.fullContent,
-                            sensations: m.sensations,
-                            thoughts: m.thoughts,
-                            location: currentLocation ?? undefined,
-                          }))}
-                        >
-                          {characterDisplay ? (
-                            <div className="retro-right-section retro-right-section--inventory">
-                              <InventoryManager
-                                inventory={characterDisplay.inventory}
-                                onUpdateInventory={updateInventory}
-                                isUpdating={false}
-                              />
-                            </div>
-                          ) : null}
-                        </ContextWindowPanel>
-                      </div>
-                    ) : null
+                  <div className="retro-right-stack cosmic-fade-in flex h-full min-h-0 flex-col p-5">
+                    {/* Tabs pin; character and timeline content scroll beneath. */}
+                    {renderGameContext()}
+                  </div>
+                ) : null
               ) : (
                 <BrainPresence mood={brainPresenceMood} intensity={brainPresenceIntensity} pokeable />
               )}
-          </div>
+            </div>
           </aside>}
         </div>
       </div> : <main
-        className="retro-mobile-main flex flex-col h-full px-2 pb-2 pt-2"
+        className="retro-mobile-main flex flex-col h-full"
       >
         {/* Mobile Top Nav Bar */}
-        <nav className="retro-nav retro-mobile-nav sticky top-0 z-[60] bg-brand-surface-elevated/95 backdrop-blur-xl border-b border-brand-surface-border/50 shadow-lg pt-safe rounded-3xl">
-          <div className="px-4 py-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  className="rounded-xl p-2 text-brand-text-primary hover:bg-brand-surface-secondary/60 transition-colors"
-                  aria-label="Open menu"
-                >
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.9} d="M4 7h16M4 12h16M4 17h16" />
-                  </svg>
-                </button>
-                <h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1>
-              </div>
-            </div>
-
-            <div>
-              {/* Mode selection belongs to the global menu, not the header. */}
-            </div>
+        <header className="retro-nav retro-mobile-nav">
+          <div className="cosmic-mobile-header-content">
+            <MobileMenuToggle expanded={isMobileMenuOpen} onToggle={() => setIsMobileMenuOpen(open => !open)} />
+            <h1 className="cosmic-wordmark"><strong>Brain</strong> in Cup</h1>
+            <div className="cosmic-mobile-header-voice">{voiceControl('rail')}</div>
           </div>
-        </nav>
+        </header>
 
         {/* Game information is unavailable until this conversation's character
             has been saved and the creation flow has finished. */}
-        {isGameMasterMode && hasGameMasterCharacterReady && (
-          <div className="retro-mobile-bars cosmic-fade-in lg:hidden sticky top-0 z-40 pt-safe">
-            <div className="flex gap-2 mx-4 mt-4 items-start">
-              {/* First Bar - Quest Log */}
-              <div className="flex-1 relative">
-                <div 
-                  className={`retro-mobile-card rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
-                    mobileInfoExpanded ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
-                  }`}
-                >
-                  {/* Collapsed Header Bar */}
-                  <button
-                    onClick={() => setMobileInfoExpanded(!mobileInfoExpanded)}
-                    aria-expanded={mobileInfoExpanded}
-                    className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-brand-text-muted uppercase tracking-wider">
-                      Quest Log
-                        </p>
-                        <p className="text-sm text-brand-text-primary font-medium truncate">
-                          {activeQuests[0]?.title ?? 'No active quest'}
-                        </p>
-                      </div>
-                    </div>
-                    <svg 
-                      className={`w-5 h-5 text-brand-text-muted transition-transform duration-300 flex-shrink-0 ${
-                        mobileInfoExpanded ? 'rotate-180' : ''
-                      }`} 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-
-                  {/* Expanded Quest Log Content */}
-                  {mobileInfoExpanded && (
-                    <div className="px-4 pb-4 space-y-4 animate-slide-up border-t border-brand-surface-border/30 pt-4">
-                      <QuestLogPanel quests={activeQuests} />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Second Bar - Character Sheet (D&D style) */}
-              <div className="flex-1 relative">
-                <div 
-                  className={`retro-mobile-card rounded-2xl bg-brand-surface-elevated/95 backdrop-blur-xl border border-brand-surface-border/50 shadow-lg transition-all duration-300 ${
-                    mobileCharSheetExpanded && characterDisplay ? 'absolute top-0 left-0 w-auto min-w-full max-w-md z-50' : ''
-                  }`}
-                >
-                  <button
-                    onClick={() => {
-                      if (!characterDisplay) return;
-                      setMobileCharSheetExpanded(!mobileCharSheetExpanded);
-                    }}
-                    aria-expanded={mobileCharSheetExpanded && Boolean(characterDisplay)}
-                    className="w-full px-4 py-3 flex items-center justify-between text-left focus:outline-none"
-                  >
-                    <div className="retro-character-identity retro-character-identity--compact flex items-center gap-3 min-w-0">
-                      {characterDisplay?.avatarSrc ? (
-                        <div className="retro-character-avatar-wrap">
-                          <picture>
-                            <source srcSet={characterDisplay.avatarSrcWebp} type="image/webp" />
-                            <img
-                              src={characterDisplay.avatarSrc}
-                              alt={`${characterDisplay.name} avatar`}
-                              loading="lazy"
-                              decoding="async"
-                              className="retro-character-avatar retro-character-avatar--compact w-10 h-10 rounded-lg object-cover object-center flex-shrink-0"
-                            />
-                          </picture>
-                        </div>
-                      ) : (
-                        <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-brand-surface-secondary/50" aria-hidden="true" />
-                      )}
-                      <div className="retro-character-meta retro-character-meta--compact min-w-0 flex-1">
-                        <p className="text-xs text-brand-text-muted uppercase tracking-wider">Character</p>
-                        <p className="text-sm text-brand-text-primary font-medium truncate">{characterDisplay?.name ?? 'Not created'}</p>
-                      </div>
-                    </div>
-                    <svg 
-                      className={`w-5 h-5 text-brand-text-muted transition-transform duration-300 flex-shrink-0 ${
-                        mobileCharSheetExpanded && characterDisplay ? 'rotate-180' : ''
-                      }`} 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-
-                  {/* Expanded Character Sheet Content */}
-                  {mobileCharSheetExpanded && characterState && characterDisplay && (() => {
-                    const charData = characterDisplay;
-                    return (
-                      <div className="px-4 pb-4 space-y-3 animate-slide-up border-t border-brand-surface-border/30 pt-4">
-                        {/* Stats */}
-                        <div>
-                          <h4 className="text-xs uppercase tracking-wider text-brand-text-muted mb-2">Attributes</h4>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                              <div className="text-xs text-brand-text-muted">STR</div>
-                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.strength}</div>
-                            </div>
-                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                              <div className="text-xs text-brand-text-muted">DEX</div>
-                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.dexterity}</div>
-                            </div>
-                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                              <div className="text-xs text-brand-text-muted">CON</div>
-                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.constitution}</div>
-                            </div>
-                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                              <div className="text-xs text-brand-text-muted">INT</div>
-                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.intelligence}</div>
-                            </div>
-                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                              <div className="text-xs text-brand-text-muted">WIS</div>
-                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.wisdom}</div>
-                            </div>
-                            <div className="bg-brand-surface-hover rounded-lg p-2 text-center">
-                              <div className="text-xs text-brand-text-muted">CHA</div>
-                              <div className="text-lg font-bold text-brand-text-primary">{charData.stats.charisma}</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Health & Level */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs uppercase tracking-wider text-brand-text-muted">Level</span>
-                            <span className="text-sm font-bold text-brand-text-primary">{charData.level}</span>
-                          </div>
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs uppercase tracking-wider text-brand-text-muted">HP</span>
-                              <span className="text-xs text-brand-text-secondary">{charData.hp.current} / {charData.hp.max}</span>
-                            </div>
-                            <div className="h-2 bg-brand-surface-hover rounded-full overflow-hidden">
-                              <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${charData.hp.percentage}%` }}></div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Inventory */}
-                        <InventoryManager 
-                          inventory={charData.inventory}
-                          onUpdateInventory={updateInventory}
-                          isUpdating={false}
-                        />
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {isGameMasterMode && hasGameMasterCharacterReady && characterDisplay && <MobileGameContext
+          key={conversationId}
+          characterName={characterDisplay.name}
+          avatarSrc={characterDisplay.avatarSrc}
+          avatarSrcWebp={characterDisplay.avatarSrcWebp}
+          questTitle={activeQuests[0]?.title}
+          inventoryNotice={contextUpdates.inventory.notice}
+          questNotice={contextUpdates.quests.notice}
+          renderContext={renderGameContext}
+        />}
 
 
         {/* Screen reader live region for message updates */}
@@ -2629,13 +2389,12 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
           {transcript}
 
           {/* Mobile Input Area */}
-            <div className="retro-input-dock pt-3 pb-3 px-3 pb-safe">
-              <div className="relative max-w-4xl mx-auto">
-                {jumpToLatest}
-                {composerVoiceTab}
-                {composer}
-              </div>
+          <div className="retro-input-dock pt-3">
+            <div className="relative max-w-4xl mx-auto">
+              {jumpToLatest}
+              {composer}
             </div>
+          </div>
         </div>
 
       </main>}
@@ -2646,7 +2405,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       />}
 
       {/* Mobile Menu Drawer */}
-      <MobileMenu
+      {!isDesktop && <MobileMenu
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         activeConversationId={conversationId === brainConversationId ? 'brain' : conversationId}
@@ -2671,7 +2430,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
           setIsMobileMenuOpen(false);
           setIsDeleteAccountModalOpen(true);
         }}
-      />
+      />}
 
       {/* Install Prompt */}
       <InstallPrompt />

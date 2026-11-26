@@ -19,10 +19,10 @@ function WorldMapPanel({
   characterLevel = 1,
 }: WorldMapPanelProps) {
   return (
-    <div className="p-4 space-y-4">
+    <div className="cosmic-context-section space-y-4">
       {/* Current location */}
       {currentLocation?.trim() && <div>
-        <div className="text-xs text-brand-text-secondary mb-1">Current Location</div>
+        <div className="cosmic-context-label mb-2">Current location</div>
         <div className="text-brand-text-primary font-semibold text-sm">{currentLocation}</div>
       </div>}
 
@@ -44,8 +44,9 @@ function WorldMapPanel({
                 >
                   <span>{area.displayName}</span>
                   {isLocked && (
-                    <span className="text-xs text-brand-text-secondary ml-2 shrink-0">
-                      🔒{area.requiredLevel ? ` Lv.${area.requiredLevel}` : ''}
+                    <span className="flex items-center gap-1 text-xs text-brand-text-secondary ml-2 shrink-0">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
+                      {area.requiredLevel ? `Lv. ${area.requiredLevel}` : 'Locked'}
                     </span>
                   )}
                 </div>

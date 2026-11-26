@@ -14,8 +14,8 @@ it.each([
   ]} /></div>);
   const user = screen.getByText('Hello there.').closest('.message-bubble') as HTMLElement;
   const assistant = screen.getByText('Good to see you.').closest('.message-bubble') as HTMLElement;
-  expect(within(user).getByText('You')).toHaveClass('uppercase');
-  expect(within(assistant).getByText('Brain')).toHaveClass('uppercase');
+  expect(within(user).getByText('You')).not.toHaveAttribute('aria-hidden', 'true');
+  expect(within(assistant).getByText('Brain')).not.toHaveAttribute('aria-hidden', 'true');
 });
 
 it('labels a Brain message before its streamed text arrives', () => {

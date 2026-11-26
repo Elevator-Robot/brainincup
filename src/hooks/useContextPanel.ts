@@ -7,8 +7,8 @@ export interface GameEvent {
   payload?: unknown;
 }
 
-export function useContextPanel(gameEvents: GameEvent[]) {
-  const [activePanel, setActivePanelState] = useState<ContextPanel>('character');
+export function useContextPanel(gameEvents: GameEvent[], initialPanel: ContextPanel = 'character') {
+  const [activePanel, setActivePanelState] = useState<ContextPanel>(initialPanel);
   const [levelUpAnimating, setLevelUpAnimating] = useState(false);
   const [manualOverride, setManualOverride] = useState(false);
 

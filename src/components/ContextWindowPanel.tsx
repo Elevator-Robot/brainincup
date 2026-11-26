@@ -1,8 +1,6 @@
-// TODO (Task 10.7): Integrate ContextWindowPanel into App.tsx in place of the current context area.
-// Pass playerState, activeQuests, diceRollLog, and gameEvents as props.
-
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useContextPanel, type ContextPanel, type GameEvent } from '../hooks/useContextPanel';
+import type { ContextUpdates } from '../hooks/useContextUpdates';
 import CharacterSheetPanel from './context/CharacterSheetPanel';
 import QuestLogPanel from './context/QuestLogPanel';
 import WorldMapPanel from './context/WorldMapPanel';
@@ -48,6 +46,8 @@ interface ContextWindowPanelProps {
   activeQuests?: Quest[];
   timelineEntries?: TimelineEntry[];
   gameEvents?: GameEvent[];
+  initialPanel?: ContextPanel;
+  updates?: ContextUpdates;
   /** Notified when the context tab changes (character / timeline / …). */
   onActivePanelChange?: (panel: ContextPanel) => void;
   /**
@@ -71,10 +71,12 @@ function ContextWindowPanel({
   activeQuests = [],
   timelineEntries = [],
   gameEvents = [],
+  initialPanel = 'character',
+  updates,
   onActivePanelChange,
   children,
 }: ContextWindowPanelProps) {
-  const { activePanel, setActivePanel, levelUpAnimating } = useContextPanel(gameEvents);
+  const { activePanel, setActivePanel, levelUpAnimating } = useContextPanel(gameEvents, initialPanel);
   const panelId = useId();
   const bodyRef = useRef<HTMLDivElement>(null);
   const [direction, setDirection] = useState(1);
@@ -93,9 +95,11 @@ function ContextWindowPanel({
   return (
     <div className="cosmic-context-panel flex min-h-0 flex-1 flex-col">
       {/* Pinned tab switcher — stays fixed while the panel body scrolls */}
-      <div className="retro-context-tabs shrink-0 z-20" role="tablist" aria-label="Context panels">
+      <div className="retro-context-tabs shrink-0 z-20" role="tablist" aria-label="Context panels"
+        style={{ '--active-context-tab': TABS.findIndex(tab => tab.id === activePanel) } as CSSProperties}>
         {TABS.map((tab, index) => {
           const isActive = activePanel === tab.id;
+          const notice = tab.id === 'character' ? updates?.inventory.notice : tab.id === 'quests' ? updates?.quests.notice : undefined;
           return (
             <button
               key={tab.id}
@@ -104,6 +108,8 @@ function ContextWindowPanel({
               id={`${panelId}-${tab.id}-tab`}
               aria-controls={`${panelId}-panel`}
               aria-selected={isActive}
+              data-updated={Boolean(notice)}
+              aria-describedby={notice ? `${panelId}-${tab.id}-update` : undefined}
               tabIndex={isActive ? 0 : -1}
               onClick={() => selectPanel(tab.id)}
               onKeyDown={event => {
@@ -122,6 +128,8 @@ function ContextWindowPanel({
           );
         })}
       </div>
+      <span id={`${panelId}-character-update`} className="sr-only">{updates?.inventory.notice}</span>
+      <span id={`${panelId}-quests-update`} className="sr-only">{updates?.quests.notice}</span>
 
       {/* Scrollable body: active panel + optional Character-only chrome */}
       <div ref={bodyRef} id={`${panelId}-panel`} role="tabpanel" aria-labelledby={`${panelId}-${activePanel}-tab`} tabIndex={0}
@@ -144,7 +152,7 @@ function ContextWindowPanel({
 
 
           {activePanel === 'quests' && (
-            <QuestLogPanel quests={activeQuests} />
+            <QuestLogPanel quests={activeQuests} updates={updates?.quests} />
           )}
 
           {activePanel === 'map' && (

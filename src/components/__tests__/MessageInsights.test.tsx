@@ -12,6 +12,45 @@ const message: Message = {
 };
 
 describe('thoughts unfold from the message', () => {
+  it.each([true, false])('opens only one message at a time (stored IDs: %s)', withIds => {
+    render(<MessageList messages={[
+      { ...message, messageId: withIds ? 'first' : undefined },
+      { role: 'assistant', messageId: withIds ? 'second' : undefined, content: 'The lantern shines.', thoughts: ['A new way forward.'] },
+    ]} />);
+    const first = screen.getByRole('button', { name: /The stars remember/ });
+    const second = screen.getByRole('button', { name: 'The lantern shines.' });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Show message thoughts' })[0]);
+    const firstPanel = screen.getByRole('region', { name: 'Message thoughts' });
+    second.focus();
+    fireEvent.keyDown(second, { key: 'Enter' });
+    expect(first).toHaveAttribute('aria-expanded', 'false');
+    expect(firstPanel).toHaveAttribute('aria-hidden', 'true');
+    expect(firstPanel.inert).toBe(true);
+    expect(second).toHaveFocus();
+    expect(second).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('region', { name: 'Message thoughts' })).toHaveLength(1);
+    expect(screen.getByRole('region', { name: 'Message thoughts' })).toHaveTextContent('A new way forward.');
+    fireEvent.click(first);
+    expect(second).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('region', { name: 'Message thoughts' })).toBe(firstPanel);
+    fireEvent.click(first);
+    expect(screen.queryByRole('region', { name: 'Message thoughts' })).not.toBeInTheDocument();
+  });
+
+  it('preserves an open message through updates but resets after clearing history', () => {
+    const { rerender } = render(<MessageList messages={[message]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Show message thoughts' }));
+    rerender(<MessageList messages={[
+      { ...message, thoughts: ['An updated thought.'] },
+      { role: 'assistant', content: 'Another reply.', thoughts: ['Another thought.'] },
+    ]} />);
+    expect(screen.getAllByRole('region', { name: 'Message thoughts' })).toHaveLength(1);
+    expect(screen.getByRole('region', { name: 'Message thoughts' })).toHaveTextContent('An updated thought.');
+    rerender(<MessageList messages={[]} />);
+    rerender(<MessageList messages={[message]} />);
+    expect(screen.queryByRole('region', { name: 'Message thoughts' })).not.toBeInTheDocument();
+  });
+
   it('toggles by clicking the text in the shared message renderer', () => {
     render(<MessageList messages={[message]} />);
     expect(screen.queryByText('Explore thoughts')).not.toBeInTheDocument();

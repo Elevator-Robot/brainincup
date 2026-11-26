@@ -93,16 +93,104 @@ describe('slash palette', () => {
   });
 });
 
-describe('action wheel', () => {
-  it('removes the star/Actions launcher without removing keyboard suggestions', () => {
-    const { container, draft, input } = renderComposer();
-    expect(screen.queryByRole('button', { name: 'Browse chat actions' })).toBeNull();
-    expect(container.querySelector('.cosmic-composer-actions')).toBeNull();
+describe('explicit action access', () => {
+  it('opens all actions from the button and appends a selection without sending', () => {
+    const { draft, input } = renderComposer('I keep my lantern raised.');
+    fireEvent.click(screen.getByRole('button', { name: 'Browse chat actions' }));
+    expect(screen.getAllByRole('option')).toHaveLength(6);
+    expect(screen.getByRole('option', { selected: true })).toHaveFocus();
+    fireEvent.click(screen.getByRole('option', { name: /Search/ }));
+    expect(draft.current).toBe('I keep my lantern raised.\nI search the area for anything useful or out of place.');
+    expect(input).toHaveFocus();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(defaults.onSend).not.toHaveBeenCalled();
+  });
+
+  it('supports keyboard browsing and dismissal while preserving slash suggestions', () => {
+    const { draft, input } = renderComposer();
+    const trigger = screen.getByRole('button', { name: 'Browse chat actions' });
+    fireEvent.click(trigger);
+    fireEvent.keyDown(screen.getByRole('option', { selected: true }), { key: 'End' });
+    expect(screen.getByRole('option', { selected: true })).toHaveFocus();
+    expect(screen.getByRole('option', { selected: true })).toHaveTextContent('Roll');
+    fireEvent.keyDown(screen.getByRole('option', { selected: true }), { key: 'Escape' });
+    expect(trigger).toHaveFocus();
+    expect(draft.current).toBe('');
     fireEvent.change(input, { target: { value: '/' } });
     expect(screen.getAllByRole('option')).toHaveLength(6);
     fireEvent.keyDown(input, { key: 'Escape' });
     expect(screen.queryByRole('listbox')).toBeNull();
     expect(draft.current).toBe('/');
+    expect(defaults.onSend).not.toHaveBeenCalled();
+  });
+
+  it('dismisses on outside interaction and closes if sending locks the composer', () => {
+    const { rerender, draft } = renderComposer('A draft');
+    const trigger = screen.getByRole('button', { name: 'Browse chat actions' });
+    fireEvent.click(trigger);
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(draft.current).toBe('A draft');
+    fireEvent.click(trigger);
+    rerender(<ChatComposer {...defaults} draft={draft} isLocked />);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(trigger).toBeDisabled();
+    rerender(<ChatComposer {...defaults} draft={draft} />);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+});
+
+describe('action wheel', () => {
+  const pointer = (target: Element, type: 'pointermove' | 'pointerup', init: MouseEventInit) =>
+    fireEvent(target, new MouseEvent(type, { bubbles: true, ...init }));
+
+  it('keeps the wheel open when the opening right-click is released', () => {
+    const { draft, input } = renderComposer('Keep this draft.');
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Browse chat actions' }), { clientX: 200, clientY: 200 });
+    const wheel = screen.getByRole('dialog', { name: 'Chat actions' });
+    pointer(wheel, 'pointerup', { button: 2, clientX: 200, clientY: 200 });
+    expect(wheel).toBeInTheDocument();
+    expect(draft.current).toBe('Keep this draft.');
+    fireEvent.keyDown(wheel, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Chat actions' })).not.toBeInTheDocument();
+    expect(input).toHaveFocus();
+  });
+
+  it('does not mistake small movement near a clamped wheel for a selection', () => {
+    const { draft } = renderComposer('Keep this draft.');
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Browse chat actions' }), { clientX: 200, clientY: 750 });
+    const wheel = screen.getByRole('dialog', { name: 'Chat actions' });
+    vi.spyOn(wheel, 'getBoundingClientRect').mockReturnValue(new DOMRect(50, 458, 300, 300));
+    pointer(wheel, 'pointermove', { buttons: 2, clientX: 201, clientY: 750 });
+    pointer(wheel, 'pointerup', { button: 2, clientX: 201, clientY: 750 });
+    expect(wheel).toBeInTheDocument();
+    expect(draft.current).toBe('Keep this draft.');
+  });
+
+  it('stages a held right-button flick released directly over an action', () => {
+    const { draft, input } = renderComposer('Keep this draft.');
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Browse chat actions' }), { clientX: 200, clientY: 200 });
+    const wheel = screen.getByRole('dialog', { name: 'Chat actions' });
+    vi.spyOn(wheel, 'getBoundingClientRect').mockReturnValue(new DOMRect(50, 50, 300, 300));
+    const search = screen.getByRole('button', { name: 'Search' });
+    pointer(search, 'pointermove', { buttons: 2, clientX: 290, clientY: 252 });
+    pointer(search, 'pointerup', { button: 2, clientX: 290, clientY: 252 });
+    expect(draft.current).toBe('Keep this draft.\nI search the area for anything useful or out of place.');
+    expect(input).toHaveFocus();
+    expect(screen.queryByRole('dialog', { name: 'Chat actions' })).not.toBeInTheDocument();
+    expect(defaults.onSend).not.toHaveBeenCalled();
+  });
+
+  it('dismisses an outside click without staging the previously hovered action', () => {
+    const { draft, input } = renderComposer('Keep this draft.');
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Browse chat actions' }), { clientX: 200, clientY: 200 });
+    const layer = screen.getByRole('dialog', { name: 'Chat actions' }).parentElement!;
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Search' }));
+    pointer(layer, 'pointerup', { button: 0, clientX: 0, clientY: 0 });
+    fireEvent.click(layer);
+    expect(draft.current).toBe('Keep this draft.');
+    expect(screen.queryByRole('dialog', { name: 'Chat actions' })).not.toBeInTheDocument();
+    expect(input).toHaveFocus();
     expect(defaults.onSend).not.toHaveBeenCalled();
   });
 

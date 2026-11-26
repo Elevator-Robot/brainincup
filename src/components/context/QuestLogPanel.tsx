@@ -1,56 +1,44 @@
-interface Quest {
-  id: string;
-  title: string;
-  currentStep?: string;
-  stepProgress?: string;
-  isNew?: boolean;
-}
+import type { Quest } from '../ContextWindowPanel';
+import type { CollectionUpdates } from '../../hooks/useContextUpdates';
 
 interface QuestLogPanelProps {
   quests?: Quest[];
+  updates?: CollectionUpdates;
 }
 
-const STATUS_BADGE_CLASSES = 'text-xs px-2 py-0.5 rounded-full font-medium';
-
-function QuestLogPanel({ quests = [] }: QuestLogPanelProps) {
+function QuestLogPanel({ quests = [], updates }: QuestLogPanelProps) {
   if (quests.length === 0) {
-    return null;
+    return updates?.notice ? <p className="cosmic-context-notice">{updates.notice}</p> : null;
   }
 
   return (
-    <div className="p-4 space-y-3">
+    <div className="cosmic-quest-list">
+      {updates?.notice && <p className="cosmic-context-notice">{updates.notice}</p>}
       {quests.map((quest) => (
         <div
           key={quest.id}
-          className={`rounded-lg p-3 border transition-colors duration-200 ${
-            quest.isNew
-              ? 'border-brand-accent-primary bg-brand-accent-primary/10'
-              : 'border-brand-surface-border bg-brand-surface-dark'
-          }`}
+          className="cosmic-quest-card"
+          data-update={updates?.items[quest.id]}
         >
           <div className="flex items-start justify-between gap-2">
-            <span className="text-brand-text-primary text-sm font-medium leading-snug">
+            <h3>
               {quest.title}
-            </span>
-            {quest.isNew && (
-              <span className={`${STATUS_BADGE_CLASSES} bg-brand-accent-primary/20 text-brand-accent-primary shrink-0`}>
-                New
+            </h3>
+            {(quest.isNew || updates?.items[quest.id]) && (
+              <span className="cosmic-update-label">
+                {updates?.items[quest.id] === 'updated' ? 'Updated' : 'New'}
               </span>
             )}
           </div>
 
           {quest.currentStep && (
-            <p className="text-brand-text-secondary text-xs mt-1 leading-relaxed">
+            <p className="cosmic-quest-step">
               {quest.currentStep}
             </p>
           )}
 
           {quest.stepProgress && (
-            <div className="mt-2">
-              <span className={`${STATUS_BADGE_CLASSES} bg-brand-surface-border text-brand-text-secondary`}>
-                {quest.stepProgress}
-              </span>
-            </div>
+            <p className="cosmic-quest-progress"><span>Progress</span><strong>{quest.stepProgress}</strong></p>
           )}
         </div>
       ))}
