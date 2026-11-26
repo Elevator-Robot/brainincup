@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type MutableRefObject } from 'react';
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type MutableRefObject } from 'react';
 import ActionWheel from './ActionWheel';
 import { useComposerSize } from '../hooks/useComposerSize';
 import { appendPrompt, filterActions, type ChatAction } from '../utils/chatActions';
@@ -32,20 +32,26 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
   const [caretAtEnd, setCaretAtEnd] = useState(true);
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashDismissed, setSlashDismissed] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [wheel, setWheel] = useState<{ x: number; y: number } | null>(null);
   const submitting = useRef(false);
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const actionsToggle = useRef<HTMLButtonElement>(null);
+  const palette = useRef<HTMLDivElement>(null);
+  const paletteId = useId();
 
   const { actions, quickActions, suggestCompletion, inputLabel } = configuration;
 
   const slashQuery = SLASH_PATTERN.exec(value)?.[1] ?? null;
   const slashMatches = slashQuery === null ? [] : filterActions(actions, slashQuery);
-  const slashOpen = !isLocked && slashQuery !== null && !slashDismissed && slashMatches.length > 0;
-  const activeSlash = Math.min(slashIndex, Math.max(slashMatches.length - 1, 0));
+  const slashOpen = !isLocked && !isSubmitting && slashQuery !== null && !slashDismissed && slashMatches.length > 0;
+  const paletteOpen = !isLocked && !isSubmitting && (actionsOpen || slashOpen);
+  const paletteActions = actionsOpen ? actions : slashMatches;
+  const activeSlash = Math.min(slashIndex, Math.max(paletteActions.length - 1, 0));
 
   const ghost = caretAtEnd && !isLocked ? suggestCompletion(value) : '';
-  const showGhost = Boolean(ghost) && !slashOpen;
-  const sizing = useComposerSize(`${value}${showGhost ? ghost : ''}`, textarea);
+  const showGhost = Boolean(ghost) && !paletteOpen;
+  const sizing = useComposerSize(`${value}${showGhost ? ghost : ''}`, textarea, paletteOpen);
 
   const update = (next: string) => {
     draft.current = next;
@@ -61,8 +67,31 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
   }));
 
   const stageAction = (action: ChatAction, existingDraft: boolean) => {
+    if (isLocked || isSubmitting) return;
+    setActionsOpen(false);
     update(existingDraft ? appendPrompt(draft.current, action.prompt) : action.prompt);
     textarea.current?.focus();
+  };
+  useEffect(() => {
+    if (isLocked || isSubmitting) { setActionsOpen(false); setWheel(null); }
+  }, [isLocked, isSubmitting]);
+  useEffect(() => {
+    if (!actionsOpen) return;
+    palette.current?.querySelector<HTMLButtonElement>('[role="option"]')?.focus({ preventScroll: true });
+    const dismissOutside = (event: PointerEvent) => {
+      if (!(event.target instanceof Node)) return;
+      if (!palette.current?.contains(event.target) && !actionsToggle.current?.contains(event.target)) {
+        setActionsOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', dismissOutside);
+    return () => document.removeEventListener('pointerdown', dismissOutside);
+  }, [actionsOpen]);
+  const focusAction = (index: number) => {
+    setSlashIndex(index);
+    const option = palette.current?.querySelectorAll<HTMLButtonElement>('[role="option"]')[index];
+    option?.focus({ preventScroll: true });
+    option?.scrollIntoView?.({ block: 'nearest' });
   };
 
   const submit = async () => {
@@ -81,8 +110,9 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
   };
 
   const openWheel = (event: ReactMouseEvent) => {
-    if (isLocked || actions.length === 0) return;
+    if (isLocked || isSubmitting || actions.length === 0) return;
     event.preventDefault();
+    setActionsOpen(false);
     setWheel({ x: event.clientX, y: event.clientY });
   };
 
@@ -106,6 +136,14 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
       data-composer-state={isWaiting ? 'thinking' : isSubmitting ? 'sending' : value.trim() ? 'ready' : 'idle'}>
       <div ref={sizing.shell} className={`retro-input-shell flex items-end gap-2 rounded-lg border p-2 ${isPrimed ? 'retro-input-shell-primed' : ''}`}
         onContextMenu={openWheel} data-composer-shell>
+        {actions.length > 0 && <button ref={actionsToggle} type="button" className="cosmic-actions-toggle"
+          aria-label="Browse chat actions" title="Actions" aria-haspopup="listbox" aria-expanded={actionsOpen}
+          aria-controls={paletteOpen ? paletteId : undefined} disabled={isLocked || isSubmitting}
+          onClick={() => { setActionsOpen(open => !open); setSlashIndex(0); setSlashDismissed(true); setWheel(null); }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+          </svg>
+        </button>}
         <div className="cosmic-composer-field">
           <div className="cosmic-ghost" aria-hidden="true" data-ui-placeholder
             ref={node => { if (node) node.inert = true; }}>
@@ -127,14 +165,29 @@ const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function 
             ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
             : <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m5 12 7-7 7 7M12 5v14" /></svg>}
         </button>
-        {slashOpen && (
-          <div className="cosmic-slash-menu" role="listbox" aria-label="Actions">
-            {slashMatches.map((action, index) => (
+        {paletteOpen && (
+          <div ref={palette} id={paletteId} className="cosmic-slash-menu" role="listbox" aria-label="Actions"
+            onKeyDown={event => {
+              if (!actionsOpen) return;
+              const next = event.key === 'ArrowDown' ? (activeSlash + 1) % paletteActions.length
+                : event.key === 'ArrowUp' ? (activeSlash + paletteActions.length - 1) % paletteActions.length
+                  : event.key === 'Home' ? 0 : event.key === 'End' ? paletteActions.length - 1 : null;
+              if (next !== null) { event.preventDefault(); focusAction(next); }
+              if (event.key === 'Escape' || event.key === 'Tab') {
+                if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); }
+                setActionsOpen(false);
+                actionsToggle.current?.focus({ preventScroll: true });
+              }
+            }}>
+            {actionsOpen && <div className="cosmic-actions-heading" role="presentation"><strong>Actions</strong><span>Add to your draft</span></div>}
+            {paletteActions.map((action, index) => (
               <button key={action.id} type="button" role="option" aria-selected={index === activeSlash}
+                tabIndex={actionsOpen && index === activeSlash ? 0 : -1}
                 className={`cosmic-slash-item${index === activeSlash ? ' is-active' : ''}`}
-                onMouseEnter={() => setSlashIndex(index)}
-                onMouseDown={event => event.preventDefault()}
-                onClick={() => stageAction(action, false)}>
+                onMouseEnter={() => { if (!actionsOpen) setSlashIndex(index); }}
+                onFocus={() => setSlashIndex(index)}
+                onMouseDown={event => { if (!actionsOpen) event.preventDefault(); }}
+                onClick={() => stageAction(action, actionsOpen)}>
                 <span className="cosmic-slash-command">/{action.command}</span>
                 <span className="cosmic-slash-label">{action.label}</span>
                 <span className="cosmic-slash-hint">{action.hint}</span>

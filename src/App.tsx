@@ -14,6 +14,7 @@ import MobileGameContext from './components/MobileGameContext';
 import MobileMenuToggle from './components/MobileMenuToggle';
 import type { ContextPanel } from './hooks/useContextPanel';
 import { mapActiveQuests } from './utils/gmQuests';
+import { parseInventoryItems } from './utils/inventory';
 import { normalizePersonalityMode } from './constants/personalityModes';
 import type { PersonalityModeId } from './constants/personalityModes';
 import {
@@ -28,6 +29,7 @@ import ChatTranscript from './components/ChatTranscript';
 import ChatComposer, { type ChatComposerHandle } from './components/ChatComposer';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { useWorkspaceViewport } from './hooks/useWorkspaceViewport';
+import { useContextUpdates } from './hooks/useContextUpdates';
 import { useChatScroll } from './hooks/useChatScroll';
 import { useChatDiceRolls } from './hooks/useChatDiceRolls';
 import type { DiceRollRequest } from './utils/diceRolls';
@@ -178,52 +180,6 @@ const saveCachedMessages = (conversationId: string, messages: Message[]) => {
 const summarizeText = (text: string, max = 220) => {
   if (!text) return '';
   return text.length > max ? `${text.slice(0, max).trim()}…` : text.trim();
-};
-
-const inventoryTypes = new Set<InventoryItem['type']>(['weapon', 'armor', 'consumable', 'quest', 'currency']);
-
-const parseInventoryItems = (rawInventory: unknown): InventoryItem[] => {
-  if (!rawInventory) return [];
-
-  let parsedValue: unknown = rawInventory;
-  if (typeof rawInventory === 'string') {
-    try {
-      parsedValue = JSON.parse(rawInventory);
-    } catch (error) {
-      console.error('Failed to parse inventory:', error);
-      return [];
-    }
-  }
-
-  if (!Array.isArray(parsedValue)) return [];
-
-  return parsedValue.flatMap((item): InventoryItem[] => {
-    if (typeof item === 'string') {
-      return [{
-        id: crypto.randomUUID(),
-        name: item,
-        type: 'consumable',
-        quantity: 1,
-      }];
-    }
-
-    if (!item || typeof item !== 'object') return [];
-
-    const candidate = item as Partial<InventoryItem>;
-    if (!candidate.name || typeof candidate.name !== 'string') return [];
-
-    const type: InventoryItem['type'] = inventoryTypes.has(candidate.type as InventoryItem['type'])
-      ? (candidate.type as InventoryItem['type'])
-      : 'consumable';
-
-    return [{
-      ...candidate,
-      id: typeof candidate.id === 'string' && candidate.id ? candidate.id : crypto.randomUUID(),
-      name: candidate.name,
-      type,
-      quantity: typeof candidate.quantity === 'number' && candidate.quantity > 0 ? candidate.quantity : 1,
-    }];
-  });
 };
 
 const inferDangerLevel = (text: string) => {
@@ -2147,6 +2103,9 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
   const gameMasterInputPlaceholder = 'What do you do next?';
 
   const characterDisplay = useMemo(() => getCharacterData(), [getCharacterData]);
+  const contextUpdates = useContextUpdates(conversationId,
+    hasGameMasterCharacterReady ? characterDisplay?.inventory : undefined,
+    questContext?.conversationId === conversationId ? activeQuests : undefined);
   const currentLocation = useMemo(() => {
     // Authoritative, placeholder-proof: set only from STATE_SNAPSHOT / real rows.
     if (authoritativeLocation) return authoritativeLocation;
@@ -2208,6 +2167,7 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
     onListen={chatVoice.listen} playback={chatVoice.playback} renderExtension={renderChatExtension} />;
   const renderGameContext = (initialPanel: ContextPanel = 'character') => <ContextWindowPanel
     initialPanel={initialPanel}
+    updates={contextUpdates}
     playerState={playerState ? {
       currentLevel: playerState.currentLevel ?? undefined,
       currentXP: playerState.currentXP ?? undefined,
@@ -2233,13 +2193,15 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
       sensations: m.sensations, thoughts: m.thoughts, location: currentLocation ?? undefined,
     }))}>
     {characterDisplay && <div className="retro-right-section retro-right-section--inventory">
-      <InventoryManager inventory={characterDisplay.inventory} onUpdateInventory={updateInventory} isUpdating={false} />
+      <InventoryManager inventory={characterDisplay.inventory} onUpdateInventory={updateInventory} isUpdating={false}
+        updates={contextUpdates.inventory} />
     </div>}
   </ContextWindowPanel>;
 
   return (
     <div ref={workspaceRef} className={`retro-rpg-ui cosmic-workspace ${appThemeClass} h-dvh overflow-hidden relative`}
       data-chat-state={isWaitingForResponse ? 'thinking' : hasTypingMessage ? 'responding' : 'ready'}>
+      <p role="status" className="sr-only">{[contextUpdates.inventory.notice, contextUpdates.quests.notice].filter(Boolean).join('. ')}</p>
 
       {/* Workspace operation error toast. */}
       {(playerStateError || brainClearError) && (
@@ -2406,6 +2368,8 @@ function App({ routeConversationId, routeMode, onRouteChange }: AppRouteProps = 
           avatarSrc={characterDisplay.avatarSrc}
           avatarSrcWebp={characterDisplay.avatarSrcWebp}
           questTitle={activeQuests[0]?.title}
+          inventoryNotice={contextUpdates.inventory.notice}
+          questNotice={contextUpdates.quests.notice}
           renderContext={renderGameContext}
         />}
 

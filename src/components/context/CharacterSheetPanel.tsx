@@ -70,8 +70,8 @@ function CharacterSheetPanel({
         )}
         <div className="retro-character-meta flex-1 min-w-0">
           <div className="flex items-start justify-between gap-1">
-            <h2 className="text-brand-text-primary font-semibold text-sm truncate">{name}</h2>
-            <span className={`shrink-0 text-[10px] font-medium py-0.5 ${
+            <h2 className="min-w-0 text-brand-text-primary font-semibold text-base break-words">{name}</h2>
+            <span className={`cosmic-character-level shrink-0 text-xs font-medium py-0.5 ${
               levelUpAnimating
                 ? 'text-brand-accent-primary'
                 : 'text-brand-text-muted'
@@ -84,13 +84,13 @@ function CharacterSheetPanel({
 
       {/* HP bar */}
       <div>
-        <div className="flex justify-between text-[10px] text-brand-text-muted mb-1">
+        <div className="cosmic-character-meter-label">
           <span>HP</span>
           <span>{resolvedHP} / {resolvedMaxHP}</span>
         </div>
-        <div className="w-full bg-brand-surface-border rounded-full h-1.5">
+        <div className="cosmic-character-meter" role="meter" aria-label="Health" aria-valuenow={resolvedHP} aria-valuemin={0} aria-valuemax={resolvedMaxHP || 1}>
           <div
-            className={`${hpBarColor} h-1.5 rounded-full transition-all duration-300`}
+            className={hpBarColor}
             style={{ width: `${hpPercent}%` }}
           />
         </div>
@@ -98,13 +98,13 @@ function CharacterSheetPanel({
 
       {/* XP bar */}
       <div>
-        <div className="flex justify-between text-[10px] text-brand-text-muted mb-1">
+        <div className="cosmic-character-meter-label">
           <span>XP</span>
           <span>{resolvedXP} / {resolvedXPMax}</span>
         </div>
-        <div className="w-full bg-brand-surface-border rounded-full h-1.5">
+        <div className="cosmic-character-meter" role="meter" aria-label="Experience" aria-valuenow={resolvedXP} aria-valuemin={0} aria-valuemax={resolvedXPMax || 1}>
           <div
-            className="bg-brand-accent-primary h-1.5 rounded-full transition-all duration-300"
+            className="bg-brand-accent-primary"
             style={{ width: `${xpPercent}%` }}
           />
         </div>
@@ -119,9 +119,9 @@ function CharacterSheetPanel({
               key={key}
               className="py-2"
             >
-              <dt className="text-[9px] text-brand-text-muted uppercase tracking-wider">{label}</dt>
-              <dd className="mt-1 flex items-baseline gap-2"><span className="text-brand-text-primary font-semibold text-sm leading-tight">{value}</span>
-                <span className="text-[10px] text-brand-text-muted">{statModifier(value)}</span></dd>
+              <dt className="cosmic-context-label">{label}</dt>
+              <dd className="mt-1 flex items-baseline gap-2"><span className="text-brand-text-primary font-semibold text-base leading-tight">{value}</span>
+                <span className="text-xs text-brand-text-muted">{statModifier(value)}</span></dd>
             </div>
           );
         })}

@@ -12,9 +12,11 @@ afterEach(() => {
     else Reflect.deleteProperty(HTMLDialogElement.prototype, key);
   }
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 it('opens the requested shared context, switches tabs, and restores focus on dismissal', () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: false }));
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value() { this.open = true; } });
   Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value() { this.open = false; } });
   render(<MobileGameContext characterName="Sera Vane" questTitle="The Missing Constellation"

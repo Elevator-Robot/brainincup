@@ -21,6 +21,11 @@ Apply the product charter and root guidance to both desktop and mobile.
 
 - Preserve top/left/center/right responsibilities from the root `AGENTS.md`.
   Put mode/session details in the context surface, not the persistent header.
+- Adapt layout to available space while keeping actions and capabilities
+  reachable on touch and desktop. Prefer shared responsive components so
+  separate viewport implementations cannot drift.
+- Keep persistent navigation anchors stable during transitions. The mobile
+  hamburger remains visible in the same position when its menu opens or closes.
 - Shared cosmic styling and typography: `src/cosmic-theme.css`.
   Brand utility colors: `tailwind.config.js`. `retro-*` classes retain layout roles.
 - `SiteBackground` shares violet/cyan nebula atmosphere across modes;
@@ -51,7 +56,10 @@ Apply the product charter and root guidance to both desktop and mobile.
 ## Verification
 
 Use `docs/DEVELOPMENT.md` for checks and local fixture URLs. Keep the demo
-running and open it for visual changes; review desktop, mobile, keyboard,
-and reduced motion where affected. Report what you actually viewed.
+running and open it for visual changes. Review each affected flow on a narrow
+phone, tablet, and large desktop, including both sides of changed breakpoints.
+Check overflow, control placement, and state/focus continuity during resizing;
+cover touch, keyboard/software-keyboard, and reduced motion where affected.
+Report the viewports actually reviewed and any unavailable device/browser coverage.
 Keep new UI behavior in focused components/hooks/adapters rather than adding
 unrelated orchestration to `src/App.tsx`.

@@ -6,6 +6,7 @@ import { CHAT_LIMIT, readStoredAvatarId } from './ConversationSidebarIcons';
 import OptionsMenuContent from './OptionsMenu';
 import MobileMenuToggle from './MobileMenuToggle';
 import { isTestModeEnabled } from '../utils/testMode';
+import { useDialogPresence } from '../hooks/useDialogPresence';
 
 
 const CONVERSATION_CACHE_KEY = 'conversationMetadataCache';
@@ -61,16 +62,8 @@ export default function MobileMenu({
   onDeleteAccount,
 }: MobileMenuProps) {
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
-  const [present, setPresent] = useState(isOpen);
+  const present = useDialogPresence(isOpen);
   const drawerRef = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    if (isOpen) { setPresent(true); return; }
-    // Retain the closed dialog while its native top-layer exit completes.
-    // Reopening cancels this cleanup so rapid toggles remain responsive.
-    const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 260;
-    const timeout = window.setTimeout(() => setPresent(false), duration);
-    return () => window.clearTimeout(timeout);
-  }, [isOpen]);
   useEffect(() => {
     if (!isOpen) return;
     const dialog = drawerRef.current;
@@ -130,7 +123,7 @@ export default function MobileMenu({
     return () => { cancelled = true; };
   }, [isOpen]);
 
-  if (!isOpen && !present) return null;
+  if (!present) return null;
   const isGameMaster = effectivePersonality === 'game_master';
   const adventures = conversations.filter(c => c.avatarSrc);
   const operations =

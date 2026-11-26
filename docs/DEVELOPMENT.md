@@ -23,6 +23,7 @@ The demo enables development-only fixture authentication. Default URLs:
 | Empty Brain workspace | `http://localhost:5173/?testmode=true&empty=true` |
 | GM conversation | `http://localhost:5173/quest/test-conversation-2?testmode=true` |
 | GM interaction preview | `http://localhost:5173/?testmode=true&preview=gm` |
+| GM update-feedback fixture | `http://localhost:5173/?testmode=true&preview=gm&ready=true` (use **Simulate game update**) |
 | Dice | `http://localhost:5173/?testmode=true&preview=dice` |
 | Brain arrival | `http://localhost:5173/?testmode=true&preview=brain` |
 | Shared conversation | `http://localhost:5173/?testmode=true&preview=conversation` |

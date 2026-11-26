@@ -5,7 +5,7 @@
   --cosmic-violet: #c4adff;
   --cosmic-rose: #efb9dd;
   --cosmic-text: #f4f3ff;
-  --cosmic-muted: #abb5d1;
+  --cosmic-muted: #b4bed8;
   --cosmic-border: rgb(187 184 244 / 20%);
   --cosmic-glass: linear-gradient(145deg, rgb(40 32 74 / 78%), rgb(13 23 43 / 86%));
   --cosmic-frame-surface: #0e1325;
@@ -14,6 +14,7 @@
   --cosmic-primary: linear-gradient(135deg, #8254c7, #5458ad 60%, #387a99);
   --cosmic-shadow: inset 0 1px 0 rgb(237 224 255 / 8%), 0 8px 24px rgb(2 5 18 / 16%);
   --cosmic-ease: cubic-bezier(.22, 1, .36, 1);
+  --cosmic-press-ease: cubic-bezier(.22, 1.35, .36, 1);
   --cosmic-accent-rgb: 140 236 243;
   --chat-radius: 18px;
   --chat-input-surface: linear-gradient(180deg, rgb(21 26 47 / 88%), rgb(13 20 37 / 86%));
@@ -244,7 +245,7 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 [data-message-role="assistant"] .cosmic-sender-light { background: var(--cosmic-cyan); box-shadow: 0 0 8px rgb(var(--cosmic-accent-rgb) / 25%); }
 [data-message-streaming] .cosmic-sender-light { animation: cosmic-signal-breathe 1800ms ease-in-out infinite; }
 .cosmic-message-actions { display: flex; align-items: center; gap: .15rem; margin-top: .1rem; padding-left: .25rem; }
-.cosmic-message-actions button { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; padding: .45rem .65rem; border-radius: .6rem; color: var(--cosmic-muted); font-size: .7rem; opacity: .75; transition: opacity 180ms ease, color 180ms ease, background 180ms ease; }
+.cosmic-message-actions button { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; padding: .45rem .65rem; border-radius: .6rem; color: var(--cosmic-muted); font-size: .75rem; opacity: .9; transition: opacity 180ms ease, color 180ms ease, background 180ms ease; }
 .cosmic-message-actions button:is(:hover, :focus-visible), .cosmic-message-actions button[data-copied="true"] { opacity: 1; color: var(--cosmic-cyan); background: rgb(var(--cosmic-accent-rgb) / 6%); }
 .cosmic-copy-error { color: var(--cosmic-muted); font-size: .7rem; }
 .cosmic-chat-activity { display: flex; align-items: center; gap: .75rem; min-height: 44px; padding: .25rem 0; color: var(--cosmic-muted); font-size: .75rem; animation: cosmic-fade-in 240ms ease both; }
@@ -317,7 +318,7 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
   transition: caret-color 220ms ease;
 }
 .cosmic-composer .retro-input-shell:focus-within .retro-input-textarea { caret-color: rgb(152 240 246 / 62%); }
-.cosmic-composer .retro-input-textarea::placeholder { color: rgb(171 181 209 / 58%) !important; }
+.cosmic-composer .retro-input-textarea::placeholder { color: rgb(180 190 216 / 78%) !important; }
 .cosmic-composer .retro-input-textarea::selection { background: rgb(140 236 243 / 20%); color: #f4fbff; }
 .cosmic-composer .retro-send-button {
   border: 1px solid transparent;
@@ -343,7 +344,7 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
   transform: translateY(-1px);
 }
 .cosmic-composer .retro-send-button-disabled { background: transparent; color: rgb(196 173 255 / 32%); box-shadow: none; opacity: 1; }
-.cosmic-composer-hint { opacity: .55; transition: opacity 220ms ease; }
+.cosmic-composer-hint { opacity: .85; transition: opacity 220ms ease; }
 .cosmic-composer:focus-within .cosmic-composer-hint { opacity: .8; }
 
 /* Predictive ghost text: the typed glyphs stay in the textarea, only the
@@ -363,11 +364,11 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 .cosmic-slash-menu {
   position: absolute; left: 0; right: 0; bottom: calc(100% + .5rem); z-index: 6;
   display: flex; flex-direction: column; gap: .12rem;
-  padding: .35rem; max-height: 19rem; overflow-y: auto;
+  padding: .35rem; max-height: min(19rem, var(--composer-palette-space, 100dvh)); overflow-y: auto; overscroll-behavior: contain;
   border: 1px solid rgb(196 173 255 / 22%); border-radius: 16px;
   background: linear-gradient(160deg, rgb(20 22 44 / 97%), rgb(11 14 31 / 97%));
   box-shadow: 0 26px 60px -30px rgb(0 0 0 / 85%), 0 0 0 1px rgb(255 255 255 / 2%);
-  animation: cosmic-menu-in 160ms ease-out;
+  animation: cosmic-menu-in 280ms var(--cosmic-ease);
 }
 .cosmic-slash-item {
   display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: .55rem;
@@ -375,8 +376,18 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
   color: var(--cosmic-muted); font-size: .8125rem; text-align: left; cursor: pointer;
 }
 .cosmic-slash-item.is-active { background: linear-gradient(100deg, rgb(140 236 243 / 10%), rgb(196 173 255 / 13%)); color: #f3f6ff; }
+.cosmic-slash-item:hover { background-color: rgb(196 173 255 / 7%); }
 .cosmic-slash-command { color: var(--cosmic-cyan); letter-spacing: .01em; }
-.cosmic-slash-hint { color: rgb(171 181 209 / 55%); font-size: .72rem; }
+.cosmic-slash-hint { color: var(--cosmic-muted); font-size: .75rem; }
+.cosmic-actions-toggle { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border: 1px solid transparent; border-radius: .75rem; color: var(--cosmic-muted); transition: color 180ms ease, border-color 220ms ease, background-color 220ms ease; }
+.cosmic-actions-toggle:hover:not(:disabled), .cosmic-actions-toggle[aria-expanded="true"] { color: var(--cosmic-cyan); background: rgb(140 236 243 / 8%); border-color: rgb(140 236 243 / 20%); }
+.cosmic-actions-toggle svg { transition: rotate 320ms var(--cosmic-press-ease), scale 320ms var(--cosmic-press-ease); }
+.cosmic-actions-toggle[aria-expanded="true"] svg { rotate: 45deg; }
+.cosmic-actions-toggle:active:not(:disabled) svg { scale: .85; }
+.cosmic-actions-toggle:disabled { opacity: .4; cursor: not-allowed; }
+.cosmic-actions-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .65rem .7rem .75rem; border-bottom: 1px solid var(--cosmic-border); margin-bottom: .25rem; }
+.cosmic-actions-heading strong { color: var(--cosmic-text); font-size: .8125rem; font-weight: 600; }
+.cosmic-actions-heading span { color: var(--cosmic-muted); font-size: .75rem; }
 @keyframes cosmic-menu-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 1023px) { .cosmic-hint-desktop { display: none; } }
 
@@ -435,11 +446,12 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 .retro-rpg-ui .cosmic-composer .retro-input-shell { width: 100%; max-width: 100%; margin-inline: 0; transition: border-color 260ms ease, box-shadow 260ms ease; }
 .retro-keycap { background: rgb(30 37 66 / 80%) !important; border-color: var(--cosmic-border) !important; color: #d6def3; }
 .retro-status-pill { border-color: var(--cosmic-border); background: rgb(189 165 255 / 12%); color: #e3dcff; }
-.retro-context-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; padding: 0; margin-bottom: 1rem; border-radius: 0; border-bottom: 1px solid var(--cosmic-border); background: transparent; box-shadow: none; }
+.retro-context-tabs { position: relative; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; padding: 0; margin-bottom: 1rem; border-radius: 0; border-bottom: 1px solid var(--cosmic-border); background: transparent; box-shadow: none; }
+.retro-context-tabs::after { content: ''; position: absolute; left: 0; bottom: -1px; height: 2px; width: calc((100% - 1.5rem) / 4); background: var(--cosmic-violet); border-radius: 2px; box-shadow: 0 0 12px rgb(196 173 255 / 22%); transform: translateX(calc(var(--active-context-tab, 0) * (100% + .5rem))); transition: transform 360ms var(--cosmic-ease); pointer-events: none; }
 .retro-rpg-ui .retro-context-tab, .retro-rpg-ui .retro-side-action { font-family: var(--rpg-font-display); }
-.retro-context-tab { min-width: 0; min-height: 44px; margin-bottom: -1px; padding: .8rem 0; border-radius: 0; border-bottom: 2px solid transparent; color: var(--cosmic-muted); font-size: .6875rem; letter-spacing: .015em; text-align: center; }
+.retro-context-tab { position: relative; min-width: 0; min-height: 44px; margin-bottom: -1px; padding: .8rem 0; border-radius: 0; border-bottom: 2px solid transparent; color: var(--cosmic-muted); font-size: .6875rem; font-weight: 600; letter-spacing: .015em; text-align: center; transition: color 180ms ease; }
 .retro-context-tab:hover { color: var(--cosmic-text); background: transparent; }
-.retro-context-tab--active, .retro-context-tab--active:hover { color: #f3edff; border-bottom-color: var(--cosmic-violet); background: transparent; box-shadow: none; }
+.retro-context-tab--active, .retro-context-tab--active:hover { color: #f3edff; border-bottom-color: transparent; background: transparent; box-shadow: none; }
 .retro-dropdown { background: linear-gradient(145deg, rgb(28 30 61 / 98%), rgb(13 20 42 / 98%)) !important; border-color: rgb(189 165 255 / 30%) !important; box-shadow: var(--rpg-shadow-elevated); }
 .retro-dropdown-item:hover { background: rgb(189 165 255 / 13%) !important; }
 .retro-tooltip-trigger::after { background: #171d38; border-color: rgb(189 165 255 / 32%); color: var(--cosmic-text); font-family: var(--rpg-font-body); }
@@ -645,7 +657,7 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 .cosmic-composer-hint { min-height: 1rem; margin-top: .5rem; color: var(--cosmic-muted); font-size: .6875rem; text-align: left; }
 .cosmic-composer-hint kbd { font: inherit; color: #d5c9ec; }
 .cosmic-composer-meta { width: 100%; max-width: 100%; padding: .5rem .25rem 0; }
-.cosmic-composer-meta .cosmic-composer-hint { margin: 0; font-size: .625rem; line-height: 1.6; }
+.cosmic-composer-meta .cosmic-composer-hint { margin: 0; font-size: .6875rem; line-height: 1.6; }
 .cosmic-composer[data-composer-state="ready"] .retro-send-button { background: linear-gradient(140deg, rgb(196 173 255 / 22%), rgb(var(--cosmic-accent-rgb) / 12%)); border-color: rgb(196 173 255 / 35%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%), 0 5px 20px -9px rgb(140 236 243 / 30%); }
 .cosmic-composer .retro-send-button:active:not(:disabled) { transform: scale(.93); }
 @media (prefers-reduced-motion: reduce) { .cosmic-composer .retro-send-button:active:not(:disabled) { transform: none; } }
@@ -850,8 +862,8 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 .gm-preview-mobile-context > button { display: flex; justify-content: space-between; width: 100%; padding: .75rem 1rem; min-height: 44px; color: var(--cosmic-text); font-size: .8rem; }
 .gm-preview-mobile-body { max-height: 52dvh; overflow-y: auto; overscroll-behavior: contain; padding: 0 1rem 1rem; }
 .gm-preview-desktop-context { display: flex; flex: 1; min-height: 0; flex-direction: column; overflow-y: auto; padding: 1rem; }
-.gm-context-reveal { animation: gm-context-arrive 280ms var(--cosmic-ease) both; }
-@keyframes gm-context-arrive { from { opacity: 0; transform: translateX(var(--gm-panel-shift, 8px)); filter: blur(3px); } to { opacity: 1; transform: translateX(0); filter: blur(0); } }
+.gm-context-reveal { animation: gm-context-arrive 320ms var(--cosmic-ease) both; }
+@keyframes gm-context-arrive { from { opacity: .25; transform: translateX(var(--gm-panel-shift, 8px)); } to { opacity: 1; transform: translateX(0); } }
 .cosmic-workspace .retro-right-container { animation: gm-menu-unfold 460ms var(--cosmic-ease); }
 .gm-menu-content-reveal, .cosmic-context-panel .retro-character-sheet { animation: gm-menu-unfold 340ms var(--cosmic-ease); }
 /* Reveal the surface downward without changing layout or clipping later hovers. */
@@ -1099,7 +1111,7 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 .cosmic-mobile-header-voice .cosmic-voice-control--rail :is(.cosmic-voice-tooltip, .cosmic-voice-error) { top: calc(100% + .5rem); right: 0; bottom: auto; left: auto; width: min(260px, calc(100vw - 2rem)); }
 .cosmic-mobile-context { flex: none; min-width: 0; padding: .5rem var(--chat-gutter) 0; }
 .cosmic-mobile-context-triggers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; max-width: var(--chat-column-width); margin-inline: auto; }
-.cosmic-mobile-context-triggers > button { display: flex; align-items: center; gap: .5rem; min-width: 0; min-height: 56px; padding: .5rem .625rem; border: 1px solid var(--cosmic-border); border-radius: .75rem; background: rgb(14 19 37 / 76%); text-align: left; }
+.cosmic-mobile-context-triggers > button { position: relative; display: flex; align-items: center; gap: .5rem; min-width: 0; min-height: 56px; padding: .5rem .625rem; border: 1px solid var(--cosmic-border); border-radius: .75rem; background: rgb(14 19 37 / 76%); text-align: left; transition: border-color 220ms ease, background-color 220ms ease; }
 .cosmic-mobile-context-triggers > button:hover { border-color: var(--cosmic-violet); }
 .cosmic-mobile-context-triggers span { flex: 1; min-width: 0; }
 .cosmic-mobile-context-triggers :is(small, strong) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1108,8 +1120,15 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
 .cosmic-mobile-context-triggers picture { flex: none; }
 .cosmic-mobile-context-triggers img { width: 32px; height: 36px; border-radius: .375rem; object-fit: cover; }
 .cosmic-mobile-context-triggers svg { flex: none; color: var(--cosmic-violet); }
-.cosmic-context-sheet { position: fixed; inset: 0 0 0 auto; width: min(26rem, calc(100% - 1rem)); height: var(--workspace-viewport-height, 100dvh); max-width: none; max-height: none; margin: 0; padding: 0; overflow: hidden; border: 0; border-left: 1px solid var(--cosmic-border); background: var(--cosmic-frame-surface); color: var(--cosmic-text); box-shadow: -16px 0 64px rgb(0 0 0 / 35%); }
-.cosmic-context-sheet::backdrop { background: rgb(3 6 18 / 65%); backdrop-filter: blur(6px); }
+.cosmic-context-sheet { position: fixed; inset: 0 0 0 auto; width: min(26rem, calc(100% - 1rem)); height: var(--workspace-viewport-height, 100dvh); max-width: none; max-height: none; margin: 0; padding: 0; overflow: hidden; border: 0; border-left: 1px solid var(--cosmic-border); background: var(--cosmic-frame-surface); color: var(--cosmic-text); box-shadow: -16px 0 64px rgb(0 0 0 / 35%); opacity: 0; transform: translateX(18px); transition: opacity 200ms ease, transform 240ms var(--cosmic-ease), display 260ms allow-discrete, overlay 260ms allow-discrete; }
+.cosmic-context-sheet[open] { opacity: 1; transform: none; transition-duration: 240ms, 360ms, 260ms, 260ms; }
+.cosmic-context-sheet:not([open]) { pointer-events: none; }
+.cosmic-context-sheet::backdrop { background: rgb(3 6 18 / 65%); backdrop-filter: blur(6px); opacity: 0; transition: opacity 240ms ease, display 260ms allow-discrete, overlay 260ms allow-discrete; }
+.cosmic-context-sheet[open]::backdrop { opacity: 1; }
+@starting-style {
+  .cosmic-context-sheet[open] { opacity: 0; transform: translateX(18px); }
+  .cosmic-context-sheet[open]::backdrop { opacity: 0; }
+}
 .cosmic-context-sheet-content { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: env(safe-area-inset-top, 0px) max(1rem, env(safe-area-inset-right, 0px)) max(1rem, env(safe-area-inset-bottom, 0px)) 1rem; }
 .cosmic-context-sheet-content > header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex: none; min-height: 68px; }
 .cosmic-context-sheet h2 { font: 500 1rem var(--rpg-font-display); }
@@ -1137,7 +1156,7 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
   .cosmic-quick-actions button { flex: 1 0 auto; min-height: 44px; padding-inline: .75rem; font-size: .75rem; }
   .cosmic-composer .retro-input-textarea { font-size: 16px; }
   .cosmic-composer .retro-input-textarea::placeholder { font-size: .9375rem; }
-  .cosmic-slash-menu { max-height: min(18rem, 40dvh); }
+  .cosmic-slash-menu { max-height: min(22rem, var(--composer-palette-space, 60dvh)); }
   .cosmic-slash-item { min-height: 44px; }
   .cosmic-slash-hint { display: none; }
   .site-footer { justify-content: center; padding-inline: max(1rem, env(safe-area-inset-right, 0px)); }
@@ -1179,4 +1198,61 @@ input::placeholder, textarea::placeholder { -webkit-user-select: none; user-sele
   .cosmic-mobile-menu-header, .cosmic-mobile-menu-navigation, .cosmic-mobile-menu .cosmic-mobile-account,
   .cosmic-mobile-menu-trigger, .cosmic-mobile-menu-trigger :is(svg, path) { transition: none; }
   .cosmic-mobile-menu-trigger:active svg { transform: none; }
+}
+
+/* Shared context hierarchy and restrained feedback for received game updates. */
+.retro-rpg-ui.cosmic-workspace > .sr-only { position: absolute; }
+.cosmic-context-label { color: var(--cosmic-muted); font-size: .6875rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; line-height: 1.5; }
+.cosmic-context-section { padding: .375rem .25rem; }
+.cosmic-character-level { color: var(--cosmic-muted); font-variant-numeric: tabular-nums; }
+.cosmic-character-meter-label { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: .375rem; color: var(--cosmic-muted); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.cosmic-character-meter { height: 6px; overflow: hidden; border-radius: 999px; background: rgb(187 184 244 / 16%); }
+.cosmic-character-meter > div { height: 100%; border-radius: inherit; transition: width 420ms var(--cosmic-ease), background-color 240ms ease; }
+.cosmic-character-stats dd { font-variant-numeric: tabular-nums; }
+.cosmic-inventory-capacity { color: var(--cosmic-muted); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.cosmic-inventory-toggle { display: grid; place-items: center; width: 44px; height: 44px; border-radius: .75rem; color: var(--cosmic-muted); transition: color 180ms ease, background-color 220ms ease; }
+.cosmic-inventory-toggle:hover:not(:disabled) { color: var(--cosmic-cyan); background: rgb(140 236 243 / 7%); }
+.cosmic-inventory-toggle:disabled { opacity: .4; }
+.cosmic-inventory-toggle svg { transition: rotate 360ms var(--cosmic-ease), scale 320ms var(--cosmic-press-ease); }
+.cosmic-inventory-toggle[aria-expanded="true"] svg { rotate: 180deg; }
+.cosmic-inventory-item { position: relative; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .75rem .5rem; border-bottom: 1px solid var(--cosmic-border); border-radius: .5rem; }
+.cosmic-inventory-item:last-child { border-bottom-color: transparent; }
+.cosmic-inventory-name { color: var(--cosmic-text); font-size: .875rem; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.cosmic-inventory-quantity { flex: none; color: var(--cosmic-violet); font-size: .8125rem; font-variant-numeric: tabular-nums; line-height: 1.6; }
+.cosmic-inventory-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .625rem; margin-top: .25rem; color: var(--cosmic-muted); font-size: .6875rem; line-height: 1.5; }
+.cosmic-inventory-meta > span:first-child { text-transform: uppercase; letter-spacing: .06em; }
+.cosmic-equipped { display: inline-flex; align-items: center; gap: .2rem; color: var(--cosmic-cyan); }
+.cosmic-inventory-overflow { color: var(--cosmic-muted); font-size: .75rem; padding: .375rem .5rem; line-height: 1.5; }
+.cosmic-context-notice { padding: .5rem .625rem; border-left: 2px solid var(--cosmic-cyan); border-radius: .25rem; background: rgb(140 236 243 / 6%); color: var(--cosmic-cyan); font-size: .75rem; line-height: 1.5; overflow-wrap: anywhere; }
+.cosmic-quest-list { display: grid; gap: .75rem; padding-top: .25rem; }
+.cosmic-quest-card { position: relative; min-width: 0; padding: 1rem; border: 1px solid var(--cosmic-border); border-radius: .875rem; background: rgb(196 173 255 / 4%); }
+.cosmic-quest-card h3 { color: var(--cosmic-text); font-size: .9375rem; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.cosmic-quest-step { margin-top: .625rem; color: var(--cosmic-muted); font-size: .8125rem; line-height: 1.65; }
+.cosmic-quest-progress { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-top: 1px solid var(--cosmic-border); margin-top: .875rem; padding-top: .625rem; font-size: .75rem; color: var(--cosmic-muted); }
+.cosmic-quest-progress strong { font-weight: 600; color: var(--cosmic-cyan); font-variant-numeric: tabular-nums; }
+.cosmic-update-label { flex: none; color: var(--cosmic-cyan); font-size: .6875rem; font-weight: 600; line-height: 1.5; }
+:is(.cosmic-inventory-item, .cosmic-quest-card)[data-update] { background: rgb(140 236 243 / 6%); }
+:is(.cosmic-inventory-item, .cosmic-quest-card)[data-update]::after { content: ''; position: absolute; inset: 0; border: 1px solid rgb(140 236 243 / 50%); border-radius: inherit; pointer-events: none; animation: cosmic-context-highlight 1800ms var(--cosmic-ease) both; }
+:is(.retro-context-tab, .cosmic-mobile-context-triggers > button)[data-updated="true"]::before { content: ''; position: absolute; top: .35rem; right: .35rem; width: 5px; height: 5px; border-radius: 50%; background: var(--cosmic-cyan); box-shadow: 0 0 8px rgb(140 236 243 / 35%); }
+@keyframes cosmic-context-highlight { 0% { opacity: 0; } 18%, 40% { opacity: 1; } 100% { opacity: 0; } }
+:is(.cosmic-message-actions button, .cosmic-quick-actions button, .cosmic-menu-row, .cosmic-context-sheet header button, .cosmic-mobile-context-triggers > button) > svg { transition: scale 320ms var(--cosmic-press-ease), color 180ms ease; }
+:is(.cosmic-message-actions button, .cosmic-menu-row, .cosmic-context-sheet header button, .cosmic-mobile-context-triggers > button, .cosmic-inventory-toggle):active:not(:disabled) > svg { scale: .86; }
+.cosmic-quick-actions button { transition: color 180ms ease, border-color 220ms ease, background-color 220ms ease, scale 320ms var(--cosmic-press-ease); }
+.cosmic-quick-actions button:active:not(:disabled) { scale: .97; }
+.cosmic-preview-controls { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .25rem .75rem; padding-top: .5rem; color: var(--cosmic-muted); font-size: .75rem; }
+.cosmic-preview-controls button, .cosmic-preview-controls a { display: inline-flex; align-items: center; min-height: 44px; padding: .25rem .5rem; color: var(--cosmic-cyan); }
+.cosmic-preview-controls button { border: 1px solid var(--cosmic-border); border-radius: .625rem; }
+.cosmic-preview-controls button:disabled { opacity: .4; }
+@media (max-width: 1023px) {
+  .cosmic-slash-item { align-items: center; padding: .65rem .625rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cosmic-context-sheet, .cosmic-context-sheet::backdrop, .retro-context-tabs::after,
+  .retro-context-tab, .cosmic-actions-toggle, .cosmic-actions-toggle svg,
+  .cosmic-character-meter > div, .cosmic-inventory-toggle, .cosmic-inventory-toggle svg,
+  .cosmic-mobile-context-triggers > button, .cosmic-quick-actions button,
+  :is(.cosmic-message-actions button, .cosmic-menu-row, .cosmic-context-sheet header button, .cosmic-mobile-context-triggers > button) > svg { transition: none; }
+  :is(.cosmic-inventory-item, .cosmic-quest-card)[data-update]::after { animation: none; opacity: .5; }
+  .cosmic-quick-actions button:active:not(:disabled), .cosmic-actions-toggle:active:not(:disabled) svg,
+  :is(.cosmic-message-actions button, .cosmic-menu-row, .cosmic-context-sheet header button, .cosmic-mobile-context-triggers > button, .cosmic-inventory-toggle):active:not(:disabled) > svg { scale: none; }
 }

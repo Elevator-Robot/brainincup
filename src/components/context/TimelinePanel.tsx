@@ -21,15 +21,15 @@ function TimelinePanel({ entries = [], currentLocation }: TimelinePanelProps) {
   if (assistantEntries.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center gap-2">
-        <div className="text-2xl opacity-30">📜</div>
-        <p className="text-[11px] text-brand-text-muted uppercase tracking-wider">No events yet</p>
-        <p className="text-[10px] text-brand-text-muted opacity-60">Your adventure will be recorded here</p>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="text-brand-text-muted" aria-hidden="true"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <p className="cosmic-context-label">No events yet</p>
+        <p className="text-xs text-brand-text-muted">Your adventure will be recorded here</p>
       </div>
     );
   }
 
   return (
-    <div className="p-3 space-y-0">
+    <div className="cosmic-context-section space-y-0">
       {assistantEntries.map((entry, i) => {
         const snippet = entry.content
           ? entry.content.replace(/\[.*?\]/g, '').trim().slice(0, 120) + (entry.content.length > 120 ? '…' : '')
@@ -52,13 +52,13 @@ function TimelinePanel({ entries = [], currentLocation }: TimelinePanelProps) {
             <div className={`pb-4 min-w-0 flex-1 ${i < assistantEntries.length - 1 ? '' : 'pb-2'}`}>
               {/* Location tag */}
               {(entry.location || (isFirst && currentLocation)) && (
-                <p className="text-[9px] uppercase tracking-widest text-brand-accent-primary/70 mb-0.5 truncate">
+                <p className="cosmic-context-label text-brand-accent-primary mb-1 break-words">
                   {entry.location ?? currentLocation}
                 </p>
               )}
 
               {/* Narration snippet */}
-              <p className={`text-[11px] leading-relaxed ${
+              <p className={`text-[13px] leading-relaxed ${
                 isFirst ? 'text-brand-text-primary' : 'text-brand-text-secondary'
               }`}>
                 {snippet}
@@ -70,7 +70,7 @@ function TimelinePanel({ entries = [], currentLocation }: TimelinePanelProps) {
                   {entry.sensations.slice(0, 3).map((s, si) => (
                     <span
                       key={si}
-                      className="text-[9px] text-brand-text-muted italic truncate max-w-[120px] after:content-['·'] after:ml-1 last:after:content-none"
+                      className="text-[11px] text-brand-text-muted italic truncate max-w-[140px] after:content-['·'] after:ml-1 last:after:content-none"
                     >
                       {s}
                     </span>

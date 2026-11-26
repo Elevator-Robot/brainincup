@@ -93,11 +93,29 @@ describe('slash palette', () => {
   });
 });
 
-describe('action wheel', () => {
-  it('removes the star/Actions launcher without removing keyboard suggestions', () => {
-    const { container, draft, input } = renderComposer();
-    expect(screen.queryByRole('button', { name: 'Browse chat actions' })).toBeNull();
-    expect(container.querySelector('.cosmic-composer-actions')).toBeNull();
+describe('explicit action access', () => {
+  it('opens all actions from the button and appends a selection without sending', () => {
+    const { draft, input } = renderComposer('I keep my lantern raised.');
+    fireEvent.click(screen.getByRole('button', { name: 'Browse chat actions' }));
+    expect(screen.getAllByRole('option')).toHaveLength(6);
+    expect(screen.getByRole('option', { selected: true })).toHaveFocus();
+    fireEvent.click(screen.getByRole('option', { name: /Search/ }));
+    expect(draft.current).toBe('I keep my lantern raised.\nI search the area for anything useful or out of place.');
+    expect(input).toHaveFocus();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(defaults.onSend).not.toHaveBeenCalled();
+  });
+
+  it('supports keyboard browsing and dismissal while preserving slash suggestions', () => {
+    const { draft, input } = renderComposer();
+    const trigger = screen.getByRole('button', { name: 'Browse chat actions' });
+    fireEvent.click(trigger);
+    fireEvent.keyDown(screen.getByRole('option', { selected: true }), { key: 'End' });
+    expect(screen.getByRole('option', { selected: true })).toHaveFocus();
+    expect(screen.getByRole('option', { selected: true })).toHaveTextContent('Roll');
+    fireEvent.keyDown(screen.getByRole('option', { selected: true }), { key: 'Escape' });
+    expect(trigger).toHaveFocus();
+    expect(draft.current).toBe('');
     fireEvent.change(input, { target: { value: '/' } });
     expect(screen.getAllByRole('option')).toHaveLength(6);
     fireEvent.keyDown(input, { key: 'Escape' });
@@ -106,6 +124,23 @@ describe('action wheel', () => {
     expect(defaults.onSend).not.toHaveBeenCalled();
   });
 
+  it('dismisses on outside interaction and closes if sending locks the composer', () => {
+    const { rerender, draft } = renderComposer('A draft');
+    const trigger = screen.getByRole('button', { name: 'Browse chat actions' });
+    fireEvent.click(trigger);
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(draft.current).toBe('A draft');
+    fireEvent.click(trigger);
+    rerender(<ChatComposer {...defaults} draft={draft} isLocked />);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(trigger).toBeDisabled();
+    rerender(<ChatComposer {...defaults} draft={draft} />);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+});
+
+describe('action wheel', () => {
   it('opens on right-click and appends the chosen action to the draft', () => {
     const { draft, input } = renderComposer('I keep my lantern raised.');
     fireEvent.contextMenu(input.closest('[data-composer-shell]') as HTMLElement, { clientX: 120, clientY: 90 });

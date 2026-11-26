@@ -27,6 +27,9 @@ from implemented behavior. Historical proposals are not an approved backlog.
   assertions for cosmetic edits. Report failures and verification limits.
 - During visual UI work, keep a local demo running, open it for the user, and
   include the working demo URL in the handoff.
+- Maintain phone, tablet, and large-desktop layouts together. Every UI change
+  must update and verify the affected flows on small and large screens in the
+  same change; neither version may be left stale or deferred as a follow-up.
 - Use conventional commits and PR titles: `type(scope): lowercase imperative`.
   Keep changes focused; commit or publish when requested.
 
