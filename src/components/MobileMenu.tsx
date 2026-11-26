@@ -4,6 +4,8 @@ import { getAvatarSrcById, getAvatarWebpSrcById } from '../constants/gameMasterA
 import { normalizePersonalityMode } from '../constants/personalityModes';
 import { CHAT_LIMIT, readStoredAvatarId } from './ConversationSidebarIcons';
 import OptionsMenuContent from './OptionsMenu';
+import MobileMenuToggle from './MobileMenuToggle';
+import { isTestModeEnabled } from '../utils/testMode';
 
 
 const CONVERSATION_CACHE_KEY = 'conversationMetadataCache';
@@ -59,12 +61,25 @@ export default function MobileMenu({
   onDeleteAccount,
 }: MobileMenuProps) {
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
-  const drawerRef = useRef<HTMLDivElement>(null);
+  const [present, setPresent] = useState(isOpen);
+  const drawerRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (isOpen) { setPresent(true); return; }
+    // Retain the closed dialog while its native top-layer exit completes.
+    // Reopening cancels this cleanup so rapid toggles remain responsive.
+    const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 260;
+    const timeout = window.setTimeout(() => setPresent(false), duration);
+    return () => window.clearTimeout(timeout);
+  }, [isOpen]);
   useEffect(() => {
     if (!isOpen) return;
+    const dialog = drawerRef.current;
     const previous = document.activeElement as HTMLElement | null;
-    drawerRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
-    return () => { if (previous?.isConnected) previous.focus(); };
+    dialog?.showModal();
+    return () => {
+      dialog?.close();
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -73,6 +88,17 @@ export default function MobileMenu({
     let cancelled = false;
     (async () => {
       try {
+        if (isTestModeEnabled()) {
+          const demo = await import('../dev/gmDemoConversation');
+          const avatarId = demo.demoCharacter.avatarId ?? '';
+          if (!cancelled) setConversations([{
+            id: demo.DEMO_CONVERSATION_ID,
+            avatarSrc: getAvatarSrcById(avatarId),
+            avatarSrcWebp: getAvatarWebpSrcById(avatarId),
+            title: demo.demoCharacter.name || 'Adventurer',
+          }]);
+          return;
+        }
         const { data: rows } = await dataClient.models.Conversation.list();
         const gm = (rows || [])
           .filter(c => normalizePersonalityMode(c.personalityMode || 'brain') === 'game_master')
@@ -104,7 +130,7 @@ export default function MobileMenu({
     return () => { cancelled = true; };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !present) return null;
   const isGameMaster = effectivePersonality === 'game_master';
   const adventures = conversations.filter(c => c.avatarSrc);
   const operations =
@@ -114,29 +140,21 @@ export default function MobileMenu({
       }`;
 
   return (
-    <div className="lg:hidden fixed inset-0 z-[70]">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <div ref={drawerRef} role="dialog" aria-modal="true" aria-label="Navigation menu"
-        className="cosmic-mobile-menu absolute left-0 top-0 h-full w-[320px] max-w-[88vw] flex flex-col backdrop-blur-xl shadow-2xl animate-slide-in-left"
-        onKeyDown={event => {
-          if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
-          if (event.key !== 'Tab') return;
-          const buttons = Array.from(drawerRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') || []);
-          const first = buttons[0];
-          const last = buttons[buttons.length - 1];
-          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-        }}>
-        <div className="flex items-center justify-center px-4 py-4 border-b border-brand-surface-border/50">
-          <div className="flex items-center gap-2">
-            <img src="/favicon.svg" alt="Brain" className="h-6 w-6 object-contain" />
-            <span className="retro-title text-base font-light text-brand-text-primary tracking-wide">Brain in Cup</span>
+    <dialog ref={drawerRef} aria-label="Navigation menu" className="cosmic-mobile-menu fixed"
+      onCancel={event => { event.preventDefault(); onClose(); }}
+      onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="cosmic-mobile-menu-content">
+        <header className="cosmic-mobile-menu-header">
+          <div className="cosmic-mobile-header-content">
+            <MobileMenuToggle expanded onToggle={onClose} />
+            <span className="cosmic-wordmark"><strong>Brain</strong> in Cup</span>
           </div>
-        </div>
+        </header>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-2">
+        <div className="cosmic-mobile-menu-navigation flex-1 min-h-0 overflow-y-auto p-2">
           <button
             type="button"
+            aria-current={activeConversationId === 'brain' ? 'page' : undefined}
             onClick={() => { onSelectBrain(); onClose(); }}
             className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left border transition-colors ${
               activeConversationId === 'brain'
@@ -149,7 +167,6 @@ export default function MobileMenu({
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-medium text-brand-text-primary">Brain</span>
-              <span className="block text-xs text-brand-text-muted">Agent co-pilot</span>
             </span>
           </button>
 
@@ -180,11 +197,15 @@ export default function MobileMenu({
               <button
                 key={conv.id}
                 type="button"
+                aria-current={conversationId === conv.id ? 'page' : undefined}
                 onClick={() => { onSelectConversation(conv.id); onClose(); }}
                 className={operations(conversationId === conv.id)}
               >
                 <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-brand-surface-border/50">
-                  <img src={conv.avatarSrc} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                  <picture>
+                    <source srcSet={conv.avatarSrcWebp} type="image/webp" />
+                    <img src={conv.avatarSrc} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                  </picture>
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-brand-text-primary">{conv.title}</span>
@@ -207,20 +228,8 @@ export default function MobileMenu({
                 {isGameMaster ? 'Delete current chat' : 'Clear chat'}
               </button>
             } />
-          <div className="p-2 pt-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm font-medium text-brand-text-secondary border border-brand-surface-border/50 hover:bg-brand-surface-secondary/50 transition-colors"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Close menu
-            </button>
-          </div>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }

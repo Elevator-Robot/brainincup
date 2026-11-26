@@ -48,6 +48,7 @@ interface ContextWindowPanelProps {
   activeQuests?: Quest[];
   timelineEntries?: TimelineEntry[];
   gameEvents?: GameEvent[];
+  initialPanel?: ContextPanel;
   /** Notified when the context tab changes (character / timeline / …). */
   onActivePanelChange?: (panel: ContextPanel) => void;
   /**
@@ -71,10 +72,11 @@ function ContextWindowPanel({
   activeQuests = [],
   timelineEntries = [],
   gameEvents = [],
+  initialPanel = 'character',
   onActivePanelChange,
   children,
 }: ContextWindowPanelProps) {
-  const { activePanel, setActivePanel, levelUpAnimating } = useContextPanel(gameEvents);
+  const { activePanel, setActivePanel, levelUpAnimating } = useContextPanel(gameEvents, initialPanel);
   const panelId = useId();
   const bodyRef = useRef<HTMLDivElement>(null);
   const [direction, setDirection] = useState(1);
